@@ -12,7 +12,6 @@ import time
 HOUR = 60 * 60
 POLL_INTERVAL = 1
 
-
 logging.basicConfig(
     level=logging.INFO,
     filename="app.log",
@@ -56,7 +55,7 @@ def notify_completion():
 
 
 def run_cohort_extractor(workdir, volume_name):
-    storage_base = Path("/tmp/volumes")
+    storage_base = Path(os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"])
     output_path = storage_base / volume_name
     output_path.mkdir(parents=True, exist_ok=True)
     database_url = os.environ["DATABASE_URL"]
