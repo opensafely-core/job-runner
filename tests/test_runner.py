@@ -15,7 +15,7 @@ def test_job():
                 "repo": "myrepo",
                 "tag": "mytag",
                 "started": False,
-                "operation": "3esf",
+                "operation": "generate_cohort",
                 "status_code": None,
                 "output_url": None,
                 "created_at": None,

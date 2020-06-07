@@ -146,6 +146,9 @@ def watch(queue_endpoint, loop=True):
                 queue_endpoint, params={"started": False, "page_size": 100}
             ).json()
             for job in jobs["results"]:
+                assert (
+                    job["operation"] == "generate_cohort"
+                ), f"The only currently-supported operation is `generate_cohort`, not `{job['operation']}`"
                 response = requests.patch(
                     job["url"], json={"started": True}, auth=get_auth()
                 )
