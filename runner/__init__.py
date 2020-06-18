@@ -44,7 +44,7 @@ def validate_input_files(workdir):
         mimetype = result.split("/")[0]
         if mimetype not in ["text", "inode"]:
             raise RuntimeError(
-                f"All analysis input files must be text, found {mimetype} at {path}"
+                f"All analysis input files must be text, found {result} at {path}"
             )
 
 
