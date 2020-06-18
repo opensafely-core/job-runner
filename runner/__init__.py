@@ -129,9 +129,46 @@ def report_result(future):
         logging.exception(error)
 
 
+def setup_credentials():
+    """Set up credentials so private repositories and packages in Github
+    can be accessed
+
+    """
+    # .netrc is the cURL mechanism, used by git, for HTTP protocol
+    netrc = Path.home() / ".netrc"
+    if not os.path.exists(netrc):
+        with open(netrc, "w") as f:
+            f.write(
+                f"""
+machine github.com
+login jobrunner
+password {os.environ['PRIVATE_REPO_ACCESS_TOKEN']}
+
+machine github.com
+login jobrunner
+password {os.environ['PRIVATE_REPO_ACCESS_TOKEN']}
+"""
+            )
+    # Docker login for docker packages on Github (even public ones
+    # need credentials)
+    cmd = [
+        "docker",
+        "login",
+        "docker.pkg.github.com",
+        "-u",
+        "jobrunner",
+        "-p",
+        # Given we're inside a docker container, the risk from
+        # providing the password as an argument is tiny
+        os.environ["PRIVATE_REPO_ACCESS_TOKEN"],
+    ]
+    subprocess.check_result(cmd)
+
+
 def run_job(job):
     repo = job["repo"]
     tag = job["tag"]
+    setup_credentials()
     logging.info(f"Starting job {job}")
     with tempfile.TemporaryDirectory(
         dir=os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"]
@@ -155,7 +192,9 @@ def watch(queue_endpoint, loop=True):
         while True:
             logging.debug(f"Polling {queue_endpoint}")
             jobs = requests.get(
-                queue_endpoint, params={"started": False, "page_size": 100}
+                queue_endpoint,
+                params={"started": False, "page_size": 100},
+                auth=get_auth(),
             ).json()
             for job in jobs["results"]:
                 assert (
