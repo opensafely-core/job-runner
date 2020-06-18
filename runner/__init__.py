@@ -12,12 +12,7 @@ import time
 HOUR = 60 * 60
 POLL_INTERVAL = 1
 
-logging.basicConfig(
-    level=logging.INFO,
-    filename="app.log",
-    filemode="w",
-    format="%(name)s - %(levelname)s - %(message)s",
-)
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 
 def validate_input_files(workdir):
@@ -46,12 +41,7 @@ def validate_input_files(workdir):
             raise RuntimeError(
                 f"All analysis input files must be text, found {result} at {path}"
             )
-
-
-def notify_completion():
-    """Mark job as complete in job queue
-    """
-    pass
+    logging.info(f"Repo at {workdir} successfully validated")
 
 
 def run_cohort_extractor(workdir, volume_name):
@@ -78,15 +68,15 @@ def run_cohort_extractor(workdir, volume_name):
         f"--database-url={database_url}",
     ]
     os.chdir(workdir)
-    stdout_log_path = storage_base / volume_name / "stdout.log"
-    stderr_log_path = storage_base / volume_name / "stderr.log"
-    with open(stdout_log_path, "w") as stdout_log, open(
-        stderr_log_path, "w"
-    ) as stderr_log:
-
-        result = subprocess.run(cmd, check=True, capture_output=True, encoding="utf8")
-        stdout_log.write(result.stdout)
-        stderr_log.write(result.stderr)
+    logging.info(f"Running subdocker cmd `{' '.join(cmd)}`")
+    result = subprocess.run(cmd, capture_output=True, encoding="utf8")
+    if result.returncode == 0:
+        log = logging.info
+    else:
+        log = logging.error
+    log(f"cohort-extractor subdocker stdout: {result.stdout}")
+    log(f"cohort-extractor subdocker stderr: {result.stderr}")
+    result.check_returncode()
     return output_path
 
 
@@ -101,6 +91,7 @@ def fetch_study_source(
     """Checkout source over Github API to a temporary location.
     """
     cmd = ["git", "clone", "--depth", "1", "--branch", branch_or_tag, repo, workdir]
+    logging.info(f"Running `{' '.join(cmd)}`")
     subprocess.run(cmd, check=True)
 
 
@@ -113,6 +104,7 @@ def report_result(future):
             json={"status_code": 0, "output_url": job["output_url"]},
             auth=get_auth(),
         )
+        logging.info(f"Reported success for job {job}")
     except TimeoutError as error:
         requests.patch(job["url"], json={"status_code": -1}, auth=get_auth())
         logging.exception(error)
@@ -140,8 +132,10 @@ def get_auth():
 
 
 def watch(queue_endpoint, loop=True):
+    logging.info(f"Started watching {queue_endpoint}")
     with ProcessPool(max_tasks=50) as pool:
         while True:
+            logging.debug(f"Polling {queue_endpoint}")
             jobs = requests.get(
                 queue_endpoint, params={"started": False, "page_size": 100}
             ).json()
