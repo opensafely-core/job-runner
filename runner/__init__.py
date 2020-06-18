@@ -4,6 +4,7 @@ from pebble import ProcessPool
 from concurrent.futures import TimeoutError
 import logging
 import os
+import re
 import requests
 import subprocess
 import tempfile
@@ -49,9 +50,14 @@ def run_cohort_extractor(workdir, volume_name):
     output_path = storage_base / volume_name
     output_path.mkdir(parents=True, exist_ok=True)
     database_url = os.environ["DATABASE_URL"]
+    # By setting the name to the volume_name, we are guaranteeing only
+    # one identical job can run at once
+    container_name = re.sub(r"[^a-zA-Z0-9]", "-", volume_name)
     cmd = [
         "docker",
         "run",
+        "--name",
+        container_name,
         "--rm",
         "--log-driver",
         "none",
