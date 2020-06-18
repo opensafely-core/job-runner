@@ -7,6 +7,7 @@ import os
 import re
 import requests
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -46,7 +47,12 @@ def validate_input_files(workdir):
 
 
 def run_cohort_extractor(workdir, volume_name):
+    # If running this within a docker container, the storage base
+    # should be a volume mounted from the docker host
     storage_base = Path(os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"])
+    # We create `output_path` and then map it straight through to the
+    # inner docker container, so that docker-within-docker can write
+    # straight through to the (optionally-mounted) storage base
     output_path = storage_base / volume_name
     output_path.mkdir(parents=True, exist_ok=True)
     database_url = os.environ["DATABASE_URL"]
@@ -65,14 +71,18 @@ def run_cohort_extractor(workdir, volume_name):
         "stdout",
         "-a",
         "stderr",
-        "--mount",
-        f"source={output_path},dst=/workspace/output,type=bind",
-        "--mount",
-        f"source={workdir}/analysis,dst=/workspace/analysis,type=bind",
-        "docker.pkg.github.com/ebmdatalab/opensafely-research-template/cohort-extractor",
+        "--volume",
+        f"{output_path}:{output_path}",
+        "--volume",
+        f"{workdir}/analysis:/workspace/analysis",
+        "--volume",
+        f"{workdir}/codelists:/workspace/codelists",
+        "docker.pkg.github.com/opensafely/cohort-extractor/cohort-extractor:latest",
         "generate_cohort",
         f"--database-url={database_url}",
+        f"--output-dir={output_path}",
     ]
+
     os.chdir(workdir)
     logging.info(f"Running subdocker cmd `{' '.join(cmd)}`")
     result = subprocess.run(cmd, capture_output=True, encoding="utf8")
@@ -123,7 +133,9 @@ def run_job(job):
     repo = job["repo"]
     tag = job["tag"]
     logging.info(f"Starting job {job}")
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory(
+        dir=os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"]
+    ) as tmpdir:
         os.chdir(tmpdir)
         volume_name = make_volume_name(repo, tag)
         workdir = os.path.join(tmpdir, volume_name)
