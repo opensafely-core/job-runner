@@ -1,0 +1,22 @@
+version: "3.6"
+services:
+  job-runner:
+    build:
+      context: .
+      args:
+        pythonversion:
+          3.8.3
+    environment:
+      - QUEUE_USER=${OPENSAFELY_QUEUE_USER}
+      - QUEUE_PASS=${OPENSAFELY_QUEUE_PASS}
+      - OPENSAFELY_RUNNER_STORAGE_BASE=${OPENSAFELY_RUNNER_STORAGE_BASE}
+      - PRIVATE_REPO_ACCESS_TOKEN=${OPENSAFELY_PRIVATE_REPO_ACCESS_TOKEN}
+      - DATABASE_URL=${OPENSAFELY_DATABASE_URL}
+    volumes:
+      - type: bind
+        source: ${OPENSAFELY_RUNNER_STORAGE_BASE}
+        target: ${OPENSAFELY_RUNNER_STORAGE_BASE}
+      - type: bind
+        source: //var/run/docker.sock
+        target: /var/run/docker.sock
+    command: ["watch", "https://jobs.opensafely.org/jobs/"]

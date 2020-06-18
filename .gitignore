@@ -6,3 +6,4 @@ model.log
 __pycache__
 .python-version
 app.log
+.env
