@@ -36,3 +36,4 @@ jobs:
         registry: docker.pkg.github.com
         image_name: job-runner
         push_git_tag: true
+        build_extra_args: "--build-arg=pythonversion=3.8.3"
