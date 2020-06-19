@@ -1,12 +1,7 @@
 version: "3.6"
 services:
   job-runner:
-    image: docker.pkg.github.com/opensafely/jon-runner/job-runner:latest
-    build:
-      context: .
-      args:
-        pythonversion:
-          3.8.3
+    image: docker.pkg.github.com/opensafely/job-runner/job-runner:latest
     environment:
       - QUEUE_USER=${OPENSAFELY_QUEUE_USER}
       - QUEUE_PASS=${OPENSAFELY_QUEUE_PASS}
