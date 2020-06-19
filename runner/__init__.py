@@ -162,7 +162,7 @@ password {os.environ['PRIVATE_REPO_ACCESS_TOKEN']}
         # providing the password as an argument is tiny
         os.environ["PRIVATE_REPO_ACCESS_TOKEN"],
     ]
-    subprocess.check_result(cmd)
+    subprocess.check_output(cmd)
 
 
 def run_job(job):
