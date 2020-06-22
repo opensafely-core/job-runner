@@ -2,6 +2,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 from pebble import ProcessPool
 from concurrent.futures import TimeoutError
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 import logging
 import os
 import re
@@ -188,14 +190,25 @@ def get_auth():
 
 def watch(queue_endpoint, loop=True):
     logging.info(f"Started watching {queue_endpoint}")
+    session = requests.Session()
+    # Retries for up to 2 minutes, by default
+    retry = Retry(connect=30, backoff_factor=0.5)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount(queue_endpoint, adapter)
     with ProcessPool(max_tasks=50) as pool:
         while True:
             logging.debug(f"Polling {queue_endpoint}")
-            jobs = requests.get(
-                queue_endpoint,
-                params={"started": False, "page_size": 100},
-                auth=get_auth(),
-            ).json()
+            try:
+                result = session.get(
+                    queue_endpoint,
+                    params={"started": False, "page_size": 100},
+                    auth=get_auth(),
+                )
+            except requests.exceptions.ConnectionError:
+                logging.exception("Connection error; sleeping for 15 mins")
+                time.sleep(60 * 15)
+            result.raise_for_status()
+            jobs = result.json()
             for job in jobs["results"]:
                 assert (
                     job["operation"] == "generate_cohort"
