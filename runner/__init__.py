@@ -108,9 +108,22 @@ def fetch_study_source(
 ):
     """Checkout source over Github API to a temporary location.
     """
-    cmd = ["git", "clone", "--depth", "1", "--branch", branch_or_tag, repo, workdir]
-    logging.info(f"Running `{' '.join(cmd)}`")
-    subprocess.run(cmd, check=True)
+    max_retries = 3
+    for attempt in range(max_retries + 1):
+        cmd = ["git", "clone", "--depth", "1", "--branch", branch_or_tag, repo, workdir]
+        msg = f"Running `{' '.join(cmd)}`"
+        if attempt > 0:
+            msg += f" (attempt #{attempt})"
+        logging.info(msg)
+        try:
+            subprocess.run(cmd, check=True)
+            break
+        except subprocess.CalledProcessError:
+            if attempt < max_retries:
+                logging.warning(f"Failed `{' '.join(cmd)}`; sleeping, then retrying")
+                time.sleep(10)
+            else:
+                raise
 
 
 def report_result(future):
