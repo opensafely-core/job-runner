@@ -41,7 +41,9 @@ def validate_input_files(workdir):
             ["file", "--brief", "--mime", path], encoding="utf8"
         )
         mimetype = result.split("/")[0]
-        if mimetype not in ["text", "inode"] and result != "application/pdf":
+        if mimetype not in ["text", "inode"] and not result.startswith(
+            "application/pdf"
+        ):
             raise RuntimeError(
                 f"All analysis input files must be text, found {result} at {path}"
             )
