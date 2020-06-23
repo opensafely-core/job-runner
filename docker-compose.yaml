@@ -3,10 +3,14 @@ services:
   job-runner:
     image: docker.pkg.github.com/opensafely/job-runner/job-runner:latest
     environment:
+      # Credentials for acessing the job server
       - QUEUE_USER=${OPENSAFELY_QUEUE_USER}
       - QUEUE_PASS=${OPENSAFELY_QUEUE_PASS}
+      # A location where outputs should be stored
       - OPENSAFELY_RUNNER_STORAGE_BASE=${OPENSAFELY_RUNNER_STORAGE_BASE}
+      # A Github developer access key which can read private repos
       - PRIVATE_REPO_ACCESS_TOKEN=${OPENSAFELY_PRIVATE_REPO_ACCESS_TOKEN}
+      # TPP Database URL
       - DATABASE_URL=${OPENSAFELY_DATABASE_URL}
     volumes:
       - type: bind
