@@ -118,10 +118,12 @@ def fetch_study_source(
             msg += f" (attempt #{attempt})"
         logging.info(msg)
         try:
-            subprocess.run(cmd, check=True)
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT, encoding="utf8")
             break
-        except subprocess.CalledProcessError:
-            if attempt < max_retries:
+        except subprocess.CalledProcessError as e:
+            if "Repository not found" in e.output:
+                raise
+            elif attempt < max_retries:
                 logging.warning(f"Failed `{' '.join(cmd)}`; sleeping, then retrying")
                 time.sleep(10)
             else:
