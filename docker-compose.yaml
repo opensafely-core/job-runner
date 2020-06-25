@@ -1,6 +1,7 @@
 version: "3.6"
 services:
   job-runner:
+    build: .
     image: docker.pkg.github.com/opensafely/job-runner/job-runner:latest
     environment:
       # Credentials for acessing the job server
