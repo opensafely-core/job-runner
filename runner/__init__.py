@@ -174,7 +174,6 @@ def set_auth():
 
 
 def run_job(job):
-    # Job is a dict with repo and tag
     repo = job["repo"]
     tag = job["tag"]
     set_auth()
