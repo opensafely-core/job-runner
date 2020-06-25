@@ -4,6 +4,9 @@ study repo and storing its results in a particular location.
 It also has a `watch` mode where it polls a REST API for jobs to
 execute, and posts the result there.
 
+Each instance of a runner is expected to consume jobs for just one
+backend (e.g. `tpp`); this is one of the required environment variables.
+
 To run a server in watch mode, copy `dotenv-sample` to `.env` and edit its values; then
 
     docker-compose up

@@ -3,6 +3,13 @@ import runner
 from unittest.mock import patch
 import time
 
+import pytest
+
+
+@pytest.fixture(scope="function")
+def mock_env(monkeypatch):
+    monkeypatch.setenv("BACKEND", "tpp")
+
 
 def test_job():
     return {
@@ -14,6 +21,8 @@ def test_job():
                 "url": "http://test.com/jobs/0/",
                 "repo": "myrepo",
                 "tag": "mytag",
+                "backend": "tpp",
+                "db": "full",
                 "started": False,
                 "operation": "generate_cohort",
                 "status_code": None,
@@ -42,7 +51,7 @@ def dummy_slow_job(job):
 
 
 @patch("runner.run_job", dummy_broken_job)
-def test_watch_broken_job():
+def test_watch_broken_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job())
         adapter = m.patch("/jobs/0/")
@@ -52,7 +61,7 @@ def test_watch_broken_job():
 
 
 @patch("runner.run_job", dummy_working_job)
-def test_watch_working_job():
+def test_watch_working_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job())
         adapter = m.patch("/jobs/0/")
@@ -66,7 +75,7 @@ def test_watch_working_job():
 
 @patch("runner.run_job", dummy_slow_job)
 @patch("runner.HOUR", 0.001)
-def test_watch_timeout_job():
+def test_watch_timeout_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job())
         adapter = m.patch("/jobs/0/")

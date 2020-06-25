@@ -53,7 +53,7 @@ def validate_input_files(workdir):
     logging.info(f"Repo at {workdir} successfully validated")
 
 
-def run_cohort_extractor(workdir, volume_name):
+def run_cohort_extractor(database_url, workdir, volume_name):
     # If running this within a docker container, the storage base
     # should be a volume mounted from the docker host
     storage_base = Path(os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"])
@@ -62,7 +62,6 @@ def run_cohort_extractor(workdir, volume_name):
     # straight through to the (optionally-mounted) storage base
     output_path = storage_base / volume_name
     output_path.mkdir(parents=True, exist_ok=True)
-    database_url = os.environ["DATABASE_URL"]
     # By setting the name to the volume_name, we are guaranteeing only
     # one identical job can run at once
     container_name = re.sub(r"[^a-zA-Z0-9]", "-", volume_name)
@@ -176,7 +175,9 @@ def set_auth():
 def run_job(job):
     repo = job["repo"]
     tag = job["tag"]
+    db = job["db"]
     set_auth()
+    database_url = os.environ[f"{db.upper()}_DATABASE_URL"]
     logging.info(f"Starting job {job}")
     with tempfile.TemporaryDirectory(
         dir=os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"]
@@ -186,7 +187,9 @@ def run_job(job):
         workdir = os.path.join(tmpdir, volume_name)
         fetch_study_source(repo, tag, workdir)
         validate_input_files(workdir)
-        job["output_url"] = str(run_cohort_extractor(workdir, volume_name))
+        job["output_url"] = str(
+            run_cohort_extractor(database_url, workdir, volume_name)
+        )
         return job
 
 
@@ -207,7 +210,11 @@ def watch(queue_endpoint, loop=True):
             try:
                 result = session.get(
                     queue_endpoint,
-                    params={"started": False, "page_size": 100},
+                    params={
+                        "started": False,
+                        "backend": os.environ["BACKEND"],
+                        "page_size": 100,
+                    },
                     auth=get_auth(),
                 )
             except requests.exceptions.ConnectionError:

@@ -1,7 +1,23 @@
+# Credentials for logging into the job server
 OPENSAFELY_QUEUE_USER=user
 OPENSAFELY_QUEUE_PASS=pass
+
+# A location where cohort CSVs should be put. This folder must exist
 OPENSAFELY_RUNNER_STORAGE_BASE=/home/opensafely
 # Or in Windows:
 # OPENSAFELY_RUNNER_STORAGE_BASE=/c/Users/opensafely
+
+# A Github developer token that has read access to private repos
 OPENSAFELY_PRIVATE_REPO_ACCESS_TOKEN=xxxx
-OPENSAFELY_DATABASE_URL=mssql+pyodbc://xxxx
+
+# A database containing dummy data; results from this could be freely
+# published without review
+OPENSAFELY_DUMMY_DATABASE_URL=mssql+pyodbc://xxxx
+
+# A database containing a slice of the full data; useful for checking
+# or debuggin real data without potentially having to wait for hours
+# for completion
+OPENSAFELY_SLICE_DATABASE_URL=mssql+pyodbc://xxxx
+
+# The full database
+OPENSAFELY_FULL_DATABASE_URL=mssql+pyodbc://xxxx
