@@ -102,9 +102,9 @@ def run_cohort_extractor(database_url, workdir, volume_name):
     return output_path
 
 
-def make_volume_name(repo, branch_or_tag):
+def make_volume_name(repo, branch_or_tag, db_flavour):
     repo_name = urlparse(repo).path[1:].split("/")[-1]
-    return repo_name + "-" + branch_or_tag
+    return repo_name + "-" + branch_or_tag + "-" + db_flavour
 
 
 def fetch_study_source(
@@ -183,7 +183,7 @@ def run_job(job):
         dir=os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"]
     ) as tmpdir:
         os.chdir(tmpdir)
-        volume_name = make_volume_name(repo, tag)
+        volume_name = make_volume_name(repo, tag, db)
         workdir = os.path.join(tmpdir, volume_name)
         fetch_study_source(repo, tag, workdir)
         validate_input_files(workdir)
