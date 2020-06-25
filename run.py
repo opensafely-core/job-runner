@@ -21,7 +21,7 @@ if __name__ == "__main__":
     )
     options = parser.parse_args()
     if options.subparser_name == "run":
-        run_job(options.repo, options.tag, "callback")
+        run_job({"repo": options.repo, "tag": options.tag})
     elif options.subparser_name == "watch":
         watch(options.queue_endpoint)
     else:

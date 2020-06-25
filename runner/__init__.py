@@ -13,6 +13,9 @@ import sys
 import tempfile
 import time
 
+from tinynetrc import Netrc
+
+
 HOUR = 60 * 60
 POLL_INTERVAL = 1
 
@@ -118,10 +121,12 @@ def fetch_study_source(
             msg += f" (attempt #{attempt})"
         logging.info(msg)
         try:
-            subprocess.run(cmd, check=True)
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT, encoding="utf8")
             break
-        except subprocess.CalledProcessError:
-            if attempt < max_retries:
+        except subprocess.CalledProcessError as e:
+            if "Repository not found" in e.output:
+                raise
+            elif attempt < max_retries:
                 logging.warning(f"Failed `{' '.join(cmd)}`; sleeping, then retrying")
                 time.sleep(10)
             else:
@@ -146,46 +151,32 @@ def report_result(future):
         logging.exception(error)
 
 
-def setup_credentials():
-    """Set up credentials so private repositories and packages in Github
-    can be accessed
-
+def set_auth():
+    """Set HTTP auth (used by `requests`)
     """
-    # .netrc is the cURL mechanism, used by git, for HTTP protocol
-    netrc = Path.home() / ".netrc"
-    if not os.path.exists(netrc):
-        with open(netrc, "w") as f:
-            f.write(
-                f"""
-machine github.com
-login jobrunner
-password {os.environ['PRIVATE_REPO_ACCESS_TOKEN']}
-
-machine github.com
-login jobrunner
-password {os.environ['PRIVATE_REPO_ACCESS_TOKEN']}
-"""
-            )
-    # Docker login for docker packages on Github (even public ones
-    # need credentials)
-    cmd = [
-        "docker",
-        "login",
-        "docker.pkg.github.com",
-        "-u",
-        "jobrunner",
-        "-p",
-        # Given we're inside a docker container, the risk from
-        # providing the password as an argument is tiny
-        os.environ["PRIVATE_REPO_ACCESS_TOKEN"],
-    ]
-    subprocess.check_output(cmd)
+    netrc_path = os.path.join(os.path.expanduser("~"), ".netrc")
+    if not os.path.exists(netrc_path):
+        with open(netrc_path, "w") as f:
+            f.write("")
+    netrc = Netrc()
+    if netrc["github.com"]["password"]:
+        login = netrc["github.com"]["login"]
+        password = netrc["github.com"]["password"]
+    else:
+        password = os.environ["PRIVATE_REPO_ACCESS_TOKEN"]
+        login = "doesntmatter"
+        netrc["github.com"] = {
+            "login": login,
+            "password": password,
+        }
+        netrc.save()
+    return (login, password)
 
 
 def run_job(job):
     repo = job["repo"]
     tag = job["tag"]
-    setup_credentials()
+    set_auth()
     logging.info(f"Starting job {job}")
     with tempfile.TemporaryDirectory(
         dir=os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"]
