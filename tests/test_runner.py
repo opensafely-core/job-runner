@@ -3,6 +3,10 @@ import runner
 from unittest.mock import patch
 import time
 
+from runner import make_volume_name
+from runner import run_cohort_extractor
+from runner.exceptions import BadDockerImageName
+
 import pytest
 
 
@@ -50,7 +54,7 @@ def dummy_slow_job(job):
     return dummy_working_job(job, sleep=True)
 
 
-@patch("runner.run_job", dummy_broken_job)
+@patch("runner.run_cohort_extractor", dummy_broken_job)
 def test_watch_broken_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job())
@@ -60,7 +64,7 @@ def test_watch_broken_job(mock_env):
         assert adapter.request_history[1].json() == {"status_code": 1}
 
 
-@patch("runner.run_job", dummy_working_job)
+@patch("runner.run_cohort_extractor", dummy_working_job)
 def test_watch_working_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job())
@@ -73,7 +77,7 @@ def test_watch_working_job(mock_env):
         }
 
 
-@patch("runner.run_job", dummy_slow_job)
+@patch("runner.run_cohort_extractor", dummy_slow_job)
 @patch("runner.HOUR", 0.001)
 def test_watch_timeout_job(mock_env):
     with requests_mock.Mocker() as m:

@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from runner import run_job
+from runner import run_cohort_extractor
 from runner import watch
 
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     )
     options = parser.parse_args()
     if options.subparser_name == "run":
-        run_job({"repo": options.repo, "tag": options.tag})
+        run_cohort_extractor({"repo": options.repo, "tag": options.tag})
     elif options.subparser_name == "watch":
         watch(options.queue_endpoint)
     else:
