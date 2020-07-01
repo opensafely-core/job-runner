@@ -86,3 +86,21 @@ def test_watch_timeout_job(mock_env):
         runner.watch("http://test.com/jobs/", loop=False)
         assert adapter.request_history[0].json() == {"started": True}
         assert adapter.request_history[1].json() == {"status_code": -1}
+
+
+def test_make_volume_name():
+    repo = "https://github.com/opensafely/hiv-research/"
+    branch = "feasibility-no"
+    db_flavour = "full"
+    assert (
+        make_volume_name(repo, branch, db_flavour) == "hiv-research-feasibility-no-full"
+    )
+
+
+def test_bad_volume_name_raises():
+    bad_name = "-badname"
+    with pytest.raises(BadDockerImageName) as e:
+        run_cohort_extractor(
+            {"repo": bad_name, "tag": "thing", "db": "FULL", "url": ""}
+        )
+    assert e.value.args == (f"Bad image name {bad_name}",)

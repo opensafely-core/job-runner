@@ -109,6 +109,10 @@ def run_cohort_extractor(job):
         # By setting the name to the volume_name, we are guaranteeing only
         # one identical job can run at once
         container_name = re.sub(r"[^a-zA-Z0-9]", "-", volume_name)
+        # Regex from
+        # https://github.com/moby/moby/blob/be97c66708c24727836a22247319ff2943d91a03/daemon/names/names.go#L5-L6
+        if not re.match(r"[a-zA-Z0-9][a-zA-Z0-9_.-]", container_name):
+            raise BadDockerImageName(f"Bad image name `{container_name}`")
         cmd = [
             "docker",
             "run",
