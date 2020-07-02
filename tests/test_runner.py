@@ -89,8 +89,11 @@ def test_watch_timeout_job(mock_env):
         m.get("/jobs/", json=test_job())
         adapter = m.patch("/jobs/0/")
         runner.watch("http://test.com/jobs/", loop=False)
-        assert adapter.request_history[0].json() == {"started": True}
-        assert adapter.request_history[1].json() == {"status_code": -1}
+        assert adapter.request_history[0].json()["started"] is True
+        assert adapter.request_history[1].json() == {
+            "status_code": -1,
+            "status_message": "TimeoutError(86400s) id job#0",
+        }
 
 
 def test_make_volume_name():
