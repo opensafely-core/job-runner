@@ -63,7 +63,8 @@ def validate_input_files(workdir):
             missing.append(required)
     if missing:
         raise InvalidRepo(
-            f"Folders {', '.join(missing)} must exist; is this an OpenSAFELY repo?"
+            f"Folders {', '.join(missing)} must exist; is this an OpenSAFELY repo?",
+            report_args=True,
         )
     for path in workdir.rglob("*"):
         path = str(path)
@@ -79,7 +80,8 @@ def validate_input_files(workdir):
             "application/pdf"
         ):
             raise InvalidRepo(
-                f"All analysis input files must be text, found {result} at {path}"
+                f"All analysis input files must be text, found {result} at {path}",
+                report_args=True,
             )
 
 
@@ -140,7 +142,7 @@ def run_cohort_extractor(job):
         if result.returncode == 0:
             joblogger.info("cohort-extractor subdocker stdout: %s", result.stdout)
         else:
-            raise CohortExtractorError(result.stderr)
+            raise CohortExtractorError(result.stderr, report_args=False)
         job["output_url"] = str(output_path)
         return job
 
@@ -178,12 +180,12 @@ def fetch_study_source(workdir, job):
             break
         except subprocess.CalledProcessError as e:
             if "not found" in e.output:
-                raise RepoNotFound(e.output)
+                raise RepoNotFound(e.output, report_args=True)
             elif attempt < max_retries:
                 joblogger.warning("Failed clone; sleeping, then retrying")
                 time.sleep(10)
             else:
-                raise GitCloneError(cmd) from e
+                raise GitCloneError(cmd, report_args=True) from e
 
 
 def report_result(future):

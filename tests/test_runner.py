@@ -110,19 +110,17 @@ def test_bad_volume_name_raises():
     assert make_container_name(bad_name) == "badname"
 
 
-def test_docker_exception():
-    error = CohortExtractorError("thing not to leak")
-    assert (
-        error.safe_details()
-        == "CohortExtractorError: [possibly-unsafe details redacted]"
-    )
-    assert repr(error) == "CohortExtractorError('thing not to leak')"
+def test_exception_reporting():
+    class TestError(OpenSafelyError):
+        status_code = 10
 
+    error = TestError("thing not to leak", report_args=False)
+    assert error.safe_details() == "TestError: [possibly-unsafe details redacted]"
+    assert repr(error) == "TestError('thing not to leak')"
 
-def test_opensafely_exception():
-    error = RepoNotFound("thing OK to leak")
-    assert error.safe_details() == "RepoNotFound: thing OK to leak"
-    assert repr(error) == "RepoNotFound('thing OK to leak')"
+    error = TestError("thing OK to leak", report_args=True)
+    assert error.safe_details() == "TestError: thing OK to leak"
+    assert repr(error) == "TestError('thing OK to leak')"
 
 
 def test_reserved_exception():
@@ -130,8 +128,8 @@ def test_reserved_exception():
         status_code = -1
 
     with pytest.raises(AssertionError) as e:
-        raise InvalidError()
+        raise InvalidError(report_args=True)
     assert "reserved" in e.value.args[0]
 
     with pytest.raises(RepoNotFound):
-        raise RepoNotFound()
+        raise RepoNotFound(report_args=True)
