@@ -98,9 +98,5 @@ def test_make_volume_name():
 
 
 def test_bad_volume_name_raises():
-    bad_name = "-badname"
-    with pytest.raises(BadDockerImageName) as e:
-        run_cohort_extractor(
-            {"repo": bad_name, "tag": "thing", "db": "FULL", "url": ""}
-        )
-    assert e.value.args == (f"Bad image name {bad_name}",)
+    bad_name = "/badname"
+    assert make_container_name(bad_name) == "badname"

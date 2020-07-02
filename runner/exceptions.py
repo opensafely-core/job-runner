@@ -6,10 +6,6 @@ class DockerError(OpenSafelyError):
     status_code = 1
 
 
-class BadDockerImageName(DockerError):
-    status_code = 2
-
-
 class DockerRunError(DockerError):
     status_code = 3
 

@@ -14,7 +14,6 @@ import time
 
 from tinynetrc import Netrc
 
-from runner.exceptions import BadDockerImageName
 from runner.exceptions import CohortExtractorError
 from runner.exceptions import GitCloneError
 from runner.exceptions import InvalidRepo
@@ -93,6 +92,7 @@ def run_cohort_extractor(job):
     ) as tmpdir:
         os.chdir(tmpdir)
         volume_name = make_volume_name(repo, tag, db)
+        container_name = make_container_name(volume_name)
         workdir = os.path.join(tmpdir, volume_name)
         fetch_study_source(workdir, job)
         validate_input_files(workdir)
@@ -106,13 +106,6 @@ def run_cohort_extractor(job):
         # straight through to the (optionally-mounted) storage base
         output_path = storage_base / volume_name
         output_path.mkdir(parents=True, exist_ok=True)
-        # By setting the name to the volume_name, we are guaranteeing only
-        # one identical job can run at once
-        container_name = re.sub(r"[^a-zA-Z0-9]", "-", volume_name)
-        # Regex from
-        # https://github.com/moby/moby/blob/be97c66708c24727836a22247319ff2943d91a03/daemon/names/names.go#L5-L6
-        if not re.match(r"[a-zA-Z0-9][a-zA-Z0-9_.-]", container_name):
-            raise BadDockerImageName(f"Bad image name `{container_name}`")
         cmd = [
             "docker",
             "run",
@@ -155,6 +148,16 @@ def make_volume_name(repo, branch_or_tag, db_flavour):
         repo_name = repo_name[:-1]
     repo_name = repo_name.split("/")[-1]
     return repo_name + "-" + branch_or_tag + "-" + db_flavour
+
+
+def make_container_name(volume_name):
+    # By basing the container name to the volume_name, we are
+    # guaranteeing only one identical job can run at once by docker
+    container_name = re.sub(r"[^a-zA-Z0-9]", "-", volume_name)
+    # Remove any leading dashes, as docker requires images begin with [:alnum:]
+    if container_name.startswith("-"):
+        container_name = container_name[1:]
+    return container_name
 
 
 def fetch_study_source(workdir, job):
