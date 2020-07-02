@@ -137,7 +137,6 @@ def run_cohort_extractor(job):
             joblogger.info("cohort-extractor subdocker stdout: %s", result.stdout)
         else:
             raise CohortExtractorError(result.stderr)
-        result.check_returncode()
         job["output_url"] = str(output_path)
         return job
 
