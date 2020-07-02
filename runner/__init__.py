@@ -185,7 +185,7 @@ def fetch_study_source(workdir, job):
 def report_result(future):
     job = future.job
     joblogger = get_job_logger(job)
-    id_message = f"Error id {job_id_from_job(job)}"
+    id_message = f"id {job_id_from_job(job)}"
     try:
         job = future.result(
             timeout=COHORT_EXTRACTOR_TIMEOUT
