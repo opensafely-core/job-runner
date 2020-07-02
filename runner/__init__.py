@@ -231,7 +231,7 @@ def report_result(future):
             job["url"],
             json={
                 "status_code": 99,
-                "status_message": "Unclassified error {id_message}",
+                "status_message": f"Unclassified error {id_message}",
             },
             auth=get_auth(),
         )

@@ -63,7 +63,10 @@ def test_watch_broken_job(mock_env):
         adapter = m.patch("/jobs/0/")
         runner.watch("http://test.com/jobs/", loop=False)
         assert adapter.request_history[0].json() == {"started": True}
-        assert adapter.request_history[1].json() == {"status_code": 1}
+        assert adapter.request_history[1].json() == {
+            "status_code": 99,
+            "status_message": "Unclassified error id job#0",
+        }
 
 
 @patch("runner.run_cohort_extractor", dummy_working_job)
