@@ -219,9 +219,10 @@ def report_result(future):
             auth=get_auth(),
         )
         joblogger.info(
-            "Reported error %s (%s) to job server",
+            "Reported error %s (%s %s) to job server",
             error.status_code,
-            f"{repr(error)} {id_message}",
+            error,
+            id_message,
         )
         # Remove pebble's RemoteTraceback exception from reporting
         error.__cause__ = None
