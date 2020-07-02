@@ -41,7 +41,11 @@ def job_id_from_job(job):
     """An opaque string for use in logging to help trace events related to
     a specific job
     """
-    return "job#" + re.match(r".*/([0-9]+)/?$", job["url"]).groups()[0]
+    match = re.match(r".*/([0-9]+)/?$", job["url"])
+    if match:
+        return "job#" + match.groups()[0]
+    else:
+        return "-"
 
 
 def get_job_logger(job):
