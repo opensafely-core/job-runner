@@ -214,7 +214,7 @@ def report_result(future):
             job["url"],
             json={
                 "status_code": error.status_code,
-                "status_message": f"{repr(error)} {id_message}",
+                "status_message": f"{error.safe_details()} {id_message}",
             },
             auth=get_auth(),
         )

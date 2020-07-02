@@ -4,8 +4,10 @@ from unittest.mock import patch
 import time
 
 from runner import make_volume_name
-from runner import run_cohort_extractor
-from runner.exceptions import BadDockerImageName
+from runner import make_container_name
+from runner.exceptions import CohortExtractorError
+from runner.exceptions import OpenSafelyError
+from runner.exceptions import RepoNotFound
 
 import pytest
 
@@ -100,3 +102,30 @@ def test_make_volume_name():
 def test_bad_volume_name_raises():
     bad_name = "/badname"
     assert make_container_name(bad_name) == "badname"
+
+
+def test_docker_exception():
+    error = CohortExtractorError("thing not to leak")
+    assert (
+        error.safe_details()
+        == "CohortExtractorError: [possibly-unsafe details redacted]"
+    )
+    assert repr(error) == "CohortExtractorError('thing not to leak')"
+
+
+def test_opensafely_exception():
+    error = RepoNotFound("thing OK to leak")
+    assert error.safe_details() == "RepoNotFound: thing OK to leak"
+    assert repr(error) == "RepoNotFound('thing OK to leak')"
+
+
+def test_reserved_exception():
+    class InvalidError(OpenSafelyError):
+        status_code = -1
+
+    with pytest.raises(AssertionError) as e:
+        raise InvalidError()
+    assert "reserved" in e.value.args[0]
+
+    with pytest.raises(RepoNotFound):
+        raise RepoNotFound()
