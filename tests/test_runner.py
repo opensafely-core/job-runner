@@ -134,10 +134,3 @@ def test_reserved_exception():
 
     with pytest.raises(RepoNotFound):
         raise RepoNotFound(report_args=True)
-
-
-def test_pickled_exception():
-    error = TestError(report_args=True)
-    pickled_error = pickle.dumps(error)
-    unpickled_error = pickle.loads(pickled_error)
-    assert error.__dict__ == unpickled_error.__dict__
