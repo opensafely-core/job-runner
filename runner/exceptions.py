@@ -11,11 +11,10 @@ people outside the secure platform.
 class OpenSafelyError(Exception):
     safe_args = False
 
-    def __init__(self, *args, report_args=None, **kwargs):
-        assert report_args is not None, "`report_args` keyword arg must be supplied"
+    def __init__(self, *args, report_args=False):
         self.report_args = report_args
         assert self.status_code not in [-1, 99], "status_codes -1 and 99 are reserved"
-        super().__init__(*args, **kwargs)
+        super().__init__(*args)
 
     def safe_details(self):
         classname = type(self).__name__

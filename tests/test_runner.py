@@ -1,15 +1,19 @@
 import requests_mock
 import runner
 from unittest.mock import patch
+import pickle
 import time
 
 from runner import make_volume_name
 from runner import make_container_name
-from runner.exceptions import CohortExtractorError
 from runner.exceptions import OpenSafelyError
 from runner.exceptions import RepoNotFound
 
 import pytest
+
+
+class TestError(OpenSafelyError):
+    status_code = 10
 
 
 @pytest.fixture(scope="function")
@@ -111,9 +115,6 @@ def test_bad_volume_name_raises():
 
 
 def test_exception_reporting():
-    class TestError(OpenSafelyError):
-        status_code = 10
-
     error = TestError("thing not to leak", report_args=False)
     assert error.safe_details() == "TestError: [possibly-unsafe details redacted]"
     assert repr(error) == "TestError('thing not to leak')"
