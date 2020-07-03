@@ -1,25 +1,56 @@
-from pathlib import Path
-from urllib.parse import urlparse
-from pebble import ProcessPool
 from concurrent.futures import TimeoutError
+from pathlib import Path
+from pebble import ProcessPool
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from urllib.parse import urlparse
 import logging
 import os
 import re
 import requests
 import subprocess
-import sys
 import tempfile
 import time
 
 from tinynetrc import Netrc
 
+from runner.exceptions import CohortExtractorError
+from runner.exceptions import GitCloneError
+from runner.exceptions import InvalidRepo
+from runner.exceptions import OpenSafelyError
+from runner.exceptions import RepoNotFound
 
 HOUR = 60 * 60
 POLL_INTERVAL = 1
+COHORT_EXTRACTOR_TIMEOUT = 24 * HOUR
 
-logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+# Create a logger with a field for recording a unique job id, and a
+# `baselogger` adapter which fills this field with a hyphen, for use
+# when logging events not associated with jobs
+FORMAT = "%(asctime)-15s %(levelname)-10s  %(job_id)-10s %(message)s"
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = logging.Formatter(FORMAT)
+handler.setFormatter(formatter)
+logger.setLevel(logging.INFO)
+logger.addHandler(handler)
+baselogger = logging.LoggerAdapter(logger, {"job_id": "-"})
+
+
+def job_id_from_job(job):
+    """An opaque string for use in logging to help trace events related to
+    a specific job
+    """
+    match = re.match(r".*/([0-9]+)/?$", job["url"])
+    if match:
+        return "job#" + match.groups()[0]
+    else:
+        return "-"
+
+
+def get_job_logger(job):
+    job_id = job_id_from_job(job)
+    return logging.LoggerAdapter(logger, {"job_id": job_id})
 
 
 def validate_input_files(workdir):
@@ -31,8 +62,9 @@ def validate_input_files(workdir):
         if not (workdir / required).exists():
             missing.append(required)
     if missing:
-        raise RuntimeError(
-            f"Folders {', '.join(missing)} must exist; is this an OpenSAFELY repo?"
+        raise InvalidRepo(
+            f"Folders {', '.join(missing)} must exist; is this an OpenSAFELY repo?",
+            report_args=True,
         )
     for path in workdir.rglob("*"):
         path = str(path)
@@ -47,107 +79,173 @@ def validate_input_files(workdir):
         if mimetype not in ["text", "inode"] and not result.startswith(
             "application/pdf"
         ):
-            raise RuntimeError(
-                f"All analysis input files must be text, found {result} at {path}"
+            raise InvalidRepo(
+                f"All analysis input files must be text, found {result} at {path}",
+                report_args=True,
             )
-    logging.info(f"Repo at {workdir} successfully validated")
 
 
-def run_cohort_extractor(database_url, workdir, volume_name):
-    # If running this within a docker container, the storage base
-    # should be a volume mounted from the docker host
-    storage_base = Path(os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"])
-    # We create `output_path` and then map it straight through to the
-    # inner docker container, so that docker-within-docker can write
-    # straight through to the (optionally-mounted) storage base
-    output_path = storage_base / volume_name
-    output_path.mkdir(parents=True, exist_ok=True)
-    # By setting the name to the volume_name, we are guaranteeing only
-    # one identical job can run at once
-    container_name = re.sub(r"[^a-zA-Z0-9]", "-", volume_name)
-    cmd = [
-        "docker",
-        "run",
-        "--name",
-        container_name,
-        "--rm",
-        "--log-driver",
-        "none",
-        "-a",
-        "stdout",
-        "-a",
-        "stderr",
-        "--volume",
-        f"{output_path}:{output_path}",
-        "--volume",
-        f"{workdir}/analysis:/workspace/analysis",
-        "--volume",
-        f"{workdir}/codelists:/workspace/codelists",
-        "docker.pkg.github.com/opensafely/cohort-extractor/cohort-extractor:latest",
-        "generate_cohort",
-        f"--database-url={database_url}",
-        f"--output-dir={output_path}",
-    ]
+def run_cohort_extractor(job):
+    joblogger = get_job_logger(job)
+    joblogger.info(f"Starting job")
+    repo = job["repo"]
+    tag = job["tag"]
+    db = job["db"]
+    set_auth()
+    database_url = os.environ[f"{db.upper()}_DATABASE_URL"]
+    with tempfile.TemporaryDirectory(
+        dir=os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"]
+    ) as tmpdir:
+        os.chdir(tmpdir)
+        volume_name = make_volume_name(repo, tag, db)
+        container_name = make_container_name(volume_name)
+        workdir = os.path.join(tmpdir, volume_name)
+        fetch_study_source(workdir, job)
+        validate_input_files(workdir)
+        joblogger.info(f"Repo at {workdir} successfully validated")
 
-    os.chdir(workdir)
-    logging.info(f"Running subdocker cmd `{' '.join(cmd)}`")
-    result = subprocess.run(cmd, capture_output=True, encoding="utf8")
-    if result.returncode == 0:
-        log = logging.info
-    else:
-        log = logging.error
-    log(f"cohort-extractor subdocker stdout: {result.stdout}")
-    log(f"cohort-extractor subdocker stderr: {result.stderr}")
-    result.check_returncode()
-    return output_path
+        # If running this within a docker container, the storage base
+        # should be a volume mounted from the docker host
+        storage_base = Path(os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"])
+        # We create `output_path` and then map it straight through to the
+        # inner docker container, so that docker-within-docker can write
+        # straight through to the (optionally-mounted) storage base
+        output_path = storage_base / volume_name
+        output_path.mkdir(parents=True, exist_ok=True)
+        cmd = [
+            "docker",
+            "run",
+            "--name",
+            container_name,
+            "--rm",
+            "--log-driver",
+            "none",
+            "-a",
+            "stdout",
+            "-a",
+            "stderr",
+            "--volume",
+            f"{output_path}:{output_path}",
+            "--volume",
+            f"{workdir}/analysis:/workspace/analysis",
+            "--volume",
+            f"{workdir}/codelists:/workspace/codelists",
+            "docker.pkg.github.com/opensafely/cohort-extractor/cohort-extractor:latest",
+            "generate_cohort",
+            f"--database-url={database_url}",
+            f"--output-dir={output_path}",
+        ]
+
+        os.chdir(workdir)
+        joblogger.info("Running subdocker cmd `%s` in %s", cmd, workdir)
+        result = subprocess.run(cmd, capture_output=True, encoding="utf8")
+        if result.returncode == 0:
+            joblogger.info("cohort-extractor subdocker stdout: %s", result.stdout)
+        else:
+            raise CohortExtractorError(result.stderr, report_args=False)
+        job["output_url"] = str(output_path)
+        return job
 
 
 def make_volume_name(repo, branch_or_tag, db_flavour):
-    repo_name = urlparse(repo).path[1:].split("/")[-1]
+    repo_name = urlparse(repo).path[1:]
+    if repo_name.endswith("/"):
+        repo_name = repo_name[:-1]
+    repo_name = repo_name.split("/")[-1]
     return repo_name + "-" + branch_or_tag + "-" + db_flavour
 
 
-def fetch_study_source(
-    repo, branch_or_tag, workdir,
-):
+def make_container_name(volume_name):
+    # By basing the container name to the volume_name, we are
+    # guaranteeing only one identical job can run at once by docker
+    container_name = re.sub(r"[^a-zA-Z0-9]", "-", volume_name)
+    # Remove any leading dashes, as docker requires images begin with [:alnum:]
+    if container_name.startswith("-"):
+        container_name = container_name[1:]
+    return container_name
+
+
+def fetch_study_source(workdir, job):
     """Checkout source over Github API to a temporary location.
     """
+    repo = job["repo"]
+    branch_or_tag = job["tag"]
     max_retries = 3
+    joblogger = get_job_logger(job)
     for attempt in range(max_retries + 1):
         cmd = ["git", "clone", "--depth", "1", "--branch", branch_or_tag, repo, workdir]
-        msg = f"Running `{' '.join(cmd)}`"
-        if attempt > 0:
-            msg += f" (attempt #{attempt})"
-        logging.info(msg)
+        joblogger.info("Running %s, attempt %s", cmd, attempt)
         try:
             subprocess.check_output(cmd, stderr=subprocess.STDOUT, encoding="utf8")
             break
         except subprocess.CalledProcessError as e:
-            if "Repository not found" in e.output:
-                raise
+            if "not found" in e.output:
+                raise RepoNotFound(e.output, report_args=True)
             elif attempt < max_retries:
-                logging.warning(f"Failed `{' '.join(cmd)}`; sleeping, then retrying")
+                joblogger.warning("Failed clone; sleeping, then retrying")
                 time.sleep(10)
             else:
-                raise
+                raise GitCloneError(cmd, report_args=True) from e
 
 
 def report_result(future):
     job = future.job
+    joblogger = get_job_logger(job)
+    id_message = f"id {job_id_from_job(job)}"
     try:
-        job = future.result()  # blocks until results are ready
+        job = future.result(
+            timeout=COHORT_EXTRACTOR_TIMEOUT
+        )  # blocks until results are ready
         requests.patch(
             job["url"],
             json={"status_code": 0, "output_url": job["output_url"]},
             auth=get_auth(),
         )
-        logging.info(f"Reported success for job {job}")
+        joblogger.info("Reported success to job server")
     except TimeoutError as error:
-        requests.patch(job["url"], json={"status_code": -1}, auth=get_auth())
-        logging.exception(error)
+        requests.patch(
+            job["url"],
+            json={
+                "status_code": -1,
+                "status_message": f"TimeoutError({COHORT_EXTRACTOR_TIMEOUT}s) {id_message}",
+            },
+            auth=get_auth(),
+        )
+        joblogger.info("Reported error -1 (timeout) to job server")
+        # Remove pebble's RemoteTraceback exception from reporting
+        error.__cause__ = None
+        joblogger.exception(error)
+    except OpenSafelyError as error:
+        requests.patch(
+            job["url"],
+            json={
+                "status_code": error.status_code,
+                "status_message": f"{error.safe_details()} {id_message}",
+            },
+            auth=get_auth(),
+        )
+        joblogger.info(
+            "Reported error %s (%s %s) to job server",
+            error.status_code,
+            error,
+            id_message,
+        )
+        # Remove pebble's RemoteTraceback exception from reporting
+        error.__cause__ = None
+        joblogger.exception(error)
     except Exception as error:
-        requests.patch(job["url"], json={"status_code": 1}, auth=get_auth())
-        logging.exception(error)
+        requests.patch(
+            job["url"],
+            json={
+                "status_code": 99,
+                "status_message": f"Unclassified error {id_message}",
+            },
+            auth=get_auth(),
+        )
+        joblogger.info("Reported error 99 (unclassified) to job server")
+        # Don't remove remotetraceback, because we haven't considered
+        # handling it explicitly, and the context could help
+        joblogger.exception(error)
 
 
 def set_auth():
@@ -172,33 +270,12 @@ def set_auth():
     return (login, password)
 
 
-def run_job(job):
-    repo = job["repo"]
-    tag = job["tag"]
-    db = job["db"]
-    set_auth()
-    database_url = os.environ[f"{db.upper()}_DATABASE_URL"]
-    logging.info(f"Starting job {job}")
-    with tempfile.TemporaryDirectory(
-        dir=os.environ["OPENSAFELY_RUNNER_STORAGE_BASE"]
-    ) as tmpdir:
-        os.chdir(tmpdir)
-        volume_name = make_volume_name(repo, tag, db)
-        workdir = os.path.join(tmpdir, volume_name)
-        fetch_study_source(repo, tag, workdir)
-        validate_input_files(workdir)
-        job["output_url"] = str(
-            run_cohort_extractor(database_url, workdir, volume_name)
-        )
-        return job
-
-
 def get_auth():
     return (os.environ["QUEUE_USER"], os.environ["QUEUE_PASS"])
 
 
 def watch(queue_endpoint, loop=True):
-    logging.info(f"Started watching {queue_endpoint}")
+    baselogger.info(f"Started watching {queue_endpoint}")
     session = requests.Session()
     # Retries for up to 2 minutes, by default
     retry = Retry(connect=30, backoff_factor=0.5)
@@ -206,7 +283,7 @@ def watch(queue_endpoint, loop=True):
     session.mount(queue_endpoint, adapter)
     with ProcessPool(max_tasks=50) as pool:
         while True:
-            logging.debug(f"Polling {queue_endpoint}")
+            baselogger.debug(f"Polling {queue_endpoint}")
             try:
                 result = session.get(
                     queue_endpoint,
@@ -218,7 +295,7 @@ def watch(queue_endpoint, loop=True):
                     auth=get_auth(),
                 )
             except requests.exceptions.ConnectionError:
-                logging.exception("Connection error; sleeping for 15 mins")
+                baselogger.exception("Connection error; sleeping for 15 mins")
                 time.sleep(60 * 15)
             result.raise_for_status()
             jobs = result.json()
@@ -230,7 +307,7 @@ def watch(queue_endpoint, loop=True):
                     job["url"], json={"started": True}, auth=get_auth()
                 )
                 response.raise_for_status()
-                future = pool.schedule(run_job, (job,), timeout=6 * HOUR,)
+                future = pool.schedule(run_cohort_extractor, (job,), timeout=6 * HOUR,)
                 future.job = job
                 future.add_done_callback(report_result)
             if loop:

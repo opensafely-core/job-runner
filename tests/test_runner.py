@@ -3,6 +3,12 @@ import runner
 from unittest.mock import patch
 import time
 
+from runner import make_volume_name
+from runner import make_container_name
+from runner.exceptions import CohortExtractorError
+from runner.exceptions import OpenSafelyError
+from runner.exceptions import RepoNotFound
+
 import pytest
 
 
@@ -50,17 +56,20 @@ def dummy_slow_job(job):
     return dummy_working_job(job, sleep=True)
 
 
-@patch("runner.run_job", dummy_broken_job)
+@patch("runner.run_cohort_extractor", dummy_broken_job)
 def test_watch_broken_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job())
         adapter = m.patch("/jobs/0/")
         runner.watch("http://test.com/jobs/", loop=False)
         assert adapter.request_history[0].json() == {"started": True}
-        assert adapter.request_history[1].json() == {"status_code": 1}
+        assert adapter.request_history[1].json() == {
+            "status_code": 99,
+            "status_message": "Unclassified error id job#0",
+        }
 
 
-@patch("runner.run_job", dummy_working_job)
+@patch("runner.run_cohort_extractor", dummy_working_job)
 def test_watch_working_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job())
@@ -73,12 +82,54 @@ def test_watch_working_job(mock_env):
         }
 
 
-@patch("runner.run_job", dummy_slow_job)
+@patch("runner.run_cohort_extractor", dummy_slow_job)
 @patch("runner.HOUR", 0.001)
 def test_watch_timeout_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job())
         adapter = m.patch("/jobs/0/")
         runner.watch("http://test.com/jobs/", loop=False)
-        assert adapter.request_history[0].json() == {"started": True}
-        assert adapter.request_history[1].json() == {"status_code": -1}
+        assert adapter.request_history[0].json()["started"] is True
+        assert adapter.request_history[1].json() == {
+            "status_code": -1,
+            "status_message": "TimeoutError(86400s) id job#0",
+        }
+
+
+def test_make_volume_name():
+    repo = "https://github.com/opensafely/hiv-research/"
+    branch = "feasibility-no"
+    db_flavour = "full"
+    assert (
+        make_volume_name(repo, branch, db_flavour) == "hiv-research-feasibility-no-full"
+    )
+
+
+def test_bad_volume_name_raises():
+    bad_name = "/badname"
+    assert make_container_name(bad_name) == "badname"
+
+
+def test_exception_reporting():
+    class TestError(OpenSafelyError):
+        status_code = 10
+
+    error = TestError("thing not to leak", report_args=False)
+    assert error.safe_details() == "TestError: [possibly-unsafe details redacted]"
+    assert repr(error) == "TestError('thing not to leak')"
+
+    error = TestError("thing OK to leak", report_args=True)
+    assert error.safe_details() == "TestError: thing OK to leak"
+    assert repr(error) == "TestError('thing OK to leak')"
+
+
+def test_reserved_exception():
+    class InvalidError(OpenSafelyError):
+        status_code = -1
+
+    with pytest.raises(AssertionError) as e:
+        raise InvalidError(report_args=True)
+    assert "reserved" in e.value.args[0]
+
+    with pytest.raises(RepoNotFound):
+        raise RepoNotFound(report_args=True)
