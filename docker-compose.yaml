@@ -3,6 +3,7 @@ services:
   job-runner:
     build: .
     image: docker.pkg.github.com/opensafely/job-runner/job-runner:latest
+    restart: unless-stopped
     environment:
       # The backend requests which we should monitor
       - BACKEND=${OPENSAFELY_BACKEND}
