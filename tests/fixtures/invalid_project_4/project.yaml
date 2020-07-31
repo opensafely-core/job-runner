@@ -1,0 +1,16 @@
+# This project is invalid because it contains a variable that refers
+# to a non-existent output
+version: '1.0'
+
+actions:
+
+  generate_cohorts:
+    run: cohortextractor:0.5.2
+    outputs:
+      cohort: input.csv
+
+  run_model:
+    run: stata-mp:1.0 analysis/model.do ${{ needs.frob.outputs.x }}
+    needs: [generate_cohorts]
+    outputs:
+      log: model.log

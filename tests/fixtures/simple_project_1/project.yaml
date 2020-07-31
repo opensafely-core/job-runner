@@ -1,0 +1,16 @@
+# This project should parse correctly and can be used to test
+# dependencies and docker_invocation generation
+version: '1.0'
+
+actions:
+
+  generate_cohorts:
+    run: cohortextractor:0.5.2 --database-url={database_url}
+    outputs:
+      cohort: input.csv
+
+  run_model:
+    run: stata-mp:1.0 analysis/model.do ${{ needs.generate_cohorts.outputs.cohort }}
+    needs: [generate_cohorts]
+    outputs:
+      log: model.log

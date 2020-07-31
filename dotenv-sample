@@ -2,10 +2,18 @@
 OPENSAFELY_QUEUE_USER=user
 OPENSAFELY_QUEUE_PASS=pass
 
-# A location where cohort CSVs should be put. This folder must exist
-OPENSAFELY_RUNNER_STORAGE_BASE=/home/opensafely
+# The endpoint to poll for jobs
+OPENSAFELY_JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/
+
+# A location where cohort CSVs (one row per patient) should be
+# stored. This folder must exist.
+OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
 # Or in Windows:
-# OPENSAFELY_RUNNER_STORAGE_BASE=/c/Users/opensafely
+# OPENSAFELY_RUNNER_STORAGE_BASE=/e/Users/opensafely/high_security
+
+# A location where script outputs (some for publication) should be
+# stored
+OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE=/tmp/outputs/medium_security
 
 # A Github developer token that has read access to private repos
 OPENSAFELY_PRIVATE_REPO_ACCESS_TOKEN=xxxx
@@ -21,3 +29,6 @@ OPENSAFELY_SLICE_DATABASE_URL=mssql+pyodbc://xxxx
 
 # The full database
 OPENSAFELY_FULL_DATABASE_URL=mssql+pyodbc://xxxx
+
+# Default is 5
+OPENSAFELY_POLL_INTERVAL=5
