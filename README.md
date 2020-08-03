@@ -24,3 +24,5 @@ To run without docker, set environment variables per the `environment` key in
 `docker-compose.yml`, and run:
 
     python run.py watch https://jobs.opensafely.org/jobs
+
+There are [integration tests in a separate repo](https://github.com/opensafely/job-integration-tests) to check interaction between the job server and the job runner
