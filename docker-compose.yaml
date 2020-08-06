@@ -2,7 +2,7 @@ version: "3.6"
 services:
   job-runner:
     build: .
-    image: docker.pkg.github.com/opensafely/job-runner/job-runner:latest
+    image: docker.opensafely.org/job-runner:latest
     environment:
       # The job server endpoint
       - JOB_SERVER_ENDPOINT=${OPENSAFELY_JOB_SERVER_ENDPOINT}

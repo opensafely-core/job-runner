@@ -32,8 +32,8 @@ jobs:
       uses: whoan/docker-build-with-cache-action@v5
       with:
         username: whoan
-        password: "${{ secrets.GITHUB_TOKEN }}"
-        registry: docker.pkg.github.com
+        password: "${{ secrets.OPENSAFELY_DOCKER_PASSWORD }}"
+        registry: docker.opensafely.org
         image_name: job-runner
         push_git_tag: true
         build_extra_args: "--build-arg=pythonversion=3.8.3"

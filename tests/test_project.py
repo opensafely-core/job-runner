@@ -55,7 +55,7 @@ def test_job_to_project_nodeps(mock_env):
     assert project["docker_invocation"] == [
         "--volume",
         "/tmp/storage/highsecurity/repo-master-full:/tmp/storage/highsecurity/repo-master-full",
-        "docker.pkg.github.com/opensafely/cohort-extractor/cohort-extractor:0.5.2",
+        "docker.opensafely.org/cohort-extractor:0.5.2",
         "generate_cohort",
         "--output-dir=/workspace",
         "--database-url=sqlite:///test.db",
@@ -197,7 +197,7 @@ def test_project_dependency_no_exception(dummy_output_bucket, mock_env):
             f"{d}:{d}",
             "--volume",
             f"{d}:{d}",
-            "docker.pkg.github.com/opensafely/stata-docker/stata-mp:1.0",
+            "docker.opensafely.org/stata-mp:1.0",
             "analysis/model.do",
             f"{d}/input.csv",
         ]
@@ -270,7 +270,7 @@ def test_valid_run_in_project(mock_env):
     assert project["docker_invocation"] == [
         "--volume",
         "/tmp/storage/highsecurity/repo-master-full:/tmp/storage/highsecurity/repo-master-full",
-        "docker.pkg.github.com/opensafely/cohort-extractor/cohort-extractor:0.5.2",
+        "docker.opensafely.org/cohort-extractor:0.5.2",
         "generate_cohort",
         "--output-dir=/workspace",
         "--database-url=sqlite:///test.db",
@@ -337,7 +337,7 @@ def test_bad_version_raises_exception(dummy_output_bucket, mock_env):
         parse_project_yaml(project_path, job)
 
 
-def test_job_runner_docker_container_exists(mock_env):
+def xtest_job_runner_docker_container_exists(mock_env):
     """Tests the ability to see if a container is running or not.
 
     This test is slow: it depends on a docker install and network

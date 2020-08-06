@@ -36,7 +36,7 @@ RUN_COMMANDS_CONFIG = {
         "input_privacy_level": None,
         "output_privacy_level": PRIVACY_LEVEL_HIGH,
         "docker_invocation": [
-            "docker.pkg.github.com/opensafely/cohort-extractor/cohort-extractor",
+            "docker.opensafely.org/cohort-extractor",
             "generate_cohort",
             "--output-dir=/workspace",
         ],
@@ -45,7 +45,7 @@ RUN_COMMANDS_CONFIG = {
     "stata-mp": {
         "input_privacy_level": PRIVACY_LEVEL_HIGH,
         "output_privacy_level": PRIVACY_LEVEL_MEDIUM,
-        "docker_invocation": ["docker.pkg.github.com/opensafely/stata-docker/stata-mp"],
+        "docker_invocation": ["docker.opensafely.org/stata-mp"],
         "docker_exception": ScriptError,
     },
 }
