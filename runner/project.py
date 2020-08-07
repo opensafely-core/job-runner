@@ -19,6 +19,7 @@ from runner.exceptions import ProjectValidationError
 from runner.exceptions import ScriptError
 from runner.utils import getlogger
 from runner.utils import get_auth
+from runner.utils import safe_join
 
 
 logger = getlogger(__name__)
@@ -211,7 +212,11 @@ def load_and_validate_project(workdir):
             raise ProjectValidationError(
                 f"{name} must have a version specified (e.g. {name}:0.5.2)"
             )
-
+        for output_id, filename in action_config["outputs"].items():
+            try:
+                safe_join(workdir, filename)
+            except AssertionError:
+                raise ProjectValidationError(f"Output path {filename} is not permitted")
         # Check the run command + args signature appears only once in
         # a project
         run_signature = f"{name}_{args}"

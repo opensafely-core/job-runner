@@ -333,6 +333,23 @@ def test_bad_version_raises_exception(dummy_output_bucket, mock_env):
         parse_project_yaml(project_path, job_spec)
 
 
+@patch("runner.project.make_path")
+def test_invalid_output_file_raises_exception(dummy_output_bucket, mock_env):
+    """Do complete dependencies not raise an exception?
+
+    """
+    project_path = "tests/fixtures/invalid_project_6"
+    job_spec = {
+        "operation": "extract",
+        "repo": "https://github.com/repo",
+        "db": "full",
+        "tag": "master",
+        "workdir": "/workspace",
+    }
+    with pytest.raises(ProjectValidationError):
+        parse_project_yaml(project_path, job_spec)
+
+
 def xtest_job_runner_docker_container_exists(mock_env):
     """Tests the ability to see if a container is running or not.
 

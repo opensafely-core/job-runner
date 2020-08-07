@@ -1,0 +1,9 @@
+# This project contains a run command without a version
+version: '1.0'
+
+actions:
+
+  extract:
+    run: cohortextractor --database-url={database_url}
+    outputs:
+      cohort: ../input.csv

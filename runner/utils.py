@@ -46,3 +46,12 @@ def set_auth():
         }
         netrc.save()
     return (login, password)
+
+
+def safe_join(startdir, path):
+    requested_path = os.path.normpath(os.path.join(startdir, path))
+    startdir = str(startdir)  # Normalise from PosixPath
+    assert (
+        os.path.commonprefix([requested_path, startdir]) == startdir
+    ), f"Invalid requested path {requested_path}, not in {startdir}"
+    return requested_path

@@ -11,6 +11,7 @@ from runner.exceptions import GitCloneError
 from runner.exceptions import RepoNotFound
 from runner.project import parse_project_yaml
 from runner.utils import getlogger
+from runner.utils import safe_join
 from runner.utils import set_auth
 
 from runner.exceptions import InvalidRepo
@@ -91,7 +92,7 @@ class Job:
             raise self.job["docker_exception"](result.stderr, report_args=False)
         # Copy outputs to the expected location
         for output_name, output_filename in self.job.get("outputs", {}).items():
-            target_path = os.path.join(self.job["output_bucket"], output_filename)
+            target_path = safe_join(self.job["output_bucket"], output_filename)
             shutil.move(os.path.join(self.workdir, output_filename), target_path)
             self.logger.info("Copied output to %s", target_path)
 
