@@ -37,7 +37,6 @@ class Job:
     def run(self):
         self.logger.info(f"Starting job")
         self.fetch_study_source()
-        self.validate_input_files()
         self.logger.info(f"Repo at {self.workdir} successfully validated")
         self.job = parse_project_yaml(self.workdir, self.job_spec)
         self.logger.debug(f"Added runtime metadata to job_spec")
@@ -53,37 +52,6 @@ class Job:
         else:
             self.job["status_message"] = "Output already generated"
         return self.job
-
-    def validate_input_files(self):
-        """Assert that all the input files are text, not binary
-        """
-        workdir = Path(self.workdir)
-        missing = []
-        for required in ["project.yaml", "analysis", "codelists"]:
-            if not (workdir / required).exists():
-                missing.append(required)
-        if missing:
-            raise InvalidRepo(
-                f"Folders {', '.join(missing)} must exist; is this an OpenSAFELY repo?",
-                report_args=True,
-            )
-        for path in workdir.rglob("*"):
-            path = str(path)
-            if ".git" in path or "outputs" in path:
-                continue
-            # We shell out to system's libmagic implementation, rather than
-            # using python, to reduce dependencies
-            result = subprocess.check_output(
-                ["file", "--brief", "--mime", path], encoding="utf8"
-            )
-            mimetype = result.split("/")[0]
-            if mimetype not in ["tex", "inode"] and not result.startswith(
-                "application/pdf"
-            ):
-                raise InvalidRepo(
-                    f"All analysis input files must be text, found {result} at {path}",
-                    report_args=True,
-                )
 
     def __repr__(self):
         """An opaque string for use in logging to help trace events related to
