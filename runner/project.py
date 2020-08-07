@@ -248,6 +248,9 @@ def interpolate_variables(args, dependency_actions):
         variables = variables_in_string(arg, variable_name_only=True)
         if variables:
             try:
+                # at this point, the command string has been
+                # shell-split into separate tokens, so there is only
+                # ever a single variable to interpolate
                 _, action_id, outputs_key, output_id = variables[0].split(".")
                 dependency_action = dependency_actions[action_id]
                 dependency_outputs = dependency_action[outputs_key]
