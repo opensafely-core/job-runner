@@ -30,6 +30,8 @@ class Job:
         set_auth()
 
     def __call__(self):
+        """This is necessary to satisfy `pebble`'s multiprocessing API
+        """
         return self.run()
 
     def run(self):
