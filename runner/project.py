@@ -348,7 +348,7 @@ def add_runtime_metadata(
     return action
 
 
-def parse_project_yaml(workdir, job):
+def parse_project_yaml(workdir, job_spec):
     """Given a checkout of an OpenSAFELY repo containing a `project.yml`,
     check the provided job can run, and if so, update it with
     information about how to run it in a docker container.
@@ -359,10 +359,10 @@ def parse_project_yaml(workdir, job):
     """
     project = load_and_validate_project(workdir)
     project_actions = project["actions"]
-    requested_action_id = job["operation"]
+    requested_action_id = job_spec["operation"]
     if requested_action_id not in project_actions:
         raise ProjectValidationError(requested_action_id)
-
+    job_config = job_spec.copy()
     # Build dependency graph
     graph = nx.DiGraph()
     for action_id, action_config in project_actions.items():
@@ -374,7 +374,9 @@ def parse_project_yaml(workdir, job):
     dependencies = graph.predecessors(requested_action_id)
 
     # Compute runtime metadata for the job we're interested
-    job_action = add_runtime_metadata(project_actions[requested_action_id], **job)
+    job_action = add_runtime_metadata(
+        project_actions[requested_action_id], **job_config
+    )
 
     # Do the same thing for dependencies, and also assert that they've
     # completed by checking their expected output exists
@@ -382,7 +384,7 @@ def parse_project_yaml(workdir, job):
     for action_id in dependencies:
         # Adds docker_invocation, docker_exception, privacy_level, and
         # output_bucket to the config
-        action = add_runtime_metadata(project_actions[action_id], **job)
+        action = add_runtime_metadata(project_actions[action_id], **job_config)
         raise_if_unfinished(action)
         dependency_actions[action_id] = action
 
@@ -393,8 +395,8 @@ def parse_project_yaml(workdir, job):
     job_action["docker_invocation"] = interpolate_variables(
         job_action["docker_invocation"], dependency_actions
     )
-    job.update(job_action)
-    return job
+    job_config.update(job_action)
+    return job_config
 
 
 def make_path(repo=None, tag=None, db=None, privacy_level=None):

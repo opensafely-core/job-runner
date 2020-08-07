@@ -1,42 +1,47 @@
 import time
 
-default_job = {
+job_spec = {
     "url": "http://test.com/jobs/0/",
     "repo": "myrepo",
     "tag": "mytag",
     "backend": "tpp",
     "db": "full",
-    "started": False,
     "operation": "generate_cohort",
-    "status_code": None,
-    "status_message": "",
-    "output_bucket": "output_bucket",
-    "created_at": None,
-    "started_at": None,
-    "completed_at": None,
 }
 
+default_job = job_spec.copy()
+default_job.update(
+    {
+        "status_code": None,
+        "status_message": "",
+        "output_bucket": "output_bucket",
+        "created_at": None,
+        "started_at": None,
+        "completed_at": None,
+    }
+)
 
-class TestJobRunner:
-    def __init__(self, job):
-        self.job = job
+
+class TestJob:
+    def __init__(self, job_spec):
+        self.job_spec = job_spec
 
     def __repr__(self):
         return self.__class__.__name__
 
 
-class WorkingJobRunner(TestJobRunner):
+class WorkingJob(TestJob):
     def __call__(self):
-        return self.job
+        return self.job_spec
 
 
-class SlowJobRunner(TestJobRunner):
+class SlowJob(TestJob):
     def __call__(self):
         time.sleep(1)
-        return self.job
+        return self.job_spec
 
 
-class BrokenJobRunner(TestJobRunner):
+class BrokenJob(TestJob):
     def __call__(self):
         raise KeyError
 

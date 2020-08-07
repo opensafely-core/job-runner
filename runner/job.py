@@ -18,9 +18,9 @@ from runner.exceptions import InvalidRepo
 logger = getlogger(__name__)
 
 
-class JobRunner:
-    def __init__(self, job):
-        self.job = job
+class Job:
+    def __init__(self, job_spec):
+        self.job_spec = job_spec
         self.tmpdir = tempfile.TemporaryDirectory(
             dir=os.environ["HIGH_PRIVACY_STORAGE_BASE"]
         )
@@ -38,8 +38,8 @@ class JobRunner:
         self.fetch_study_source()
         self.validate_input_files()
         self.logger.info(f"Repo at {self.workdir} successfully validated")
-        self.job = parse_project_yaml(self.workdir, self.job)
-        self.logger.debug(f"Added runtime metadata to job")
+        self.job = parse_project_yaml(self.workdir, self.job_spec)
+        self.logger.debug(f"Added runtime metadata to job_spec")
         needs_run = False
         for output_name, output_filename in self.job.get("outputs", {}).items():
             expected_path = os.path.join(self.job["output_bucket"], output_filename)
@@ -88,7 +88,7 @@ class JobRunner:
         """An opaque string for use in logging to help trace events related to
         a specific job
         """
-        match = re.match(r".*/([0-9]+)/?$", self.job["url"])
+        match = re.match(r".*/([0-9]+)/?$", self.job_spec["url"])
         if match:
             return "job#" + match.groups()[0]
         else:
@@ -130,8 +130,8 @@ class JobRunner:
     def fetch_study_source(self):
         """Checkout source over Github API to a temporary location.
         """
-        repo = self.job["repo"]
-        branch_or_tag = self.job["tag"]
+        repo = self.job_spec["repo"]
+        branch_or_tag = self.job_spec["tag"]
         max_retries = 3
         self.logger = self.get_job_logger()
         for attempt in range(max_retries + 1):

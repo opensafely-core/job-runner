@@ -5,9 +5,9 @@ from runner.exceptions import OpenSafelyError
 from runner.exceptions import RepoNotFound
 from runner.main import watch
 from tests.common import test_job_list
-from tests.common import BrokenJobRunner
-from tests.common import SlowJobRunner
-from tests.common import WorkingJobRunner
+from tests.common import BrokenJob
+from tests.common import SlowJob
+from tests.common import WorkingJob
 
 import pytest
 
@@ -28,11 +28,11 @@ def test_watch_broken_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
-        watch("http://test.com/jobs/", loop=False, jobrunner=BrokenJobRunner)
+        watch("http://test.com/jobs/", loop=False, jobrunner=BrokenJob)
         assert adapter.request_history[0].json() == {"started": True}
         assert adapter.request_history[1].json() == {
             "status_code": 99,
-            "status_message": "Unclassified error id BrokenJobRunner",
+            "status_message": "Unclassified error id BrokenJob",
         }
 
 
@@ -40,7 +40,7 @@ def test_watch_working_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
-        watch("http://test.com/jobs/", loop=False, jobrunner=WorkingJobRunner)
+        watch("http://test.com/jobs/", loop=False, jobrunner=WorkingJob)
         assert adapter.request_history[0].json() == {"started": True}
         assert adapter.request_history[1].json() == {
             "output_bucket": "output_bucket",
@@ -54,11 +54,11 @@ def test_watch_timeout_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
-        watch("http://test.com/jobs/", loop=False, jobrunner=SlowJobRunner)
+        watch("http://test.com/jobs/", loop=False, jobrunner=SlowJob)
         assert adapter.request_history[0].json()["started"] is True
         assert adapter.request_history[1].json() == {
             "status_code": -1,
-            "status_message": "TimeoutError(86400s) id SlowJobRunner",
+            "status_message": "TimeoutError(86400s) id SlowJob",
         }
 
 

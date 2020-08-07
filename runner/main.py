@@ -12,7 +12,7 @@ from runner.exceptions import OpenSafelyError
 from runner.exceptions import DependencyRunning
 from runner.utils import get_auth
 from runner.utils import getlogger
-from runner.job import JobRunner
+from runner.job import Job
 
 
 HOUR = 60 * 60
@@ -24,7 +24,7 @@ baselogger = logging.LoggerAdapter(logger, {"job_id": "-"})
 
 def report_result(future):
     jobrunner = future.jobrunner
-    job = jobrunner.job
+    job_spec = jobrunner.job_spec
     joblogger = getattr(jobrunner, "logger", baselogger)
     id_message = f"id {jobrunner}"
     try:
@@ -43,7 +43,7 @@ def report_result(future):
         joblogger.info(f"Reported success to job server ({job['status_message']})")
     except TimeoutError as error:
         requests.patch(
-            job["url"],
+            job_spec["url"],
             json={
                 "status_code": -1,
                 "status_message": f"TimeoutError({COHORT_EXTRACTOR_TIMEOUT}s) {id_message}",
@@ -56,7 +56,7 @@ def report_result(future):
         joblogger.exception(error)
     except DependencyRunning as error:
         requests.patch(
-            job["url"],
+            job_spec["url"],
             json={
                 "status_code": error.status_code,
                 "started": False,
@@ -72,7 +72,7 @@ def report_result(future):
         )
     except OpenSafelyError as error:
         requests.patch(
-            job["url"],
+            job_spec["url"],
             json={
                 "status_code": error.status_code,
                 "status_message": f"{error.safe_details()} {id_message}",
@@ -90,7 +90,7 @@ def report_result(future):
         joblogger.exception(error)
     except Exception as error:
         requests.patch(
-            job["url"],
+            job_spec["url"],
             json={
                 "status_code": 99,
                 "status_message": f"Unclassified error {id_message}",
@@ -123,7 +123,7 @@ def watch(queue_endpoint, loop=True, jobrunner=None):
     adapter = HTTPAdapter(max_retries=retry)
     session.mount(queue_endpoint, adapter)
     if jobrunner is None:
-        jobrunner = JobRunner
+        jobrunner = Job
     with ProcessPool(max_tasks=50) as pool:
         while True:
             baselogger.debug(f"Polling {queue_endpoint}")
@@ -141,13 +141,13 @@ def watch(queue_endpoint, loop=True, jobrunner=None):
                 baselogger.exception("Connection error; sleeping for 15 mins")
                 time.sleep(60 * 15)
             result.raise_for_status()
-            jobs = result.json()
-            for job in jobs["results"]:
+            job_specs = result.json()
+            for job_spec in job_specs["results"]:
                 response = requests.patch(
-                    job["url"], json={"started": True}, auth=get_auth()
+                    job_spec["url"], json={"started": True}, auth=get_auth()
                 )
                 response.raise_for_status()
-                runner = jobrunner(job)
+                runner = jobrunner(job_spec)
                 future = pool.schedule(runner, (), timeout=6 * HOUR,)
                 future.jobrunner = runner
                 future.add_done_callback(report_result)

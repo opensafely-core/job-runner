@@ -101,7 +101,7 @@ def test_unstarted_dependency_exception(mock_env):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job = {
+    job_spec = {
         "operation": "run_model",
         "repo": "https://github.com/repo",
         "db": "full",
@@ -109,12 +109,12 @@ def test_unstarted_dependency_exception(mock_env):
         "workdir": "/workspace",
     }
     existing_unstarted_job = default_job.copy()
-    existing_unstarted_job.update(job)
+    existing_unstarted_job.update(job_spec)
     existing_unstarted_job["started"] = False
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list(job=existing_unstarted_job))
         with pytest.raises(DependencyNotFinished) as e:
-            parse_project_yaml(project_path, job)
+            parse_project_yaml(project_path, job_spec)
     assert (
         e.value.args[0]
         == "Not started because dependency `generate_cohorts` is waiting to start"
@@ -156,7 +156,7 @@ def test_started_dependency_exception(mock_container_exists, mock_env):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job = {
+    job_spec = {
         "operation": "run_model",
         "repo": "https://github.com/repo",
         "db": "full",
@@ -167,7 +167,7 @@ def test_started_dependency_exception(mock_container_exists, mock_env):
         m.get("/jobs/", json={"results": []})
         mock_container_exists.return_value = True
         with pytest.raises(DependencyNotFinished) as e:
-            parse_project_yaml(project_path, job)
+            parse_project_yaml(project_path, job_spec)
     assert (
         e.value.args[0]
         == "Not started because dependency `generate_cohorts` is currently running (as tmp-storage-highsecurity-repo-master-full)"
@@ -180,7 +180,7 @@ def test_project_dependency_no_exception(dummy_output_bucket, mock_env):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job = {
+    job_spec = {
         "operation": "run_model",
         "repo": "https://github.com/repo",
         "db": "full",
@@ -191,7 +191,7 @@ def test_project_dependency_no_exception(dummy_output_bucket, mock_env):
         dummy_output_bucket.return_value = d
         with open(os.path.join(d, "input.csv"), "w") as f:
             f.write("")
-        project = parse_project_yaml(project_path, job)
+        project = parse_project_yaml(project_path, job_spec)
         assert project["docker_invocation"] == [
             "--volume",
             f"{d}:{d}",
@@ -210,14 +210,14 @@ def test_operation_not_in_project(mock_env):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job = {
+    job_spec = {
         "operation": "do_the_twist",
         "repo": "https://github.com/repo",
         "db": "full",
         "tag": "master",
     }
     with pytest.raises(ProjectValidationError):
-        parse_project_yaml(project_path, job)
+        parse_project_yaml(project_path, job_spec)
 
 
 def test_duplicate_operation_in_project(mock_env):
@@ -226,7 +226,7 @@ def test_duplicate_operation_in_project(mock_env):
 
     """
     project_path = "tests/fixtures/invalid_project_1"
-    job = {
+    job_spec = {
         "operation": "run_model_1",
         "repo": "https://github.com/repo",
         "db": "full",
@@ -234,7 +234,7 @@ def test_duplicate_operation_in_project(mock_env):
         "workdir": "/workspace",
     }
     with pytest.raises(ProjectValidationError):
-        parse_project_yaml(project_path, job)
+        parse_project_yaml(project_path, job_spec)
 
 
 def test_invalid_run_in_project(mock_env):
@@ -243,7 +243,7 @@ def test_invalid_run_in_project(mock_env):
 
     """
     project_path = "tests/fixtures/invalid_project_2"
-    job = {
+    job_spec = {
         "operation": "run_model_1",
         "repo": "https://github.com/repo",
         "db": "full",
@@ -251,7 +251,7 @@ def test_invalid_run_in_project(mock_env):
         "workdir": "/workspace",
     }
     with pytest.raises(ProjectValidationError):
-        parse_project_yaml(project_path, job)
+        parse_project_yaml(project_path, job_spec)
 
 
 def test_valid_run_in_project(mock_env):
@@ -259,14 +259,14 @@ def test_valid_run_in_project(mock_env):
 
     """
     project_path = "tests/fixtures/simple_project_2"
-    job = {
+    job_spec = {
         "operation": "generate_cohort",
         "repo": "https://github.com/repo",
         "db": "full",
         "tag": "master",
         "workdir": "/workspace",
     }
-    project = parse_project_yaml(project_path, job)
+    project = parse_project_yaml(project_path, job_spec)
     assert project["docker_invocation"] == [
         "--volume",
         "/tmp/storage/highsecurity/repo-master-full:/tmp/storage/highsecurity/repo-master-full",
@@ -284,7 +284,7 @@ def test_project_output_missing_raises_exception(dummy_output_bucket, mock_env):
 
     """
     project_path = "tests/fixtures/invalid_project_3"
-    job = {
+    job_spec = {
         "operation": "run_model",
         "repo": "https://github.com/repo",
         "db": "full",
@@ -296,7 +296,7 @@ def test_project_output_missing_raises_exception(dummy_output_bucket, mock_env):
         with open(os.path.join(d, "input.csv"), "w") as f:
             f.write("")
         with pytest.raises(ProjectValidationError):
-            parse_project_yaml(project_path, job)
+            parse_project_yaml(project_path, job_spec)
 
 
 @patch("runner.project.make_path")
@@ -305,7 +305,7 @@ def test_bad_variable_path_raises_exception(dummy_output_bucket, mock_env):
 
     """
     project_path = "tests/fixtures/invalid_project_4"
-    job = {
+    job_spec = {
         "operation": "run_model",
         "repo": "https://github.com/repo",
         "db": "full",
@@ -317,7 +317,7 @@ def test_bad_variable_path_raises_exception(dummy_output_bucket, mock_env):
         with open(os.path.join(d, "input.csv"), "w") as f:
             f.write("")
         with pytest.raises(ProjectValidationError):
-            parse_project_yaml(project_path, job)
+            parse_project_yaml(project_path, job_spec)
 
 
 @patch("runner.project.make_path")
@@ -326,7 +326,7 @@ def test_bad_version_raises_exception(dummy_output_bucket, mock_env):
 
     """
     project_path = "tests/fixtures/invalid_project_5"
-    job = {
+    job_spec = {
         "operation": "extract",
         "repo": "https://github.com/repo",
         "db": "full",
@@ -334,7 +334,7 @@ def test_bad_version_raises_exception(dummy_output_bucket, mock_env):
         "workdir": "/workspace",
     }
     with pytest.raises(ProjectValidationError):
-        parse_project_yaml(project_path, job)
+        parse_project_yaml(project_path, job_spec)
 
 
 def xtest_job_runner_docker_container_exists(mock_env):
