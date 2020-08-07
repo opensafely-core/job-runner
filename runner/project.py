@@ -267,17 +267,16 @@ def interpolate_variables(args, dependency_actions):
 def split_and_format_run_command(run_command):
     """A `run` command is in the form of `run_token:optional_version [args]`.
 
-    Split this into its constituent parts, with the arguments
-    shell-escaped, and any substitution tokens normalized and escaped
-    for later parsing and formatting.
+    Shell-split this into its constituent parts, with any substitution
+    tokens normalized and escaped for later parsing and formatting.
 
     """
     for v in variables_in_string(run_command):
         # Remove spaces to prevent shell escaping from thinking these
         # are different tokens
         run_command = run_command.replace(v, v.replace(" ", ""))
-        # Escape braces to prevent python `format()` from dropping
-        # doubled braces
+        # Escape braces to prevent python `format()` from coverting
+        # doubled braces in single ones
         run_command = escape_braces(run_command)
 
     parts = shlex.split(run_command)
