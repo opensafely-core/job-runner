@@ -32,7 +32,7 @@ def test_make_volume_name():
     )
 
 
-def test_bad_volume_name_raises():
+def test_bad_volume_name_is_corrected():
     bad_name = "/badname"
     assert make_container_name(bad_name) == "badname"
 
