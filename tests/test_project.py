@@ -79,12 +79,11 @@ def test_never_started_dependency_exception(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json={"results": []})
         adapter = m.post("/jobs/")
-        with pytest.raises(DependencyNotFinished) as e:
+        with pytest.raises(
+            DependencyNotFinished,
+            match=r"Not started because dependency `generate_cohorts` has been added to the job queue",
+        ):
             parse_project_yaml(project_path, job)
-    assert (
-        e.value.args[0]
-        == "Not started because dependency `generate_cohorts` has been added to the job queue"
-    )
     assert adapter.request_history[0].json() == {
         "backend": "tpp",
         "callback_url": None,
@@ -113,12 +112,11 @@ def test_unstarted_dependency_exception(mock_env):
     existing_unstarted_job["started"] = False
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list(job=existing_unstarted_job))
-        with pytest.raises(DependencyNotFinished) as e:
+        with pytest.raises(
+            DependencyNotFinished,
+            match=r"Not started because dependency `generate_cohorts` is waiting to start",
+        ):
             parse_project_yaml(project_path, job_spec)
-    assert (
-        e.value.args[0]
-        == "Not started because dependency `generate_cohorts` is waiting to start"
-    )
 
 
 def test_failed_dependency_exception(mock_env):
@@ -142,12 +140,11 @@ def test_failed_dependency_exception(mock_env):
     existing_failed_job["status_code"] = 1
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list(job=existing_failed_job))
-        with pytest.raises(DependencyNotFinished) as e:
+        with pytest.raises(
+            DependencyNotFinished,
+            match=r"Dependency `generate_cohorts` failed, so unable to run this operation",
+        ):
             parse_project_yaml(project_path, job_requested)
-    assert (
-        e.value.args[0]
-        == "Dependency `generate_cohorts` failed, so unable to run this operation"
-    )
 
 
 @patch("runner.project.docker_container_exists")
@@ -166,12 +163,11 @@ def test_started_dependency_exception(mock_container_exists, mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json={"results": []})
         mock_container_exists.return_value = True
-        with pytest.raises(DependencyNotFinished) as e:
+        with pytest.raises(
+            DependencyNotFinished,
+            match=r"Not started because dependency `generate_cohorts` is currently running \(as tmp-storage-highsecurity-repo-master-full\)",
+        ):
             parse_project_yaml(project_path, job_spec)
-    assert (
-        e.value.args[0]
-        == "Not started because dependency `generate_cohorts` is currently running (as tmp-storage-highsecurity-repo-master-full)"
-    )
 
 
 @patch("runner.project.make_path")
