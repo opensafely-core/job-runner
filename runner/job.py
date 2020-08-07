@@ -34,7 +34,6 @@ class Job:
 
     def run(self):
         self.logger.info(f"Starting job")
-        os.chdir(self.workdir)
         self.fetch_study_source()
         self.validate_input_files()
         self.logger.info(f"Repo at {self.workdir} successfully validated")
@@ -114,7 +113,6 @@ class Job:
             f"{self.workdir}:/workspace",
         ] + self.job["docker_invocation"]
 
-        os.chdir(self.workdir)
         self.logger.info("Running subdocker cmd `%s` in %s", cmd, self.workdir)
         result = subprocess.run(cmd, capture_output=True, encoding="utf8")
         if result.returncode == 0:
