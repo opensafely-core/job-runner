@@ -108,7 +108,6 @@ class Job:
         repo = self.job_spec["repo"]
         branch_or_tag = self.job_spec["tag"]
         max_retries = 3
-        self.logger = self.get_job_logger()
         # We use URL-based authentication to access private repos
         # (q.v. `add_github_auth_to_repo`, above).
         #
