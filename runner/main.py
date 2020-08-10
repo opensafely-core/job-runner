@@ -138,8 +138,9 @@ def watch(queue_endpoint, loop=True, jobrunner=None):
                     auth=get_auth(),
                 )
             except requests.exceptions.ConnectionError:
-                baselogger.exception("Connection error; sleeping for 15 mins")
-                time.sleep(60 * 15)
+                baselogger.exception("Connection error; sleeping for 30 seconds")
+                time.sleep(30)
+                continue
             result.raise_for_status()
             job_specs = result.json()
             for job_spec in job_specs["results"]:
