@@ -149,7 +149,7 @@ def watch(queue_endpoint, loop=True, jobrunner=None):
                 )
                 response.raise_for_status()
                 runner = jobrunner(job_spec)
-                future = pool.schedule(runner, (), timeout=6 * HOUR,)
+                future = pool.schedule(runner, (), timeout=24 * HOUR,)
                 future.jobrunner = runner
                 future.add_done_callback(report_result)
             if loop:
