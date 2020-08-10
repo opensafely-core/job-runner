@@ -330,7 +330,7 @@ def add_runtime_metadata(
     if version:
         docker_invocation[0] = docker_invocation[0] + ":" + version
 
-    action["output_bucket"] = make_path(
+    action["output_bucket"] = make_output_bucket(
         repo=repo, tag=tag, db=db, privacy_level=info["output_privacy_level"]
     )
     action["container_name"] = make_container_name(action["output_bucket"])
@@ -421,7 +421,7 @@ def parse_project_yaml(workdir, job_spec):
     return job_config
 
 
-def make_path(repo=None, tag=None, db=None, privacy_level=None):
+def make_output_bucket(repo=None, tag=None, db=None, privacy_level=None):
     """Make a path in a location appropriate to the privacy level,
     using state (as represented by the other keyword args) as a unique
     key

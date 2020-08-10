@@ -168,7 +168,7 @@ def test_started_dependency_exception(mock_container_exists, mock_env):
             parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.project.make_path")
+@patch("runner.project.make_output_bucket")
 def test_project_dependency_no_exception(dummy_output_bucket, mock_env):
     """Do complete dependencies not raise an exception?
 
@@ -265,7 +265,7 @@ def test_valid_run_in_project(mock_env):
     ]
 
 
-@patch("runner.project.make_path")
+@patch("runner.project.make_output_bucket")
 def test_project_output_missing_raises_exception(dummy_output_bucket, mock_env):
     """Do user-supplied variables that reference non-existent outputs
     raise an exception?
@@ -287,7 +287,7 @@ def test_project_output_missing_raises_exception(dummy_output_bucket, mock_env):
             parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.project.make_path")
+@patch("runner.project.make_output_bucket")
 def test_bad_variable_path_raises_exception(dummy_output_bucket, mock_env):
     """Do complete dependencies not raise an exception?
 
@@ -308,7 +308,7 @@ def test_bad_variable_path_raises_exception(dummy_output_bucket, mock_env):
             parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.project.make_path")
+@patch("runner.project.make_output_bucket")
 def test_bad_version_raises_exception(dummy_output_bucket, mock_env):
     """Do complete dependencies not raise an exception?
 
@@ -325,7 +325,7 @@ def test_bad_version_raises_exception(dummy_output_bucket, mock_env):
         parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.project.make_path")
+@patch("runner.project.make_output_bucket")
 def test_invalid_output_file_raises_exception(dummy_output_bucket, mock_env):
     """Do complete dependencies not raise an exception?
 
