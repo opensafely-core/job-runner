@@ -23,14 +23,14 @@ baselogger = logging.LoggerAdapter(logger, {"job_id": "-"})
 
 
 def report_result(future):
+    """A pebble callback that is called when results are ready *or* there's an error
+    """
     jobrunner = future.jobrunner
     job_spec = jobrunner.job_spec
     joblogger = getattr(jobrunner, "logger", baselogger)
     id_message = f"id {jobrunner}"
     try:
-        job = future.result(
-            timeout=COHORT_EXTRACTOR_TIMEOUT
-        )  # blocks until results are ready
+        job = future.result()
         requests.patch(
             job["url"],
             json={
