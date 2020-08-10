@@ -110,7 +110,7 @@ def docker_container_exists(container_name):
     return result.stdout != ""
 
 
-def raise_if_unfinished(action):
+def start_dependent_jobs_or_raise_if_unfinished(action):
     """Does the target output file for this job exist?  If not, raise an
     exception to prevent this action from starting.
 
@@ -392,7 +392,7 @@ def parse_project_yaml(workdir, job_spec):
         # Adds docker_invocation, docker_exception, privacy_level, and
         # output_bucket to the config
         action = add_runtime_metadata(project_actions[action_id], **job_config)
-        raise_if_unfinished(action)
+        start_dependent_jobs_or_raise_if_unfinished(action)
         dependency_actions[action_id] = action
 
     # Now interpolate user-provided variables into docker
