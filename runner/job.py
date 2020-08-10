@@ -103,7 +103,7 @@ class Job:
             self.logger.info("Copied output to %s", target_path)
 
     def fetch_study_source(self):
-        """Checkout source over Github API to a temporary location.
+        """Checkout source to a temporary location.
         """
         repo = self.job_spec["repo"]
         branch_or_tag = self.job_spec["tag"]
