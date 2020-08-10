@@ -246,8 +246,9 @@ def load_and_validate_project(workdir):
 
 
 def interpolate_variables(args, dependency_actions):
-    """Given a list of arguments, interpolate variables using a dotted
-    lookup against the supplied dependencies dictionary
+    """Given a list of arguments, each a single string token, replace any
+    that are variables using a dotted lookup against the supplied
+    dependencies dictionary
 
     """
     interpolated_args = []
@@ -258,18 +259,21 @@ def interpolate_variables(args, dependency_actions):
                 # at this point, the command string has been
                 # shell-split into separate tokens, so there is only
                 # ever a single variable to interpolate
-                _, action_id, outputs_key, output_id = variables[0].split(".")
+                _, action_id, variable_kind, variable_id = variables[0].split(".")
                 dependency_action = dependency_actions[action_id]
-                dependency_outputs = dependency_action[outputs_key]
-                filename = dependency_outputs[output_id]
+                dependency_outputs = dependency_action[variable_kind]
+                filename = dependency_outputs[variable_id]
+                if variable_kind == "outputs":
+                    # When copying outputs into the workspace, we
+                    # namespace them by action_id, to avoid filename
+                    # clashes
+                    arg = f"{action_id}_{filename}"
+                else:
+                    arg = filename
             except (KeyError, ValueError):
                 raise ProjectValidationError(
                     f"No output corresponding to {arg} was found", report_args=True
                 )
-            assert isinstance(
-                filename, str
-            ), f"Could not find a string value for {filename}"
-            arg = os.path.join(dependency_action["output_bucket"], filename)
         interpolated_args.append(arg)
     return interpolated_args
 
@@ -326,23 +330,10 @@ def add_runtime_metadata(
     if version:
         docker_invocation[0] = docker_invocation[0] + ":" + version
 
-    # Every action has an output path; all but those operating
-    # directly on the backend also have an input path
-    extra_mounts = [
-        "--volume",
-        "{output_bucket}:{output_bucket}",
-    ]
     action["output_bucket"] = make_path(
         repo=repo, tag=tag, db=db, privacy_level=info["output_privacy_level"]
     )
     action["container_name"] = make_container_name(action["output_bucket"])
-
-    if info["input_privacy_level"]:
-        extra_mounts.extend(["--volume", "{input_path}:{input_path}"])
-        action["input_path"] = make_path(
-            repo=repo, tag=tag, db=db, privacy_level=info["input_privacy_level"]
-        )
-    docker_invocation = extra_mounts + docker_invocation
     action["docker_exception"] = info["docker_exception"]
 
     # Interpolate action dictionary into argument template
@@ -355,6 +346,25 @@ def add_runtime_metadata(
     action["tag"] = tag
     action["needed_by"] = operation
     return action
+
+
+def get_namespaced_outputs_from_dependencies(dependency_actions):
+    """Given a list of dependencies, construct a dictionary that
+    represents all the files these dependencies are expected to
+    output. To avoid filename clashes, these are namespaced by the
+    action that outputs the file.
+
+    """
+    inputs = {}
+    for dependency in dependency_actions.values():
+        for output_file in dependency["outputs"].values():
+            # Namespace the output file with the action id, so that
+            # copying files *into* the workspace doesn't overwrite
+            # anything
+            inputs[f"{dependency['action_id']}_{output_file}"] = os.path.join(
+                dependency["output_bucket"], output_file
+            )
+    return inputs
 
 
 def parse_project_yaml(workdir, job_spec):
@@ -404,6 +414,9 @@ def parse_project_yaml(workdir, job_spec):
     job_action["docker_invocation"] = interpolate_variables(
         job_action["docker_invocation"], dependency_actions
     )
+    job_action["namespaced_inputs"] = get_namespaced_outputs_from_dependencies(
+        dependency_actions
+    )
     job_config.update(job_action)
     return job_config
 
@@ -415,14 +428,6 @@ def make_path(repo=None, tag=None, db=None, privacy_level=None):
 
     """
     volume_name = make_volume_name(repo, tag, db)
-    # When running this within a docker container, the storage base
-    # should be a volume mounted from the docker host; e.g. if the
-    # storage base is /mnt/high_privacy, then docker should be started
-    # with the option `--volume /mnt/high_privacy:/mnt/high_privacy`.
-    #
-    # This allows us to contruct an `output_bucket` value which can be
-    # shared directly between a docker host, and a
-    # docker-within-docker.
     if privacy_level == PRIVACY_LEVEL_HIGH:
         storage_base = Path(os.environ["HIGH_PRIVACY_STORAGE_BASE"])
     elif privacy_level == PRIVACY_LEVEL_MEDIUM:

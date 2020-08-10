@@ -53,8 +53,6 @@ def test_job_to_project_nodeps(mock_env):
 
     project = parse_project_yaml(project_path, job)
     assert project["docker_invocation"] == [
-        "--volume",
-        "/tmp/storage/highsecurity/repo-master-full:/tmp/storage/highsecurity/repo-master-full",
         "docker.opensafely.org/cohort-extractor:0.5.2",
         "generate_cohort",
         "--output-dir=/workspace",
@@ -189,13 +187,9 @@ def test_project_dependency_no_exception(dummy_output_bucket, mock_env):
             f.write("")
         project = parse_project_yaml(project_path, job_spec)
         assert project["docker_invocation"] == [
-            "--volume",
-            f"{d}:{d}",
-            "--volume",
-            f"{d}:{d}",
             "docker.opensafely.org/stata-mp:1.0",
             "analysis/model.do",
-            f"{d}/input.csv",
+            f"generate_cohorts_input.csv",
         ]
         assert project["outputs"]["log"] == "model.log"
 
@@ -264,8 +258,6 @@ def test_valid_run_in_project(mock_env):
     }
     project = parse_project_yaml(project_path, job_spec)
     assert project["docker_invocation"] == [
-        "--volume",
-        "/tmp/storage/highsecurity/repo-master-full:/tmp/storage/highsecurity/repo-master-full",
         "docker.opensafely.org/cohort-extractor:0.5.2",
         "generate_cohort",
         "--output-dir=/workspace",

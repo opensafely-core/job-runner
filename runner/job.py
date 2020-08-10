@@ -74,6 +74,12 @@ class Job:
         return logging.LoggerAdapter(logger, {"job_id": repr(self)})
 
     def invoke_docker(self):
+        # Copy expected input files into workdir
+        for input_name, input_path in self.job.get("namespaced_inputs", []).items():
+            target_path = os.path.join(self.workdir, input_name)
+            shutil.move(input_path, target_path)
+            self.logger.info("Copied input to %s", target_path)
+
         cmd = [
             "docker",
             "run",
@@ -96,7 +102,8 @@ class Job:
             self.logger.info("subdocker stdout: %s", result.stdout)
         else:
             raise self.job["docker_exception"](result.stderr, report_args=False)
-        # Copy outputs to the expected location
+
+        # Copy expected outputs to the appropriate location
         for output_name, output_filename in self.job.get("outputs", {}).items():
             target_path = safe_join(self.job["output_bucket"], output_filename)
             shutil.move(os.path.join(self.workdir, output_filename), target_path)
