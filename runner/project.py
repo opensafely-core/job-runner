@@ -75,7 +75,9 @@ def get_latest_matching_job_from_queue(
         "operation": action_id,
         "limit": 1,
     }
-    response = requests.get(os.environ["JOB_SERVER_ENDPOINT"], params=job)
+    response = requests.get(
+        os.environ["JOB_SERVER_ENDPOINT"], params=job, auth=get_auth()
+    )
     response.raise_for_status()
     results = response.json()["results"]
     return results[0] if results else None
