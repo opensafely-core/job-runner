@@ -194,7 +194,7 @@ def load_and_validate_project(workdir):
     """Check that a dictionary of project actions is valid
     """
     with open(os.path.join(workdir, "project.yaml"), "r") as f:
-        project = yaml.load(f, Loader=yaml.Loader)
+        project = yaml.safe_load(f)
 
     expected_version = project.get("version", None)
     if expected_version != "1.0":
