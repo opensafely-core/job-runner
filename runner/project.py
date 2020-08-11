@@ -8,15 +8,13 @@ import shlex
 import subprocess
 import yaml
 
-from pathlib import Path
-from urllib.parse import urlparse
 
 from runner.exceptions import CohortExtractorError
 from runner.exceptions import DependencyFailed
 from runner.exceptions import DependencyRunning
-from runner.exceptions import OpenSafelyError
 from runner.exceptions import ProjectValidationError
 from runner.exceptions import ScriptError
+from runner.utils import all_output_paths_for_action
 from runner.utils import getlogger
 from runner.utils import get_auth
 from runner.utils import safe_join
@@ -34,8 +32,6 @@ PRIVACY_LEVEL_MEDIUM = 4
 # jobs
 RUN_COMMANDS_CONFIG = {
     "cohortextractor": {
-        "input_privacy_level": None,
-        "output_privacy_level": PRIVACY_LEVEL_HIGH,
         "docker_invocation": [
             "docker.opensafely.org/cohort-extractor",
             "generate_cohort",
@@ -44,24 +40,10 @@ RUN_COMMANDS_CONFIG = {
         "docker_exception": CohortExtractorError,
     },
     "stata-mp": {
-        "input_privacy_level": PRIVACY_LEVEL_HIGH,
-        "output_privacy_level": PRIVACY_LEVEL_MEDIUM,
         "docker_invocation": ["docker.opensafely.org/stata-mp"],
         "docker_exception": ScriptError,
     },
 }
-
-
-def make_volume_name(repo, branch_or_tag, db_flavour):
-    """Create a string suitable for naming a folder that will contain
-    data, using state related to the current job as a unique key.
-
-    """
-    repo_name = urlparse(repo).path[1:]
-    if repo_name.endswith("/"):
-        repo_name = repo_name[:-1]
-    repo_name = repo_name.split("/")[-1]
-    return repo_name + "-" + branch_or_tag + "-" + db_flavour
 
 
 def get_latest_matching_job_from_queue(
@@ -112,59 +94,59 @@ def docker_container_exists(container_name):
     return result.stdout != ""
 
 
-def start_dependent_jobs_or_raise_if_unfinished(action):
-    """Does the target output file for this job exist?  If not, raise an
-    exception to prevent this action from starting.
+def start_dependent_job_or_raise_if_unfinished(dependency_action):
+    """Do the target output files for this job exist?  If not, raise an
+    exception to prevent the dependent job from starting.
 
     `DependencyRunning` exceptions have special handling in the main
-    loop so the job can be retried as necessary
+    loop so the dependent job can be retried as necessary
 
     """
-    for output_name, output_filename in action.get("outputs", {}).items():
-        expected_path = os.path.join(action["output_bucket"], output_filename)
-        if os.path.exists(expected_path):
-            continue
+    if not needs_run(dependency_action):
+        return
 
-        if docker_container_exists(action["container_name"]):
-            raise DependencyRunning(
-                f"Not started because dependency `{action['action_id']}` is currently running (as {action['container_name']})",
-                report_args=True,
-            )
-
-        dependency_status = get_latest_matching_job_from_queue(**action)
-        baselogger.info(
-            "Got job %s from queue to match %s", dependency_status, action["action_id"],
+    if docker_container_exists(dependency_action["container_name"]):
+        raise DependencyRunning(
+            f"Not started because dependency `{dependency_action['action_id']}` is currently running (as {dependency_action['container_name']})",
+            report_args=True,
         )
-        if dependency_status:
-            if dependency_status["completed_at"]:
-                if dependency_status["status_code"] == 0:
-                    new_job = push_dependency_job_from_action_to_queue(action)
-                    raise DependencyRunning(
-                        f"Not started because dependency `{action['action_id']}` has been added to the job queue at {new_job['url']} as its previous output can no longer be found",
-                        report_args=True,
-                    )
-                else:
-                    raise DependencyFailed(
-                        f"Dependency `{action['action_id']}` failed, so unable to run this operation",
-                        report_args=True,
-                    )
 
-            elif dependency_status["started"]:
+    dependency_status = get_latest_matching_job_from_queue(**dependency_action)
+    baselogger.info(
+        "Got job %s from queue to match %s",
+        dependency_status,
+        dependency_action["action_id"],
+    )
+    if dependency_status:
+        if dependency_status["completed_at"]:
+            if dependency_status["status_code"] == 0:
+                new_job = push_dependency_job_from_action_to_queue(dependency_action)
                 raise DependencyRunning(
-                    f"Not started because dependency `{action['action_id']}` is just about to start",
+                    f"Not started because dependency `{dependency_action['action_id']}` has been added to the job queue at {new_job['url']} as its previous output can no longer be found",
                     report_args=True,
                 )
             else:
-                raise DependencyRunning(
-                    f"Not started because dependency `{action['action_id']}` is waiting to start",
+                raise DependencyFailed(
+                    f"Dependency `{dependency_action['action_id']}` failed, so unable to run this operation",
                     report_args=True,
                 )
-        # To reach this point, the job has never been run
-        push_dependency_job_from_action_to_queue(action)
-        raise DependencyRunning(
-            f"Not started because dependency `{action['action_id']}` has been added to the job queue",
-            report_args=True,
-        )
+
+        elif dependency_status["started"]:
+            raise DependencyRunning(
+                f"Not started because dependency `{dependency_action['action_id']}` is just about to start",
+                report_args=True,
+            )
+        else:
+            raise DependencyRunning(
+                f"Not started because dependency `{dependency_action['action_id']}` is waiting to start",
+                report_args=True,
+            )
+
+    push_dependency_job_from_action_to_queue(dependency_action)
+    raise DependencyRunning(
+        f"Not started because dependency `{dependency_action['action_id']}` has been added to the job queue",
+        report_args=True,
+    )
 
 
 def escape_braces(unescaped_string):
@@ -214,11 +196,24 @@ def load_and_validate_project(workdir):
             raise ProjectValidationError(
                 f"{name} must have a version specified (e.g. {name}:0.5.2)"
             )
-        for output_id, filename in action_config["outputs"].items():
-            try:
-                safe_join(workdir, filename)
-            except AssertionError:
-                raise ProjectValidationError(f"Output path {filename} is not permitted")
+        for privacy_level, output in action_config["outputs"].items():
+            permitted_privacy_levels = [
+                "highly_sensitive",
+                "moderately_sensitive",
+                "minimally_sensitive",
+            ]
+            if privacy_level not in permitted_privacy_levels:
+                raise ProjectValidationError(
+                    f"{privacy_level} is not valid (must be one of {', '.join(permitted_privacy_levels)})"
+                )
+
+            for output_id, filename in output.items():
+                try:
+                    safe_join(workdir, filename)
+                except AssertionError:
+                    raise ProjectValidationError(
+                        f"Output path {filename} is not permitted"
+                    )
         # Check the run command + args signature appears only once in
         # a project
         run_signature = f"{name}_{args}"
@@ -233,7 +228,7 @@ def load_and_validate_project(workdir):
                     f"Unsupported variable {v}", report_args=True
                 )
             try:
-                _, action_id, outputs_key, output_id = v.split(".")
+                _, action_id, outputs_key, privacy_level, output_id = v.split(".")
                 if outputs_key != "outputs":
                     raise ProjectValidationError(
                         f"Unable to find variable {v}", report_args=True
@@ -259,10 +254,13 @@ def interpolate_variables(args, dependency_actions):
                 # at this point, the command string has been
                 # shell-split into separate tokens, so there is only
                 # ever a single variable to interpolate
-                _, action_id, variable_kind, variable_id = variables[0].split(".")
+                _, action_id, variable_kind, privacy_level, variable_id = variables[
+                    0
+                ].split(".")
                 dependency_action = dependency_actions[action_id]
                 dependency_outputs = dependency_action[variable_kind]
-                filename = dependency_outputs[variable_id]
+                privacy_level = dependency_outputs[privacy_level]
+                filename = privacy_level[variable_id]
                 if variable_kind == "outputs":
                     # When copying outputs into the workspace, we
                     # namespace them by action_id, to avoid filename
@@ -311,7 +309,7 @@ def add_runtime_metadata(
     permitted, and return how it should be invoked for `docker run`
 
     Adds docker_invocation, docker_exception, privacy_level,
-    database_url, container_name, and output_bucket to the `action` dict.
+    database_url, and container_name to the `action` dict.
 
     """
     action = copy.deepcopy(action)
@@ -329,11 +327,9 @@ def add_runtime_metadata(
     docker_invocation = info["docker_invocation"]
     if version:
         docker_invocation[0] = docker_invocation[0] + ":" + version
-
-    action["output_bucket"] = make_output_bucket(
-        repo=repo, tag=tag, db=db, privacy_level=info["output_privacy_level"]
+    action["container_name"] = make_container_name(
+        f"{repo}{db}{tag}{action['outputs']}"
     )
-    action["container_name"] = make_container_name(action["output_bucket"])
     action["docker_exception"] = info["docker_exception"]
 
     # Interpolate action dictionary into argument template
@@ -344,6 +340,10 @@ def add_runtime_metadata(
     action["repo"] = repo
     action["db"] = db
     action["tag"] = tag
+    action["output_locations"] = [
+        {"privacy_level": privacy_level, "name": name, "location": path}
+        for privacy_level, name, path in all_output_paths_for_action(action)
+    ]
     action["needed_by"] = operation
     return action
 
@@ -357,13 +357,12 @@ def get_namespaced_outputs_from_dependencies(dependency_actions):
     """
     inputs = {}
     for dependency in dependency_actions.values():
-        for output_file in dependency["outputs"].values():
+        for _, _, output_path in all_output_paths_for_action(dependency):
             # Namespace the output file with the action id, so that
             # copying files *into* the workspace doesn't overwrite
             # anything
-            inputs[f"{dependency['action_id']}_{output_file}"] = os.path.join(
-                dependency["output_bucket"], output_file
-            )
+            filename = os.path.basename(output_path)
+            inputs[f"{dependency['action_id']}_{filename}"] = output_path
     return inputs
 
 
@@ -404,7 +403,7 @@ def parse_project_yaml(workdir, job_spec):
         # Adds docker_invocation, docker_exception, privacy_level, and
         # output_bucket to the config
         action = add_runtime_metadata(project_actions[action_id], **job_config)
-        start_dependent_jobs_or_raise_if_unfinished(action)
+        start_dependent_job_or_raise_if_unfinished(action)
         dependency_actions[action_id] = action
 
     # Now interpolate user-provided variables into docker
@@ -421,28 +420,16 @@ def parse_project_yaml(workdir, job_spec):
     return job_config
 
 
-def make_output_bucket(repo=None, tag=None, db=None, privacy_level=None):
-    """Make a path in a location appropriate to the privacy level,
-    using state (as represented by the other keyword args) as a unique
-    key
+def needs_run(action):
+    return not all(
+        os.path.exists(path) for _, _, path in all_output_paths_for_action(action)
+    )
 
+
+def make_container_name(input_string):
+    """Convert `input_string` to a valid docker container name
     """
-    volume_name = make_volume_name(repo, tag, db)
-    if privacy_level == PRIVACY_LEVEL_HIGH:
-        storage_base = Path(os.environ["HIGH_PRIVACY_STORAGE_BASE"])
-    elif privacy_level == PRIVACY_LEVEL_MEDIUM:
-        storage_base = Path(os.environ["MEDIUM_PRIVACY_STORAGE_BASE"])
-    else:
-        raise OpenSafelyError("Unsupported privacy level")
-    output_bucket = storage_base / volume_name
-    output_bucket.mkdir(parents=True, exist_ok=True)
-    return str(output_bucket)
-
-
-def make_container_name(volume_name):
-    # By basing the container name to the volume_name, we are
-    # guaranteeing only one identical job can run at once by docker
-    container_name = re.sub(r"[^a-zA-Z0-9]", "-", volume_name)
+    container_name = re.sub(r"[^a-zA-Z0-9]", "-", input_string)
     # Remove any leading dashes, as docker requires images begin with [:alnum:]
     if container_name.startswith("-"):
         container_name = container_name[1:]

@@ -14,7 +14,7 @@ default_job.update(
     {
         "status_code": None,
         "status_message": "",
-        "output_bucket": "output_bucket",
+        "outputs": [],
         "created_at": None,
         "started_at": None,
         "completed_at": None,

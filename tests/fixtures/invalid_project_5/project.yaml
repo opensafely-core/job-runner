@@ -6,4 +6,5 @@ actions:
   extract:
     run: cohortextractor --database-url={database_url}
     outputs:
-      cohort: input.csv
+      highly_sensitive:
+        cohort: input.csv

@@ -8,4 +8,5 @@ actions:
   generate_cohort:
     run: cohortextractor:0.5.2 --database-url={database_url}
     outputs:
-      cohort: input.csv
+      highly_sensitive:
+        cohort: input.csv

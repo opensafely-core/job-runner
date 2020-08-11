@@ -43,7 +43,7 @@ def test_watch_working_job(mock_env):
         watch("http://test.com/jobs/", loop=False, jobrunner=WorkingJob)
         assert adapter.request_history[0].json() == {"started": True}
         assert adapter.request_history[1].json() == {
-            "output_bucket": "output_bucket",
+            "outputs": [],
             "status_code": 0,
             "status_message": "",
         }

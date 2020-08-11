@@ -8,7 +8,7 @@ import requests_mock
 
 from runner.project import docker_container_exists
 from runner.project import make_container_name
-from runner.project import make_volume_name
+from runner.utils import make_volume_name
 from runner.project import parse_project_yaml
 from runner.exceptions import DependencyNotFinished
 from runner.exceptions import ProjectValidationError
@@ -58,7 +58,7 @@ def test_job_to_project_nodeps(mock_env):
         "--output-dir=/workspace",
         "--database-url=sqlite:///test.db",
     ]
-    assert project["outputs"]["cohort"] == "input.csv"
+    assert project["outputs"]["highly_sensitive"]["cohort"] == "input.csv"
 
 
 def test_never_started_dependency_exception(mock_env):
@@ -163,13 +163,13 @@ def test_started_dependency_exception(mock_container_exists, mock_env):
         mock_container_exists.return_value = True
         with pytest.raises(
             DependencyNotFinished,
-            match=r"Not started because dependency `generate_cohorts` is currently running \(as tmp-storage-highsecurity-repo-master-full\)",
+            match=r"Not started because dependency `generate_cohorts` is currently running",
         ):
             parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.project.make_output_bucket")
-def test_project_dependency_no_exception(dummy_output_bucket, mock_env):
+@patch("runner.utils.make_output_path")
+def test_project_dependency_no_exception(dummy_output_path, mock_env):
     """Do complete dependencies not raise an exception?
 
     """
@@ -182,8 +182,9 @@ def test_project_dependency_no_exception(dummy_output_bucket, mock_env):
         "workdir": "/workspace",
     }
     with tempfile.TemporaryDirectory() as d:
-        dummy_output_bucket.return_value = d
-        with open(os.path.join(d, "input.csv"), "w") as f:
+        mock_output_filename = os.path.join(d, "input.csv")
+        dummy_output_path.return_value = mock_output_filename
+        with open(mock_output_filename, "w") as f:
             f.write("")
         project = parse_project_yaml(project_path, job_spec)
         assert project["docker_invocation"] == [
@@ -191,7 +192,7 @@ def test_project_dependency_no_exception(dummy_output_bucket, mock_env):
             "analysis/model.do",
             f"generate_cohorts_input.csv",
         ]
-        assert project["outputs"]["log"] == "model.log"
+        assert project["outputs"]["moderately_sensitive"]["log"] == "model.log"
 
 
 def test_operation_not_in_project(mock_env):
@@ -265,8 +266,8 @@ def test_valid_run_in_project(mock_env):
     ]
 
 
-@patch("runner.project.make_output_bucket")
-def test_project_output_missing_raises_exception(dummy_output_bucket, mock_env):
+@patch("runner.utils.make_output_path")
+def test_project_output_missing_raises_exception(dummy_output_path, mock_env):
     """Do user-supplied variables that reference non-existent outputs
     raise an exception?
 
@@ -280,15 +281,15 @@ def test_project_output_missing_raises_exception(dummy_output_bucket, mock_env):
         "workdir": "/workspace",
     }
     with tempfile.TemporaryDirectory() as d:
-        dummy_output_bucket.return_value = d
+        dummy_output_path.return_value = d
         with open(os.path.join(d, "input.csv"), "w") as f:
             f.write("")
         with pytest.raises(ProjectValidationError):
             parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.project.make_output_bucket")
-def test_bad_variable_path_raises_exception(dummy_output_bucket, mock_env):
+@patch("runner.utils.make_output_path")
+def test_bad_variable_path_raises_exception(dummy_output_path, mock_env):
     """Do complete dependencies not raise an exception?
 
     """
@@ -301,15 +302,15 @@ def test_bad_variable_path_raises_exception(dummy_output_bucket, mock_env):
         "workdir": "/workspace",
     }
     with tempfile.TemporaryDirectory() as d:
-        dummy_output_bucket.return_value = d
+        dummy_output_path.return_value = d
         with open(os.path.join(d, "input.csv"), "w") as f:
             f.write("")
         with pytest.raises(ProjectValidationError):
             parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.project.make_output_bucket")
-def test_bad_version_raises_exception(dummy_output_bucket, mock_env):
+@patch("runner.utils.make_output_path")
+def test_bad_version_raises_exception(dummy_output_path, mock_env):
     """Do complete dependencies not raise an exception?
 
     """
@@ -325,8 +326,8 @@ def test_bad_version_raises_exception(dummy_output_bucket, mock_env):
         parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.project.make_output_bucket")
-def test_invalid_output_file_raises_exception(dummy_output_bucket, mock_env):
+@patch("runner.utils.make_output_path")
+def test_invalid_output_file_raises_exception(dummy_output_path, mock_env):
     """Do complete dependencies not raise an exception?
 
     """

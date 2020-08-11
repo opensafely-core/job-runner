@@ -10,6 +10,7 @@ import time
 
 from runner.exceptions import OpenSafelyError
 from runner.exceptions import DependencyRunning
+from runner.utils import all_output_paths_for_action
 from runner.utils import get_auth
 from runner.utils import getlogger
 from runner.job import Job
@@ -35,7 +36,7 @@ def report_result(future):
             job["url"],
             json={
                 "status_code": 0,
-                "output_bucket": job["output_bucket"],
+                "outputs": job.get("output_locations", []),
                 "status_message": job["status_message"],
             },
             auth=get_auth(),
