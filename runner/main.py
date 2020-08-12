@@ -115,7 +115,7 @@ def check_environment():
         ), f"Required directory {path} ({required_directory}) must exist"
 
 
-def watch(queue_endpoint, loop=True, jobrunner=None):
+def watch(queue_endpoint, loop=True, job_class=Job):
     check_environment()
     baselogger.info(f"Started watching {queue_endpoint}")
     session = requests.Session()
@@ -123,8 +123,6 @@ def watch(queue_endpoint, loop=True, jobrunner=None):
     retry = Retry(connect=30, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount(queue_endpoint, adapter)
-    if jobrunner is None:
-        jobrunner = Job
     with ProcessPool(max_tasks=50) as pool:
         while True:
             baselogger.debug(f"Polling {queue_endpoint}")
@@ -149,7 +147,7 @@ def watch(queue_endpoint, loop=True, jobrunner=None):
                     job_spec["url"], json={"started": True}, auth=get_auth()
                 )
                 response.raise_for_status()
-                runner = jobrunner(job_spec)
+                runner = job_class(job_spec)
                 future = pool.schedule(runner, (), timeout=24 * HOUR,)
                 future.jobrunner = runner
                 future.add_done_callback(report_result)

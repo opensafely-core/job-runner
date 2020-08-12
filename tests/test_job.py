@@ -28,7 +28,7 @@ def test_watch_broken_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
-        watch("http://test.com/jobs/", loop=False, jobrunner=BrokenJob)
+        watch("http://test.com/jobs/", loop=False, job_class=BrokenJob)
         assert adapter.request_history[0].json() == {"started": True}
         assert adapter.request_history[1].json() == {
             "status_code": 99,
@@ -40,7 +40,7 @@ def test_watch_working_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
-        watch("http://test.com/jobs/", loop=False, jobrunner=WorkingJob)
+        watch("http://test.com/jobs/", loop=False, job_class=WorkingJob)
         assert adapter.request_history[0].json() == {"started": True}
         assert adapter.request_history[1].json() == {
             "outputs": [],
@@ -54,7 +54,7 @@ def test_watch_timeout_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
-        watch("http://test.com/jobs/", loop=False, jobrunner=SlowJob)
+        watch("http://test.com/jobs/", loop=False, job_class=SlowJob)
         assert adapter.request_history[0].json()["started"] is True
         assert adapter.request_history[1].json() == {
             "status_code": -1,
