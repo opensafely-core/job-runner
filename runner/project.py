@@ -303,7 +303,7 @@ def add_runtime_metadata(
     """
     action = copy.deepcopy(action)
     command = action["run"]
-    name, version, args = split_and_format_run_command(command)
+    name, version, user_args = split_and_format_run_command(command)
 
     # Convert human-readable database name into DATABASE_URL
     action["database_url"] = os.environ[f"{db.upper()}_DATABASE_URL"]
@@ -313,16 +313,19 @@ def add_runtime_metadata(
     # be passed to `docker run`, but preserving user-defined variables
     # in the form `${{ variable }}` for interpolation later (after the
     # dependences have been walked)
-    docker_invocation = info["docker_invocation"]
+    docker_image_name, *docker_args = info["docker_invocation"]
     if version:
-        docker_invocation[0] = docker_invocation[0] + ":" + version
+        docker_image_name = f"{docker_image_name}:{version}"
+    # Interpolate variables from the action into user-supplied
+    # arguments. Currently, only `database_url` is useful.
+    all_args = docker_args + user_args
+    all_args = [arg.format(**action) for arg in all_args]
+    action["docker_invocation"] = [docker_image_name] + all_args
+
+    # Other metadata required to run and/or debug containers
     action["container_name"] = make_container_name(
         f"{repo}{db}{tag}{action['outputs']}"
     )
-    # Interpolate action dictionary into argument template
-    docker_invocation = docker_invocation + args
-
-    action["docker_invocation"] = [arg.format(**action) for arg in docker_invocation]
     action["callback_url"] = callback_url
     action["repo"] = repo
     action["db"] = db
