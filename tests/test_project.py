@@ -53,7 +53,7 @@ def test_job_to_project_nodeps(mock_env):
 
     project = parse_project_yaml(project_path, job)
     assert project["docker_invocation"] == [
-        "docker.opensafely.org/cohort-extractor:0.5.2",
+        "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
         "--output-dir=/workspace",
         "--database-url=sqlite:///test.db",
@@ -259,7 +259,7 @@ def test_valid_run_in_project(mock_env):
     }
     project = parse_project_yaml(project_path, job_spec)
     assert project["docker_invocation"] == [
-        "docker.opensafely.org/cohort-extractor:0.5.2",
+        "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
         "--output-dir=/workspace",
         "--database-url=sqlite:///test.db",

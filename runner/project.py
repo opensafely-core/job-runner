@@ -33,7 +33,7 @@ PRIVACY_LEVEL_MEDIUM = 4
 RUN_COMMANDS_CONFIG = {
     "cohortextractor": {
         "docker_invocation": [
-            "docker.opensafely.org/cohort-extractor",
+            "docker.opensafely.org/cohortextractor",
             "generate_cohort",
             "--output-dir=/workspace",
         ],
