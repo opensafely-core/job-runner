@@ -3,7 +3,9 @@ from runner.main import watch
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Extract cohort at specific tag")
+    parser = ArgumentParser(
+        description="Run in a loop, watching for jobs, and executing them"
+    )
     subparsers = parser.add_subparsers(help="sub-command help", dest="subparser_name")
     parser_watch = subparsers.add_parser(
         "watch", help="Poll a remote server for cohort builds"
