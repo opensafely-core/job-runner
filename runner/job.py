@@ -8,6 +8,7 @@ import time
 import urllib
 from pathlib import Path
 
+from runner.exceptions import DockerRunError
 from runner.exceptions import GitCloneError
 from runner.exceptions import RepoNotFound
 from runner.project import needs_run
@@ -96,7 +97,7 @@ class Job:
         if result.returncode == 0:
             self.logger.info("subdocker stdout: %s", result.stdout)
         else:
-            raise self.job["docker_exception"](result.stderr, report_args=False)
+            raise DockerRunError(result.stderr, report_args=False)
 
         # Copy expected outputs to the appropriate location
         for _, _, target_path in all_output_paths_for_action(self.job):

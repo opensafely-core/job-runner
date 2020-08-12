@@ -32,37 +32,29 @@ class DockerRunError(DockerError):
     status_code = 2
 
 
-class ScriptError(DockerRunError):
+class RepoNotFound(OpenSafelyError):
     status_code = 3
 
 
-class CohortExtractorError(DockerRunError):
+class InvalidRepo(OpenSafelyError):
     status_code = 4
 
 
-class RepoNotFound(OpenSafelyError):
+class GitCloneError(OpenSafelyError):
     status_code = 5
 
 
-class InvalidRepo(OpenSafelyError):
+class DependencyNotFinished(OpenSafelyError):
     status_code = 6
 
 
-class GitCloneError(OpenSafelyError):
+class DependencyFailed(DependencyNotFinished):
     status_code = 7
 
 
-class DependencyNotFinished(OpenSafelyError):
+class DependencyRunning(DependencyNotFinished):
     status_code = 8
 
 
-class DependencyFailed(DependencyNotFinished):
-    status_code = 9
-
-
-class DependencyRunning(DependencyNotFinished):
-    status_code = 10
-
-
 class ProjectValidationError(OpenSafelyError):
-    status_code = 11
+    status_code = 9

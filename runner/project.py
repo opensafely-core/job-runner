@@ -8,12 +8,9 @@ import shlex
 import subprocess
 import yaml
 
-
-from runner.exceptions import CohortExtractorError
 from runner.exceptions import DependencyFailed
 from runner.exceptions import DependencyRunning
 from runner.exceptions import ProjectValidationError
-from runner.exceptions import ScriptError
 from runner.utils import all_output_paths_for_action
 from runner.utils import getlogger
 from runner.utils import get_auth
@@ -33,12 +30,8 @@ PRIVACY_LEVEL_MEDIUM = 4
 RUN_COMMANDS_CONFIG = {
     "cohortextractor": {
         "docker_invocation": ["docker.opensafely.org/cohortextractor"],
-        "docker_exception": CohortExtractorError,
     },
-    "stata-mp": {
-        "docker_invocation": ["docker.opensafely.org/stata-mp"],
-        "docker_exception": ScriptError,
-    },
+    "stata-mp": {"docker_invocation": ["docker.opensafely.org/stata-mp"],},
 }
 
 
@@ -304,8 +297,8 @@ def add_runtime_metadata(
     """Given a run command specified in project.yaml, validate that it is
     permitted, and return how it should be invoked for `docker run`
 
-    Adds docker_invocation, docker_exception, privacy_level,
-    database_url, and container_name to the `action` dict.
+    Adds docker_invocation, privacy_level, database_url, and
+    container_name to the `action` dict.
 
     """
     action = copy.deepcopy(action)
@@ -326,8 +319,6 @@ def add_runtime_metadata(
     action["container_name"] = make_container_name(
         f"{repo}{db}{tag}{action['outputs']}"
     )
-    action["docker_exception"] = info["docker_exception"]
-
     # Interpolate action dictionary into argument template
     docker_invocation = docker_invocation + args
 
@@ -396,8 +387,8 @@ def parse_project_yaml(workdir, job_spec):
     # completed by checking their expected output exists
     dependency_actions = {}
     for action_id in dependencies:
-        # Adds docker_invocation, docker_exception, privacy_level, and
-        # output_bucket to the config
+        # Adds docker_invocation, privacy_level, and output_bucket to
+        # the config
         action = add_runtime_metadata(project_actions[action_id], **job_config)
         start_dependent_job_or_raise_if_unfinished(action)
         dependency_actions[action_id] = action
