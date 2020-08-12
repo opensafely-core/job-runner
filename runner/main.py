@@ -56,6 +56,9 @@ def report_result(future):
         error.__cause__ = None
         joblogger.exception(error)
     except DependencyRunning as error:
+        # Because the error is simply that we're not yet ready, reset
+        # the `started` flag so that our main loop gets the chance to
+        # try re-running the action in a future iteration
         requests.patch(
             job_spec["url"],
             json={
