@@ -32,11 +32,7 @@ PRIVACY_LEVEL_MEDIUM = 4
 # jobs
 RUN_COMMANDS_CONFIG = {
     "cohortextractor": {
-        "docker_invocation": [
-            "docker.opensafely.org/cohortextractor",
-            "generate_cohort",
-            "--output-dir=/workspace",
-        ],
+        "docker_invocation": ["docker.opensafely.org/cohortextractor"],
         "docker_exception": CohortExtractorError,
     },
     "stata-mp": {
