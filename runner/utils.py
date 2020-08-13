@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 
 import logging
 import os
+import re
 
 
 def getlogger(name):
@@ -32,20 +33,23 @@ def safe_join(startdir, path):
     return requested_path
 
 
-def make_volume_name(repo, branch_or_tag, db_flavour):
+def make_volume_name(workspace):
     """Create a string suitable for naming a folder that will contain
-    data, using state related to the current job as a unique key.
+    data, using state related to the current workspace as a unique key.
 
     """
-    repo_name = urlparse(repo).path[1:]
-    if repo_name.endswith("/"):
-        repo_name = repo_name[:-1]
-    repo_name = repo_name.split("/")[-1]
-    return repo_name + "-" + branch_or_tag + "-" + db_flavour
+    parts = []
+    for key in ["repo", "branch", "db", "owner", "name"]:
+        # Remove symbols (excluding hyphens)
+        parts.append(re.sub(r"[^0-9a-z-]", "-", workspace[key]))
+    # Dedupe hyphens
+    parts = "-".join(parts)
+    parts = re.sub(r"--+", "-", parts)
+    return parts
 
 
 def make_output_path(action, privacy_level, filename):
-    volume_name = make_volume_name(action["repo"], action["tag"], action["db"])
+    volume_name = make_volume_name(action["workspace"])
     if privacy_level == "highly_sensitive":
         storage_base = Path(os.environ["HIGH_PRIVACY_STORAGE_BASE"])
     elif privacy_level == "moderately_sensitive":

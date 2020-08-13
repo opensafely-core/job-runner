@@ -14,6 +14,7 @@ from runner.exceptions import ProjectValidationError
 from runner.utils import all_output_paths_for_action
 from runner.utils import getlogger
 from runner.utils import get_auth
+from runner.utils import make_volume_name
 from runner.utils import safe_join
 
 
@@ -35,14 +36,10 @@ RUN_COMMANDS_CONFIG = {
 }
 
 
-def get_latest_matching_job_from_queue(
-    repo=None, db=None, tag=None, action_id=None, **kw
-):
+def get_latest_matching_job_from_queue(workspace=None, action_id=None, **kw):
     job = {
         "backend": os.environ["BACKEND"],
-        "repo": repo,
-        "db": db,
-        "tag": tag,
+        "workspace_id": workspace["id"],
         "operation": action_id,
         "limit": 1,
     }
@@ -57,9 +54,7 @@ def get_latest_matching_job_from_queue(
 def push_dependency_job_from_action_to_queue(action):
     job = {
         "backend": os.environ["BACKEND"],
-        "repo": action["repo"],
-        "db": action["db"],
-        "tag": action["tag"],
+        "workspace_id": action["workspace"]["id"],
         "operation": action["action_id"],
     }
     job["callback_url"] = action["callback_url"]
@@ -292,7 +287,7 @@ def split_and_format_run_command(run_command):
 
 
 def add_runtime_metadata(
-    action, repo=None, db=None, tag=None, callback_url=None, operation=None, **kwargs,
+    action, workspace=None, callback_url=None, operation=None, **kwargs,
 ):
     """Given a run command specified in project.yaml, validate that it is
     permitted, and return how it should be invoked for `docker run`
@@ -306,7 +301,7 @@ def add_runtime_metadata(
     name, version, user_args = split_and_format_run_command(command)
 
     # Convert human-readable database name into DATABASE_URL
-    action["database_url"] = os.environ[f"{db.upper()}_DATABASE_URL"]
+    action["database_url"] = os.environ[f"{workspace['db'].upper()}_DATABASE_URL"]
     info = copy.deepcopy(RUN_COMMANDS_CONFIG[name])
 
     # Convert the command name into a full set of arguments that can
@@ -324,12 +319,10 @@ def add_runtime_metadata(
 
     # Other metadata required to run and/or debug containers
     action["container_name"] = make_container_name(
-        f"{repo}{db}{tag}{action['outputs']}"
+        make_volume_name(workspace) + "-" + "-".join(action["outputs"].keys())
     )
     action["callback_url"] = callback_url
-    action["repo"] = repo
-    action["db"] = db
-    action["tag"] = tag
+    action["workspace"] = workspace
     action["output_locations"] = [
         {"privacy_level": privacy_level, "name": name, "location": path}
         for privacy_level, name, path in all_output_paths_for_action(action)

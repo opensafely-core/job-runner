@@ -3,7 +3,7 @@ import time
 job_spec = {
     "url": "http://test.com/jobs/0/",
     "repo": "myrepo",
-    "tag": "mytag",
+    "branch": "mybranch",
     "backend": "tpp",
     "db": "full",
     "operation": "generate_cohort",

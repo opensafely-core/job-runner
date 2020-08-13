@@ -108,8 +108,8 @@ class Job:
     def fetch_study_source(self):
         """Checkout source to a temporary location.
         """
-        repo = self.job_spec["repo"]
-        branch_or_tag = self.job_spec["tag"]
+        repo = self.job_spec["workspace"]["repo"]
+        branch = self.job_spec["workspace"]["branch"]
         max_retries = 3
         # We use URL-based authentication to access private repos
         # (q.v. `add_github_auth_to_repo`, above).
@@ -129,7 +129,7 @@ class Job:
                 "--depth",
                 "1",
                 add_github_auth_to_repo(repo),
-                branch_or_tag,
+                branch,
             ]
             loggable_cmd = (
                 " ".join(cmd).replace(

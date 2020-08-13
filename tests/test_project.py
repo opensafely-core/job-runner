@@ -8,7 +8,6 @@ import requests_mock
 
 from runner.project import docker_container_exists
 from runner.project import make_container_name
-from runner.utils import make_volume_name
 from runner.project import parse_project_yaml
 from runner.exceptions import DependencyNotFinished
 from runner.exceptions import ProjectValidationError
@@ -23,13 +22,16 @@ def mock_env(monkeypatch):
     monkeypatch.setenv("JOB_SERVER_ENDPOINT", "http://test.com/jobs/")
 
 
-def test_make_volume_name():
-    repo = "https://github.com/opensafely/hiv-research/"
-    branch = "feasibility-no"
-    db_flavour = "full"
-    assert (
-        make_volume_name(repo, branch, db_flavour) == "hiv-research-feasibility-no-full"
-    )
+@pytest.fixture(scope="function")
+def workspace():
+    return {
+        "repo": "https://github.com/repo",
+        "db": "full",
+        "owner": "me",
+        "name": "tofu",
+        "branch": "master",
+        "id": 1,
+    }
 
 
 def test_bad_volume_name_is_corrected():
@@ -37,19 +39,13 @@ def test_bad_volume_name_is_corrected():
     assert make_container_name(bad_name) == "badname"
 
 
-def test_job_to_project_nodeps(mock_env):
+def test_job_to_project_nodeps(mock_env, workspace):
     """Does project information get added to a job correctly in the happy
     path?
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job = {
-        "operation": "generate_cohorts",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job = {"operation": "generate_cohorts", "workspace": workspace}
 
     project = parse_project_yaml(project_path, job)
     assert project["docker_invocation"] == [
@@ -61,19 +57,13 @@ def test_job_to_project_nodeps(mock_env):
     assert project["outputs"]["highly_sensitive"]["cohort"] == "input.csv"
 
 
-def test_never_started_dependency_exception(mock_env):
+def test_never_started_dependency_exception(mock_env, workspace):
     """Does a never-run dependency mean an exception is raised and the
     dependency is kicked off?
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job = {
-        "operation": "run_model",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job = {"operation": "run_model", "workspace": workspace}
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json={"results": []})
         adapter = m.post("/jobs/")
@@ -85,25 +75,20 @@ def test_never_started_dependency_exception(mock_env):
     assert adapter.request_history[0].json() == {
         "backend": "tpp",
         "callback_url": None,
-        "db": "full",
         "needed_by": "run_model",
         "operation": "generate_cohorts",
-        "repo": "https://github.com/repo",
-        "tag": "master",
+        "workspace_id": workspace["id"],
     }
 
 
-def test_unstarted_dependency_exception(mock_env):
+def test_unstarted_dependency_exception(mock_env, workspace):
     """Does a existing, but unstarted dependency mean an exception is raised?
 
     """
     project_path = "tests/fixtures/simple_project_1"
     job_spec = {
         "operation": "run_model",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
+        "workspace": workspace,
     }
     existing_unstarted_job = default_job.copy()
     existing_unstarted_job.update(job_spec)
@@ -117,21 +102,13 @@ def test_unstarted_dependency_exception(mock_env):
             parse_project_yaml(project_path, job_spec)
 
 
-def test_failed_dependency_exception(mock_env):
+def test_failed_dependency_exception(mock_env, workspace):
     """Does a existing, but failed dependency mean an exception is raised?
 
     """
     project_path = "tests/fixtures/simple_project_1"
     job_requested = default_job.copy()
-    job_requested.update(
-        {
-            "operation": "run_model",
-            "repo": "https://github.com/repo",
-            "db": "full",
-            "tag": "master",
-            "workdir": "/workspace",
-        }
-    )
+    job_requested.update({"operation": "run_model", "workspace": workspace})
     existing_failed_job = job_requested.copy()
     existing_failed_job["started"] = True
     existing_failed_job["completed_at"] = "2020-01-01"
@@ -146,18 +123,12 @@ def test_failed_dependency_exception(mock_env):
 
 
 @patch("runner.project.docker_container_exists")
-def test_started_dependency_exception(mock_container_exists, mock_env):
+def test_started_dependency_exception(mock_container_exists, mock_env, workspace):
     """Does an already-running dependency mean an exception is raised?
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = {
-        "operation": "run_model",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job_spec = {"operation": "run_model", "workspace": workspace}
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json={"results": []})
         mock_container_exists.return_value = True
@@ -169,17 +140,14 @@ def test_started_dependency_exception(mock_container_exists, mock_env):
 
 
 @patch("runner.utils.make_output_path")
-def test_project_dependency_no_exception(dummy_output_path, mock_env):
+def test_project_dependency_no_exception(dummy_output_path, mock_env, workspace):
     """Do complete dependencies not raise an exception?
 
     """
     project_path = "tests/fixtures/simple_project_1"
     job_spec = {
         "operation": "run_model",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
+        "workspace": workspace,
     }
     with tempfile.TemporaryDirectory() as d:
         mock_output_filename = os.path.join(d, "input.csv")
@@ -195,68 +163,45 @@ def test_project_dependency_no_exception(dummy_output_path, mock_env):
         assert project["outputs"]["moderately_sensitive"]["log"] == "model.log"
 
 
-def test_operation_not_in_project(mock_env):
+def test_operation_not_in_project(mock_env, workspace):
     """Do jobs whose operation is not specified in a project raise an
     exception?
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = {
-        "operation": "do_the_twist",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-    }
+    job_spec = {"operation": "do_the_twist", "workspace": workspace}
     with pytest.raises(ProjectValidationError):
         parse_project_yaml(project_path, job_spec)
 
 
-def test_duplicate_operation_in_project(mock_env):
+def test_duplicate_operation_in_project(mock_env, workspace):
     """Do jobs whose operation is duplicated in a project raise an
     exception?
 
     """
     project_path = "tests/fixtures/invalid_project_1"
-    job_spec = {
-        "operation": "run_model_1",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job_spec = {"operation": "run_model_1", "workspace": workspace}
     with pytest.raises(ProjectValidationError):
         parse_project_yaml(project_path, job_spec)
 
 
-def test_invalid_run_in_project(mock_env):
+def test_invalid_run_in_project(mock_env, workspace):
     """Do jobs with unsupported run commands in their project raise an
     exception?
 
     """
     project_path = "tests/fixtures/invalid_project_2"
-    job_spec = {
-        "operation": "run_model_1",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job_spec = {"operation": "run_model_1", "workspace": workspace}
     with pytest.raises(ProjectValidationError):
         parse_project_yaml(project_path, job_spec)
 
 
-def test_valid_run_in_project(mock_env):
+def test_valid_run_in_project(mock_env, workspace):
     """Do run commands in jobs get their variables interpolated?
 
     """
     project_path = "tests/fixtures/simple_project_2"
-    job_spec = {
-        "operation": "generate_cohort",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job_spec = {"operation": "generate_cohort", "workspace": workspace}
     project = parse_project_yaml(project_path, job_spec)
     assert project["docker_invocation"] == [
         "docker.opensafely.org/cohortextractor:0.5.2",
@@ -267,19 +212,15 @@ def test_valid_run_in_project(mock_env):
 
 
 @patch("runner.utils.make_output_path")
-def test_project_output_missing_raises_exception(dummy_output_path, mock_env):
+def test_project_output_missing_raises_exception(
+    dummy_output_path, mock_env, workspace
+):
     """Do user-supplied variables that reference non-existent outputs
     raise an exception?
 
     """
     project_path = "tests/fixtures/invalid_project_3"
-    job_spec = {
-        "operation": "run_model",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job_spec = {"operation": "run_model", "workspace": workspace}
     with tempfile.TemporaryDirectory() as d:
         dummy_output_path.return_value = d
         with open(os.path.join(d, "input.csv"), "w") as f:
@@ -289,18 +230,12 @@ def test_project_output_missing_raises_exception(dummy_output_path, mock_env):
 
 
 @patch("runner.utils.make_output_path")
-def test_bad_variable_path_raises_exception(dummy_output_path, mock_env):
+def test_bad_variable_path_raises_exception(dummy_output_path, mock_env, workspace):
     """Do complete dependencies not raise an exception?
 
     """
     project_path = "tests/fixtures/invalid_project_4"
-    job_spec = {
-        "operation": "run_model",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job_spec = {"operation": "run_model", "workspace": workspace}
     with tempfile.TemporaryDirectory() as d:
         dummy_output_path.return_value = d
         with open(os.path.join(d, "input.csv"), "w") as f:
@@ -310,35 +245,23 @@ def test_bad_variable_path_raises_exception(dummy_output_path, mock_env):
 
 
 @patch("runner.utils.make_output_path")
-def test_bad_version_raises_exception(dummy_output_path, mock_env):
+def test_bad_version_raises_exception(dummy_output_path, mock_env, workspace):
     """Do complete dependencies not raise an exception?
 
     """
     project_path = "tests/fixtures/invalid_project_5"
-    job_spec = {
-        "operation": "extract",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job_spec = {"operation": "extract", "workspace": workspace}
     with pytest.raises(ProjectValidationError):
         parse_project_yaml(project_path, job_spec)
 
 
 @patch("runner.utils.make_output_path")
-def test_invalid_output_file_raises_exception(dummy_output_path, mock_env):
+def test_invalid_output_file_raises_exception(dummy_output_path, mock_env, workspace):
     """Do complete dependencies not raise an exception?
 
     """
     project_path = "tests/fixtures/invalid_project_6"
-    job_spec = {
-        "operation": "extract",
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "tag": "master",
-        "workdir": "/workspace",
-    }
+    job_spec = {"operation": "extract", "workspace": workspace}
     with pytest.raises(ProjectValidationError):
         parse_project_yaml(project_path, job_spec)
 
