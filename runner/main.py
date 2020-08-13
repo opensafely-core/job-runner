@@ -1,6 +1,7 @@
 from concurrent.futures import TimeoutError
 from pebble import ProcessPool
 from requests.adapters import HTTPAdapter
+from requests.exceptions import HTTPError
 from requests.packages.urllib3.util.retry import Retry
 import logging
 import os
@@ -32,7 +33,7 @@ def report_result(future):
     id_message = f"id {jobrunner}"
     try:
         job = future.result()
-        requests.patch(
+        response = requests.patch(
             job["url"],
             json={
                 "status_code": 0,
@@ -41,9 +42,10 @@ def report_result(future):
             },
             auth=get_auth(),
         )
+        response.raise_for_status()
         joblogger.info(f"Reported success to job server ({job['status_message']})")
     except TimeoutError as error:
-        requests.patch(
+        response = requests.patch(
             job_spec["url"],
             json={
                 "status_code": -1,
@@ -51,6 +53,7 @@ def report_result(future):
             },
             auth=get_auth(),
         )
+        response.raise_for_status()
         joblogger.info("Reported error -1 (timeout) to job server")
         # Remove pebble's RemoteTraceback exception from reporting
         error.__cause__ = None
@@ -59,7 +62,7 @@ def report_result(future):
         # Because the error is simply that we're not yet ready, reset
         # the `started` flag so that our main loop gets the chance to
         # try re-running the action in a future iteration
-        requests.patch(
+        response = requests.patch(
             job_spec["url"],
             json={
                 "status_code": error.status_code,
@@ -68,6 +71,8 @@ def report_result(future):
             },
             auth=get_auth(),
         )
+        response.raise_for_status()
+
         joblogger.info(
             "Reported error %s (%s %s) to job server, and reset the started flag",
             error.status_code,
@@ -75,7 +80,7 @@ def report_result(future):
             id_message,
         )
     except OpenSafelyError as error:
-        requests.patch(
+        response = requests.patch(
             job_spec["url"],
             json={
                 "status_code": error.status_code,
@@ -83,6 +88,7 @@ def report_result(future):
             },
             auth=get_auth(),
         )
+        response.raise_for_status()
         joblogger.info(
             "Reported error %s (%s %s) to job server",
             error.status_code,
@@ -92,8 +98,11 @@ def report_result(future):
         # Remove pebble's RemoteTraceback exception from reporting
         error.__cause__ = None
         joblogger.exception(error)
+    except HTTPError as error:
+        joblogger.exception(error)
+        joblogger.error(error.response.text)
     except Exception as error:
-        requests.patch(
+        response = requests.patch(
             job_spec["url"],
             json={
                 "status_code": 99,
@@ -101,6 +110,7 @@ def report_result(future):
             },
             auth=get_auth(),
         )
+        response.raise_for_status()
         joblogger.info("Reported error 99 (unclassified) to job server")
         # Don't remove remotetraceback, because we haven't considered
         # handling it explicitly, and the context could help
