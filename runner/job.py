@@ -72,11 +72,11 @@ class Job:
         """An opaque string for use in logging to help trace events related to
         a specific job
         """
-        match = re.match(r".*/([0-9]+)/?$", self.job_spec["url"])
-        if match:
-            return "job#" + match.groups()[0]
-        else:
-            return "-"
+        if "url" in self.job_spec:
+            match = re.match(r".*/([0-9]+)/?$", self.job_spec["url"])
+            if match:
+                return "job#" + match.groups()[0]
+        return "-"
 
     def get_job_logger(self):
         return logging.LoggerAdapter(logger, {"job_id": repr(self)})
