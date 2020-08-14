@@ -43,23 +43,30 @@ class Job:
         """
         return self.main()
 
-    def run_or_enqueue_job_and_dependencies(self):
-        for action_id, action in self.prepared_job["dependencies"].items():
-            start_dependent_job_or_raise_if_unfinished(action)
-        if needs_run(self.prepared_job):
-            self.invoke_docker()
-            self.prepared_job["status_message"] = "Fresh output generated"
-        else:
-            self.prepared_job["status_message"] = "Output already generated"
+    def run_job_and_dependencies(self, run_locally=False):
+        prepared_job = parse_project_yaml(self.workdir, self.job_spec)
+        self.logger.info(f"Added runtime metadata to job_spec: {prepared_job}")
 
-    def main(self):
+        # First, run all the dependencies
+        for action_id, action in prepared_job["dependencies"].items():
+            if run_locally:
+                dependent_job = Job(action, workdir=self.workdir)
+                dependent_job.run_job_and_dependencies(run_locally=True)
+            else:
+                start_dependent_job_or_raise_if_unfinished(action)
+
+        # Finally, run ourself
+        if needs_run(prepared_job):
+            self.invoke_docker(prepared_job)
+            prepared_job["status_message"] = "Fresh output generated"
+        else:
+            prepared_job["status_message"] = "Output already generated"
+        return prepared_job
+
+    def main(self, run_locally=False):
         self.logger.info("Starting job")
         self.fetch_study_source()
-        self.logger.info(f"Repo at {self.workdir} successfully validated")
-        self.prepared_job = parse_project_yaml(self.workdir, self.job_spec)
-        self.logger.debug(f"Added runtime metadata to job_spec: {self.prepared_job}")
-        self.run_or_enqueue_job_and_dependencies()
-        return self.prepared_job
+        return self.run_job_and_dependencies(run_locally=run_locally)
 
     def __repr__(self):
         """An opaque string for use in logging to help trace events related to
@@ -74,11 +81,9 @@ class Job:
     def get_job_logger(self):
         return logging.LoggerAdapter(logger, {"job_id": repr(self)})
 
-    def invoke_docker(self):
+    def invoke_docker(self, prepared_job):
         # Copy expected input files into workdir
-        for input_name, input_path in self.prepared_job.get(
-            "namespaced_inputs", []
-        ).items():
+        for input_name, input_path in prepared_job.get("namespaced_inputs", []).items():
             target_path = os.path.join(self.workdir, input_name)
             shutil.move(input_path, target_path)
             self.logger.info("Copied input to %s", target_path)
@@ -87,7 +92,7 @@ class Job:
             "docker",
             "run",
             "--name",
-            self.prepared_job["container_name"],
+            prepared_job["container_name"],
             "--rm",
             "--log-driver",
             "none",
@@ -97,7 +102,7 @@ class Job:
             "stderr",
             "--volume",
             f"{self.workdir}:/workspace",
-        ] + self.prepared_job["docker_invocation"]
+        ] + prepared_job["docker_invocation"]
 
         self.logger.info("Running subdocker cmd `%s` in %s", cmd, self.workdir)
         result = subprocess.run(cmd, capture_output=True, encoding="utf8")
@@ -107,7 +112,7 @@ class Job:
             raise DockerRunError(result.stderr, report_args=False)
 
         # Copy expected outputs to the appropriate location
-        for _, _, target_path in all_output_paths_for_action(self.prepared_job):
+        for _, _, target_path in all_output_paths_for_action(prepared_job):
             filename = os.path.basename(target_path)
             shutil.move(os.path.join(self.workdir, filename), target_path)
             self.logger.info("Copied output to %s", target_path)

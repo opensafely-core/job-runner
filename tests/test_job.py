@@ -110,9 +110,8 @@ def test_never_started_dependency_exception(mock_env, workspace):
             DependencyNotFinished,
             match=r"Not started because dependency `generate_cohorts` has been added to the job queue",
         ):
-            job = Job(job_spec)
-            job.prepared_job = parse_project_yaml(project_path, job_spec)
-            job.run_or_enqueue_job_and_dependencies()
+            job = Job(job_spec, workdir=project_path)
+            job.run_job_and_dependencies()
 
     assert adapter.request_history[0].json() == {
         "backend": "tpp",
@@ -142,9 +141,8 @@ def test_unstarted_dependency_exception(mock_env, workspace):
             DependencyNotFinished,
             match=r"Not started because dependency `generate_cohorts` is waiting to start",
         ):
-            job = Job(job_spec)
-            job.prepared_job = parse_project_yaml(project_path, job_spec)
-            job.run_or_enqueue_job_and_dependencies()
+            job = Job(job_spec, workdir=project_path)
+            job.run_job_and_dependencies()
 
 
 def test_failed_dependency_exception(mock_env, workspace):
@@ -164,9 +162,8 @@ def test_failed_dependency_exception(mock_env, workspace):
             DependencyNotFinished,
             match=r"Dependency `generate_cohorts` failed, so unable to run this operation",
         ):
-            job = Job(job_requested)
-            job.prepared_job = parse_project_yaml(project_path, job_requested)
-            job.run_or_enqueue_job_and_dependencies()
+            job = Job(job_requested, workdir=project_path)
+            job.run_job_and_dependencies()
 
 
 @patch("runner.server_interaction.docker_container_exists")
@@ -183,9 +180,8 @@ def test_started_dependency_exception(mock_container_exists, mock_env, workspace
             DependencyNotFinished,
             match=r"Not started because dependency `generate_cohorts` is currently running",
         ):
-            job = Job(job_spec)
-            job.prepared_job = parse_project_yaml(project_path, job_spec)
-            job.run_or_enqueue_job_and_dependencies()
+            job = Job(job_spec, workdir=project_path)
+            job.run_job_and_dependencies()
 
 
 @patch("runner.utils.make_output_path")
@@ -204,6 +200,5 @@ def test_project_dependency_no_exception(dummy_output_path, mock_env, workspace)
         dummy_output_path.return_value = mock_output_filename
         with open(mock_output_filename, "w") as f:
             f.write("")
-        job = Job(job_spec)
-        job.prepared_job = parse_project_yaml(project_path, job_spec)
-        job.run_or_enqueue_job_and_dependencies()
+        job = Job(job_spec, workdir=project_path)
+        job.run_job_and_dependencies()

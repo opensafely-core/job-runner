@@ -187,7 +187,7 @@ def split_and_format_run_command(run_command):
 
 
 def add_runtime_metadata(
-    action, workspace=None, callback_url=None, operation=None, **kwargs,
+    action, action_id=None, workspace=None, callback_url=None, operation=None, **kwargs,
 ):
     """Given a run command specified in project.yaml, validate that it is
     permitted, and return how it should be invoked for `docker run`
@@ -228,6 +228,7 @@ def add_runtime_metadata(
         for privacy_level, name, path in all_output_paths_for_action(action)
     ]
     action["needed_by"] = operation
+    action["operation"] = action_id
     return action
 
 
@@ -283,9 +284,12 @@ def parse_project_yaml(workdir, job_spec):
     # completed by checking their expected output exists
     dependency_actions = {}
     for action_id in dependencies:
-        # Adds docker_invocation, privacy_level, and output_bucket to
-        # the config
-        action = add_runtime_metadata(project_actions[action_id], **job_config)
+        # Adds docker_invocation and output files locations to the
+        # config
+        action = add_runtime_metadata(
+            project_actions[action_id], action_id=action_id, **job_config
+        )
+        action["url"] = "n/a"
         dependency_actions[action_id] = action
 
     # Now interpolate user-provided variables into docker
