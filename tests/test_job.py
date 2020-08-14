@@ -8,7 +8,6 @@ import requests_mock
 from runner.exceptions import DependencyNotFinished, OpenSafelyError, RepoNotFound
 from runner.job import Job
 from runner.main import watch
-from runner.project import parse_project_yaml
 from tests.common import BrokenJob, SlowJob, WorkingJob, default_job, test_job_list
 
 
