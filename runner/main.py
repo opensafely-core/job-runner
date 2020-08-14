@@ -1,21 +1,17 @@
+import logging
+import os
+import time
 from concurrent.futures import TimeoutError
+
+import requests
 from pebble import ProcessPool
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
 from requests.packages.urllib3.util.retry import Retry
-import logging
-import os
-import requests
-import time
 
-
-from runner.exceptions import OpenSafelyError
-from runner.exceptions import DependencyRunning
-from runner.utils import all_output_paths_for_action
-from runner.utils import get_auth
-from runner.utils import getlogger
+from runner.exceptions import DependencyRunning, OpenSafelyError
 from runner.job import Job
-
+from runner.utils import get_auth, getlogger
 
 HOUR = 60 * 60
 COHORT_EXTRACTOR_TIMEOUT = 24 * HOUR

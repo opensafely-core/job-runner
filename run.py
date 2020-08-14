@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
-from runner.main import watch
 
+from runner.main import watch
 
 if __name__ == "__main__":
     parser = ArgumentParser(

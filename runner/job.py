@@ -8,13 +8,9 @@ import time
 import urllib
 from pathlib import Path
 
-from runner.exceptions import DockerRunError
-from runner.exceptions import GitCloneError
-from runner.exceptions import RepoNotFound
-from runner.project import needs_run
-from runner.project import parse_project_yaml
-from runner.utils import all_output_paths_for_action
-from runner.utils import getlogger
+from runner.exceptions import DockerRunError, GitCloneError, RepoNotFound
+from runner.project import needs_run, parse_project_yaml
+from runner.utils import all_output_paths_for_action, getlogger
 
 logger = getlogger(__name__)
 
@@ -44,11 +40,11 @@ class Job:
         return self.run()
 
     def run(self):
-        self.logger.info(f"Starting job")
+        self.logger.info("Starting job")
         self.fetch_study_source()
         self.logger.info(f"Repo at {self.workdir} successfully validated")
         self.job = parse_project_yaml(self.workdir, self.job_spec)
-        self.logger.debug(f"Added runtime metadata to job_spec")
+        self.logger.debug(f"Added runtime metadata to job_spec: {self.job}")
         if needs_run(self.job):
             self.invoke_docker()
             self.job["status_message"] = "Fresh output generated"

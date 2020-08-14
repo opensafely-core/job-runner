@@ -2,3 +2,15 @@ pebble
 requests
 pyyaml
 networkx
+
+# test
+pytest-cov
+
+# dev
+black
+django-extensions
+flake8
+isort
+litecli
+pip-tools
+pre-commit

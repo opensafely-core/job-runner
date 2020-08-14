@@ -1,15 +1,11 @@
 from unittest.mock import patch
-import requests_mock
-
-from runner.exceptions import OpenSafelyError
-from runner.exceptions import RepoNotFound
-from runner.main import watch
-from tests.common import test_job_list
-from tests.common import BrokenJob
-from tests.common import SlowJob
-from tests.common import WorkingJob
 
 import pytest
+import requests_mock
+
+from runner.exceptions import OpenSafelyError, RepoNotFound
+from runner.main import watch
+from tests.common import BrokenJob, SlowJob, WorkingJob, test_job_list
 
 
 class TestError(OpenSafelyError):

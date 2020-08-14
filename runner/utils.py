@@ -1,9 +1,7 @@
-from pathlib import Path
-from urllib.parse import urlparse
-
 import logging
 import os
 import re
+from pathlib import Path
 
 
 def getlogger(name):

@@ -1,22 +1,26 @@
 import copy
 import logging
-import networkx as nx
 import os
 import re
-import requests
 import shlex
 import subprocess
+
+import networkx as nx
+import requests
 import yaml
 
-from runner.exceptions import DependencyFailed
-from runner.exceptions import DependencyRunning
-from runner.exceptions import ProjectValidationError
-from runner.utils import all_output_paths_for_action
-from runner.utils import getlogger
-from runner.utils import get_auth
-from runner.utils import make_volume_name
-from runner.utils import safe_join
-
+from runner.exceptions import (
+    DependencyFailed,
+    DependencyRunning,
+    ProjectValidationError,
+)
+from runner.utils import (
+    all_output_paths_for_action,
+    get_auth,
+    getlogger,
+    make_volume_name,
+    safe_join,
+)
 
 logger = getlogger(__name__)
 baselogger = logging.LoggerAdapter(logger, {"job_id": "-"})
@@ -32,7 +36,7 @@ RUN_COMMANDS_CONFIG = {
     "cohortextractor": {
         "docker_invocation": ["docker.opensafely.org/cohortextractor"],
     },
-    "stata-mp": {"docker_invocation": ["docker.opensafely.org/stata-mp"],},
+    "stata-mp": {"docker_invocation": ["docker.opensafely.org/stata-mp"]},
 }
 
 
@@ -167,7 +171,7 @@ def load_and_validate_project(workdir):
     expected_version = project.get("version", None)
     if expected_version != "1.0":
         raise ProjectValidationError(
-            f"Project file must specify a valid version (currently only 1.0)"
+            "Project file must specify a valid version (currently only 1.0)"
         )
     seen_runs = []
     project_actions = project["actions"]

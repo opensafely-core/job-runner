@@ -1,16 +1,17 @@
-from unittest.mock import patch
 import os
 import subprocess
 import tempfile
+from unittest.mock import patch
 
 import pytest
 import requests_mock
 
-from runner.project import docker_container_exists
-from runner.project import make_container_name
-from runner.project import parse_project_yaml
-from runner.exceptions import DependencyNotFinished
-from runner.exceptions import ProjectValidationError
+from runner.exceptions import DependencyNotFinished, ProjectValidationError
+from runner.project import (
+    docker_container_exists,
+    make_container_name,
+    parse_project_yaml,
+)
 from tests.common import default_job, test_job_list
 
 
@@ -158,7 +159,7 @@ def test_project_dependency_no_exception(dummy_output_path, mock_env, workspace)
         assert project["docker_invocation"] == [
             "docker.opensafely.org/stata-mp:1.0",
             "analysis/model.do",
-            f"generate_cohorts_input.csv",
+            "generate_cohorts_input.csv",
         ]
         assert project["outputs"]["moderately_sensitive"]["log"] == "model.log"
 

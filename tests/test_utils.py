@@ -1,7 +1,6 @@
 import pytest
 
-from runner.utils import make_volume_name
-from runner.utils import safe_join
+from runner.utils import make_volume_name, safe_join
 
 
 def test_safe_path():
