@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import subprocess
 from pathlib import Path
 
 
@@ -63,3 +64,21 @@ def all_output_paths_for_action(action):
             yield privacy_level, output_name, make_output_path(
                 action, privacy_level, output_filename
             )
+
+
+def needs_run(action):
+    return not all(
+        os.path.exists(path) for _, _, path in all_output_paths_for_action(action)
+    )
+
+
+def docker_container_exists(container_name):
+    cmd = [
+        "docker",
+        "ps",
+        "--filter",
+        f"name={container_name}",
+        "--quiet",
+    ]
+    result = subprocess.run(cmd, capture_output=True, encoding="utf8")
+    return result.stdout != ""

@@ -9,8 +9,9 @@ import urllib
 from pathlib import Path
 
 from runner.exceptions import DockerRunError, GitCloneError, RepoNotFound
-from runner.project import needs_run, parse_project_yaml
-from runner.utils import all_output_paths_for_action, getlogger
+from runner.project import parse_project_yaml
+from runner.server_interaction import start_dependent_job_or_raise_if_unfinished
+from runner.utils import all_output_paths_for_action, getlogger, needs_run
 
 logger = getlogger(__name__)
 
@@ -26,31 +27,39 @@ def add_github_auth_to_repo(repo):
 
 
 class Job:
-    def __init__(self, job_spec):
+    def __init__(self, job_spec, workdir=None):
         self.job_spec = job_spec
         self.tmpdir = tempfile.TemporaryDirectory(
             dir=os.environ["HIGH_PRIVACY_STORAGE_BASE"]
         )
-        self.workdir = Path(self.tmpdir.name)
+        if workdir is None:
+            self.workdir = Path(self.tmpdir.name)
+        else:
+            self.workdir = workdir
         self.logger = self.get_job_logger()
 
     def __call__(self):
         """This is necessary to satisfy `pebble`'s multiprocessing API
         """
-        return self.run()
+        return self.main()
 
-    def run(self):
+    def run_or_enqueue_job_and_dependencies(self):
+        for action_id, action in self.prepared_job["dependencies"].items():
+            start_dependent_job_or_raise_if_unfinished(action)
+        if needs_run(self.prepared_job):
+            self.invoke_docker()
+            self.prepared_job["status_message"] = "Fresh output generated"
+        else:
+            self.prepared_job["status_message"] = "Output already generated"
+
+    def main(self):
         self.logger.info("Starting job")
         self.fetch_study_source()
         self.logger.info(f"Repo at {self.workdir} successfully validated")
-        self.job = parse_project_yaml(self.workdir, self.job_spec)
-        self.logger.debug(f"Added runtime metadata to job_spec: {self.job}")
-        if needs_run(self.job):
-            self.invoke_docker()
-            self.job["status_message"] = "Fresh output generated"
-        else:
-            self.job["status_message"] = "Output already generated"
-        return self.job
+        self.prepared_job = parse_project_yaml(self.workdir, self.job_spec)
+        self.logger.debug(f"Added runtime metadata to job_spec: {self.prepared_job}")
+        self.run_or_enqueue_job_and_dependencies()
+        return self.prepared_job
 
     def __repr__(self):
         """An opaque string for use in logging to help trace events related to
@@ -67,7 +76,9 @@ class Job:
 
     def invoke_docker(self):
         # Copy expected input files into workdir
-        for input_name, input_path in self.job.get("namespaced_inputs", []).items():
+        for input_name, input_path in self.prepared_job.get(
+            "namespaced_inputs", []
+        ).items():
             target_path = os.path.join(self.workdir, input_name)
             shutil.move(input_path, target_path)
             self.logger.info("Copied input to %s", target_path)
@@ -76,7 +87,7 @@ class Job:
             "docker",
             "run",
             "--name",
-            self.job["container_name"],
+            self.prepared_job["container_name"],
             "--rm",
             "--log-driver",
             "none",
@@ -86,7 +97,7 @@ class Job:
             "stderr",
             "--volume",
             f"{self.workdir}:/workspace",
-        ] + self.job["docker_invocation"]
+        ] + self.prepared_job["docker_invocation"]
 
         self.logger.info("Running subdocker cmd `%s` in %s", cmd, self.workdir)
         result = subprocess.run(cmd, capture_output=True, encoding="utf8")
@@ -96,7 +107,7 @@ class Job:
             raise DockerRunError(result.stderr, report_args=False)
 
         # Copy expected outputs to the appropriate location
-        for _, _, target_path in all_output_paths_for_action(self.job):
+        for _, _, target_path in all_output_paths_for_action(self.prepared_job):
             filename = os.path.basename(target_path)
             shutil.move(os.path.join(self.workdir, filename), target_path)
             self.logger.info("Copied output to %s", target_path)
