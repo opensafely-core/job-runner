@@ -12,6 +12,7 @@ from runner.utils import (
     all_output_paths_for_action,
     getlogger,
     make_volume_name,
+    needs_run,
     safe_join,
 )
 
@@ -196,7 +197,10 @@ def add_runtime_metadata(
     container_name to the `action` dict.
 
     """
+    job_config = copy.deepcopy(kwargs)
     action = copy.deepcopy(action)
+    action.update(job_config)
+
     command = action["run"]
     name, version, user_args = split_and_format_run_command(command)
 
@@ -224,6 +228,7 @@ def add_runtime_metadata(
     action["callback_url"] = callback_url
     action["workspace"] = workspace
     action["output_locations"] = list(all_output_paths_for_action(action))
+    action["needs_run"] = needs_run(action)
     action["needed_by"] = operation
     action["operation"] = action_id
     return action
@@ -262,15 +267,29 @@ def parse_project_yaml(workdir, job_spec):
     # Do the same thing for dependencies, and also assert that they've
     # completed by checking their expected output exists
     dependency_actions = {}
+    inputs = []
+    any_needs_run = False
     for action_id in dependencies:
         # Adds docker_invocation and output files locations to the
         # config
         action = add_runtime_metadata(
             project_actions[action_id], action_id=action_id, **job_config
         )
+        # Add the inputs accrued from the previous dependencies
+        action["inputs"] = inputs[:]
         action["url"] = "n/a"
+        action["docker_invocation"] = interpolate_variables(
+            action["docker_invocation"], dependency_actions
+        )
+        if any_needs_run or action["needs_run"]:
+            any_needs_run = True
+            action["needs_run"] = True
         dependency_actions[action_id] = action
+        inputs.extend(all_output_paths_for_action(action))
 
+    if any_needs_run:
+        job_action["needs_run"] = True
+    job_action["inputs"] = inputs
     # Now interpolate user-provided variables into docker
     # invocation. This must happen after metadata has been added to
     # the dependencies, as variables can reference the ouputs of other

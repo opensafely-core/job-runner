@@ -32,15 +32,19 @@ def safe_join(startdir, path):
     return requested_path
 
 
-def make_volume_name(workspace):
+def make_volume_name(action):
     """Create a string suitable for naming a folder that will contain
     data, using state related to the current workspace as a unique key.
 
     """
-    parts = []
-    for key in ["repo", "branch", "db", "owner", "name"]:
+    parts = [action["backend"]]
+    if action["run_locally"]:
+        keys = ["branch", "db", "name"]
+    else:
+        keys = ["repo", "branch", "db", "name"]
+    for key in keys:
         # Remove symbols (excluding hyphens)
-        parts.append(re.sub(r"[^0-9a-z-]", "-", workspace[key]))
+        parts.append(re.sub(r"[^0-9a-z-]", "-", action["workspace"][key]))
     # Dedupe hyphens
     parts = "-".join(parts)
     parts = re.sub(r"--+", "-", parts)

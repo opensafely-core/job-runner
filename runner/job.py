@@ -11,7 +11,7 @@ from pathlib import Path
 from runner.exceptions import DockerRunError, GitCloneError, RepoNotFound
 from runner.project import parse_project_yaml
 from runner.server_interaction import start_dependent_job_or_raise_if_unfinished
-from runner.utils import all_output_paths_for_action, getlogger, needs_run, safe_join
+from runner.utils import all_output_paths_for_action, getlogger, safe_join
 
 logger = getlogger(__name__)
 
@@ -28,6 +28,8 @@ def add_github_auth_to_repo(repo):
 
 class Job:
     def __init__(self, job_spec, workdir=None):
+        if "run_locally" not in job_spec:
+            job_spec["run_locally"] = False
         self.job_spec = job_spec
         self.tmpdir = tempfile.TemporaryDirectory(
             dir=os.environ["HIGH_PRIVACY_STORAGE_BASE"]
@@ -43,30 +45,37 @@ class Job:
         """
         return self.main()
 
-    def run_job_and_dependencies(self, run_locally=False):
-        prepared_job = parse_project_yaml(self.workdir, self.job_spec)
+    def run_job_and_dependencies(self, all_jobs=None, prepared_job=None):
+        if all_jobs is None:
+            all_jobs = []
+        if prepared_job is None:
+            prepared_job = parse_project_yaml(self.workdir, self.job_spec)
         self.logger.info(f"Added runtime metadata to job_spec: {prepared_job}")
-
         # First, run all the dependencies
-        for action_id, action in prepared_job["dependencies"].items():
-            if run_locally:
-                dependent_job = Job(action, workdir=self.workdir)
-                dependent_job.run_job_and_dependencies(run_locally=True)
+        for action_id, action in prepared_job.get("dependencies", {}).items():
+            if action["run_locally"]:
+                self.run_job_and_dependencies(
+                    all_jobs=all_jobs, prepared_job=action,
+                )
             else:
                 start_dependent_job_or_raise_if_unfinished(action)
 
         # Finally, run ourself
-        if needs_run(prepared_job):
+        if prepared_job["needs_run"]:
             self.invoke_docker(prepared_job)
             prepared_job["status_message"] = "Fresh output generated"
         else:
             prepared_job["status_message"] = "Output already generated"
+        all_jobs.append(prepared_job)
         return prepared_job
 
-    def main(self, run_locally=False):
+    def main(self):
         self.logger.info("Starting job")
-        self.fetch_study_source()
-        return self.run_job_and_dependencies(run_locally=run_locally)
+        if not self.job_spec["run_locally"]:
+            self.fetch_study_source()
+        all_jobs = []
+        self.run_job_and_dependencies(all_jobs=all_jobs)
+        return all_jobs
 
     def __repr__(self):
         """An opaque string for use in logging to help trace events related to
