@@ -152,7 +152,10 @@ def interpolate_variables(args, dependency_actions):
                     # clashes
                     arg = os.path.join(action_id, variable_id, filename)
                 else:
-                    arg = filename
+                    raise ProjectValidationError(
+                        "Only variables of kind `outputs` are currently supported",
+                        report_args=True,
+                    )
             except (KeyError, ValueError):
                 raise ProjectValidationError(
                     f"No output corresponding to {arg} was found", report_args=True
