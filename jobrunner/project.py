@@ -7,8 +7,8 @@ import shlex
 import networkx as nx
 import yaml
 
-from runner.exceptions import ProjectValidationError
-from runner.utils import (
+from jobrunner.exceptions import ProjectValidationError
+from jobrunner.utils import (
     all_output_paths_for_action,
     getlogger,
     make_volume_name,

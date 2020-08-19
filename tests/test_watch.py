@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 import requests_mock
 
-from runner.main import watch
+from jobrunner.main import watch
 from tests.common import BrokenJob, SlowJob, WorkingJob, test_job_list
 
 

@@ -5,9 +5,9 @@ from unittest.mock import patch
 import pytest
 import requests_mock
 
-from runner.exceptions import DependencyNotFinished, OpenSafelyError, RepoNotFound
-from runner.job import Job
-from runner.main import watch
+from jobrunner.exceptions import DependencyNotFinished, OpenSafelyError, RepoNotFound
+from jobrunner.job import Job
+from jobrunner.main import watch
 from tests.common import BrokenJob, SlowJob, WorkingJob, default_job, test_job_list
 
 

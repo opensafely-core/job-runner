@@ -3,7 +3,7 @@ import tempfile
 
 import pytest
 
-from runner.job import Job
+from jobrunner.job import Job
 
 job_spec = {
     "url": "http://localhost:8000/jobs/8/",

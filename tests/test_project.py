@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import pytest
 
-from runner.exceptions import ProjectValidationError
-from runner.project import make_container_name, parse_project_yaml
+from jobrunner.exceptions import ProjectValidationError
+from jobrunner.project import make_container_name, parse_project_yaml
 
 
 @pytest.fixture(scope="function")

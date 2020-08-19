@@ -3,8 +3,8 @@ import os
 
 import requests
 
-from runner.exceptions import DependencyFailed, DependencyRunning
-from runner.utils import docker_container_exists, get_auth, getlogger, needs_run
+from jobrunner.exceptions import DependencyFailed, DependencyRunning
+from jobrunner.utils import docker_container_exists, get_auth, getlogger, needs_run
 
 logger = getlogger(__name__)
 baselogger = logging.LoggerAdapter(logger, {"job_id": "-"})

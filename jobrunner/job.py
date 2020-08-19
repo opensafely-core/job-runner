@@ -8,10 +8,10 @@ import time
 import urllib
 from pathlib import Path
 
-from runner.exceptions import DockerRunError, GitCloneError, RepoNotFound
-from runner.project import parse_project_yaml
-from runner.server_interaction import start_dependent_job_or_raise_if_unfinished
-from runner.utils import all_output_paths_for_action, getlogger, safe_join
+from jobrunner.exceptions import DockerRunError, GitCloneError, RepoNotFound
+from jobrunner.project import parse_project_yaml
+from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinished
+from jobrunner.utils import all_output_paths_for_action, getlogger, safe_join
 
 logger = getlogger(__name__)
 

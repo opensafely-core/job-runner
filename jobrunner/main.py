@@ -9,9 +9,9 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
 from requests.packages.urllib3.util.retry import Retry
 
-from runner.exceptions import DependencyRunning, OpenSafelyError
-from runner.job import Job
-from runner.utils import get_auth, getlogger
+from jobrunner.exceptions import DependencyRunning, OpenSafelyError
+from jobrunner.job import Job
+from jobrunner.utils import get_auth, getlogger
 
 HOUR = 60 * 60
 COHORT_EXTRACTOR_TIMEOUT = 24 * HOUR

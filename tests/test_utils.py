@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from runner.utils import docker_container_exists, make_volume_name, safe_join
+from jobrunner.utils import docker_container_exists, make_volume_name, safe_join
 
 
 def test_safe_path():

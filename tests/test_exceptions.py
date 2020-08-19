@@ -1,6 +1,6 @@
 import pytest
 
-from runner.exceptions import OpenSafelyError, RepoNotFound
+from jobrunner.exceptions import OpenSafelyError, RepoNotFound
 
 
 class TestError(OpenSafelyError):
