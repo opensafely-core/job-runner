@@ -116,7 +116,9 @@ class Job:
             f"{self.workdir}:/workspace",
         ] + prepared_job["docker_invocation"]
 
-        self.logger.info("Running subdocker cmd `%s` in %s", cmd, self.workdir)
+        self.logger.info(
+            "Running subdocker cmd `%s` in %s", " ".join(cmd), self.workdir
+        )
         result = subprocess.run(cmd, capture_output=True, encoding="utf8")
         if result.returncode == 0:
             self.logger.info("subdocker stdout: %s", result.stdout)
