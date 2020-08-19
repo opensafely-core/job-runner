@@ -205,7 +205,8 @@ def add_runtime_metadata(
     name, version, user_args = split_and_format_run_command(command)
 
     # Convert human-readable database name into DATABASE_URL
-    action["database_url"] = os.environ[f"{workspace['db'].upper()}_DATABASE_URL"]
+    if action["backend"] != "expectations":
+        action["database_url"] = os.environ[f"{workspace['db'].upper()}_DATABASE_URL"]
     info = copy.deepcopy(RUN_COMMANDS_CONFIG[name])
 
     # Convert the command name into a full set of arguments that can
@@ -218,6 +219,12 @@ def add_runtime_metadata(
     # Interpolate variables from the action into user-supplied
     # arguments. Currently, only `database_url` is useful.
     all_args = docker_args + user_args
+    # Substitute database_url for expecations_population
+    if all_args[0] == "generate_cohort":
+        if action["backend"] == "expectations":
+            all_args.append("--expectations-population=1000")
+        else:
+            all_args.append("--database-url={database_url}")
     all_args = [arg.format(**action) for arg in all_args]
     action["docker_invocation"] = [docker_image_name] + all_args
 
