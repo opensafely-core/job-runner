@@ -267,8 +267,9 @@ def parse_project_yaml(workdir, job_spec):
         for dependency_id in action_config.get("needs", []):
             graph.add_node(dependency_id)
             graph.add_edge(dependency_id, action_id)
-    dependencies = graph.predecessors(requested_action_id)
-
+    sorted_graph = nx.algorithms.dag.topological_sort(graph)
+    dependencies = nx.algorithms.dag.ancestors(graph, source=requested_action_id)
+    sorted_dependencies = [x for x in sorted_graph if x in dependencies]
     # Compute runtime metadata for the job we're interested
     job_action = add_runtime_metadata(
         project_actions[requested_action_id], **job_config
@@ -279,7 +280,7 @@ def parse_project_yaml(workdir, job_spec):
     dependency_actions = {}
     inputs = []
     any_needs_run = False
-    for action_id in dependencies:
+    for action_id in sorted_dependencies:
         # Adds docker_invocation and output files locations to the
         # config
         action = add_runtime_metadata(
