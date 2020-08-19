@@ -11,7 +11,7 @@ from pathlib import Path
 from runner.exceptions import DockerRunError, GitCloneError, RepoNotFound
 from runner.project import parse_project_yaml
 from runner.server_interaction import start_dependent_job_or_raise_if_unfinished
-from runner.utils import all_output_paths_for_action, getlogger, needs_run
+from runner.utils import all_output_paths_for_action, getlogger, needs_run, safe_join
 
 logger = getlogger(__name__)
 
@@ -83,9 +83,10 @@ class Job:
 
     def invoke_docker(self, prepared_job):
         # Copy expected input files into workdir
-        for input_name, input_path in prepared_job.get("namespaced_inputs", []).items():
-            target_path = os.path.join(self.workdir, input_name)
-            shutil.move(input_path, target_path)
+        for base, relpath in prepared_job["inputs"]:
+            target_path = os.path.join(self.workdir, relpath)
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            shutil.copy(safe_join(base, relpath), target_path)
             self.logger.info("Copied input to %s", target_path)
 
         cmd = [
@@ -111,10 +112,11 @@ class Job:
         else:
             raise DockerRunError(result.stderr, report_args=False)
 
-        # Copy expected outputs to the appropriate location
-        for _, _, target_path in all_output_paths_for_action(prepared_job):
-            filename = os.path.basename(target_path)
-            shutil.move(os.path.join(self.workdir, filename), target_path)
+        # Copy expected outputs to the final location
+        for base, relpath in all_output_paths_for_action(prepared_job):
+            target_path = safe_join(base, relpath)
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            shutil.move(safe_join(self.workdir, os.path.basename(relpath)), target_path)
             self.logger.info("Copied output to %s", target_path)
 
     def fetch_study_source(self):

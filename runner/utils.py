@@ -47,28 +47,33 @@ def make_volume_name(workspace):
     return parts
 
 
-def make_output_path(action, privacy_level, filename):
-    volume_name = make_volume_name(action["workspace"])
+def make_output_bucket(action, privacy_level, filename):
+    volume_name = make_volume_name(action)
     if privacy_level == "highly_sensitive":
         storage_base = Path(os.environ["HIGH_PRIVACY_STORAGE_BASE"])
     elif privacy_level == "moderately_sensitive":
         storage_base = Path(os.environ["MEDIUM_PRIVACY_STORAGE_BASE"])
     output_bucket = storage_base / volume_name
     output_bucket.mkdir(parents=True, exist_ok=True)
-    return safe_join(output_bucket, filename)
+    return output_bucket
 
 
 def all_output_paths_for_action(action):
+    """Given an action, list tuples of (output_bucket, relpath) for each output
+
+    """
     for privacy_level, outputs in action.get("outputs", {}).items():
         for output_name, output_filename in outputs.items():
-            yield privacy_level, output_name, make_output_path(
-                action, privacy_level, output_filename
+            yield (
+                make_output_bucket(action, privacy_level, output_filename),
+                os.path.join(action["action_id"], output_name, output_filename),
             )
 
 
 def needs_run(action):
     return not all(
-        os.path.exists(path) for _, _, path in all_output_paths_for_action(action)
+        os.path.exists(safe_join(base, relpath))
+        for base, relpath in all_output_paths_for_action(action)
     )
 
 

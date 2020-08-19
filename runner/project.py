@@ -149,7 +149,7 @@ def interpolate_variables(args, dependency_actions):
                     # When copying outputs into the workspace, we
                     # namespace them by action_id, to avoid filename
                     # clashes
-                    arg = f"{action_id}_{filename}"
+                    arg = os.path.join(action_id, variable_id, filename)
                 else:
                     arg = filename
             except (KeyError, ValueError):
@@ -223,31 +223,10 @@ def add_runtime_metadata(
     )
     action["callback_url"] = callback_url
     action["workspace"] = workspace
-    action["output_locations"] = [
-        {"privacy_level": privacy_level, "name": name, "location": path}
-        for privacy_level, name, path in all_output_paths_for_action(action)
-    ]
+    action["output_locations"] = list(all_output_paths_for_action(action))
     action["needed_by"] = operation
     action["operation"] = action_id
     return action
-
-
-def get_namespaced_outputs_from_dependencies(dependency_actions):
-    """Given a list of dependencies, construct a dictionary that
-    represents all the files these dependencies are expected to
-    output. To avoid filename clashes, these are namespaced by the
-    action that outputs the file.
-
-    """
-    inputs = {}
-    for dependency in dependency_actions.values():
-        for _, _, output_path in all_output_paths_for_action(dependency):
-            # Namespace the output file with the action id, so that
-            # copying files *into* the workspace doesn't overwrite
-            # anything
-            filename = os.path.basename(output_path)
-            inputs[f"{dependency['action_id']}_{filename}"] = output_path
-    return inputs
 
 
 def parse_project_yaml(workdir, job_spec):
@@ -298,9 +277,6 @@ def parse_project_yaml(workdir, job_spec):
     # actions
     job_action["docker_invocation"] = interpolate_variables(
         job_action["docker_invocation"], dependency_actions
-    )
-    job_action["namespaced_inputs"] = get_namespaced_outputs_from_dependencies(
-        dependency_actions
     )
     job_config.update(job_action)
     job_config["dependencies"] = dependency_actions
