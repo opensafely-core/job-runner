@@ -229,14 +229,15 @@ def add_runtime_metadata(
         else:
             all_args.append("--database-url={database_url}")
     all_args = [arg.format(**action) for arg in all_args]
+
     action["docker_invocation"] = [docker_image_name] + all_args
 
     # Other metadata required to run and/or debug containers
-    action["container_name"] = make_container_name(
-        make_volume_name(workspace) + "-" + "-".join(action["outputs"].keys())
-    )
     action["callback_url"] = callback_url
     action["workspace"] = workspace
+    action["container_name"] = make_container_name(
+        make_volume_name(action) + "-" + "-".join(action["outputs"].keys())
+    )
     action["output_locations"] = list(all_output_paths_for_action(action))
     action["needs_run"] = needs_run(action)
     action["needed_by"] = operation
