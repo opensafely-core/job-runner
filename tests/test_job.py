@@ -60,7 +60,7 @@ def test_watch_working_job(mock_env):
         }
 
 
-@patch("runner.main.HOUR", 0.001)
+@patch("jobrunner.main.HOUR", 0.001)
 def test_watch_timeout_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
@@ -165,7 +165,7 @@ def test_failed_dependency_exception(mock_env, workspace):
             job.run_job_and_dependencies()
 
 
-@patch("runner.server_interaction.docker_container_exists")
+@patch("jobrunner.server_interaction.docker_container_exists")
 def test_started_dependency_exception(mock_container_exists, mock_env, workspace):
     """Does an already-running dependency mean an exception is raised?
 
@@ -183,7 +183,7 @@ def test_started_dependency_exception(mock_container_exists, mock_env, workspace
             job.run_job_and_dependencies()
 
 
-@patch("runner.utils.make_output_path")
+@patch("jobrunner.utils.make_output_path")
 def test_project_dependency_no_exception(dummy_output_path, mock_env, workspace):
     """Do complete dependencies not raise an exception?
 

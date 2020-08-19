@@ -99,7 +99,7 @@ def test_valid_run_in_project(mock_env, workspace):
     ]
 
 
-@patch("runner.utils.make_output_path")
+@patch("jobrunner.utils.make_output_path")
 def test_project_output_missing_raises_exception(
     dummy_output_path, mock_env, workspace
 ):
@@ -117,7 +117,7 @@ def test_project_output_missing_raises_exception(
             parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.utils.make_output_path")
+@patch("jobrunner.utils.make_output_path")
 def test_bad_variable_path_raises_exception(dummy_output_path, mock_env, workspace):
     """Do complete dependencies not raise an exception?
 
@@ -132,7 +132,7 @@ def test_bad_variable_path_raises_exception(dummy_output_path, mock_env, workspa
             parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.utils.make_output_path")
+@patch("jobrunner.utils.make_output_path")
 def test_bad_version_raises_exception(dummy_output_path, mock_env, workspace):
     """Do complete dependencies not raise an exception?
 
@@ -143,7 +143,7 @@ def test_bad_version_raises_exception(dummy_output_path, mock_env, workspace):
         parse_project_yaml(project_path, job_spec)
 
 
-@patch("runner.utils.make_output_path")
+@patch("jobrunner.utils.make_output_path")
 def test_invalid_output_file_raises_exception(dummy_output_path, mock_env, workspace):
     """Do complete dependencies not raise an exception?
 

@@ -40,7 +40,7 @@ def test_watch_working_job(mock_env):
         }
 
 
-@patch("runner.main.HOUR", 0.001)
+@patch("jobrunner.main.HOUR", 0.001)
 def test_watch_timeout_job(mock_env):
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
