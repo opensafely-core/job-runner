@@ -31,6 +31,7 @@ RUN_COMMANDS_CONFIG = {
         "docker_invocation": ["docker.opensafely.org/cohortextractor"],
     },
     "stata-mp": {"docker_invocation": ["docker.opensafely.org/stata-mp"]},
+    "r": {"docker_invocation": ["docker.opensafely.org/r"]},
 }
 
 
