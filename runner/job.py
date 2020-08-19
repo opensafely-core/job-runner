@@ -83,10 +83,12 @@ class Job:
 
     def invoke_docker(self, prepared_job):
         # Copy expected input files into workdir
+        input_files = []
         for base, relpath in prepared_job["inputs"]:
             target_path = os.path.join(self.workdir, relpath)
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
             shutil.copy(safe_join(base, relpath), target_path)
+            input_files.append(target_path)
             self.logger.info("Copied input to %s", target_path)
 
         cmd = [
@@ -118,6 +120,10 @@ class Job:
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
             shutil.move(safe_join(self.workdir, os.path.basename(relpath)), target_path)
             self.logger.info("Copied output to %s", target_path)
+
+        # Delete input files
+        for input_file in input_files:
+            os.remove(input_file)
 
     def fetch_study_source(self):
         """Checkout source to a temporary location.
