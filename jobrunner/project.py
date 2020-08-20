@@ -74,14 +74,7 @@ def load_and_validate_project(workdir):
     seen_runs = []
     project_actions = project["actions"]
     for action_id, action_config in project_actions.items():
-        # Check it's a permitted run command
-        name, version, args = split_and_format_run_command(action_config["run"])
-        if name not in RUN_COMMANDS_CONFIG:
-            raise ProjectValidationError(name)
-        if not version:
-            raise ProjectValidationError(
-                f"{name} must have a version specified (e.g. {name}:0.5.2)"
-            )
+        # Check outputs are permitted
         for privacy_level, output in action_config["outputs"].items():
             permitted_privacy_levels = [
                 "highly_sensitive",
@@ -100,11 +93,21 @@ def load_and_validate_project(workdir):
                     raise ProjectValidationError(
                         f"Output path {filename} is not permitted"
                     )
+        # Check it's a permitted run command
+        name, version, args = split_and_format_run_command(action_config["run"])
+        if name not in RUN_COMMANDS_CONFIG:
+            raise ProjectValidationError(f"{name} is not a supported command")
+        if not version:
+            raise ProjectValidationError(
+                f"{name} must have a version specified (e.g. {name}:0.5.2)"
+            )
         # Check the run command + args signature appears only once in
         # a project
         run_signature = f"{name}_{args}"
         if run_signature in seen_runs:
-            raise ProjectValidationError(name, args, report_args=True)
+            raise ProjectValidationError(
+                f"{name} {' '.join(args)} appears more than once", report_args=True
+            )
         seen_runs.append(run_signature)
 
         # Check any variables are supported

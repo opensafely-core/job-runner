@@ -2,11 +2,18 @@ import time
 
 job_spec = {
     "url": "http://test.com/jobs/0/",
-    "repo": "myrepo",
-    "branch": "mybranch",
     "backend": "tpp",
-    "db": "full",
+    "repo": "myrepo",
     "operation": "generate_cohort",
+    "workspace": {
+        "id": 1,
+        "name": "workspace",
+        "repo": "repo",
+        "owner": "testowner",
+        "branch": "mybranch",
+        "db": "full",
+    },
+    "workspace_id": 1,
 }
 
 default_job = job_spec.copy()
@@ -14,7 +21,6 @@ default_job.update(
     {
         "status_code": None,
         "status_message": "",
-        "outputs": [],
         "created_at": None,
         "started_at": None,
         "completed_at": None,

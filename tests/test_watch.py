@@ -1,21 +1,12 @@
 from unittest.mock import patch
 
-import pytest
 import requests_mock
 
 from jobrunner.main import watch
 from tests.common import BrokenJob, SlowJob, WorkingJob, test_job_list
 
 
-@pytest.fixture(scope="function")
-def mock_env(monkeypatch):
-    monkeypatch.setenv("BACKEND", "tpp")
-    monkeypatch.setenv("HIGH_PRIVACY_STORAGE_BASE", "/tmp/storage/highsecurity")
-    monkeypatch.setenv("MEDIUM_PRIVACY_STORAGE_BASE", "/tmp/storage/mediumsecurity")
-    monkeypatch.setenv("JOB_SERVER_ENDPOINT", "http://test.com/jobs/")
-
-
-def test_watch_broken_job(mock_env):
+def test_watch_broken_job():
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
@@ -27,7 +18,7 @@ def test_watch_broken_job(mock_env):
         }
 
 
-def test_watch_working_job(mock_env):
+def test_watch_working_job():
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
@@ -41,7 +32,7 @@ def test_watch_working_job(mock_env):
 
 
 @patch("jobrunner.main.HOUR", 0.001)
-def test_watch_timeout_job(mock_env):
+def test_watch_timeout_job():
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")

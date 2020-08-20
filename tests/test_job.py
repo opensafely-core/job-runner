@@ -16,14 +16,6 @@ class TestError(OpenSafelyError):
 
 
 @pytest.fixture(scope="function")
-def mock_env(monkeypatch):
-    monkeypatch.setenv("BACKEND", "tpp")
-    monkeypatch.setenv("HIGH_PRIVACY_STORAGE_BASE", "/tmp/storage/highsecurity")
-    monkeypatch.setenv("MEDIUM_PRIVACY_STORAGE_BASE", "/tmp/storage/mediumsecurity")
-    monkeypatch.setenv("JOB_SERVER_ENDPOINT", "http://test.com/jobs/")
-
-
-@pytest.fixture(scope="function")
 def workspace():
     return {
         "repo": "https://github.com/repo",
@@ -35,7 +27,7 @@ def workspace():
     }
 
 
-def test_watch_broken_job(mock_env):
+def test_watch_broken_job():
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
@@ -47,7 +39,7 @@ def test_watch_broken_job(mock_env):
         }
 
 
-def test_watch_working_job(mock_env):
+def test_watch_working_job():
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
@@ -61,7 +53,7 @@ def test_watch_working_job(mock_env):
 
 
 @patch("jobrunner.main.HOUR", 0.001)
-def test_watch_timeout_job(mock_env):
+def test_watch_timeout_job():
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json=test_job_list())
         adapter = m.patch("/jobs/0/")
@@ -95,19 +87,22 @@ def test_reserved_exception():
         raise RepoNotFound(report_args=True)
 
 
-def test_never_started_dependency_exception(mock_env, workspace):
+# These tests are integration-type tests but the behaviour they're
+# testing is now easier to test more directly; they should be changed
+# to use start_dependent_job_or_raise_if_unfinished
+def test_never_started_dependency_exception(workspace, job_spec_maker):
     """Does a never-run dependency mean an exception is raised and the
     dependency is kicked off?
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = {"url": "", "operation": "run_model", "workspace": workspace}
+    job_spec = job_spec_maker(operation="run_model")
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json={"results": []})
         adapter = m.post("/jobs/")
         with pytest.raises(
             DependencyNotFinished,
-            match=r"Not started because dependency `generate_cohorts` has been added to the job queue",
+            match="Not started because dependency `generate_cohorts` has been added to the job queue",
         ):
             job = Job(job_spec, workdir=project_path)
             job.run_job_and_dependencies()
@@ -121,16 +116,12 @@ def test_never_started_dependency_exception(mock_env, workspace):
     }
 
 
-def test_unstarted_dependency_exception(mock_env, workspace):
+def test_unstarted_dependency_exception(job_spec_maker):
     """Does a existing, but unstarted dependency mean an exception is raised?
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = {
-        "operation": "run_model",
-        "url": "",
-        "workspace": workspace,
-    }
+    job_spec = job_spec_maker(operation="run_model")
     existing_unstarted_job = default_job.copy()
     existing_unstarted_job.update(job_spec)
     existing_unstarted_job["started"] = False
@@ -144,7 +135,7 @@ def test_unstarted_dependency_exception(mock_env, workspace):
             job.run_job_and_dependencies()
 
 
-def test_failed_dependency_exception(mock_env, workspace):
+def test_failed_dependency_exception(workspace):
     """Does a existing, but failed dependency mean an exception is raised?
 
     """
@@ -166,12 +157,12 @@ def test_failed_dependency_exception(mock_env, workspace):
 
 
 @patch("jobrunner.server_interaction.docker_container_exists")
-def test_started_dependency_exception(mock_container_exists, mock_env, workspace):
+def test_started_dependency_exception(mock_container_exists, job_spec_maker):
     """Does an already-running dependency mean an exception is raised?
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = {"url": "", "operation": "run_model", "workspace": workspace}
+    job_spec = job_spec_maker(operation="run_model")
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json={"results": []})
         mock_container_exists.return_value = True
@@ -183,21 +174,17 @@ def test_started_dependency_exception(mock_container_exists, mock_env, workspace
             job.run_job_and_dependencies()
 
 
-@patch("jobrunner.utils.make_output_path")
-def test_project_dependency_no_exception(dummy_output_path, mock_env, workspace):
+@patch("jobrunner.utils.all_output_paths_for_action")
+def test_project_dependency_no_exception(dummy_output_paths, job_spec_maker):
     """Do complete dependencies not raise an exception?
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = {
-        "url": "",
-        "operation": "run_model",
-        "workspace": workspace,
-    }
+    job_spec = job_spec_maker(operation="run_model")
     with tempfile.TemporaryDirectory() as d:
         mock_output_filename = os.path.join(d, "input.csv")
-        dummy_output_path.return_value = mock_output_filename
         with open(mock_output_filename, "w") as f:
             f.write("")
+        dummy_output_paths.return_value = [("", mock_output_filename)]
         job = Job(job_spec, workdir=project_path)
         job.run_job_and_dependencies()

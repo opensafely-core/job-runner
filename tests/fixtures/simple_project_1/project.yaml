@@ -5,7 +5,7 @@ version: '1.0'
 actions:
 
   generate_cohorts:
-    run: cohortextractor:0.5.2 generate_cohort --output-dir=/workspace --database-url={database_url}
+    run: cohortextractor:0.5.2 generate_cohort --output-dir=/workspace
     outputs:
       highly_sensitive:
         cohort: input.csv

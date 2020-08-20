@@ -38,7 +38,7 @@ def make_volume_name(action):
 
     """
     parts = [action["backend"]]
-    if action["run_locally"]:
+    if action.get("run_locally"):
         keys = ["branch", "db", "name"]
     else:
         keys = ["repo", "branch", "db", "name"]

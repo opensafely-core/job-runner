@@ -17,20 +17,25 @@ def test_unsafe_paths_raise():
 
 
 def test_make_volume_name():
-    workspace = {
-        "repo": "https://github.com/opensafely/hiv-research/",
-        "name": "tofu",
-        "branch": "feasibility-no",
-        "owner": "me",
-        "db": "full",
+    job_spec = {
+        "workspace": {
+            "repo": "https://foo.com/bar",
+            "branch": "master",
+            "db": "exampledb",
+            "name": "testworkspace",
+        },
+        "backend": "tofu",
     }
+
     assert (
-        make_volume_name(workspace)
-        == "https-github-com-opensafely-hiv-research-feasibility-no-full-me-tofu"
+        make_volume_name(job_spec)
+        == "tofu-https-foo-com-bar-master-exampledb-testworkspace"
     )
+    job_spec["run_locally"] = True
+    assert make_volume_name(job_spec) == "tofu-master-exampledb-testworkspace"
 
 
-def xtest_job_runner_docker_container_exists(mock_env):
+def xtest_job_runner_docker_container_exists():
     """Tests the ability to see if a container is running or not.
 
     This test is slow: it depends on a docker install and network
