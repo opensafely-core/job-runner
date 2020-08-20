@@ -1,6 +1,7 @@
 import os
 import tempfile
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 import requests_mock
@@ -8,6 +9,7 @@ import requests_mock
 from jobrunner.exceptions import DependencyNotFinished, OpenSafelyError, RepoNotFound
 from jobrunner.job import Job
 from jobrunner.main import watch
+from jobrunner.utils import all_output_paths_for_action
 from tests.common import BrokenJob, SlowJob, WorkingJob, default_job, test_job_list
 
 
@@ -85,6 +87,36 @@ def test_reserved_exception():
 
     with pytest.raises(RepoNotFound):
         raise RepoNotFound(report_args=True)
+
+
+class MockSubprocess(Mock):
+    @property
+    def returncode(self):
+        return 0
+
+
+@patch("jobrunner.job.subprocess", new_callable=MockSubprocess)
+def test_invoke_docker_file_copying(mock_subprocess, prepared_job_maker):
+    with tempfile.TemporaryDirectory() as storage_base, tempfile.TemporaryDirectory() as workdir:
+        inputs = [
+            (storage_base, "inthing.csv"),
+        ]
+        levels_with_outputs = {"highly_sensitive": {"outthing": "outthing.csv"}}
+        for base, fname in inputs:
+            Path(f"{storage_base}/{fname}").touch()
+        for level, outputs in levels_with_outputs.items():
+            for output, path in outputs.items():
+                Path(f"{workdir}/{path}").touch()
+
+        prepared_job = prepared_job_maker(inputs=inputs, outputs=levels_with_outputs)
+        job = Job(prepared_job, workdir=workdir)
+        job.invoke_docker(prepared_job)
+
+        # We expect inputs to have been copied to workdir, then
+        # deleted, and outputs to have been copied to storage_base
+        for base, relpath in all_output_paths_for_action(prepared_job):
+            target_path = os.path.join(base, relpath)
+            assert os.path.exists(target_path)
 
 
 # These tests are integration-type tests but the behaviour they're
