@@ -206,14 +206,16 @@ def add_runtime_metadata(
     """
     job_config = copy.deepcopy(kwargs)
     action = copy.deepcopy(action)
-    action.update(job_config)
+    job_config.update(action)
 
-    command = action["run"]
+    command = job_config["run"]
     name, version, user_args = split_and_format_run_command(command)
 
     # Convert human-readable database name into DATABASE_URL
-    if action["backend"] != "expectations":
-        action["database_url"] = os.environ[f"{workspace['db'].upper()}_DATABASE_URL"]
+    if job_config["backend"] != "expectations":
+        job_config["database_url"] = os.environ[
+            f"{workspace['db'].upper()}_DATABASE_URL"
+        ]
     info = copy.deepcopy(RUN_COMMANDS_CONFIG[name])
 
     # Convert the command name into a full set of arguments that can
@@ -223,30 +225,32 @@ def add_runtime_metadata(
     docker_image_name, *docker_args = info["docker_invocation"]
     if version:
         docker_image_name = f"{docker_image_name}:{version}"
-    # Interpolate variables from the action into user-supplied
+    # Interpolate variables from the job_config into user-supplied
     # arguments. Currently, only `database_url` is useful.
     all_args = docker_args + user_args
     # Substitute database_url for expecations_population
     if all_args[0] == "generate_cohort":
-        if action["backend"] == "expectations":
+        if job_config["backend"] == "expectations":
             all_args.append("--expectations-population=1000")
         else:
             all_args.append("--database-url={database_url}")
-    all_args = [arg.format(**action) for arg in all_args]
+    all_args = [arg.format(**job_config) for arg in all_args]
 
-    action["docker_invocation"] = [docker_image_name] + all_args
+    job_config["docker_invocation"] = [docker_image_name] + all_args
 
     # Other metadata required to run and/or debug containers
-    action["callback_url"] = callback_url
-    action["workspace"] = workspace
-    action["container_name"] = make_container_name(
-        make_volume_name(action) + "-" + "-".join(action["outputs"].keys())
+    job_config["callback_url"] = callback_url
+    job_config["workspace"] = workspace
+    job_config["container_name"] = make_container_name(
+        make_volume_name(job_config) + "-" + "-".join(job_config["outputs"].keys())
     )
-    action["output_locations"] = list(all_output_paths_for_action(action))
-    action["needs_run"] = needs_run(action)
-    action["needed_by"] = operation
-    action["operation"] = action_id
-    return action
+    job_config["output_locations"] = [
+        safe_join(x[0], x[1]) for x in all_output_paths_for_action(job_config)
+    ]
+    job_config["needs_run"] = needs_run(job_config)
+    job_config["needed_by"] = operation
+    job_config["operation"] = action_id
+    return job_config
 
 
 def parse_project_yaml(workdir, job_spec):
