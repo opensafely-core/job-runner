@@ -28,12 +28,15 @@ def report_result(future):
     joblogger = getattr(jobrunner, "logger", baselogger)
     id_message = f"id {jobrunner}"
     try:
-        job = future.result()
+        jobs = future.result()
+        assert len(jobs) == 1
+        job = future.result()[0]
+        outputs = [{"location": x} for x in job.get("output_locations", [])]
         response = requests.patch(
             job["url"],
             json={
                 "status_code": 0,
-                "outputs": job.get("output_locations", []),
+                "outputs": outputs,
                 "status_message": job["status_message"],
             },
             auth=get_auth(),

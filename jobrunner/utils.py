@@ -59,7 +59,7 @@ def make_output_bucket(action, privacy_level, filename):
         storage_base = Path(os.environ["MEDIUM_PRIVACY_STORAGE_BASE"])
     output_bucket = storage_base / volume_name
     output_bucket.mkdir(parents=True, exist_ok=True)
-    return output_bucket
+    return str(output_bucket)
 
 
 def all_output_paths_for_action(action):
