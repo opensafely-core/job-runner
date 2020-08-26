@@ -1,6 +1,7 @@
 *~
 .#*
 *#
+htmlcov
 model.log
 */input.csv
 __pycache__
