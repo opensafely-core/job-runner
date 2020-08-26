@@ -9,7 +9,7 @@ OPENSAFELY_JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/
 # stored. This folder must exist.
 OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
 # Or in Windows:
-# OPENSAFELY_RUNNER_STORAGE_BASE=/e/Users/opensafely/high_security
+# OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE=/e/Users/opensafely/high_security
 
 # A location where script outputs (some for publication) should be
 # stored
