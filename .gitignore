@@ -9,3 +9,5 @@ __pycache__
 app.log
 .env
 .coverage
+*.egg-info/
+pip-wheel-metadata/*
