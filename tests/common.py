@@ -38,13 +38,13 @@ class TestJob:
 
 class WorkingJob(TestJob):
     def __call__(self):
-        return self.job_spec
+        return [self.job_spec]
 
 
 class SlowJob(TestJob):
     def __call__(self):
         time.sleep(1)
-        return self.job_spec
+        return [self.job_spec]
 
 
 class BrokenJob(TestJob):
