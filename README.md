@@ -99,6 +99,48 @@ OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
 # stored
 OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE=/tmp/outputs/medium_security
 ```
+## Project.yaml description
+
+A valid project file looks like this:
+
+```yaml
+version: '1.0'
+
+actions:
+
+  generate_cohort:
+    run: cohortextractor:0.5.2 --output-dir=/workspace
+    outputs:
+      highly_sensitive:
+        cohort: input.csv
+
+  run_model:
+    run: stata-mp:latest analysis/model.do ${{ needs.generate_cohorts.outputs.highly_sensitive.cohort }}
+    needs: [generate_cohorts]
+    outputs:
+      moderately_sensitive:
+        log: model.log
+```
+
+`version` must currently always be `1.0`, and refers to the version of the project.yaml syntax used in the file.
+
+`actions` is a list of actions required to run the entire project end-to-end. Each action must have a run command, which is of the format <command>:<version> <arguments>. The currently-supported commands are `cohortextractor`, `r` and `stata-mp`.
+
+The <version> must correspond to a published docker tag. Available tags for cohortextractor are [here](https://github.com/opensafely/cohort-extractor/tags), and correspond to the versions of the cohortextractor tool that you see if you run `cohortextractor --version` from the command line. For the scripting images (`r`, `stata-mp`, you should always specify `latest` - for the time being.
+
+Each action has a list of `outputs` which are copied to an appropriately secure location available to subsequent steps (and to users logged into the secure environment with the relevant permissions). These are of the form <action_id>: <filename>. The run command must produce files in the current directory that correspond with these filenames.
+
+Each action can also refer to other actions with the `needs` field. This is a list of actions that must complete successfully before the given action can run.
+
+An action that `needs` other actions can refer to the `outputs` of previous actions using the form `${{ needs.<action_id>.outputs.<output_id> }}`. This is substituted with a path to the file in question.
+
+As such, a script that reads an input file needs to refer to its location as a command line argument. In the example above, a `stata` do-file would open a CSV like this:
+
+```do
+args csv
+import delimited `csv'
+```
+
 
 ## Command-line testing
 
