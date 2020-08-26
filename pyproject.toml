@@ -9,7 +9,7 @@ exclude = '''
 
 [tool.coverage.run]
 branch = true
-omit = []
+source = ["jobrunner"]
 
 [tool.coverage.report]
 skip_covered = true
