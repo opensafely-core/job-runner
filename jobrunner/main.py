@@ -6,7 +6,6 @@ from concurrent.futures import TimeoutError
 import requests
 from pebble import ProcessPool
 from requests.adapters import HTTPAdapter
-from requests.exceptions import HTTPError
 from requests.packages.urllib3.util.retry import Retry
 
 from jobrunner.exceptions import DependencyRunning, OpenSafelyError
@@ -97,23 +96,25 @@ def report_result(future):
         # Remove pebble's RemoteTraceback exception from reporting
         error.__cause__ = None
         joblogger.exception(error)
-    except HTTPError as error:
-        joblogger.exception(error)
-        joblogger.error(error.response.text)
     except Exception as error:
-        response = requests.patch(
-            job_spec["url"],
-            json={
-                "status_code": 99,
-                "status_message": f"Unclassified error {id_message}",
-            },
-            auth=get_auth(),
-        )
-        response.raise_for_status()
-        joblogger.info("Reported error 99 (unclassified) to job server")
-        # Don't remove remotetraceback, because we haven't considered
-        # handling it explicitly, and the context could help
-        joblogger.exception(error)
+        try:
+            response = requests.patch(
+                job_spec["url"],
+                json={
+                    "status_code": 99,
+                    "status_message": f"Unclassified error {id_message}",
+                },
+                auth=get_auth(),
+            )
+            response.raise_for_status()
+            joblogger.info("Reported error 99 (unclassified) to job server")
+            # Don't remove remotetraceback, because we haven't considered
+            # handling it explicitly, and the context could help
+            joblogger.exception(error)
+        except Exception as error:
+            # This would most likely be an HTTP error
+            joblogger.exception(error)
+            joblogger.error(error.response.text)
 
 
 def check_environment():
@@ -164,6 +165,6 @@ def watch(queue_endpoint, loop=True, job_class=Job):
                 future.jobrunner = runner
                 future.add_done_callback(report_result)
             if loop:
-                time.sleep(os.environ.get("POLL_INTERVAL", 5))
+                time.sleep(int(os.environ.get("POLL_INTERVAL", 5)))
             else:
                 break
