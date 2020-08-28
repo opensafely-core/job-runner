@@ -5,6 +5,7 @@ job_spec = {
     "backend": "tpp",
     "repo": "myrepo",
     "operation": "generate_cohort",
+    "force_run": False,
     "workspace": {
         "id": 1,
         "name": "workspace",

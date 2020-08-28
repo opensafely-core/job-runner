@@ -36,7 +36,12 @@ def workspace():
 @pytest.fixture(scope="function")
 def job_spec_maker(workspace):
     def _job_spec(**kw):
-        default = {"operation": "", "backend": "tpp", "workspace": workspace}
+        default = {
+            "operation": "",
+            "force_run": False,
+            "backend": "tpp",
+            "workspace": workspace,
+        }
         default.update(kw)
         return default
 

@@ -75,7 +75,9 @@ def all_output_paths_for_action(action):
 
 
 def needs_run(action):
-    return not all(
+    """Flag if an action should be run, either because it's been explicitly requested, or because any of its output files are missing
+    """
+    return action["force_run"] or not all(
         os.path.exists(safe_join(base, relpath))
         for base, relpath in all_output_paths_for_action(action)
     )

@@ -1,3 +1,7 @@
+import os
+import tempfile
+from unittest.mock import patch
+
 import pytest
 
 from jobrunner.exceptions import ProjectValidationError
@@ -31,6 +35,21 @@ def test_job_to_project_nodeps(job_spec_maker):
     assert project["outputs"]["highly_sensitive"]["cohort"] == "input.csv"
 
 
+def test_job_to_project_with_deps(job_spec_maker):
+    """Does project information get added to a job correctly in the happy path?
+
+    """
+    project_path = "tests/fixtures/simple_project_1"
+    job_spec = job_spec_maker(operation="run_model")
+
+    project = parse_project_yaml(project_path, job_spec)
+    assert "generate_cohorts" in project["dependencies"]
+    dependency = project["dependencies"]["generate_cohorts"]
+    assert (
+        dependency["workspace"] == project["workspace"]
+    ), "Dependency must be in the same workspace as called action"
+
+
 def test_valid_run_in_project(job_spec_maker):
     """Do run commands in jobs get their variables interpolated?
 
@@ -55,6 +74,34 @@ def test_operation_not_in_project(job_spec_maker):
     job_spec = job_spec_maker(operation="do_the_twist")
     with pytest.raises(ProjectValidationError):
         parse_project_yaml(project_path, job_spec)
+
+
+@patch("jobrunner.utils.all_output_paths_for_action")
+def test_project_needs_run(dummy_output_paths, job_spec_maker):
+    """Do complete dependencies with force_run set raise an exception?
+    """
+    project_path = "tests/fixtures/simple_project_1"
+    job_spec = job_spec_maker(operation="generate_cohorts")
+
+    # Check using output paths that don't exist, so run is needed
+    dummy_output_paths.return_value = [("", "blah")]
+    parsed = parse_project_yaml(project_path, job_spec)
+    assert parsed["needs_run"] is True
+
+    # Check using output paths that do exist, so run not needed unless
+    # explicitly asked
+    with tempfile.TemporaryDirectory() as d:
+        mock_output_filename = os.path.join(d, "input.csv")
+        with open(mock_output_filename, "w") as f:
+            f.write("")
+        dummy_output_paths.return_value = [("", mock_output_filename)]
+
+        parsed = parse_project_yaml(project_path, job_spec)
+        assert parsed["needs_run"] is False
+
+        job_spec["force_run"] = True
+        parsed = parse_project_yaml(project_path, job_spec)
+        assert parsed["needs_run"] is True
 
 
 def test_duplicate_operation_in_project():
