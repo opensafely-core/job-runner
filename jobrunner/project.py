@@ -61,8 +61,7 @@ def variables_in_string(string_with_variables, variable_name_only=False):
 
 
 def load_and_validate_project(workdir):
-    """Check that a dictionary of project actions is valid
-    """
+    """Check that a dictionary of project actions is valid"""
     with open(os.path.join(workdir, "project.yaml"), "r") as f:
         project = yaml.safe_load(f)
 
@@ -309,7 +308,6 @@ def parse_project_yaml(workdir, job_spec):
             action["needs_run"] = True
         dependency_actions[action_id] = action
         inputs.extend(all_output_paths_for_action(action))
-
     if any_needs_run:
         job_action["needs_run"] = True
     job_action["inputs"] = inputs
@@ -320,14 +318,14 @@ def parse_project_yaml(workdir, job_spec):
     job_action["docker_invocation"] = interpolate_variables(
         job_action["docker_invocation"], dependency_actions
     )
+
     job_config.update(job_action)
     job_config["dependencies"] = dependency_actions
     return job_config
 
 
 def make_container_name(input_string):
-    """Convert `input_string` to a valid docker container name
-    """
+    """Convert `input_string` to a valid docker container name"""
     container_name = re.sub(r"[^a-zA-Z0-9]", "-", input_string)
     # Remove any leading dashes, as docker requires images begin with [:alnum:]
     if container_name.startswith("-"):

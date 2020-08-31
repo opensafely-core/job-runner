@@ -41,8 +41,7 @@ class Job:
         self.logger = self.get_job_logger()
 
     def __call__(self):
-        """This is necessary to satisfy `pebble`'s multiprocessing API
-        """
+        """This is necessary to satisfy `pebble`'s multiprocessing API"""
         return self.main()
 
     def run_job_and_dependencies(self, all_jobs=None, prepared_job=None):
@@ -137,8 +136,7 @@ class Job:
             os.remove(input_file)
 
     def fetch_study_source(self):
-        """Checkout source to a temporary location.
-        """
+        """Checkout source to a temporary location."""
         repo = self.job_spec["workspace"]["repo"]
         branch = self.job_spec["workspace"]["branch"]
         max_retries = 3
