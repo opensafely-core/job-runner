@@ -42,6 +42,7 @@ jobs:
         python setup.py sdist bdist_wheel
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@master
+      if: needs.tag-new-version.outputs.tag
       with:
         user: __token__
         password: ${{ secrets.PYPI_PASSWORD }}
