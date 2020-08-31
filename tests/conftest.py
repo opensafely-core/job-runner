@@ -39,6 +39,7 @@ def job_spec_maker(workspace):
         default = {
             "operation": "",
             "force_run": False,
+            "force_run_dependencies": False,
             "backend": "tpp",
             "workspace": workspace,
         }

@@ -6,6 +6,7 @@ job_spec = {
     "repo": "myrepo",
     "operation": "generate_cohort",
     "force_run": False,
+    "force_run_dependencies": False,
     "workspace": {
         "id": 1,
         "name": "workspace",

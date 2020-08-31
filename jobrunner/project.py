@@ -289,6 +289,9 @@ def parse_project_yaml(workdir, job_spec):
     dependency_actions = {}
     inputs = []
     any_needs_run = False
+    if not job_config["force_run_dependencies"]:
+        job_config["force_run"] = False
+
     for action_id in sorted_dependencies:
         # Adds docker_invocation and output files locations to the
         # config

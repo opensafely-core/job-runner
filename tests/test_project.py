@@ -81,7 +81,7 @@ def test_project_needs_run(dummy_output_paths, job_spec_maker):
     """Do complete dependencies with force_run set raise an exception?
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = job_spec_maker(operation="generate_cohorts")
+    job_spec = job_spec_maker(operation="run_model")
 
     # Check using output paths that don't exist, so run is needed
     dummy_output_paths.return_value = [("", "blah")]
@@ -102,6 +102,12 @@ def test_project_needs_run(dummy_output_paths, job_spec_maker):
         job_spec["force_run"] = True
         parsed = parse_project_yaml(project_path, job_spec)
         assert parsed["needs_run"] is True
+        assert parsed["dependencies"]["generate_cohorts"]["needs_run"] is False
+
+        job_spec["force_run_dependencies"] = True
+        parsed = parse_project_yaml(project_path, job_spec)
+        assert parsed["needs_run"] is True
+        assert parsed["dependencies"]["generate_cohorts"]["needs_run"] is True
 
 
 def test_duplicate_operation_in_project():
