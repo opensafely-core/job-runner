@@ -17,6 +17,10 @@ logger = getlogger(__name__)
 
 
 def add_github_auth_to_repo(repo):
+    """Add Basic HTTP Auth to a Github repo, from the environment.
+
+    For example, `https://github.com/sebbacon/test.git` becomes `https:/<access_token>@github.com/sebbacon/test.git`
+    """
     parts = urllib.parse.urlparse(repo)
     assert not parts.username and not parts.password
     return urllib.parse.urlunparse(

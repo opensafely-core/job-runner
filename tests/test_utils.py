@@ -5,8 +5,9 @@ import pytest
 from jobrunner.utils import docker_container_exists, make_volume_name, safe_join
 
 
-def test_safe_path():
-    safe_join("/workdir", "file.txt") == "/workdir/file.txt"
+def test_safe_paths():
+    assert safe_join("/workdir", "file.txt") == "/workdir/file.txt"
+    assert safe_join("/workdir", "../workdir/file.txt") == "/workdir/file.txt"
 
 
 def test_unsafe_paths_raise():

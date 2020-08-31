@@ -6,16 +6,18 @@ from pathlib import Path
 
 
 def getlogger(name):
-    # Create a logger with a field for recording a unique job id, and a
-    # `baselogger` adapter which fills this field with a hyphen, for use
-    # when logging events not associated with jobs
+    """Create a custom logger with a field for recording a unique job id
+    """
     FORMAT = "%(asctime)-15s %(levelname)-10s  %(job_id)-10s %(message)s"
-    logger = logging.getLogger(name)
-    handler = logging.StreamHandler()
     formatter = logging.Formatter(FORMAT)
+
+    handler = logging.StreamHandler()
     handler.setFormatter(formatter)
-    logger.setLevel(logging.INFO)
+
+    logger = logging.getLogger(name)
+
     logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
     return logger
 
 
@@ -24,6 +26,8 @@ def get_auth():
 
 
 def safe_join(startdir, path):
+    """Given a `startdir` and `path`, join them together, while protecting against directory traversal attacks
+    """
     requested_path = os.path.normpath(os.path.join(startdir, path))
     startdir = str(startdir)  # Normalise from PosixPath
     assert (
@@ -75,7 +79,7 @@ def all_output_paths_for_action(action):
 
 
 def needs_run(action):
-    """Flag if an action should be run, either because it's been explicitly requested, or because any of its output files are missing
+    """Flag if a job should be run, either because it's been explicitly requested, or because any of its output files are missing
     """
     return action["force_run"] or not all(
         os.path.exists(safe_join(base, relpath))
