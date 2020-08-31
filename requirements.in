@@ -5,6 +5,7 @@ networkx
 
 # test
 pytest-cov
+requests_mock
 
 # dev
 black
