@@ -194,7 +194,12 @@ def split_and_format_run_command(run_command):
 
 
 def add_runtime_metadata(
-    action, action_id=None, workspace=None, callback_url=None, operation=None, **kwargs,
+    action_from_project,
+    requested_action_id=None,
+    needed_by_action_id=None,
+    workspace=None,
+    callback_url=None,
+    **kwargs,
 ):
     """Given a run command specified in project.yaml, validate that it is
     permitted, and return how it should be invoked for `docker run`
@@ -204,8 +209,10 @@ def add_runtime_metadata(
 
     """
     job_config = copy.deepcopy(kwargs)
-    action = copy.deepcopy(action)
-    job_config.update(action)
+    action_from_project = copy.deepcopy(action_from_project)
+    job_config.update(action_from_project)
+    job_config["needed_by"] = needed_by_action_id
+    job_config["action_id"] = requested_action_id
 
     command = job_config["run"]
     name, version, user_args = split_and_format_run_command(command)
@@ -247,8 +254,7 @@ def add_runtime_metadata(
         safe_join(x[0], x[1]) for x in all_output_paths_for_action(job_config)
     ]
     job_config["needs_run"] = needs_run(job_config)
-    job_config["needed_by"] = operation
-    job_config["operation"] = action_id
+
     return job_config
 
 
@@ -263,7 +269,7 @@ def parse_project_yaml(workdir, job_spec):
     """
     project = load_and_validate_project(workdir)
     project_actions = project["actions"]
-    requested_action_id = job_spec["operation"]
+    requested_action_id = job_spec["action_id"]
     if requested_action_id not in project_actions:
         raise ProjectValidationError(requested_action_id)
     job_config = job_spec.copy()
@@ -280,7 +286,9 @@ def parse_project_yaml(workdir, job_spec):
     sorted_dependencies = [x for x in sorted_graph if x in dependencies]
     # Compute runtime metadata for the job we're interested
     job_action = add_runtime_metadata(
-        project_actions[requested_action_id], **job_config
+        project_actions[requested_action_id],
+        requested_action_id=requested_action_id,
+        **job_config,
     )
 
     # Do the same thing for dependencies, and also assert that they've
@@ -291,11 +299,14 @@ def parse_project_yaml(workdir, job_spec):
     if not job_config["force_run_dependencies"]:
         job_config["force_run"] = False
 
-    for action_id in sorted_dependencies:
+    for dependency_action_id in sorted_dependencies:
         # Adds docker_invocation and output files locations to the
         # config
         action = add_runtime_metadata(
-            project_actions[action_id], action_id=action_id, **job_config
+            project_actions[dependency_action_id],
+            requested_action_id=dependency_action_id,
+            needed_by_action_id=requested_action_id,
+            **job_config,
         )
         # Add the inputs accrued from the previous dependencies
         action["inputs"] = inputs[:]
@@ -306,7 +317,7 @@ def parse_project_yaml(workdir, job_spec):
         if any_needs_run or action["needs_run"]:
             any_needs_run = True
             action["needs_run"] = True
-        dependency_actions[action_id] = action
+        dependency_actions[dependency_action_id] = action
         inputs.extend(all_output_paths_for_action(action))
     if any_needs_run:
         job_action["needs_run"] = True

@@ -62,7 +62,7 @@ this:
 ```json
 {
     "backend": "tpp",
-    "operation": "do_thing",
+    "action": "do_thing",
     "workspace_id": 1,
 }
 ```

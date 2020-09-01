@@ -128,7 +128,7 @@ def test_never_started_dependency_exception(workspace, job_spec_maker):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = job_spec_maker(operation="run_model")
+    job_spec = job_spec_maker(action_id="run_model")
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json={"results": []})
         adapter = m.post("/jobs/")
@@ -143,7 +143,7 @@ def test_never_started_dependency_exception(workspace, job_spec_maker):
         "backend": "tpp",
         "callback_url": None,
         "needed_by": "run_model",
-        "operation": "generate_cohorts",
+        "action_id": "generate_cohorts",
         "workspace_id": workspace["id"],
     }
 
@@ -153,7 +153,7 @@ def test_unstarted_dependency_exception(job_spec_maker):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = job_spec_maker(operation="run_model")
+    job_spec = job_spec_maker(action_id="run_model")
     existing_unstarted_job = default_job.copy()
     existing_unstarted_job.update(job_spec)
     existing_unstarted_job["started"] = False
@@ -173,7 +173,7 @@ def test_failed_dependency_exception(workspace):
     """
     project_path = "tests/fixtures/simple_project_1"
     job_requested = default_job.copy()
-    job_requested.update({"operation": "run_model", "workspace": workspace})
+    job_requested.update({"action_id": "run_model", "workspace": workspace})
     existing_failed_job = job_requested.copy()
     existing_failed_job["started"] = True
     existing_failed_job["completed_at"] = "2020-01-01"
@@ -182,7 +182,7 @@ def test_failed_dependency_exception(workspace):
         m.get("/jobs/", json=test_job_list(job=existing_failed_job))
         with pytest.raises(
             DependencyNotFinished,
-            match=r"Dependency `generate_cohorts` failed, so unable to run this operation",
+            match=r"Dependency `generate_cohorts` failed, so unable to run this action",
         ):
             job = Job(job_requested, workdir=project_path)
             job.run_job_and_dependencies()
@@ -194,7 +194,7 @@ def test_started_dependency_exception(mock_container_exists, job_spec_maker):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = job_spec_maker(operation="run_model")
+    job_spec = job_spec_maker(action_id="run_model")
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json={"results": []})
         mock_container_exists.return_value = True
@@ -212,7 +212,7 @@ def test_project_dependency_no_exception(dummy_output_paths, job_spec_maker):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = job_spec_maker(operation="run_model")
+    job_spec = job_spec_maker(action_id="run_model")
     with tempfile.TemporaryDirectory() as d:
         mock_output_filename = os.path.join(d, "input.csv")
         with open(mock_output_filename, "w") as f:

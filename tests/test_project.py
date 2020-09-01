@@ -23,7 +23,7 @@ def test_job_to_project_nodeps(job_spec_maker):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = job_spec_maker(operation="generate_cohorts")
+    job_spec = job_spec_maker(action_id="generate_cohorts")
 
     project = parse_project_yaml(project_path, job_spec)
     assert project["docker_invocation"] == [
@@ -40,7 +40,7 @@ def test_job_to_project_with_deps(job_spec_maker):
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = job_spec_maker(operation="run_model")
+    job_spec = job_spec_maker(action_id="run_model")
 
     project = parse_project_yaml(project_path, job_spec)
     assert "generate_cohorts" in project["dependencies"]
@@ -55,7 +55,7 @@ def test_valid_run_in_project(job_spec_maker):
 
     """
     project_path = "tests/fixtures/simple_project_2"
-    job_spec = job_spec_maker(operation="generate_cohort")
+    job_spec = job_spec_maker(action_id="generate_cohort")
     project = parse_project_yaml(project_path, job_spec)
     assert project["docker_invocation"] == [
         "docker.opensafely.org/cohortextractor:0.5.2",
@@ -65,13 +65,13 @@ def test_valid_run_in_project(job_spec_maker):
     ]
 
 
-def test_operation_not_in_project(job_spec_maker):
-    """Do jobs whose operation is not specified in a project raise an
+def test_action_id_not_in_project(job_spec_maker):
+    """Do jobs whose action_id is not specified in a project raise an
     exception?
 
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = job_spec_maker(operation="do_the_twist")
+    job_spec = job_spec_maker(action_id="do_the_twist")
     with pytest.raises(ProjectValidationError):
         parse_project_yaml(project_path, job_spec)
 
@@ -81,7 +81,7 @@ def test_project_needs_run(dummy_output_paths, job_spec_maker):
     """Do complete dependencies with force_run set raise an exception?
     """
     project_path = "tests/fixtures/simple_project_1"
-    job_spec = job_spec_maker(operation="run_model")
+    job_spec = job_spec_maker(action_id="run_model")
 
     # Check using output paths that don't exist, so run is needed
     dummy_output_paths.return_value = [("", "blah")]
@@ -110,8 +110,8 @@ def test_project_needs_run(dummy_output_paths, job_spec_maker):
         assert parsed["dependencies"]["generate_cohorts"]["needs_run"] is True
 
 
-def test_duplicate_operation_in_project():
-    """Do jobs whose operation is duplicated in a project raise an
+def test_duplicate_action_id_in_project():
+    """Do jobs whose action_id is duplicated in a project raise an
     exception?
 
     """

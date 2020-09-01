@@ -5,7 +5,7 @@ from jobrunner.job import Job
 job_spec = {
     "url": "http://localhost:8000/jobs/8/",
     "backend": "tpp",
-    "operation": "do_thing",
+    "action_id": "do_thing",
     "workspace": {
         "id": 3,
         "url": "http://localhost:8000/workspaces/3/",

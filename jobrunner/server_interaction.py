@@ -14,7 +14,7 @@ def get_latest_matching_job_from_queue(workspace=None, action_id=None, **kw):
     job = {
         "backend": os.environ["BACKEND"],
         "workspace_id": workspace["id"],
-        "operation": action_id,
+        "action_id": action_id,
         "limit": 1,
     }
     response = requests.get(
@@ -29,7 +29,7 @@ def push_dependency_job_from_action_to_queue(action):
     job = {
         "backend": os.environ["BACKEND"],
         "workspace_id": action["workspace"]["id"],
-        "operation": action["action_id"],
+        "action_id": action["action_id"],
     }
     job["callback_url"] = action["callback_url"]
     job["needed_by"] = action["needed_by"]
@@ -77,7 +77,7 @@ def start_dependent_job_or_raise_if_unfinished(dependency_action):
                 )
             else:
                 raise DependencyFailed(
-                    f"Dependency `{dependency_action['action_id']}` failed, so unable to run this operation",
+                    f"Dependency `{dependency_action['action_id']}` failed, so unable to run this action",
                     report_args=True,
                 )
 

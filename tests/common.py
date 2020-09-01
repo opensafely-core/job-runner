@@ -4,7 +4,7 @@ job_spec = {
     "url": "http://test.com/jobs/0/",
     "backend": "tpp",
     "repo": "myrepo",
-    "operation": "generate_cohort",
+    "action_id": "generate_cohort",
     "force_run": False,
     "force_run_dependencies": False,
     "workspace": {
