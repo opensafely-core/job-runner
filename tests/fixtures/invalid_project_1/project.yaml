@@ -1,0 +1,17 @@
+# This project contains two actions with the same run, which is invalid
+version: '1.0'
+
+actions:
+
+  run_model_1:
+    run: cohortextractor:0.5.2 generate_cohort --output-dir=/workspace
+    outputs:
+      highly_sensitive:
+        cohort: input.csv
+
+  run_model_2:
+    run: cohortextractor:0.5.2 generate_cohort --output-dir=/workspace
+    needs: [run_model_1]
+    outputs:
+      moderately_sensitive:
+        log: model.log

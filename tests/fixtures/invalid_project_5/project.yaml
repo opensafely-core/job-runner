@@ -1,0 +1,10 @@
+# This project contains a run command without a version
+version: '1.0'
+
+actions:
+
+  extract:
+    run: cohortextractor
+    outputs:
+      highly_sensitive:
+        cohort: input.csv

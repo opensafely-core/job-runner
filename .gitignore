@@ -1,9 +1,13 @@
 *~
 .#*
 *#
+htmlcov
 model.log
 */input.csv
 __pycache__
 .python-version
 app.log
 .env
+.coverage
+*.egg-info/
+pip-wheel-metadata/*

@@ -19,7 +19,7 @@ class OpenSafelyError(Exception):
     def safe_details(self):
         classname = type(self).__name__
         if self.report_args:
-            return classname + ": " + " ".join(self.args)
+            return f"{classname}: {','.join(self.args)}"
         else:
             return classname + ": [possibly-unsafe details redacted]"
 
@@ -29,20 +29,32 @@ class DockerError(OpenSafelyError):
 
 
 class DockerRunError(DockerError):
-    status_code = 3
-
-
-class CohortExtractorError(DockerRunError):
-    status_code = 4
+    status_code = 2
 
 
 class RepoNotFound(OpenSafelyError):
-    status_code = 5
+    status_code = 3
 
 
 class InvalidRepo(OpenSafelyError):
-    status_code = 6
+    status_code = 4
 
 
 class GitCloneError(OpenSafelyError):
+    status_code = 5
+
+
+class DependencyNotFinished(OpenSafelyError):
+    status_code = 6
+
+
+class DependencyFailed(DependencyNotFinished):
     status_code = 7
+
+
+class DependencyRunning(DependencyNotFinished):
+    status_code = 8
+
+
+class ProjectValidationError(OpenSafelyError):
+    status_code = 9

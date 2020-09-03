@@ -1,0 +1,19 @@
+# This project should parse correctly but fail due to no output
+# existing that corresponds to the user-defined variable in the
+# `run_model` action
+version: '1.0'
+
+actions:
+
+  generate_cohorts:
+    run: cohortextractor:0.5.2
+    outputs:
+      highly_sensitive:
+        cohort: input.csv
+
+  run_model:
+    run: stata-mp:1.0 analysis/model.do ${{ needs.generate_cohorts.outputs.bad_cohort }}
+    needs: [generate_cohorts]
+    outputs:
+      moderately_sensitive:
+        log: model.log
