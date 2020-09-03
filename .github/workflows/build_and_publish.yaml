@@ -62,9 +62,9 @@ jobs:
     - name: Build and publish
       uses: whoan/docker-build-with-cache-action@v5
       with:
-        username: whoan
+        username: docker
         password: "${{ secrets.OPENSAFELY_DOCKER_PASSWORD }}"
         registry: docker.opensafely.org
         image_name: job-runner
-        push_git_tag: true
+        image_tag: latest,${{ needs.tag-new-version.outputs.tag }}
         build_extra_args: "--build-arg=pythonversion=3.8.3"
