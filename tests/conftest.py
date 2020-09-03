@@ -39,9 +39,11 @@ def job_spec_maker(workspace):
         default = {
             "action_id": "",
             "force_run": False,
+            "pk": 0,
             "force_run_dependencies": False,
             "backend": "tpp",
             "workspace": workspace,
+            "workspace_id": workspace["id"],
         }
         default.update(kw)
         return default

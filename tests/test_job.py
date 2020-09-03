@@ -131,7 +131,7 @@ def test_never_started_dependency_exception(workspace, job_spec_maker):
     job_spec = job_spec_maker(action_id="run_model")
     with requests_mock.Mocker() as m:
         m.get("/jobs/", json={"results": []})
-        adapter = m.post("/jobs/")
+        adapter = m.post("/jobs/", json={})
         with pytest.raises(
             DependencyNotFinished,
             match="Not started because dependency `generate_cohorts` has been added to the job queue",
@@ -141,8 +141,9 @@ def test_never_started_dependency_exception(workspace, job_spec_maker):
 
     assert adapter.request_history[0].json() == {
         "backend": "tpp",
-        "callback_url": None,
-        "needed_by": "run_model",
+        "force_run": False,
+        "force_run_dependencies": False,
+        "needed_by_id": 0,
         "action_id": "generate_cohorts",
         "workspace_id": workspace["id"],
     }
