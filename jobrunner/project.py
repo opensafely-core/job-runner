@@ -196,7 +196,6 @@ def split_and_format_run_command(run_command):
 def add_runtime_metadata(
     action_from_project,
     requested_action_id=None,
-    needed_by_action_id=None,
     workspace=None,
     callback_url=None,
     **kwargs,
@@ -211,7 +210,6 @@ def add_runtime_metadata(
     job_config = copy.deepcopy(kwargs)
     action_from_project = copy.deepcopy(action_from_project)
     job_config.update(action_from_project)
-    job_config["needed_by"] = needed_by_action_id
     job_config["action_id"] = requested_action_id
 
     command = job_config["run"]
@@ -284,6 +282,7 @@ def parse_project_yaml(workdir, job_spec):
     sorted_graph = nx.algorithms.dag.topological_sort(graph)
     dependencies = nx.algorithms.dag.ancestors(graph, source=requested_action_id)
     sorted_dependencies = [x for x in sorted_graph if x in dependencies]
+
     # Compute runtime metadata for the job we're interested
     job_action = add_runtime_metadata(
         project_actions[requested_action_id],
@@ -305,15 +304,14 @@ def parse_project_yaml(workdir, job_spec):
         action = add_runtime_metadata(
             project_actions[dependency_action_id],
             requested_action_id=dependency_action_id,
-            needed_by_action_id=requested_action_id,
             **job_config,
         )
         # Add the inputs accrued from the previous dependencies
         action["inputs"] = inputs[:]
-        action["url"] = "n/a"
         action["docker_invocation"] = interpolate_variables(
             action["docker_invocation"], dependency_actions
         )
+        action["needed_by_id"] = job_spec["pk"]
         if any_needs_run or action["needs_run"]:
             any_needs_run = True
             action["needs_run"] = True

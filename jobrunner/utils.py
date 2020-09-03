@@ -4,6 +4,22 @@ import re
 import subprocess
 from pathlib import Path
 
+NEW_JOB_KEYS = [
+    "force_run",
+    "force_run_dependencies",
+    "action_id",
+    "backend",
+    "needed_by_id",
+    "workspace_id",
+]
+
+
+def writable_job_subset(job):
+    new_job = {}
+    for k in NEW_JOB_KEYS:
+        new_job[k] = job.get(k, None)
+    return new_job
+
 
 def getlogger(name):
     """Create a custom logger with a field for recording a unique job id
@@ -17,7 +33,7 @@ def getlogger(name):
     logger = logging.getLogger(name)
 
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     return logger
 
 

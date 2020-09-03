@@ -60,15 +60,12 @@ def report_result(future):
         # Because the error is simply that we're not yet ready, reset
         # the `started` flag so that our main loop gets the chance to
         # try re-running the action in a future iteration
-        response = requests.patch(
-            job_spec["url"],
-            json={
-                "status_code": error.status_code,
-                "started": False,
-                "status_message": f"{error.safe_details()} {id_message}",
-            },
-            auth=get_auth(),
-        )
+        payload = {
+            "status_code": error.status_code,
+            "started": False,
+            "status_message": f"{error.safe_details()} {id_message}",
+        }
+        response = requests.patch(job_spec["url"], json=payload, auth=get_auth())
         response.raise_for_status()
 
         joblogger.info(
@@ -97,6 +94,7 @@ def report_result(future):
         error.__cause__ = None
         joblogger.exception(error)
     except Exception as error:
+        response_text = ""
         try:
             response = requests.patch(
                 job_spec["url"],
@@ -106,6 +104,7 @@ def report_result(future):
                 },
                 auth=get_auth(),
             )
+            response_text = response.text
             response.raise_for_status()
             joblogger.info("Reported error 99 (unclassified) to job server")
             # Don't remove remotetraceback, because we haven't considered
@@ -114,7 +113,7 @@ def report_result(future):
         except Exception as error:
             # This would most likely be an HTTP error
             joblogger.exception(error)
-            joblogger.error(error.response.text)
+            joblogger.error(response_text)
 
 
 def check_environment():
@@ -138,7 +137,6 @@ def watch(queue_endpoint, loop=True, job_class=Job):
     session.mount(queue_endpoint, adapter)
     with ProcessPool(max_tasks=50) as pool:
         while True:
-            baselogger.debug(f"Polling {queue_endpoint}")
             try:
                 result = session.get(
                     queue_endpoint,

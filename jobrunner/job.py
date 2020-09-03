@@ -11,7 +11,12 @@ from pathlib import Path
 from jobrunner.exceptions import DockerRunError, GitCloneError, RepoNotFound
 from jobrunner.project import parse_project_yaml
 from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinished
-from jobrunner.utils import all_output_paths_for_action, getlogger, safe_join
+from jobrunner.utils import (
+    all_output_paths_for_action,
+    getlogger,
+    safe_join,
+    writable_job_subset,
+)
 
 logger = getlogger(__name__)
 
@@ -53,7 +58,11 @@ class Job:
             all_jobs = []
         if prepared_job is None:
             prepared_job = parse_project_yaml(self.workdir, self.job_spec)
-        self.logger.info(f"Added runtime metadata to job_spec: {prepared_job}")
+        self.logger.info(
+            "Added runtime metadata to job_spec %s: %s",
+            prepared_job["action_id"],
+            writable_job_subset(prepared_job),
+        )
         # First, run all the dependencies
         for action_id, action in prepared_job.get("dependencies", {}).items():
             if action["run_locally"]:
@@ -65,9 +74,15 @@ class Job:
 
         # Finally, run ourself
         if prepared_job["needs_run"]:
+            self.logger.info(
+                "%s needs a run; starting via docker", prepared_job["action_id"],
+            )
             self.invoke_docker(prepared_job)
             prepared_job["status_message"] = "Fresh output generated"
         else:
+            self.logger.info(
+                "%s does not need a run; skipping docker", prepared_job["action_id"]
+            )
             prepared_job["status_message"] = "Output already generated"
         all_jobs.append(prepared_job)
         return prepared_job
@@ -101,7 +116,9 @@ class Job:
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
             shutil.copy(safe_join(base, relpath), target_path)
             input_files.append(target_path)
-            self.logger.info("Copied input to %s", target_path)
+            self.logger.info(
+                "Copied input for %s to %s", prepared_job["action_id"], target_path
+            )
 
         cmd = [
             "docker",
