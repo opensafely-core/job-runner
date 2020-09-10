@@ -40,6 +40,8 @@ def report_result(future):
             },
             auth=get_auth(),
         )
+        if not response.ok:
+            joblogger.error("Problem updating job: %s", response.text)
         response.raise_for_status()
         joblogger.info(f"Reported success to job server ({job['status_message']})")
     except TimeoutError as error:
