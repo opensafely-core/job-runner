@@ -30,7 +30,7 @@ def report_result(future):
         jobs = future.result()
         assert len(jobs) == 1
         job = future.result()[0]
-        outputs = [{"location": x} for x in job.get("output_locations", [])]
+        outputs = [{"location": x["base_path"]} for x in job["output_locations"]]
         response = requests.patch(
             job["url"],
             json={

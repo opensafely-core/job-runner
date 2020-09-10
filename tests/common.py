@@ -8,6 +8,7 @@ job_spec = {
     "action_id": "generate_cohort",
     "force_run": False,
     "force_run_dependencies": False,
+    "output_locations": [],
     "workspace": {
         "id": 1,
         "name": "workspace",

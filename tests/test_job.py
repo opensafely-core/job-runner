@@ -9,7 +9,6 @@ import requests_mock
 from jobrunner.exceptions import DependencyNotFinished, OpenSafelyError, RepoNotFound
 from jobrunner.job import Job
 from jobrunner.main import watch
-from jobrunner.utils import all_output_paths_for_action
 from tests.common import BrokenJob, SlowJob, WorkingJob, default_job, test_job_list
 
 
@@ -96,27 +95,67 @@ class MockSubprocess(Mock):
 
 
 @patch("jobrunner.job.subprocess", new_callable=MockSubprocess)
-def test_invoke_docker_file_copying(mock_subprocess, prepared_job_maker):
+def test_invoke_docker_file_copying_no_glob(mock_subprocess, prepared_job_maker):
     with tempfile.TemporaryDirectory() as storage_base, tempfile.TemporaryDirectory() as workdir:
-        inputs = [
-            (storage_base, "inthing.csv"),
-        ]
-        levels_with_outputs = {"highly_sensitive": {"outthing": "outthing.csv"}}
-        for base, fname in inputs:
-            Path(f"{storage_base}/{fname}").touch()
-        for level, outputs in levels_with_outputs.items():
-            for output, path in outputs.items():
-                Path(f"{workdir}/{path}").touch()
+        # Set up empty files at expected input and output locations
+        infile = Path(storage_base) / "inthing.csv"
+        infile.touch()
+        outfile = Path(workdir) / "outthing.csv"
+        outfile.mkdir(parents=True, exist_ok=True)
+        outfile.touch()
 
-        prepared_job = prepared_job_maker(inputs=inputs, outputs=levels_with_outputs)
+        prepared_job = prepared_job_maker(
+            inputs=[
+                {
+                    "base_path": storage_base,
+                    "namespace": "bar",
+                    "relative_path": "inthing.csv",
+                }
+            ],
+            output_locations=[
+                {
+                    "base_path": storage_base,
+                    "namespace": "baz",
+                    "relative_path": "outthing.csv",
+                }
+            ],
+        )
         job = Job(prepared_job, workdir=workdir)
-        job.invoke_docker(prepared_job)
+        prepared_job = job.invoke_docker(prepared_job)
 
-        # We expect inputs to have been copied to workdir, then
-        # deleted, and outputs to have been copied to storage_base
-        for base, relpath in all_output_paths_for_action(prepared_job):
-            target_path = os.path.join(base, relpath)
-            assert os.path.exists(target_path)
+        assert os.path.exists(Path(storage_base) / "baz" / "outthing.csv")
+
+
+@patch("jobrunner.job.subprocess", new_callable=MockSubprocess)
+def test_invoke_docker_file_copying_with_glob(mock_subprocess, prepared_job_maker):
+    with tempfile.TemporaryDirectory() as storage_base, tempfile.TemporaryDirectory() as workdir:
+        # Set up empty files at expected input and output locations
+        infile = Path(storage_base) / "inthing.csv"
+        infile.touch()
+        outfile = Path(workdir) / "outthing.csv"
+        outfile.mkdir(parents=True, exist_ok=True)
+        outfile.touch()
+
+        prepared_job = prepared_job_maker(
+            inputs=[
+                {
+                    "base_path": storage_base,
+                    "namespace": "bar",
+                    "relative_path": "*.csv",
+                }
+            ],
+            output_locations=[
+                {
+                    "base_path": storage_base,
+                    "namespace": "baz",
+                    "relative_path": "*.csv",
+                }
+            ],
+        )
+        job = Job(prepared_job, workdir=workdir)
+        prepared_job = job.invoke_docker(prepared_job)
+
+        assert os.path.exists(Path(storage_base) / "baz" / "outthing.csv")
 
 
 # These tests are integration-type tests but the behaviour they're
@@ -207,10 +246,9 @@ def test_started_dependency_exception(mock_container_exists, job_spec_maker):
             job.run_job_and_dependencies()
 
 
-@patch("jobrunner.utils.all_output_paths_for_action")
+@patch("jobrunner.project.all_output_paths_for_action")
 def test_project_dependency_no_exception(dummy_output_paths, job_spec_maker):
     """Do complete dependencies not raise an exception?
-
     """
     project_path = "tests/fixtures/simple_project_1"
     job_spec = job_spec_maker(action_id="run_model")
@@ -218,6 +256,9 @@ def test_project_dependency_no_exception(dummy_output_paths, job_spec_maker):
         mock_output_filename = os.path.join(d, "input.csv")
         with open(mock_output_filename, "w") as f:
             f.write("")
-        dummy_output_paths.return_value = [("", mock_output_filename)]
+        dummy_output_paths.return_value = [
+            {"base_path": "", "namespace": "", "relative_path": mock_output_filename}
+        ]
+
         job = Job(job_spec, workdir=project_path)
         job.run_job_and_dependencies()

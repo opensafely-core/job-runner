@@ -29,8 +29,8 @@ def test_job_to_project_nodeps(job_spec_maker):
     assert project["docker_invocation"] == [
         "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
-        "--output-dir=/workspace",
         "--database-url=sqlite:///test.db",
+        "--output-dir=/workspace/",
     ]
     assert project["outputs"]["highly_sensitive"]["cohort"] == "input.csv"
 
@@ -60,8 +60,8 @@ def test_valid_run_in_project(job_spec_maker):
     assert project["docker_invocation"] == [
         "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
-        "--output-dir=/workspace",
         "--database-url=sqlite:///test.db",
+        "--output-dir=/workspace/",
     ]
 
 
@@ -76,7 +76,7 @@ def test_action_id_not_in_project(job_spec_maker):
         parse_project_yaml(project_path, job_spec)
 
 
-@patch("jobrunner.utils.all_output_paths_for_action")
+@patch("jobrunner.project.all_output_paths_for_action")
 def test_project_needs_run(dummy_output_paths, job_spec_maker):
     """Do complete dependencies with force_run set raise an exception?
     """
@@ -84,7 +84,9 @@ def test_project_needs_run(dummy_output_paths, job_spec_maker):
     job_spec = job_spec_maker(action_id="run_model")
 
     # Check using output paths that don't exist, so run is needed
-    dummy_output_paths.return_value = [("", "blah")]
+    dummy_output_paths.return_value = [
+        {"base_path": "", "namespace": "", "relative_path": "x"}
+    ]
     parsed = parse_project_yaml(project_path, job_spec)
     assert parsed["needs_run"] is True
 
@@ -94,7 +96,9 @@ def test_project_needs_run(dummy_output_paths, job_spec_maker):
         mock_output_filename = os.path.join(d, "input.csv")
         with open(mock_output_filename, "w") as f:
             f.write("")
-        dummy_output_paths.return_value = [("", mock_output_filename)]
+        dummy_output_paths.return_value = [
+            {"base_path": "", "namespace": "", "relative_path": mock_output_filename}
+        ]
 
         parsed = parse_project_yaml(project_path, job_spec)
         assert parsed["needs_run"] is False

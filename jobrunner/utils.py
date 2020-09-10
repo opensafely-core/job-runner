@@ -1,3 +1,4 @@
+import glob
 import logging
 import os
 import re
@@ -71,7 +72,7 @@ def make_volume_name(action):
     return parts
 
 
-def make_output_bucket(action, privacy_level, filename):
+def make_output_bucket(action, privacy_level):
     volume_name = make_volume_name(action)
     if privacy_level == "highly_sensitive":
         storage_base = Path(os.environ["HIGH_PRIVACY_STORAGE_BASE"])
@@ -83,24 +84,39 @@ def make_output_bucket(action, privacy_level, filename):
 
 
 def all_output_paths_for_action(action):
-    """Given an action, list tuples of (output_bucket, relpath) for each output
+    """Given an action, provide a dictionary showing location for each of its outputs
 
     """
+    paths = []
     for privacy_level, outputs in action.get("outputs", {}).items():
-        for output_name, output_filename in outputs.items():
-            yield (
-                make_output_bucket(action, privacy_level, output_filename),
-                os.path.join(action["action_id"], output_name, output_filename),
+        for output_name, relative_path in outputs.items():
+            namespace = os.path.join(action["action_id"], output_name)
+            paths.append(
+                {
+                    "base_path": make_output_bucket(action, privacy_level),
+                    "namespace": namespace,
+                    "relative_path": relative_path,
+                }
             )
+    return paths
 
 
 def needs_run(action):
-    """Flag if a job should be run, either because it's been explicitly requested, or because any of its output files are missing
+    """Flag if a job should be run, either because it's been explicitly
+    requested, or because any of its output files are missing.
+
+    In the case of a globbed output, the existence of *any* file matching the
+    glob counts as a successful run that doesn't need re-running.
     """
-    return action["force_run"] or not all(
-        os.path.exists(safe_join(base, relpath))
-        for base, relpath in all_output_paths_for_action(action)
-    )
+    if action["force_run"]:
+        return True
+    for output in action["output_locations"]:
+        namespaced_path = os.path.join(output["namespace"], output["relative_path"])
+        full_path = safe_join(output["base_path"], namespaced_path)
+        existing_outputs = glob.glob(full_path)
+        if not existing_outputs:
+            return True
+    return False
 
 
 def docker_container_exists(container_name):
