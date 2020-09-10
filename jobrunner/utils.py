@@ -42,7 +42,7 @@ def get_auth():
 
 
 def safe_join(startdir, path):
-    """Given a `startdir` and `path`, join them together, while protecting against directory traversal attacks
+    """Given a `startdir` and `path`, join them together, while protecting against directory traversal attacks that take us outside `startdir`
     """
     requested_path = os.path.normpath(os.path.join(startdir, path))
     startdir = str(startdir)  # Normalise from PosixPath
