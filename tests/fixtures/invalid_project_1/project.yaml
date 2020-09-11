@@ -4,13 +4,13 @@ version: '1.0'
 actions:
 
   run_model_1:
-    run: cohortextractor:0.5.2 generate_cohort --output-dir=/workspace
+    run: cohortextractor:0.5.2 generate_cohort
     outputs:
       highly_sensitive:
         cohort: input.csv
 
   run_model_2:
-    run: cohortextractor:0.5.2 generate_cohort --output-dir=/workspace
+    run: cohortextractor:0.5.2 generate_cohort
     needs: [run_model_1]
     outputs:
       moderately_sensitive:

@@ -72,7 +72,17 @@ def load_and_validate_project(workdir):
         )
     seen_runs = []
     project_actions = project["actions"]
+
     for action_id, action_config in project_actions.items():
+        parts = shlex.split(action_config["run"])
+        if parts[0].startswith("cohortextractor"):
+            if len(parts) > 1 and parts[1] == "generate_cohort":
+                if len(action_config["outputs"]) != 1:
+                    raise ProjectValidationError(
+                        f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}"
+                    )
+
+        # Check a `generate_cohort` command only generates a single output
         # Check outputs are permitted
         for privacy_level, output in action_config["outputs"].items():
             permitted_privacy_levels = [
@@ -222,6 +232,15 @@ def add_runtime_metadata(
         ]
     info = copy.deepcopy(RUN_COMMANDS_CONFIG[name])
 
+    # Other metadata required to run and/or debug containers
+    job_config["callback_url"] = callback_url
+    job_config["workspace"] = workspace
+    job_config["container_name"] = make_container_name(
+        make_volume_name(job_config) + "-" + "-".join(job_config["outputs"].keys())
+    )
+    job_config["output_locations"] = all_output_paths_for_action(job_config)
+    job_config["needs_run"] = needs_run(job_config)
+
     # Convert the command name into a full set of arguments that can
     # be passed to `docker run`, but preserving user-defined variables
     # in the form `${{ variable }}` for interpolation later (after the
@@ -232,27 +251,19 @@ def add_runtime_metadata(
     # Interpolate variables from the job_config into user-supplied
     # arguments. Currently, only `database_url` is useful.
     all_args = docker_args + user_args
-    # Substitute database_url for expecations_population
+
     if all_args[0] == "generate_cohort":
+        # Substitute database_url for expecations_population
         if job_config["backend"] == "expectations":
             all_args.append("--expectations-population=1000")
         else:
             all_args.append("--database-url={database_url}")
+        cohort_output_location = job_config["output_locations"][0]["relative_path"]
+        output_dir = os.path.join("/workspace", os.path.dirname(cohort_output_location))
+        all_args.append(f"--output-dir={output_dir}")
     all_args = [arg.format(**job_config) for arg in all_args]
 
     job_config["docker_invocation"] = [docker_image_name] + all_args
-
-    # Other metadata required to run and/or debug containers
-    job_config["callback_url"] = callback_url
-    job_config["workspace"] = workspace
-    job_config["container_name"] = make_container_name(
-        make_volume_name(job_config) + "-" + "-".join(job_config["outputs"].keys())
-    )
-    job_config["output_locations"] = [
-        safe_join(x[0], x[1]) for x in all_output_paths_for_action(job_config)
-    ]
-    job_config["needs_run"] = needs_run(job_config)
-
     return job_config
 
 
@@ -271,6 +282,7 @@ def parse_project_yaml(workdir, job_spec):
     if requested_action_id not in project_actions:
         raise ProjectValidationError(requested_action_id)
     job_config = job_spec.copy()
+    job_config["workdir"] = workdir
     # Build dependency graph
     graph = nx.DiGraph()
     for action_id, action_config in project_actions.items():
@@ -316,7 +328,7 @@ def parse_project_yaml(workdir, job_spec):
             any_needs_run = True
             action["needs_run"] = True
         dependency_actions[dependency_action_id] = action
-        inputs.extend(all_output_paths_for_action(action))
+        inputs.extend(action["output_locations"])
     if any_needs_run:
         job_action["needs_run"] = True
     job_action["inputs"] = inputs

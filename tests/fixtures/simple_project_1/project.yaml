@@ -5,7 +5,7 @@ version: '1.0'
 actions:
 
   generate_cohorts:
-    run: cohortextractor:0.5.2 generate_cohort --output-dir=/workspace
+    run: cohortextractor:0.5.2 generate_cohort
     outputs:
       highly_sensitive:
         cohort: input.csv

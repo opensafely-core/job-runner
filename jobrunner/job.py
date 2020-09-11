@@ -1,3 +1,4 @@
+import glob
 import logging
 import os
 import re
@@ -11,12 +12,7 @@ from pathlib import Path
 from jobrunner.exceptions import DockerRunError, GitCloneError, RepoNotFound
 from jobrunner.project import parse_project_yaml
 from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinished
-from jobrunner.utils import (
-    all_output_paths_for_action,
-    getlogger,
-    safe_join,
-    writable_job_subset,
-)
+from jobrunner.utils import getlogger, safe_join, writable_job_subset
 
 logger = getlogger(__name__)
 
@@ -109,17 +105,39 @@ class Job:
         return logging.LoggerAdapter(logger, {"job_id": repr(self)})
 
     def invoke_docker(self, prepared_job):
-        # Copy expected input files into workdir
-        input_files = []
-        for base, relpath in prepared_job["inputs"]:
-            target_path = os.path.join(self.workdir, relpath)
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            shutil.copy(safe_join(base, relpath), target_path)
-            input_files.append(target_path)
-            self.logger.info(
-                "Copied input for %s to %s", prepared_job["action_id"], target_path
-            )
+        """Copy required inputs into place from persistent storage; run a docker
+        container; and copy its outputs back into persistent storage
+        """
+        # An output is stored on the filesystem at a location defined by joining
+        # (base_path, namespace, relative_path). The base_path is typically a
+        # volume permissioned specifically for a given privacy level; the
+        # namespace is derived from the `outputs` keys in `project.yaml` and
+        # ensures different actions with identical filenames don't clash.  The
+        # relative_path is a path to a file, possibly in subfolders, relative to
+        # a directory decided at runtime. This directory will be either the
+        # namespaced base path (when we are retrieving or saving files in
+        # persistent storage), or a temporary working folder (for scripts
+        # running via docker).
 
+        # Copy expected input files into workdir, expanding shell globs
+        input_files = []
+        self.logger.debug(
+            "Copying %s inputs to %s", prepared_job["inputs"], self.workdir
+        )
+        for location in prepared_job["inputs"]:
+            relpath = os.path.join(location["namespace"], location["relative_path"])
+            source_paths = glob.glob(safe_join(location["base_path"], relpath))
+            for source_path in source_paths:
+                relpath = os.path.relpath(source_path, start=location["base_path"],)
+                target_path = os.path.join(self.workdir, relpath)
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                shutil.copy(source_path, target_path)
+                input_files.append(target_path)
+                self.logger.info(
+                    "Copied input for %s to %s", prepared_job["action_id"], target_path
+                )
+
+        # Run the docker command
         cmd = [
             "docker",
             "run",
@@ -135,7 +153,6 @@ class Job:
             "--volume",
             f"{self.workdir}:/workspace",
         ] + prepared_job["docker_invocation"]
-
         self.logger.info(
             "Running subdocker cmd `%s` in %s", " ".join(cmd), self.workdir
         )
@@ -146,15 +163,25 @@ class Job:
             raise DockerRunError(result.stderr, report_args=False)
 
         # Copy expected outputs to the final location
-        for base, relpath in all_output_paths_for_action(prepared_job):
-            target_path = safe_join(base, relpath)
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            shutil.move(safe_join(self.workdir, os.path.basename(relpath)), target_path)
-            self.logger.info("Copied output to %s", target_path)
+        for location in prepared_job["output_locations"]:
+            source_path_pattern = safe_join(self.workdir, location["relative_path"])
+            self.logger.debug(
+                "Looking for outputs to copy to storage at %s", source_path_pattern
+            )
+            for source_path in glob.glob(source_path_pattern):
+                relpath = os.path.join(
+                    location["namespace"],
+                    os.path.relpath(source_path, start=self.workdir),
+                )
+                target_path = safe_join(location["base_path"], relpath)
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                shutil.move(source_path, target_path)
+                self.logger.info("Copied output to %s", target_path)
 
         # Delete input files
         for input_file in input_files:
             os.remove(input_file)
+        return prepared_job
 
     def fetch_study_source(self):
         """Checkout source to a temporary location."""

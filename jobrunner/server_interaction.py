@@ -78,7 +78,9 @@ def start_dependent_job_or_raise_if_unfinished(dependency_action):
     if not needs_run(dependency_action):
         dependency_action["needs_run"] = False
         joblogger.debug(
-            "Action %s does not need to be run", dependency_action["action_id"],
+            "Action %s does not need to be run, found files at %s",
+            dependency_action["action_id"],
+            needs_run(dependency_action),
         )
         return
     else:
