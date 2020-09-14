@@ -149,11 +149,14 @@ def watch(queue_endpoint, loop=True, job_class=Job):
                     },
                     auth=get_auth(),
                 )
-            except requests.exceptions.ConnectionError:
-                baselogger.exception("Connection error; sleeping for 30 seconds")
+                result.raise_for_status()
+            except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError):
+                baselogger.exception(
+                    "Error when connecting to job server; sleeping for 30 seconds"
+                )
                 time.sleep(30)
                 continue
-            result.raise_for_status()
+
             job_specs = result.json()
             for job_spec in job_specs["results"]:
                 response = requests.patch(
