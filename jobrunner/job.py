@@ -212,7 +212,7 @@ class Job:
                 )
                 target_path = safe_join(location["base_path"], relpath)
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                shutil.move(source_path, target_path)
+                shutil.copy(source_path, target_path)
                 self.logger.info("Copied output to %s", target_path)
 
         # Delete input files
