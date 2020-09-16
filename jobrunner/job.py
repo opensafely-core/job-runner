@@ -10,7 +10,7 @@ import urllib
 from pathlib import Path
 
 from jobrunner.exceptions import DockerRunError, GitCloneError, RepoNotFound
-from jobrunner.project import parse_project_yaml
+from jobrunner.project import RUN_COMMANDS_CONFIG, parse_project_yaml
 from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinished
 from jobrunner.utils import getlogger, safe_join, writable_job_subset
 
@@ -29,6 +29,40 @@ def add_github_auth_to_repo(repo):
             netloc=f"{os.environ['PRIVATE_REPO_ACCESS_TOKEN']}@{parts.netloc}"
         )
     )
+
+
+def fix_ownership(path):
+    """Recursively change ownership of all files at the given location to the current user.
+
+    In production, where everything is run in docker, the effective user is always root. However, when testing from the command line, this is not necessarily the case
+    """
+    # Abritrarily, we pick a known docker image which already runs as root, and
+    # has bash and chown installed
+    image = RUN_COMMANDS_CONFIG["cohortextractor"]["docker_invocation"][0]
+    mounted_path = Path("/tmp") / Path(path).relative_to("/")
+    # Run the docker command
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "--log-driver",
+        "none",
+        "-a",
+        "stdout",
+        "-a",
+        "stderr",
+        "--volume",
+        f"{path}:{mounted_path}",
+        "--entrypoint",
+        "/bin/bash",
+        image,
+        "-c",
+        f'"chown -R  {os.getuid()} {mounted_path}"',
+    ]
+    cmd = f"docker run --rm --log-driver none -a stdout -a stderr --volume {path}:{mounted_path} --entrypoint /bin/bash {image} -c 'chown -R  1000 {mounted_path}'"
+    result = subprocess.run(cmd, capture_output=True, encoding="utf8", shell=True)
+    if result.returncode != 0:
+        raise DockerRunError(result.stderr, report_args=False)
 
 
 class Job:
@@ -126,7 +160,9 @@ class Job:
         )
         for location in prepared_job["inputs"]:
             namespace_path = safe_join(location["base_path"], location["namespace"])
-            source_paths = glob.glob(safe_join(namespace_path, location["relative_path"]))
+            source_paths = glob.glob(
+                safe_join(namespace_path, location["relative_path"])
+            )
             for source_path in source_paths:
                 relpath = os.path.relpath(source_path, start=namespace_path)
                 target_path = os.path.join(self.workdir, relpath)
@@ -163,6 +199,7 @@ class Job:
             raise DockerRunError(result.stderr, report_args=False)
 
         # Copy expected outputs to the final location
+        fix_ownership(self.workdir)
         for location in prepared_job["output_locations"]:
             source_path_pattern = safe_join(self.workdir, location["relative_path"])
             self.logger.debug(
