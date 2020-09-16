@@ -205,7 +205,9 @@ class Job:
             self.logger.debug(
                 "Looking for outputs to copy to storage at %s", source_path_pattern
             )
+            found_any = False
             for source_path in glob.glob(source_path_pattern):
+                found_any = True
                 relpath = os.path.join(
                     location["namespace"],
                     os.path.relpath(source_path, start=self.workdir),
@@ -214,6 +216,11 @@ class Job:
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
                 shutil.copy(source_path, target_path)
                 self.logger.info("Copied output to %s", target_path)
+            if not found_any:
+                raise DockerRunError(
+                    f"No expected outputs found at {source_path_pattern}",
+                    report_args=True,
+                )
 
         # Delete input files
         for input_file in input_files:
