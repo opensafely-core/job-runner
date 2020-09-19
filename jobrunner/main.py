@@ -137,7 +137,7 @@ def watch(queue_endpoint, loop=True, job_class=Job):
     retry = Retry(connect=30, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount(queue_endpoint, adapter)
-    with ProcessPool(max_tasks=50) as pool:
+    with ProcessPool(max_tasks=25) as pool:
         while True:
             try:
                 result = session.get(
