@@ -33,7 +33,7 @@ lint:
 
 .PHONY: run
 run:
-	python run.py watch https://jobs.opensafely.org/jobs
+	python run.py watch https://jobs.opensafely.org/api/jobs
 
 .PHONY: setup
 setup:
