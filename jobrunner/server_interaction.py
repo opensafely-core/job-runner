@@ -154,7 +154,7 @@ def start_dependent_job_or_raise_if_unfinished(dependency_action):
                 dependency_status["started_at"].replace("Z", "")
             )
             elapsed = datetime.datetime.now() - started_at
-            if elapsed.seconds > 60:
+            if elapsed.seconds > 60 * 60 * 24:
                 joblogger.debug(
                     "Previous run of action %s never started; cancelling",
                     dependency_action["action_id"],
