@@ -157,7 +157,7 @@ def watch(queue_endpoint, loop=True, job_class=Job):
                     params={
                         "started": False,
                         "backend": os.environ["BACKEND"],
-                        "page_size": 1,
+                        "page_size": 25,
                     },
                     auth=get_auth(),
                 )
