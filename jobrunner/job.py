@@ -234,7 +234,8 @@ class Job:
         """Checkout source to a temporary location."""
         repo = self.job_spec["workspace"]["repo"]
         branch = self.job_spec["workspace"]["branch"]
-        max_retries = 3
+        max_retries = 5
+        sleep = 4
         # We use URL-based authentication to access private repos
         # (q.v. `add_github_auth_to_repo`, above).
         #
@@ -245,30 +246,38 @@ class Job:
         os.chdir(self.workdir)
         subprocess.check_call(["git", "init"])
         for attempt in range(max_retries + 1):
-            # We attempt this 3 times, to assuage any network / github
-            # flakiness
-            cmd = [
-                "git",
-                "pull",
-                "--depth",
-                "1",
-                add_github_auth_to_repo(repo),
-                branch,
-            ]
-            loggable_cmd = (
-                " ".join(cmd).replace(
-                    os.environ["PRIVATE_REPO_ACCESS_TOKEN"], "xxxxxxxxx"
-                ),
-            )
-            self.logger.info("Running %s, attempt %s", loggable_cmd, attempt)
+            os.makedirs(self.workdir, exist_ok=True)
+            os.chdir(self.workdir)
             try:
+                subprocess.check_call(["git", "init"])
+                cmd = [
+                    "git",
+                    "pull",
+                    "--depth",
+                    "1",
+                    add_github_auth_to_repo(repo),
+                    branch,
+                ]
+                loggable_cmd = (
+                    " ".join(cmd).replace(
+                        os.environ["PRIVATE_REPO_ACCESS_TOKEN"], "xxxxxxxxx"
+                    ),
+                )
+                self.logger.info("Running %s, attempt %s", loggable_cmd, attempt)
                 subprocess.check_output(cmd, stderr=subprocess.STDOUT, encoding="utf8")
                 break
             except subprocess.CalledProcessError as e:
-                if "not found" in e.output:
+                if e.output and "not found" in e.output:
                     raise RepoNotFound(e.output, report_args=True)
                 elif attempt < max_retries:
-                    self.logger.warning("Failed clone; sleeping, then retrying")
-                    time.sleep(10)
+                    self.logger.warning(
+                        "Failed clone to %s (message `%s`); sleeping %s, then retrying",
+                        self.workdir,
+                        e.output,
+                        sleep,
+                    )
+                    shutil.rmtree(self.workdir, ignore_errors=True)
+                    time.sleep(sleep)
+                    sleep *= 2
                 else:
-                    raise GitCloneError(cmd, report_args=True) from e
+                    raise GitCloneError(" ".join(cmd), report_args=True) from e
