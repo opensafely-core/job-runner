@@ -32,6 +32,7 @@ RUN_COMMANDS_CONFIG = {
     },
     "stata-mp": {"docker_invocation": ["docker.opensafely.org/stata-mp"]},
     "r": {"docker_invocation": ["docker.opensafely.org/r"]},
+    "jupyter": {"docker_invocation": ["docker.opensafely.org/jupyter"]},
 }
 
 
