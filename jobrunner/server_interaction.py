@@ -16,10 +16,10 @@ from jobrunner.utils import (
 logger = getlogger(__name__)
 
 
-def get_latest_matching_job_from_queue(workspace=None, action_id=None, **kw):
+def get_latest_matching_job_from_queue(workspace_id=None, action_id=None, **kw):
     job = {
         "backend": os.environ["BACKEND"],
-        "workspace_id": workspace["id"],
+        "workspace_id": workspace_id,
         "action_id": action_id,
         "limit": 1,
     }
