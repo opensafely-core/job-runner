@@ -237,7 +237,7 @@ def add_runtime_metadata(
     job_config["callback_url"] = callback_url
     job_config["workspace"] = workspace
     job_config["container_name"] = make_container_name(
-        make_volume_name(job_config) + "-" + "-".join(job_config["outputs"].keys())
+        make_volume_name(job_config) + "-" + job_config["action_id"]
     )
     job_config["output_locations"] = all_output_paths_for_action(job_config)
     job_config["needs_run"] = needs_run(job_config)
