@@ -256,7 +256,7 @@ def add_runtime_metadata(
     if all_args[0] == "generate_cohort":
         # Substitute database_url for expecations_population
         if job_config["backend"] == "expectations":
-            all_args.append("--expectations-population=1000")
+            all_args.append("--expectations-population=100000")
         else:
             all_args.append("--database-url={database_url}")
         cohort_output_location = job_config["output_locations"][0]["relative_path"]
