@@ -177,7 +177,7 @@ class Job:
                 relpath = os.path.relpath(source_path, start=location["base_path"],)
                 target_path = os.path.join(self.workdir, relpath)
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                shutil.copy(source_path, target_path)
+                subprocess.check_call(["cp", source_path, target_path])
                 input_files.append(target_path)
                 self.logger.info(
                     "Copied input for %s to %s", prepared_job["action_id"], target_path
@@ -222,7 +222,7 @@ class Job:
                 )
                 target_path = safe_join(location["base_path"], relpath)
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                shutil.move(source_path, target_path)
+                subprocess.check_call(["mv", source_path, target_path])
                 self.logger.info("Copied output to %s", target_path)
 
         # Delete input files
