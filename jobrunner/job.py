@@ -236,7 +236,10 @@ class Job:
 
         # Delete input files
         for input_file in input_files:
-            os.remove(input_file)
+            try:
+                os.remove(input_file)
+            except FileNotFoundError as e:
+                self.logger.warning(e)
         return prepared_job
 
     def fetch_study_source(self):
