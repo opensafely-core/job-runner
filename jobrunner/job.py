@@ -9,7 +9,12 @@ import time
 import urllib
 from pathlib import Path
 
-from jobrunner.exceptions import DockerRunError, GitCloneError, RepoNotFound
+from jobrunner.exceptions import (
+    DependencyRunning,
+    DockerRunError,
+    GitCloneError,
+    RepoNotFound,
+)
 from jobrunner.project import parse_project_yaml
 from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinished
 from jobrunner.utils import getlogger, safe_join, writable_job_subset
@@ -60,13 +65,20 @@ class Job:
             writable_job_subset(prepared_job),
         )
         # First, run all the dependencies
+        last_error = None
         for action_id, action in prepared_job.get("dependencies", {}).items():
             if action["run_locally"]:
                 self.run_job_and_dependencies(
                     all_jobs=all_jobs, prepared_job=action,
                 )
             else:
-                start_dependent_job_or_raise_if_unfinished(action)
+                # Don't exit on the first failure: attempt to run every dependency
+                try:
+                    start_dependent_job_or_raise_if_unfinished(action)
+                except DependencyRunning as e:
+                    last_error = e
+        if last_error:
+            raise last_error
 
         # Finally, run ourself
         if prepared_job["needs_run"]:
