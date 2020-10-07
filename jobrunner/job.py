@@ -171,10 +171,12 @@ class Job:
             "Copying %s inputs to %s", prepared_job["inputs"], self.workdir
         )
         for location in prepared_job["inputs"]:
-            relpath = os.path.join(location["namespace"], location["relative_path"])
-            source_paths = glob.glob(safe_join(location["base_path"], relpath))
+            namespace_path = safe_join(location["base_path"], location["namespace"])
+            source_paths = glob.glob(
+                safe_join(namespace_path, location["relative_path"])
+            )
             for source_path in source_paths:
-                relpath = os.path.relpath(source_path, start=location["base_path"],)
+                relpath = os.path.relpath(source_path, start=namespace_path)
                 target_path = os.path.join(self.workdir, relpath)
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
                 subprocess.check_call(["cp", source_path, target_path])
