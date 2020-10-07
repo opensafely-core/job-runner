@@ -328,7 +328,9 @@ def parse_project_yaml(workdir, job_spec):
             any_needs_run = True
             action["needs_run"] = True
         dependency_actions[dependency_action_id] = action
-        inputs.extend(action["output_locations"])
+        if dependency_action_id in graph.predecessors(requested_action_id):
+            # Outputs of immediate predecessors get copied as inputs of the current action
+            inputs.extend(action["output_locations"])
     if any_needs_run:
         job_action["needs_run"] = True
     job_action["inputs"] = inputs
