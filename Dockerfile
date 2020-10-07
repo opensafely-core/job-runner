@@ -13,6 +13,8 @@ RUN apt-get install -y ca-certificates git
 # Required by the runner
 RUN apt-get install -y file
 RUN apt-get install -y docker.io
+# Useful for debugging
+RUN apt-get install -y sysstat lsof net-tools tcpdump vim
 
 # Install pyenv
 RUN curl https://pyenv.run | bash
@@ -34,4 +36,5 @@ RUN mkdir /app
 COPY . /app
 WORKDIR /app
 RUN rm -rf .python-version
+
 ENTRYPOINT ["python", "run.py"]
