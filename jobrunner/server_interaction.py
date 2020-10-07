@@ -87,10 +87,7 @@ def start_dependent_job_or_raise_if_unfinished(dependency_action):
         joblogger.debug(
             "Action %s should be run if possible", dependency_action["action_id"],
         )
-    # We override any existing `needs_run` key and recheck, because
-    # this code path is run asynchronously, and things may have
-    # changed since the project file was parsed.
-    dependency_action["needs_run"] = True
+
     if docker_container_exists(dependency_action["container_name"]):
         raise DependencyRunning(
             f"Not started because dependency `{dependency_action['action_id']}` is currently running",
