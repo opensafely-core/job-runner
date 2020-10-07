@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 import time
 from concurrent.futures import TimeoutError
 
@@ -116,6 +117,17 @@ def report_result(future):
             # This would most likely be an HTTP error
             joblogger.exception(error)
             joblogger.error(response_text)
+    finally:
+        # This shouldn't be necessary, as TemoporaryDirectories are
+        # supposed to clean up after themselves on garbage
+        # collection. However, getting strange errors (refusing to
+        # delete non-empty subdirectories) in tempdir cleanup which
+        # are hard to debug, all the more so because we currently also
+        # get odd filesystem consistency errors
+        try:
+            subprocess.check_call(["rm", "-rf", jobrunner.tmpdir.name])
+        except Exception as error:
+            joblogger.exception(error)
 
 
 def check_environment():
