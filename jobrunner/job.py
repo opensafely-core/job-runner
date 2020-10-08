@@ -13,6 +13,7 @@ from jobrunner.exceptions import (
     DependencyRunning,
     DockerRunError,
     GitCloneError,
+    ProjectValidationError,
     RepoNotFound,
 )
 from jobrunner.project import RUN_COMMANDS_CONFIG, parse_project_yaml
@@ -166,10 +167,11 @@ class Job:
         # running via docker).
 
         # Copy expected input files into workdir, expanding shell globs
-        input_files = []
         self.logger.debug(
-            "Copying %s inputs to %s", prepared_job["inputs"], self.workdir
+            "Mapping %s readonly inputs to %s", prepared_job["inputs"], self.workdir
         )
+        input_volumes = []
+        seen_relpaths = []
         for location in prepared_job["inputs"]:
             namespace_path = safe_join(location["base_path"], location["namespace"])
             source_paths = glob.glob(
@@ -177,30 +179,34 @@ class Job:
             )
             for source_path in source_paths:
                 relpath = os.path.relpath(source_path, start=namespace_path)
-                target_path = os.path.join(self.workdir, relpath)
-                os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                subprocess.check_call(["cp", source_path, target_path])
-                input_files.append(target_path)
-                self.logger.info(
-                    "Copied input for %s to %s", prepared_job["action_id"], target_path
+                if relpath in seen_relpaths:
+                    raise ProjectValidationError(
+                        f"Found duplicate input file {relpath}", report_args=True
+                    )
+                seen_relpaths.append(relpath)
+                input_volumes.extend(
+                    ["--volume", f"{source_path}:/workspace/{relpath}:ro"]
                 )
-
         # Run the docker command
-        cmd = [
-            "docker",
-            "run",
-            "--name",
-            prepared_job["container_name"],
-            "--rm",
-            "--log-driver",
-            "none",
-            "-a",
-            "stdout",
-            "-a",
-            "stderr",
-            "--volume",
-            f"{self.workdir}:/workspace",
-        ] + prepared_job["docker_invocation"]
+        cmd = (
+            [
+                "docker",
+                "run",
+                "--name",
+                prepared_job["container_name"],
+                "--rm",
+                "--log-driver",
+                "none",
+                "-a",
+                "stdout",
+                "-a",
+                "stderr",
+                "--volume",
+                f"{self.workdir}:/workspace",
+            ]
+            + input_volumes
+            + prepared_job["docker_invocation"]
+        )
         self.logger.info(
             "Running subdocker cmd `%s` in %s", " ".join(cmd), self.workdir
         )
@@ -233,13 +239,6 @@ class Job:
                     f"No expected outputs found at {source_path_pattern}",
                     report_args=True,
                 )
-
-        # Delete input files
-        for input_file in input_files:
-            try:
-                os.remove(input_file)
-            except FileNotFoundError as e:
-                self.logger.warning(e)
         return prepared_job
 
     def fetch_study_source(self):
