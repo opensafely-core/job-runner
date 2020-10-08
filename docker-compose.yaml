@@ -22,6 +22,8 @@ services:
       - DUMMY_DATABASE_URL=${OPENSAFELY_DUMMY_DATABASE_URL}
       # Polling
       - POLL_INTERVAL=${OPENSAFELY_POLL_INTERVAL}
+      # Parallelism
+      - MAX_WORKERS=${OPENSAFELY_MAX_WORKERS}
 
     volumes:
       - type: bind

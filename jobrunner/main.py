@@ -3,6 +3,7 @@ import os
 import subprocess
 import time
 from concurrent.futures import TimeoutError
+from multiprocessing import cpu_count
 
 import requests
 from pebble import ProcessPool
@@ -26,6 +27,7 @@ def report_result(future):
     jobrunner = future.jobrunner
     job_spec = jobrunner.job_spec
     joblogger = getattr(jobrunner, "logger", baselogger)
+    joblogger.info("Started pebble's `add_done_callback`")
     id_message = f"id {jobrunner}"
     try:
         jobs = future.result()
@@ -149,7 +151,8 @@ def watch(queue_endpoint, loop=True, job_class=Job):
     retry = Retry(connect=30, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount(queue_endpoint, adapter)
-    with ProcessPool(max_tasks=50) as pool:
+    max_workers = os.environ.get("MAX_WORKERS", None) or max(cpu_count() - 1, 1)
+    with ProcessPool(max_workers=max_workers) as pool:
         while True:
             try:
                 result = session.get(

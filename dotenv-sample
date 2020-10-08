@@ -35,3 +35,6 @@ OPENSAFELY_FULL_DATABASE_URL=mssql+pyodbc://xxxx
 
 # Default is 5
 OPENSAFELY_POLL_INTERVAL=5
+
+# Default is number of CPUs minus one. Change this to reduce parallelism
+OPENSAFELY_MAX_WORKERS=

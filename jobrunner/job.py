@@ -128,6 +128,7 @@ class Job:
             )
             prepared_job["status_message"] = "Output already generated"
         all_jobs.append(prepared_job)
+        self.logger.info("Job and all its dependencies finished")
         return prepared_job
 
     def main(self):
