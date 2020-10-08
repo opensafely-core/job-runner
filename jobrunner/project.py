@@ -306,7 +306,6 @@ def parse_project_yaml(workdir, job_spec):
     # Do the same thing for dependencies, and also assert that they've
     # completed by checking their expected output exists
     dependency_actions = {}
-    inputs = []
     any_needs_run = False
     if not job_config["force_run_dependencies"]:
         job_config["force_run"] = False
@@ -319,8 +318,7 @@ def parse_project_yaml(workdir, job_spec):
             requested_action_id=dependency_action_id,
             **job_config,
         )
-        # Add the inputs accrued from the previous dependencies
-        action["inputs"] = inputs[:]
+
         action["docker_invocation"] = interpolate_variables(
             action["docker_invocation"], dependency_actions
         )
@@ -329,9 +327,20 @@ def parse_project_yaml(workdir, job_spec):
             any_needs_run = True
             action["needs_run"] = True
         dependency_actions[dependency_action_id] = action
-        if dependency_action_id in graph.predecessors(requested_action_id):
-            # Outputs of immediate predecessors get copied as inputs of the current action
-            inputs.extend(action["output_locations"])
+
+    # Add the inputs accrued from the previous dependencies
+    for dependency_action_id in sorted_dependencies:
+        inputs = []
+        for predecessor in graph.predecessors(dependency_action_id):
+            inputs.extend(dependency_actions[predecessor]["output_locations"])
+        dependency_actions[dependency_action_id]["inputs"] = inputs
+
+    # And do the same for the requested job
+    inputs = []
+    for predecessor in graph.predecessors(requested_action_id):
+        inputs.extend(dependency_actions[predecessor]["output_locations"])
+    job_action["inputs"] = inputs
+
     if any_needs_run:
         job_action["needs_run"] = True
     job_action["inputs"] = inputs
