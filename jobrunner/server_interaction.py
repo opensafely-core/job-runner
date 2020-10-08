@@ -110,7 +110,11 @@ def start_dependent_job_or_raise_if_unfinished(dependency_action):
             dependency_status["pk"],
             dependency_status,
         )
-
+        if dependency_status["status_code"] == DependencyRunning.status_code:
+            raise DependencyRunning(
+                f"Not started because dependency `{dependency_action['action_id']}` is currently running",
+                report_args=True,
+            )
         if dependency_status["completed_at"]:
 
             if dependency_status["force_run"]:
