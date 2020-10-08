@@ -32,6 +32,7 @@ RUN_COMMANDS_CONFIG = {
     },
     "stata-mp": {"docker_invocation": ["docker.opensafely.org/stata-mp"]},
     "r": {"docker_invocation": ["docker.opensafely.org/r"]},
+    "jupyter": {"docker_invocation": ["docker.opensafely.org/jupyter"]},
 }
 
 
@@ -236,7 +237,7 @@ def add_runtime_metadata(
     job_config["callback_url"] = callback_url
     job_config["workspace"] = workspace
     job_config["container_name"] = make_container_name(
-        make_volume_name(job_config) + "-" + "-".join(job_config["outputs"].keys())
+        make_volume_name(job_config) + "-" + job_config["action_id"]
     )
     job_config["output_locations"] = all_output_paths_for_action(job_config)
     job_config["needs_run"] = needs_run(job_config)
@@ -255,7 +256,7 @@ def add_runtime_metadata(
     if all_args[0] == "generate_cohort":
         # Substitute database_url for expecations_population
         if job_config["backend"] == "expectations":
-            all_args.append("--expectations-population=1000")
+            all_args.append("--expectations-population=100000")
         else:
             all_args.append("--database-url={database_url}")
         cohort_output_location = job_config["output_locations"][0]["relative_path"]
@@ -305,7 +306,6 @@ def parse_project_yaml(workdir, job_spec):
     # Do the same thing for dependencies, and also assert that they've
     # completed by checking their expected output exists
     dependency_actions = {}
-    inputs = []
     any_needs_run = False
     if not job_config["force_run_dependencies"]:
         job_config["force_run"] = False
@@ -318,8 +318,7 @@ def parse_project_yaml(workdir, job_spec):
             requested_action_id=dependency_action_id,
             **job_config,
         )
-        # Add the inputs accrued from the previous dependencies
-        action["inputs"] = inputs[:]
+
         action["docker_invocation"] = interpolate_variables(
             action["docker_invocation"], dependency_actions
         )
@@ -328,7 +327,20 @@ def parse_project_yaml(workdir, job_spec):
             any_needs_run = True
             action["needs_run"] = True
         dependency_actions[dependency_action_id] = action
-        inputs.extend(action["output_locations"])
+
+    # Add the inputs accrued from the previous dependencies
+    for dependency_action_id in sorted_dependencies:
+        inputs = []
+        for predecessor in graph.predecessors(dependency_action_id):
+            inputs.extend(dependency_actions[predecessor]["output_locations"])
+        dependency_actions[dependency_action_id]["inputs"] = inputs
+
+    # And do the same for the requested job
+    inputs = []
+    for predecessor in graph.predecessors(requested_action_id):
+        inputs.extend(dependency_actions[predecessor]["output_locations"])
+    job_action["inputs"] = inputs
+
     if any_needs_run:
         job_action["needs_run"] = True
     job_action["inputs"] = inputs
