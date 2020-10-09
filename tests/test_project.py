@@ -5,11 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from jobrunner.exceptions import ProjectValidationError
-from jobrunner.project import (
-    load_and_validate_project,
-    make_container_name,
-    parse_project_yaml,
-)
+from jobrunner.project import make_container_name, parse_project_yaml, validate_project
 
 
 def test_bad_volume_name_is_corrected():
@@ -121,7 +117,7 @@ def test_duplicate_action_id_in_project():
     """
     project_path = "tests/fixtures/invalid_project_1"
     with pytest.raises(ProjectValidationError, match="appears more than once"):
-        load_and_validate_project(project_path)
+        validate_project(project_path)
 
 
 def test_invalid_run_in_project():
@@ -131,7 +127,7 @@ def test_invalid_run_in_project():
     """
     project_path = "tests/fixtures/invalid_project_2"
     with pytest.raises(ProjectValidationError, match="not a supported command"):
-        load_and_validate_project(project_path)
+        validate_project(project_path)
 
 
 def test_project_output_missing_raises_exception():
@@ -141,7 +137,7 @@ def test_project_output_missing_raises_exception():
     """
     project_path = "tests/fixtures/invalid_project_3"
     with pytest.raises(ProjectValidationError, match="Unable to find variable"):
-        load_and_validate_project(project_path)
+        validate_project(project_path)
 
 
 def test_bad_variable_path_raises_exception():
@@ -150,7 +146,7 @@ def test_bad_variable_path_raises_exception():
     """
     project_path = "tests/fixtures/invalid_project_4"
     with pytest.raises(ProjectValidationError, match="Unable to find variable"):
-        load_and_validate_project(project_path)
+        validate_project(project_path)
 
 
 def test_bad_version_raises_exception():
@@ -159,7 +155,7 @@ def test_bad_version_raises_exception():
     """
     project_path = "tests/fixtures/invalid_project_5"
     with pytest.raises(ProjectValidationError, match="must have a version specified"):
-        load_and_validate_project(project_path)
+        validate_project(project_path)
 
 
 def test_invalid_output_file_raises_exception():
@@ -168,4 +164,4 @@ def test_invalid_output_file_raises_exception():
     """
     project_path = "tests/fixtures/invalid_project_6"
     with pytest.raises(ProjectValidationError, match="is not permitted"):
-        load_and_validate_project(project_path)
+        validate_project(project_path)

@@ -61,7 +61,7 @@ def variables_in_string(string_with_variables, variable_name_only=False):
         return [x[0] for x in matches]
 
 
-def load_and_validate_project(workdir):
+def validate_project(workdir):
     """Check that a dictionary of project actions is valid"""
     with open(os.path.join(workdir, "project.yaml"), "r") as f:
         project = yaml.safe_load(f)
@@ -277,7 +277,7 @@ def parse_project_yaml(workdir, job_spec):
     exception is raised.
 
     """
-    project = load_and_validate_project(workdir)
+    project = validate_project(workdir)
     project_actions = project["actions"]
     requested_action_id = job_spec["action_id"]
     if requested_action_id not in project_actions:
