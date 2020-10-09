@@ -1,8 +1,10 @@
 import os
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 from jobrunner.exceptions import ProjectValidationError
 from jobrunner.project import make_container_name, parse_project_yaml, validate_project
@@ -116,8 +118,12 @@ def test_duplicate_action_id_in_project():
 
     """
     project_path = "tests/fixtures/invalid_project_1"
+
+    with open(Path(project_path) / "project.yaml", "r") as f:
+        project = yaml.safe_load(f)
+
     with pytest.raises(ProjectValidationError, match="appears more than once"):
-        validate_project(project_path)
+        validate_project(project_path, project)
 
 
 def test_invalid_run_in_project():
@@ -126,8 +132,12 @@ def test_invalid_run_in_project():
 
     """
     project_path = "tests/fixtures/invalid_project_2"
+
+    with open(Path(project_path) / "project.yaml", "r") as f:
+        project = yaml.safe_load(f)
+
     with pytest.raises(ProjectValidationError, match="not a supported command"):
-        validate_project(project_path)
+        validate_project(project_path, project)
 
 
 def test_project_output_missing_raises_exception():
@@ -136,8 +146,12 @@ def test_project_output_missing_raises_exception():
 
     """
     project_path = "tests/fixtures/invalid_project_3"
+
+    with open(Path(project_path) / "project.yaml", "r") as f:
+        project = yaml.safe_load(f)
+
     with pytest.raises(ProjectValidationError, match="Unable to find variable"):
-        validate_project(project_path)
+        validate_project(project_path, project)
 
 
 def test_bad_variable_path_raises_exception():
@@ -145,8 +159,12 @@ def test_bad_variable_path_raises_exception():
 
     """
     project_path = "tests/fixtures/invalid_project_4"
+
+    with open(Path(project_path) / "project.yaml", "r") as f:
+        project = yaml.safe_load(f)
+
     with pytest.raises(ProjectValidationError, match="Unable to find variable"):
-        validate_project(project_path)
+        validate_project(project_path, project)
 
 
 def test_bad_version_raises_exception():
@@ -154,8 +172,12 @@ def test_bad_version_raises_exception():
 
     """
     project_path = "tests/fixtures/invalid_project_5"
+
+    with open(Path(project_path) / "project.yaml", "r") as f:
+        project = yaml.safe_load(f)
+
     with pytest.raises(ProjectValidationError, match="must have a version specified"):
-        validate_project(project_path)
+        validate_project(project_path, project)
 
 
 def test_invalid_output_file_raises_exception():
@@ -163,5 +185,9 @@ def test_invalid_output_file_raises_exception():
 
     """
     project_path = "tests/fixtures/invalid_project_6"
+
+    with open(Path(project_path) / "project.yaml", "r") as f:
+        project = yaml.safe_load(f)
+
     with pytest.raises(ProjectValidationError, match="is not permitted"):
-        validate_project(project_path)
+        validate_project(project_path, project)

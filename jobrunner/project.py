@@ -61,11 +61,8 @@ def variables_in_string(string_with_variables, variable_name_only=False):
         return [x[0] for x in matches]
 
 
-def validate_project(workdir):
+def validate_project(workdir, project):
     """Check that a dictionary of project actions is valid"""
-    with open(os.path.join(workdir, "project.yaml"), "r") as f:
-        project = yaml.safe_load(f)
-
     expected_version = project.get("version", None)
     if expected_version != "1.0":
         raise ProjectValidationError(
@@ -277,7 +274,11 @@ def parse_project_yaml(workdir, job_spec):
     exception is raised.
 
     """
-    project = validate_project(workdir)
+    with open(os.path.join(workdir, "project.yaml"), "r") as f:
+        project = yaml.safe_load(f)
+
+    project = validate_project(workdir, project)
+
     project_actions = project["actions"]
     requested_action_id = job_spec["action_id"]
     if requested_action_id not in project_actions:
