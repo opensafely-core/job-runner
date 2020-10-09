@@ -133,7 +133,6 @@ def validate_project(workdir, project):
                 raise ProjectValidationError(
                     f"Unable to find variable {v}", report_args=True
                 )
-    return project
 
 
 def interpolate_variables(args, dependency_actions):
@@ -277,7 +276,7 @@ def parse_project_yaml(workdir, job_spec):
     with open(os.path.join(workdir, "project.yaml"), "r") as f:
         project = yaml.safe_load(f)
 
-    project = validate_project(workdir, project)
+    validate_project(workdir, project)
 
     project_actions = project["actions"]
     requested_action_id = job_spec["action_id"]
