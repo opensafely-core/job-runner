@@ -69,6 +69,7 @@ def validate_project(workdir, project):
             "Project file must specify a valid version (currently only 1.0)"
         )
     seen_runs = []
+    seen_output_files = []
     project_actions = project["actions"]
 
     for action_id, action_config in project_actions.items():
@@ -100,6 +101,11 @@ def validate_project(workdir, project):
                     raise ProjectValidationError(
                         f"Output path {filename} is not permitted"
                     )
+                if filename in seen_output_files:
+                    raise ProjectValidationError(
+                        f"Output path {filename} is not unique"
+                    )
+                seen_output_files.append(filename)
         # Check it's a permitted run command
         name, version, args = split_and_format_run_command(action_config["run"])
         if name not in RUN_COMMANDS_CONFIG:

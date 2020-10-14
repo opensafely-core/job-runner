@@ -1,0 +1,15 @@
+# This project contains a run command without a version
+version: '1.0'
+
+actions:
+
+  thing1:
+    run: cohortextractor:latest 1
+    outputs:
+      highly_sensitive:
+        thing: foo/*/bar.txt
+  thing2:
+    run: cohortextractor:latest 2
+    outputs:
+      highly_sensitive:
+        thing: foo/*/bar.txt
