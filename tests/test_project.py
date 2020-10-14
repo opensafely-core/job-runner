@@ -193,3 +193,16 @@ def test_invalid_output_file_raises_exception():
 
     with pytest.raises(ProjectValidationError, match="is not permitted"):
         validate_project(project_path, project)
+
+
+def test_duplicate_output_file_raises_exception():
+    """Do jobs whose action_id is duplicated in a project raise an
+    exception?
+
+    """
+    project_path = "tests/fixtures/invalid_project_7"
+    with open(Path(project_path) / "project.yaml", "r") as f:
+        project = yaml.safe_load(f)
+
+    with pytest.raises(ProjectValidationError, match="is not unique"):
+        validate_project(project_path, project)
