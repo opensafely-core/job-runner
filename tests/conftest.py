@@ -10,6 +10,7 @@ def set_environ(monkeypatch):
     monkeypatch.setenv("QUEUE_PASS", "")
     monkeypatch.setenv("OPENSAFELY_RUNNER_STORAGE_BASE", "")
     monkeypatch.setenv("FULL_DATABASE_URL", "sqlite:///test.db")
+    monkeypatch.setenv("TEMP_DATABASE_NAME", "temp")
     monkeypatch.setenv("BACKEND", "tpp")
     monkeypatch.setenv("JOB_SERVER_ENDPOINT", "http://test.com/jobs/")
     storage_root = tempfile.TemporaryDirectory().name

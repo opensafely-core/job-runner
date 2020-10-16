@@ -33,6 +33,9 @@ OPENSAFELY_SLICE_DATABASE_URL=mssql+pyodbc://xxxx
 # The full database
 OPENSAFELY_FULL_DATABASE_URL=mssql+pyodbc://xxxx
 
+# Database in which we can create temporary tables
+OPENSAFELY_TEMP_DATABASE_NAME=OPENCoronaTempTables
+
 # Default is 5
 OPENSAFELY_POLL_INTERVAL=5
 

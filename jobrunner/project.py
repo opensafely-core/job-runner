@@ -227,6 +227,7 @@ def add_runtime_metadata(
         job_config["database_url"] = os.environ[
             f"{workspace['db'].upper()}_DATABASE_URL"
         ]
+        job_config["temp_database_name"] = os.environ["TEMP_DATABASE_NAME"]
     info = copy.deepcopy(RUN_COMMANDS_CONFIG[name])
 
     # Other metadata required to run and/or debug containers
@@ -245,22 +246,24 @@ def add_runtime_metadata(
     docker_image_name, *docker_args = info["docker_invocation"]
     if version:
         docker_image_name = f"{docker_image_name}:{version}"
-    # Interpolate variables from the job_config into user-supplied
-    # arguments. Currently, only `database_url` is useful.
-    all_args = docker_args + user_args
 
-    if all_args[0] == "generate_cohort":
+    if user_args[0] == "generate_cohort":
         # Substitute database_url for expecations_population
         if job_config["backend"] == "expectations":
-            all_args.append("--expectations-population=100000")
+            user_args.append("--expectations-population=100000")
         else:
-            all_args.append("--database-url={database_url}")
+            user_args.append("--database-url={database_url}")
+            docker_args.append("-e TEMP_DATABASE_NAME={temp_database_name}")
         cohort_output_location = job_config["output_locations"][0]["relative_path"]
         output_dir = os.path.join("/workspace", os.path.dirname(cohort_output_location))
-        all_args.append(f"--output-dir={output_dir}")
+        user_args.append(f"--output-dir={output_dir}")
+
+    # Interpolate variables from the job_config into user-supplied
+    # arguments. Currently, only `database_url` is useful.
+    all_args = docker_args + [docker_image_name] + user_args
     all_args = [arg.format(**job_config) for arg in all_args]
 
-    job_config["docker_invocation"] = [docker_image_name] + all_args
+    job_config["docker_invocation"] = all_args
     return job_config
 
 
