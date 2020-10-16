@@ -270,26 +270,29 @@ class Job:
                     add_github_auth_to_repo(repo),
                     branch,
                 ]
-                loggable_cmd = (
-                    " ".join(cmd).replace(
-                        os.environ["PRIVATE_REPO_ACCESS_TOKEN"], "xxxxxxxxx"
-                    ),
+                self.logger.info(
+                    "Running %s, attempt %s", redact_token(" ".join(cmd)), attempt
                 )
-                self.logger.info("Running %s, attempt %s", loggable_cmd, attempt)
                 subprocess.check_output(cmd, stderr=subprocess.STDOUT, encoding="utf8")
                 break
             except subprocess.CalledProcessError as e:
                 if e.output and "not found" in e.output:
-                    raise RepoNotFound(e.output, report_args=True)
+                    raise RepoNotFound(redact_token(e.output), report_args=True)
                 elif attempt < max_retries:
                     self.logger.warning(
                         "Failed clone to %s (message `%s`); sleeping %s, then retrying",
                         self.workdir,
-                        e.output,
+                        redact_token(e.output),
                         sleep,
                     )
                     shutil.rmtree(self.workdir, ignore_errors=True)
                     time.sleep(sleep)
                     sleep *= 2
                 else:
-                    raise GitCloneError(" ".join(cmd), report_args=True) from e
+                    raise GitCloneError(
+                        redact_token(" ".join(cmd)), report_args=True
+                    ) from e
+
+
+def redact_token(s):
+    return s.replace(os.environ["PRIVATE_REPO_ACCESS_TOKEN"], "xxxxxxxxx")
