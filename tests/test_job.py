@@ -55,14 +55,14 @@ class MockSubprocess(Mock):
         return 0
 
 
-@patch("jobrunner.job.subprocess", new_callable=MockSubprocess)
+@patch("jobrunner.job.subprocess.run", new_callable=MockSubprocess)
 def test_invoke_docker_file_copying_no_glob(mock_subprocess, prepared_job_maker):
     with tempfile.TemporaryDirectory() as storage_base, tempfile.TemporaryDirectory() as workdir:
         # Set up empty files at expected input and output locations
         infile = Path(storage_base) / "inthing.csv"
         infile.touch()
         outfile = Path(workdir) / "outthing.csv"
-        outfile.mkdir(parents=True, exist_ok=True)
+        outfile.parent.mkdir(parents=True, exist_ok=True)
         outfile.touch()
 
         prepared_job = prepared_job_maker(
@@ -87,14 +87,14 @@ def test_invoke_docker_file_copying_no_glob(mock_subprocess, prepared_job_maker)
         assert os.path.exists(Path(storage_base) / "baz" / "outthing.csv")
 
 
-@patch("jobrunner.job.subprocess", new_callable=MockSubprocess)
+@patch("jobrunner.job.subprocess.run", new_callable=MockSubprocess)
 def test_invoke_docker_file_copying_with_glob(mock_subprocess, prepared_job_maker):
     with tempfile.TemporaryDirectory() as storage_base, tempfile.TemporaryDirectory() as workdir:
         # Set up empty files at expected input and output locations
         infile = Path(storage_base) / "inthing.csv"
         infile.touch()
         outfile = Path(workdir) / "outthing.csv"
-        outfile.mkdir(parents=True, exist_ok=True)
+        outfile.parent.mkdir(parents=True, exist_ok=True)
         outfile.touch()
 
         prepared_job = prepared_job_maker(
