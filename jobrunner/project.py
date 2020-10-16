@@ -252,7 +252,7 @@ def add_runtime_metadata(
         if job_config["backend"] == "expectations":
             user_args.append("--expectations-population=100000")
         else:
-            user_args.append("--database-url={database_url}")
+            docker_args.append("-e DATABASE_URL={database_url}")
             docker_args.append("-e TEMP_DATABASE_NAME={temp_database_name}")
         cohort_output_location = job_config["output_locations"][0]["relative_path"]
         output_dir = os.path.join("/workspace", os.path.dirname(cohort_output_location))
