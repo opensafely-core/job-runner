@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-import urllib
 from pathlib import Path
 
 from jobrunner.exceptions import (
@@ -21,20 +20,6 @@ from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinis
 from jobrunner.utils import getlogger, safe_join, writable_job_subset
 
 logger = getlogger(__name__)
-
-
-def add_github_auth_to_repo(repo):
-    """Add Basic HTTP Auth to a Github repo, from the environment.
-
-    For example, `https://github.com/sebbacon/test.git` becomes `https:/<access_token>@github.com/sebbacon/test.git`
-    """
-    parts = urllib.parse.urlparse(repo)
-    assert not parts.username and not parts.password
-    return urllib.parse.urlunparse(
-        parts._replace(
-            netloc=f"{os.environ['PRIVATE_REPO_ACCESS_TOKEN']}@{parts.netloc}"
-        )
-    )
 
 
 def fix_ownership(path):
@@ -248,12 +233,6 @@ class Job:
         branch = self.job_spec["workspace"]["branch"]
         max_retries = 5
         sleep = 4
-        # We use URL-based authentication to access private repos
-        # (q.v. `add_github_auth_to_repo`, above).
-        #
-        # Because `git clone` causes these URLs to be written to disk
-        # (in `~/.git/config`), we instead use `git pull`, which
-        # requires a folder to be initialised as a git repo
         os.makedirs(self.workdir, exist_ok=True)
         os.chdir(self.workdir)
         subprocess.check_call(["git", "init"])
@@ -267,16 +246,23 @@ class Job:
                     "pull",
                     "--depth",
                     "1",
-                    add_github_auth_to_repo(repo),
+                    repo,
                     branch,
                 ]
-                loggable_cmd = (
-                    " ".join(cmd).replace(
-                        os.environ["PRIVATE_REPO_ACCESS_TOKEN"], "xxxxxxxxx"
+                self.logger.info("Running %s, attempt %s", " ".join(cmd), attempt)
+                subprocess.check_output(
+                    cmd,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf8",
+                    env=dict(
+                        os.environ,
+                        # This script will supply the access token from the
+                        # environment variable PRIVATE_REPO_ACCESS_TOKEN
+                        GIT_ASKPASS=os.path.join(
+                            os.path.dirname(__file__), "git_askpass_access_token.py"
+                        ),
                     ),
                 )
-                self.logger.info("Running %s, attempt %s", loggable_cmd, attempt)
-                subprocess.check_output(cmd, stderr=subprocess.STDOUT, encoding="utf8")
                 break
             except subprocess.CalledProcessError as e:
                 if e.output and "not found" in e.output:
