@@ -152,7 +152,7 @@ def watch(queue_endpoint, loop=True, job_class=Job):
     adapter = HTTPAdapter(max_retries=retry)
     session.mount(queue_endpoint, adapter)
     max_workers = os.environ.get("MAX_WORKERS", None) or max(cpu_count() - 1, 1)
-    with ProcessPool(max_workers=max_workers) as pool:
+    with ProcessPool(max_workers=int(max_workers)) as pool:
         while True:
             try:
                 result = session.get(
