@@ -25,8 +25,10 @@ def test_job_to_project_nodeps(job_spec_maker):
 
     project = parse_project_yaml(project_path, job_spec)
     assert project["docker_invocation"] == [
-        "-e DATABASE_URL=sqlite:///test.db",
-        "-e TEMP_DATABASE_NAME=temp",
+        "-e",
+        "DATABASE_URL=sqlite:///test.db",
+        "-e",
+        "TEMP_DATABASE_NAME=temp",
         "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
         "--output-dir=/workspace/",
@@ -57,8 +59,10 @@ def test_valid_run_in_project(job_spec_maker):
     job_spec = job_spec_maker(action_id="generate_cohort")
     project = parse_project_yaml(project_path, job_spec)
     assert project["docker_invocation"] == [
-        "-e DATABASE_URL=sqlite:///test.db",
-        "-e TEMP_DATABASE_NAME=temp",
+        "-e",
+        "DATABASE_URL=sqlite:///test.db",
+        "-e",
+        "TEMP_DATABASE_NAME=temp",
         "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
         "--output-dir=/workspace/",
