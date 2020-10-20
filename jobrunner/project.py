@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import shlex
+from types import SimpleNamespace
 
 import networkx as nx
 import yaml
@@ -35,6 +36,11 @@ RUN_COMMANDS_CONFIG = {
     "jupyter": {"docker_invocation": ["docker.opensafely.org/jupyter"]},
 }
 
+# The version of `project.yaml` where each feature was introduced
+FEATURE_FLAGS_BY_VERSION = {
+    "UNIQUE_OUTPUT_PATH": 2,
+}
+
 
 def escape_braces(unescaped_string):
     """Escape braces so that they will be preserved through a string
@@ -61,13 +67,25 @@ def variables_in_string(string_with_variables, variable_name_only=False):
         return [x[0] for x in matches]
 
 
+def get_feature_flags_for_version(version):
+    feat = SimpleNamespace()
+    matched_any = False
+    for k, v in FEATURE_FLAGS_BY_VERSION.items():
+        if v <= version:
+            setattr(feat, k, True)
+            matched_any = True
+        else:
+            setattr(feat, k, False)
+    if version > 1 and not matched_any:
+        raise ProjectValidationError(
+            "Project file must specify a valid version (currently only <= 2)"
+        )
+    return feat
+
+
 def validate_project(workdir, project):
     """Check that a dictionary of project actions is valid"""
-    expected_version = project.get("version", None)
-    if expected_version != "1.0":
-        raise ProjectValidationError(
-            "Project file must specify a valid version (currently only 1.0)"
-        )
+    feat = get_feature_flags_for_version(float(project["version"]))
     seen_runs = []
     seen_output_files = []
     project_actions = project["actions"]
@@ -101,7 +119,8 @@ def validate_project(workdir, project):
                     raise ProjectValidationError(
                         f"Output path {filename} is not permitted"
                     )
-                if filename in seen_output_files:
+
+                if feat.UNIQUE_OUTPUT_PATH and filename in seen_output_files:
                     raise ProjectValidationError(
                         f"Output path {filename} is not unique"
                     )
