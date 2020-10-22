@@ -281,7 +281,7 @@ def add_runtime_metadata(
     if user_args[0] == "generate_cohort":
         # Substitute database_url for expecations_population
         if job_config["backend"] == "expectations":
-            user_args.append("--expectations-population=100000")
+            user_args.append("--expectations-population=10000")
         else:
             docker_args.extend(["-e", "DATABASE_URL={database_url}"])
             docker_args.extend(["-e", "TEMP_DATABASE_NAME={temp_database_name}"])

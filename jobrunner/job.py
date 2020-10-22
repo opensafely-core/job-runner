@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from jobrunner.exceptions import (
@@ -54,6 +55,134 @@ def fix_ownership(path):
     result = subprocess.run(cmd, capture_output=True, encoding="utf8", shell=True)
     if result.returncode != 0:
         raise DockerRunError(result.stderr, report_args=False)
+
+
+@contextmanager
+def volume_from_filespec(input_file_spec):
+    """Create a docker volume, and copy the contents of wordir, and the supplied
+    input files, into `/workspace`.  When the contextmanager exits, remove the
+    volume and the container that accesses it.
+
+    Args:
+
+        input_file_spec: a list of (absolute_src_path, relative_dst_path)
+        tuples to copy into the volume
+
+    Returns:
+
+         tuple: the name of the volume created, and the name of a running container that can be used for copying to/from the volume
+    """
+
+    volume_name = subprocess.check_output(
+        ["docker", "volume", "create"], encoding="utf8"
+    ).strip()
+    volume_container_name = f"volume-maker-{volume_name}"
+    output_storage_path = "/workspace"
+
+    # Create a temporary container the exclusive purpose of copying data onto a
+    # new volume. We use the job-runner image for convenience, but it could be
+    # any image with `cp` and `mkdir` available. Because we keep the TTY open
+    # the container continues to run when daemonised
+    cmd = [
+        "docker",
+        "run",
+        "--entrypoint",
+        "bash",
+        "-t",
+        "--rm",
+        "-d",
+        "--name",
+        volume_container_name,
+        "-v",
+        f"{volume_name}:{output_storage_path}",
+        "docker.opensafely.org/job-runner",
+    ]
+    subprocess.check_call(cmd, encoding="utf8")
+
+    # Copy data to the root of the volume, creating directory structures as we
+    # go
+    for source_path, relpath in input_file_spec:
+        cmd = [
+            "docker",
+            "exec",
+            volume_container_name,
+            "mkdir",
+            "-p",
+            os.path.join(output_storage_path, os.path.dirname(relpath)),
+        ]
+        subprocess.check_call(cmd)
+        cmd = [
+            "docker",
+            "cp",
+            source_path,
+            f"{volume_container_name}:{os.path.join(output_storage_path, relpath)}",
+        ]
+        subprocess.check_call(cmd)
+
+    try:
+        yield volume_name, volume_container_name
+    finally:
+        cmd = ["docker", "stop", volume_container_name]
+        subprocess.check_call(cmd)
+        cmd = ["docker", "volume", "rm", volume_name]
+        subprocess.check_call(cmd)
+
+
+def copy_from_container(container_name, file_copy_spec):
+    """Copy the specified files from the container, preserving the part of their
+    path relative to a base location.
+
+    Args:
+
+        container_name: the name of a running docker container
+        file_copy_spec: a list of triples of the form `(source_base, dest_base, rel_path_with_glob)`.
+
+    Returns:
+
+        None
+
+    Example:
+
+        Given a container named `arbitrary_fox`, with files at `/workspace/foo/bar1.txt` and `/workspace/foo/bar2.txt`, the following will copy them to the docker host at `/mnt/backups/foo/bar1.txt` and  `/mnt/backups/foo/bar2.txt`:
+
+            file_copy_spec = [("/workspace", "/mnt/backups", "foo/bar*.txt")]
+            copy_from_container("arbitrary_fox", file_copy_spec)`
+
+
+    """
+    for source_base, dest_base, rel_path_with_glob in file_copy_spec:
+        found_any = False
+        source_path_with_glob = safe_join(source_base, rel_path_with_glob)
+        source_paths = subprocess.check_output(
+            [
+                "docker",
+                "exec",
+                container_name,
+                "find",
+                "/",
+                "-path",
+                source_path_with_glob,
+            ],
+            encoding="utf8",
+        ).splitlines()
+        for source_path in source_paths:
+            found_any = True
+            rel_path = os.path.relpath(source_path, source_base)
+            dest_path = safe_join(dest_base, rel_path)
+            dest_dir = os.path.dirname(dest_path)
+            os.makedirs(dest_dir, exist_ok=True)
+            cmd = [
+                "docker",
+                "cp",
+                f"{container_name}:{source_path}",
+                dest_path,
+            ]
+            subprocess.check_call(cmd)
+        if not found_any:
+            raise DockerRunError(
+                f"No expected outputs found at {source_path_with_glob}",
+                report_args=True,
+            )
 
 
 class Job:
