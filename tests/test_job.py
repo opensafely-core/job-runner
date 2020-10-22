@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -6,8 +7,13 @@ from unittest.mock import Mock, patch
 import pytest
 import requests_mock
 
-from jobrunner.exceptions import DependencyNotFinished, OpenSafelyError, RepoNotFound
-from jobrunner.job import Job
+from jobrunner.exceptions import (
+    DependencyNotFinished,
+    DockerRunError,
+    OpenSafelyError,
+    RepoNotFound,
+)
+from jobrunner.job import Job, copy_from_container, volume_from_filespec
 from tests.common import default_job, test_job_list
 
 
@@ -223,3 +229,93 @@ def test_project_dependency_no_exception(dummy_output_paths, job_spec_maker):
 
         job = Job(job_spec, workdir=project_path)
         job.run_job_and_dependencies()
+
+
+def test_volume_from_filespec_folder():
+    with tempfile.TemporaryDirectory() as d:
+        path_1 = Path("a/b/1.txt")
+        path_2 = Path("a/b/2.txt")
+        path_3 = Path("a/3.txt")
+        d = Path(d)
+        for f in [path_1, path_2, path_3]:
+            f = d / f
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text("1")
+        d = Path(d)
+
+        # The `/.` is how `docker cp` expects to be instructed "copy the
+        # *contents of*"
+        input_file_spec = [(f"{d}/.", ".")]
+        with volume_from_filespec(input_file_spec) as volume_info:
+            volume_name, container_name = volume_info
+            volume_contents = sorted(
+                subprocess.check_output(
+                    [
+                        "docker",
+                        "exec",
+                        container_name,
+                        "find",
+                        "/workspace",
+                        "-type",
+                        "f",
+                    ],
+                    encoding="utf8",
+                ).splitlines()
+            )
+
+            assert volume_contents == [
+                "/workspace/a/3.txt",
+                "/workspace/a/b/1.txt",
+                "/workspace/a/b/2.txt",
+            ]
+
+
+def test_volume_from_filespec_single_file():
+    with tempfile.TemporaryDirectory() as d:
+        path_1 = Path(d) / "a/b/1.txt"
+        path_1.parent.mkdir(parents=True, exist_ok=True)
+        path_1.write_text("1")
+
+        input_file_spec = [(str(path_1), "path/to/something.txt")]
+        with volume_from_filespec(input_file_spec) as volume_info:
+            volume_name, container_name = volume_info
+            volume_contents = subprocess.check_output(
+                [
+                    "docker",
+                    "exec",
+                    container_name,
+                    "cat",
+                    "/workspace/path/to/something.txt",
+                ],
+                encoding="utf8",
+            )
+
+            assert volume_contents == "1"
+
+
+def test_copy_from_container():
+    with tempfile.TemporaryDirectory() as d:
+        d = Path(d)
+        path_1 = d / "a/b/1.txt"
+        path_1.parent.mkdir(parents=True, exist_ok=True)
+        path_1.write_text("1")
+
+        input_path_tuples = [(str(path_1), "path/to/something.txt")]
+        with volume_from_filespec(input_path_tuples) as volume_info:
+            volume_name, container_name = volume_info
+            copy_from_container(
+                container_name, [("/workspace", f"{d}/new", "path/to/something.*")],
+            )
+            assert os.path.exists(d / "new/path/to/something.txt")
+
+
+def test_copy_from_container_raises_when_no_files():
+    input_path_tuples = []
+    with tempfile.TemporaryDirectory() as d:
+        with volume_from_filespec(input_path_tuples) as volume_info:
+            volume_name, container_name = volume_info
+            d = Path(d)
+            with pytest.raises(DockerRunError, match="No expected outputs found"):
+                copy_from_container(
+                    container_name, [("/workspace", f"{d}/new", "path/to/nothing.*")],
+                )
