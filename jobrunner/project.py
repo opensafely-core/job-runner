@@ -76,7 +76,8 @@ def get_feature_flags_for_version(version):
             setattr(feat, k, False)
     if version > 1 and not matched_any:
         raise ProjectValidationError(
-            "Project file must specify a valid version (currently only <= 2)"
+            "Project file must specify a valid version (currently only <= 2)",
+            report_args=True,
         )
     return feat
 
@@ -115,7 +116,8 @@ def validate_project(workdir, project):
             if len(parts) > 1 and parts[1] == "generate_cohort":
                 if len(action_config["outputs"]) != 1:
                     raise ProjectValidationError(
-                        f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}"
+                        f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}",
+                        report_args=True,
                     )
 
         # Check a `generate_cohort` command only generates a single output
@@ -128,7 +130,8 @@ def validate_project(workdir, project):
             ]
             if privacy_level not in permitted_privacy_levels:
                 raise ProjectValidationError(
-                    f"{privacy_level} is not valid (must be one of {', '.join(permitted_privacy_levels)})"
+                    f"{privacy_level} is not valid (must be one of {', '.join(permitted_privacy_levels)})",
+                    report_args=True,
                 )
 
             for output_id, filename in output.items():
@@ -136,21 +139,24 @@ def validate_project(workdir, project):
                     safe_join(workdir, filename)
                 except AssertionError:
                     raise ProjectValidationError(
-                        f"Output path {filename} is not permitted"
+                        f"Output path {filename} is not permitted", report_args=True
                     )
 
                 if feat.UNIQUE_OUTPUT_PATH and filename in seen_output_files:
                     raise ProjectValidationError(
-                        f"Output path {filename} is not unique"
+                        f"Output path {filename} is not unique", report_args=True
                     )
                 seen_output_files.append(filename)
         # Check it's a permitted run command
         name, version, args = split_and_format_run_command(action_config["run"])
         if name not in RUN_COMMANDS_CONFIG:
-            raise ProjectValidationError(f"{name} is not a supported command")
+            raise ProjectValidationError(
+                f"{name} is not a supported command", report_args=True
+            )
         if not version:
             raise ProjectValidationError(
-                f"{name} must have a version specified (e.g. {name}:0.5.2)"
+                f"{name} must have a version specified (e.g. {name}:0.5.2)",
+                report_args=True,
             )
         # Check the run command + args signature appears only once in
         # a project
@@ -330,7 +336,10 @@ def parse_project_yaml(workdir, job_spec):
     project_actions = project["actions"]
     requested_action_id = job_spec["action_id"]
     if requested_action_id not in project_actions:
-        raise ProjectValidationError(requested_action_id)
+        raise ProjectValidationError(
+            f"Requested action {requested_action_id} not found in project.yaml",
+            report_args=True,
+        )
     expectations_population = int(project["expectations"]["population_size"])
     job_config = job_spec.copy()
     job_config["workdir"] = workdir

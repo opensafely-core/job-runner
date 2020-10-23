@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from jobrunner.exceptions import (
@@ -15,45 +16,174 @@ from jobrunner.exceptions import (
     ProjectValidationError,
     RepoNotFound,
 )
-from jobrunner.project import RUN_COMMANDS_CONFIG, parse_project_yaml
+from jobrunner.project import parse_project_yaml
 from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinished
 from jobrunner.utils import getlogger, safe_join, writable_job_subset
 
 logger = getlogger(__name__)
 
 
-def fix_ownership(path):
-    """Recursively change ownership of all files at the given location to the current user.
+def get_input_filespec_from_job(prepared_job):
+    """Create an `input_file_spec` for supplying as an argument
+    `volume_from_filespec`.
 
-    In production, where everything is run in docker, the effective user is always root. However, when testing from the command line, this is not necessarily the case
+    `input_file_spec` is a list of `(source_path, relpath)` tuples.
+
+    Args:
+
+        prepared_job: a finalised "job spec" dict
+
+    Raises:
+
+        ProjectValidationError: if duplicate relpaths are defined in the project
     """
-    # Abritrarily, we pick a known docker image which already runs as root, and
-    # has bash and chown installed
-    image = RUN_COMMANDS_CONFIG["cohortextractor"]["docker_invocation"][0]
-    mounted_path = Path("/tmp") / Path(path).relative_to("/")
-    # Run the docker command
+    # Create a list of (source, destination) tuples that correspond with
+    # required inputs. Also, raise an exception if duplicate inputs are found
+    # (this is very unlikely, but possible, because the filesystem is not
+    # under our exclusive control)
+    inputs = []
+    seen_relpaths = []
+
+    for location in prepared_job["inputs"]:
+        namespace_path = safe_join(location["base_path"], location["namespace"])
+        source_paths = glob.glob(safe_join(namespace_path, location["relative_path"]))
+        for source_path in source_paths:
+            relpath = os.path.relpath(source_path, start=namespace_path)
+            if relpath in seen_relpaths:
+                raise ProjectValidationError(
+                    f"Found duplicate input file {relpath}", report_args=True
+                )
+            seen_relpaths.append(relpath)
+            inputs.append((source_path, relpath))
+    return inputs
+
+
+@contextmanager
+def volume_from_filespec(input_file_spec):
+    """Create a docker volume, and copy the contents of wordir, and the supplied
+    input files, into `/workspace`.  When the contextmanager exits, remove the
+    volume and the container that accesses it.
+
+    Args:
+
+        input_file_spec: a list of (absolute_src_path, relative_dst_path)
+        tuples to copy into the volume
+
+    Returns:
+
+         tuple: the name of the volume created, and the name of a running container that can be used for copying to/from the volume
+    """
+
+    volume_name = subprocess.check_output(
+        ["docker", "volume", "create"], encoding="utf8"
+    ).strip()
+    volume_container_name = f"volume-maker-{volume_name}"
+    output_storage_path = "/workspace"
+
+    # Create a temporary container the exclusive purpose of copying data onto a
+    # new volume. We use the job-runner image for convenience, but it could be
+    # any image with `cp` and `mkdir` available. Because we keep the TTY open
+    # the container continues to run when daemonised
     cmd = [
         "docker",
         "run",
-        "--rm",
-        "--log-driver",
-        "none",
-        "-a",
-        "stdout",
-        "-a",
-        "stderr",
-        "--volume",
-        f"{path}:{mounted_path}",
         "--entrypoint",
-        "/bin/bash",
-        image,
-        "-c",
-        f'"chown -R  {os.getuid()} {mounted_path}"',
+        "bash",
+        "-t",
+        "--rm",
+        "-d",
+        "--name",
+        volume_container_name,
+        "-v",
+        f"{volume_name}:{output_storage_path}",
+        "docker.opensafely.org/job-runner",
     ]
-    cmd = f"docker run --rm --log-driver none -a stdout -a stderr --volume {path}:{mounted_path} --entrypoint /bin/bash {image} -c 'chown -R  1000 {mounted_path}'"
-    result = subprocess.run(cmd, capture_output=True, encoding="utf8", shell=True)
-    if result.returncode != 0:
-        raise DockerRunError(result.stderr, report_args=False)
+    subprocess.check_call(cmd, encoding="utf8")
+
+    # Copy data to the root of the volume, creating directory structures as we
+    # go
+    for source_path, relpath in input_file_spec:
+        cmd = [
+            "docker",
+            "exec",
+            volume_container_name,
+            "mkdir",
+            "-p",
+            os.path.join(output_storage_path, os.path.dirname(relpath)),
+        ]
+        subprocess.check_call(cmd)
+        cmd = [
+            "docker",
+            "cp",
+            source_path,
+            f"{volume_container_name}:{os.path.join(output_storage_path, relpath)}",
+        ]
+        subprocess.check_call(cmd)
+
+    try:
+        yield volume_name, volume_container_name
+    finally:
+        cmd = ["docker", "stop", volume_container_name]
+        subprocess.check_call(cmd)
+        cmd = ["docker", "volume", "rm", volume_name]
+        subprocess.check_call(cmd)
+
+
+def copy_from_container(container_name, file_copy_spec):
+    """Copy the specified files from the container, preserving the part of their
+    path relative to a base location.
+
+    Args:
+
+        container_name: the name of a running docker container
+        file_copy_spec: a list of triples of the form `(source_base, dest_base, rel_path_with_glob)`.
+
+    Returns:
+
+        None
+
+    Example:
+
+        Given a container named `arbitrary_fox`, with files at `/workspace/foo/bar1.txt` and `/workspace/foo/bar2.txt`, the following will copy them to the docker host at `/mnt/backups/foo/bar1.txt` and  `/mnt/backups/foo/bar2.txt`:
+
+            file_copy_spec = [("/workspace", "/mnt/backups", "foo/bar*.txt")]
+            copy_from_container("arbitrary_fox", file_copy_spec)`
+
+
+    """
+    for source_base, dest_base, rel_path_with_glob in file_copy_spec:
+        found_any = False
+        source_path_with_glob = safe_join(source_base, rel_path_with_glob)
+        source_paths = subprocess.check_output(
+            [
+                "docker",
+                "exec",
+                container_name,
+                "find",
+                "/",
+                "-path",
+                source_path_with_glob,
+            ],
+            encoding="utf8",
+        ).splitlines()
+        for source_path in source_paths:
+            found_any = True
+            rel_path = os.path.relpath(source_path, source_base)
+            dest_path = safe_join(dest_base, rel_path)
+            dest_dir = os.path.dirname(dest_path)
+            os.makedirs(dest_dir, exist_ok=True)
+            cmd = [
+                "docker",
+                "cp",
+                f"{container_name}:{source_path}",
+                dest_path,
+            ]
+            subprocess.check_call(cmd)
+        if not found_any:
+            raise DockerRunError(
+                f"No expected outputs found at {source_path_with_glob}",
+                report_args=True,
+            )
 
 
 class Job:
@@ -141,90 +271,50 @@ class Job:
         """Copy required inputs into place from persistent storage; run a docker
         container; and copy its outputs back into persistent storage
         """
-        # An output is stored on the filesystem at a location defined by joining
-        # (base_path, namespace, relative_path). The base_path is typically a
-        # volume permissioned specifically for a given privacy level; the
-        # namespace is derived from the `outputs` keys in `project.yaml` and
-        # ensures different actions with identical filenames don't clash.  The
-        # relative_path is a path to a file, possibly in subfolders, relative to
-        # a directory decided at runtime. This directory will be either the
-        # namespaced base path (when we are retrieving or saving files in
-        # persistent storage), or a temporary working folder (for scripts
-        # running via docker).
 
         # Copy expected input files into workdir, expanding shell globs
         self.logger.debug(
-            "Mapping %s readonly inputs to %s", prepared_job["inputs"], self.workdir
+            "Copying %s inputs to %s", prepared_job["inputs"], self.workdir
         )
-        input_volumes = []
-        seen_relpaths = []
-        for location in prepared_job["inputs"]:
-            namespace_path = safe_join(location["base_path"], location["namespace"])
-            source_paths = glob.glob(
-                safe_join(namespace_path, location["relative_path"])
-            )
-            for source_path in source_paths:
-                relpath = os.path.relpath(source_path, start=namespace_path)
-                if relpath in seen_relpaths:
-                    raise ProjectValidationError(
-                        f"Found duplicate input file {relpath}", report_args=True
-                    )
-                seen_relpaths.append(relpath)
-                input_volumes.extend(
-                    ["--volume", f"{source_path}:/workspace/{relpath}:ro"]
+        # This initial filespec entry will copy the study repo to the root. It's
+        # important this happens before input files are copied in, so it doesn't
+        # overwrite any important data
+        input_filespec = [(self.workdir + "/.", ".")]
+        # Now add all the other inputs from the job
+        input_filespec.extend(get_input_filespec_from_job(prepared_job))
+        with volume_from_filespec(input_filespec) as volume_info:
+            volume_name, volume_container_name = volume_info
+            try:
+                run_cmd = [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--name",
+                    prepared_job["container_name"],
+                    "--volume",
+                    f"{volume_name}:/workspace",
+                ]
+                # Run the docker command
+                cmd = run_cmd + prepared_job["docker_invocation"]
+                self.logger.info(
+                    "Running subdocker cmd `%s` in %s", " ".join(cmd), self.workdir
                 )
-        # Run the docker command
-        cmd = (
-            [
-                "docker",
-                "run",
-                "--name",
-                prepared_job["container_name"],
-                "--rm",
-                "--log-driver",
-                "none",
-                "-a",
-                "stdout",
-                "-a",
-                "stderr",
-                "--volume",
-                f"{self.workdir}:/workspace",
-            ]
-            + input_volumes
-            + prepared_job["docker_invocation"]
-        )
-        self.logger.info(
-            "Running subdocker cmd `%s` in %s", " ".join(cmd), self.workdir
-        )
-        result = subprocess.run(cmd, capture_output=True, encoding="utf8")
-        if result.returncode == 0:
-            self.logger.info("subdocker stdout: %s", result.stdout)
-        else:
-            raise DockerRunError(result.stderr, report_args=False)
+                subprocess.run(cmd, check=True, capture_output=True, encoding="utf8")
 
-        # Copy expected outputs to the final location
-        fix_ownership(self.workdir)
-        for location in prepared_job["output_locations"]:
-            source_path_pattern = safe_join(self.workdir, location["relative_path"])
-            self.logger.debug(
-                "Looking for outputs to copy to storage at %s", source_path_pattern
-            )
-            found_any = False
-            for source_path in glob.glob(source_path_pattern):
-                found_any = True
-                relpath = os.path.join(
-                    location["namespace"],
-                    os.path.relpath(source_path, start=self.workdir),
-                )
-                target_path = safe_join(location["base_path"], relpath)
-                os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                subprocess.check_call(["mv", source_path, target_path])
-                self.logger.info("Copied output to %s", target_path)
-            if not found_any:
-                raise DockerRunError(
-                    f"No expected outputs found at {source_path_pattern}",
-                    report_args=True,
-                )
+                # Copy expected outputs to the final location
+                file_copy_triples = []
+                for location in prepared_job["output_locations"]:
+                    dest_base = os.path.join(
+                        location["base_path"], location["namespace"]
+                    )
+                    file_copy_triples.append(
+                        ("/workspace", dest_base, location["relative_path"])
+                    )
+                self.logger.debug("Copying %s output specs", len(file_copy_triples))
+                copy_from_container(volume_container_name, file_copy_triples)
+            except subprocess.CalledProcessError as e:
+                raise DockerRunError(e.stderr, report_args=False)
+
         return prepared_job
 
     def fetch_study_source(self):
