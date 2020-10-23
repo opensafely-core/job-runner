@@ -79,6 +79,30 @@ def test_create_or_update_jobs_with_invalid_yaml(read_file_from_repo):
     )
 
 
+def test_create_or_update_jobs_with_bad_git_repo():
+    # fmt: off
+    job_request = {
+        "pk": "234",
+        "workspace": {
+            "repo": "https://github.com/opensafely/_no_such_repo",
+        },
+        "action_id": "run_model",
+        "workspace_id": "1",
+        "commit": "abcdef123",
+    }
+    # fmt: on
+    create_or_update_jobs(job_request)
+    jobs = find_where("job")
+    assert len(jobs) == 1
+    job = jobs[0]
+    assert job["job_request_id"] == "234"
+    assert job["status"] == "F"
+    assert job["error_message"] == (
+        "GitError: Error fetching commit abcdef123 from "
+        "https://github.com/opensafely/_no_such_repo"
+    )
+
+
 def _read_file(filename):
     with open(Path(__file__).parent / filename, "rb") as f:
         return f.read()
