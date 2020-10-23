@@ -16,45 +16,11 @@ from jobrunner.exceptions import (
     ProjectValidationError,
     RepoNotFound,
 )
-from jobrunner.project import RUN_COMMANDS_CONFIG, parse_project_yaml
+from jobrunner.project import parse_project_yaml
 from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinished
 from jobrunner.utils import getlogger, safe_join, writable_job_subset
 
 logger = getlogger(__name__)
-
-
-def fix_ownership(path):
-    """Recursively change ownership of all files at the given location to the current user.
-
-    In production, where everything is run in docker, the effective user is always root. However, when testing from the command line, this is not necessarily the case
-    """
-    # Abritrarily, we pick a known docker image which already runs as root, and
-    # has bash and chown installed
-    image = RUN_COMMANDS_CONFIG["cohortextractor"]["docker_invocation"][0]
-    mounted_path = Path("/tmp") / Path(path).relative_to("/")
-    # Run the docker command
-    cmd = [
-        "docker",
-        "run",
-        "--rm",
-        "--log-driver",
-        "none",
-        "-a",
-        "stdout",
-        "-a",
-        "stderr",
-        "--volume",
-        f"{path}:{mounted_path}",
-        "--entrypoint",
-        "/bin/bash",
-        image,
-        "-c",
-        f'"chown -R  {os.getuid()} {mounted_path}"',
-    ]
-    cmd = f"docker run --rm --log-driver none -a stdout -a stderr --volume {path}:{mounted_path} --entrypoint /bin/bash {image} -c 'chown -R  1000 {mounted_path}'"
-    result = subprocess.run(cmd, capture_output=True, encoding="utf8", shell=True)
-    if result.returncode != 0:
-        raise DockerRunError(result.stderr, report_args=False)
 
 
 def get_input_filespec_from_job(prepared_job):
@@ -336,7 +302,6 @@ class Job:
                 subprocess.run(cmd, check=True, capture_output=True, encoding="utf8")
 
                 # Copy expected outputs to the final location
-                fix_ownership(self.workdir)
                 file_copy_triples = []
                 for location in prepared_job["output_locations"]:
                     dest_base = os.path.join(
