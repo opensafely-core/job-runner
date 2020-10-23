@@ -9,7 +9,7 @@ GIT_REPO_DIR = WORK_DIR / "repos"
 
 DATABASE_FILE = WORK_DIR / "db.sqlite"
 
-PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN")
+PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 
 # The keys of this dictionary are all the supported `run` commands in
 # jobs

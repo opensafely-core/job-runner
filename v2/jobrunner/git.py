@@ -115,18 +115,15 @@ def commit_already_fetched(repo_dir, commit_sha):
 
 
 def supply_access_token(repo_url):
-    env = os.environ.copy()
     token = config.PRIVATE_REPO_ACCESS_TOKEN
-    if not token:
-        return env
     # Ensure we only ever send our token to github.com over https
     parsed = urlparse(repo_url)
     if parsed.hostname != "github.com" or parsed.scheme != "https":
-        return env
-    env.update(
+        token = ""
+    return dict(
+        os.environ,
         # This script will supply as the username the access token from
         # the environment variable GIT_ACCESS_TOKEN
         GIT_ASKPASS=Path(__file__).parent / "git_askpass_access_token.py",
         GIT_ACCESS_TOKEN=token,
     )
-    return env
