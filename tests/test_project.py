@@ -210,3 +210,24 @@ def test_duplicate_output_file_raises_exception():
 
     with pytest.raises(ProjectValidationError, match="is not unique"):
         validate_project(project_path, project)
+
+
+def test_missing_expectations_raises_exception():
+    """Do projects of version 3 or more require an expectations section?
+    """
+    project_path = "tests/fixtures/invalid_project_8"
+    with open(Path(project_path) / "project.yaml", "r") as f:
+        project = yaml.safe_load(f)
+
+    with pytest.raises(ProjectValidationError, match="must include `expectations`"):
+        validate_project(project_path, project)
+
+
+def test_old_versions_supply_default_popuation():
+    """Do projects of version < 3 supply default expectations population?
+    """
+    project_path = "tests/fixtures/simple_project_1"
+    with open(Path(project_path) / "project.yaml", "r") as f:
+        project = yaml.safe_load(f)
+    project = validate_project(project_path, project)
+    assert project["expectations"]["population_size"] == 1000

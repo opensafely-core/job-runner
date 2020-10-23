@@ -37,9 +37,7 @@ RUN_COMMANDS_CONFIG = {
 }
 
 # The version of `project.yaml` where each feature was introduced
-FEATURE_FLAGS_BY_VERSION = {
-    "UNIQUE_OUTPUT_PATH": 2,
-}
+FEATURE_FLAGS_BY_VERSION = {"UNIQUE_OUTPUT_PATH": 2, "EXPECTATIONS_POPULATION": 3}
 
 
 def escape_braces(unescaped_string):
@@ -85,10 +83,31 @@ def get_feature_flags_for_version(version):
 
 
 def validate_project(workdir, project):
-    """Check that a dictionary of project actions is valid"""
+    """Check that a dictionary of project actions is valid, and set any defaults"""
     feat = get_feature_flags_for_version(float(project["version"]))
     seen_runs = []
     seen_output_files = []
+    if feat.EXPECTATIONS_POPULATION:
+        if "expectations" not in project:
+            raise ProjectValidationError(
+                "Project must include `expectations` section", report_args=True
+            )
+        if "population_size" not in project["expectations"]:
+            raise ProjectValidationError(
+                "Project `expectations` section must include `population` section",
+                report_args=True,
+            )
+        try:
+            int(project["expectations"]["population_size"])
+        except TypeError:
+            raise ProjectValidationError(
+                "Project expectations population size must be a number",
+                report_args=True,
+            )
+    else:
+        project["expectations"] = {}
+        project["expectations"]["population_size"] = 1000
+
     project_actions = project["actions"]
 
     for action_id, action_config in project_actions.items():
@@ -164,6 +183,7 @@ def validate_project(workdir, project):
                 raise ProjectValidationError(
                     f"Unable to find variable {v}", report_args=True
                 )
+    return project
 
 
 def interpolate_variables(args, dependency_actions):
@@ -236,6 +256,7 @@ def add_runtime_metadata(
     requested_action_id=None,
     workspace=None,
     callback_url=None,
+    expectations_population=None,
     **kwargs,
 ):
     """Given a run command specified in project.yaml, validate that it is
@@ -281,7 +302,7 @@ def add_runtime_metadata(
     if user_args[0] == "generate_cohort":
         # Substitute database_url for expecations_population
         if job_config["backend"] == "expectations":
-            user_args.append("--expectations-population=10000")
+            user_args.append(f"--expectations-population={expectations_population}")
         else:
             docker_args.extend(["-e", "DATABASE_URL={database_url}"])
             docker_args.extend(["-e", "TEMP_DATABASE_NAME={temp_database_name}"])
@@ -310,7 +331,7 @@ def parse_project_yaml(workdir, job_spec):
     with open(os.path.join(workdir, "project.yaml"), "r") as f:
         project = yaml.safe_load(f)
 
-    validate_project(workdir, project)
+    project = validate_project(workdir, project)
 
     project_actions = project["actions"]
     requested_action_id = job_spec["action_id"]
@@ -319,6 +340,7 @@ def parse_project_yaml(workdir, job_spec):
             f"Requested action {requested_action_id} not found in project.yaml",
             report_args=True,
         )
+    expectations_population = int(project["expectations"]["population_size"])
     job_config = job_spec.copy()
     job_config["workdir"] = workdir
     # Build dependency graph
@@ -337,6 +359,7 @@ def parse_project_yaml(workdir, job_spec):
     job_action = add_runtime_metadata(
         project_actions[requested_action_id],
         requested_action_id=requested_action_id,
+        expectations_population=expectations_population,
         **job_config,
     )
 
@@ -353,6 +376,7 @@ def parse_project_yaml(workdir, job_spec):
         action = add_runtime_metadata(
             project_actions[dependency_action_id],
             requested_action_id=dependency_action_id,
+            expectations_population=expectations_population,
             **job_config,
         )
 
