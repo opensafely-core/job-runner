@@ -8,29 +8,29 @@ from . import config
 
 
 def insert(table, row):
-    columns = ", ".join(row.keys())
+    columns = ", ".join(map(escape, row.keys()))
     placeholders = ", ".join(["?"] * len(row))
-    sql = f"INSERT INTO {table} ({columns}) VALUES({placeholders})"
+    sql = f"INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})"
     get_connection().execute(sql, encode_row_values(row))
 
 
 def update(table, column, value, **query_params):
     where, params = query_params_to_sql(query_params)
-    sql = f"UPDATE {table} SET {column} = ? WHERE {where}"
+    sql = f"UPDATE {escape(table)} SET {escape(column)} = ? WHERE {where}"
     params[:1] = value
     get_connection().execute(sql, params)
 
 
 def find_where(table, **query_params):
     where, params = query_params_to_sql(query_params)
-    sql = f"SELECT * FROM {table} WHERE {where}"
+    sql = f"SELECT * FROM {escape(table)} WHERE {where}"
     cursor = get_connection().execute(sql, params)
     return list(map(decode_row, cursor))
 
 
 def exists_where(table, **query_params):
     where, params = query_params_to_sql(query_params)
-    sql = f"SELECT EXISTS (SELECT 1 FROM {table} WHERE {where})"
+    sql = f"SELECT EXISTS (SELECT 1 FROM {escape(table)} WHERE {where})"
     cursor = get_connection().execute(sql, params)
     return bool(cursor.fetchone()[0])
 
@@ -64,14 +64,22 @@ def query_params_to_sql(params):
         if key.endswith("__in"):
             field = key[:-4]
             placeholders = ", ".join(["?"] * len(value))
-            parts.append(f"{field} IN ({placeholders})")
+            parts.append(f"{escape(field)} IN ({placeholders})")
             values.extend(value)
         else:
-            parts.append(f"{key} = ?")
+            parts.append(f"{escape(key)} = ?")
             values.append(value)
     if not parts:
         parts = ["1 = 1"]
     return " AND ".join(parts), values
+
+
+def escape(s):
+    """
+    Escape SQLite identifier (as opposed to string literal)
+    See https://www.sqlite.org/lang_keywords.html
+    """
+    return '"{}"'.format(s.replace('"', '""'))
 
 
 def decode_row(row):
