@@ -14,9 +14,7 @@ CREATE TABLE job (
     job_request_id TEXT,
     status TEXT,
     repo_url TEXT,
-    -- We call this "commit" elsewhere but thats not a great name for a
-    -- database column
-    sha TEXT,
+    "commit" TEXT,
     workspace TEXT,
     action TEXT,
     -- The below two fields are related but distinct: the first is a list of

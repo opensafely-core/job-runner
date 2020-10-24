@@ -41,7 +41,7 @@ def test_create_or_update_jobs(get_sha_from_remote_ref, read_file_from_repo):
             "job_request_id": "123",
             "status": "P",
             "repo_url": "https://github.com/opensafely/_no_such_repo",
-            "sha": "abcdef123",
+            "commit": "abcdef123",
             "workspace": "1",
             "action": "run_model",
             "wait_for_job_ids_json": [],

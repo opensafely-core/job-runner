@@ -44,7 +44,7 @@ def create_jobs(job_request):
         job_request_id=job_request["id"],
         status="P",
         repo_url=job_request["repo_url"],
-        sha=job_request["commit"],
+        commit=job_request["commit"],
         workspace=job_request["workspace"],
         action=job_request["action"],
         wait_for_job_ids_json=[],
