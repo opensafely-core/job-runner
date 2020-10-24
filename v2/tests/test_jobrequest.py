@@ -5,6 +5,7 @@ import pytest
 
 from jobrunner.database import find_where, get_connection
 from jobrunner.jobrequest import create_or_update_jobs
+from jobrunner.sync import job_request_from_remote_format
 
 
 @pytest.fixture(autouse=True)
@@ -30,6 +31,7 @@ def test_create_or_update_jobs(get_sha_from_remote_ref, read_file_from_repo):
         "workspace_id": "1",
     }
     # fmt: on
+    job_request = job_request_from_remote_format(job_request)
     create_or_update_jobs(job_request)
     jobs = find_where("job")
     for job in jobs:
@@ -67,6 +69,7 @@ def test_create_or_update_jobs_with_invalid_yaml(read_file_from_repo):
         "commit": "abcdef123",
     }
     # fmt: on
+    job_request = job_request_from_remote_format(job_request)
     create_or_update_jobs(job_request)
     jobs = find_where("job")
     assert len(jobs) == 1
@@ -91,6 +94,7 @@ def test_create_or_update_jobs_with_bad_git_repo():
         "commit": "abcdef123",
     }
     # fmt: on
+    job_request = job_request_from_remote_format(job_request)
     create_or_update_jobs(job_request)
     jobs = find_where("job")
     assert len(jobs) == 1
