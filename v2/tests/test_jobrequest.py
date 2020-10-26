@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from jobrunner.database import find_where, get_connection
+from jobrunner.job import State
 from jobrunner.jobrequest import create_or_update_jobs
 
 
@@ -31,7 +32,7 @@ def test_create_or_update_jobs():
             # This is a UUID so we can't predict its value
             "id": jobs[0]["id"],
             "job_request_id": "123",
-            "status": "P",
+            "status": State.PENDING,
             "repo_url": repo_url,
             "commit": "d1e88b31cbe8f67c58f938adb5ee500d54a69764",
             "workspace": "1",
@@ -68,7 +69,7 @@ def test_create_or_update_jobs_with_git_error():
             # This is a UUID so we can't predict its value
             "id": jobs[0]["id"],
             "job_request_id": "123",
-            "status": "F",
+            "status": State.FAILED,
             "repo_url": repo_url,
             "commit": None,
             "workspace": "1",
