@@ -47,6 +47,10 @@ def transaction():
 def get_connection():
     os.makedirs(config.DATABASE_FILE.parent, exist_ok=True)
     conn = sqlite3.connect(config.DATABASE_FILE)
+    # Enable autocommit so changes made outside of a transaction still get
+    # persisted to disk.  We can use explicit transactions when we need
+    # atomicity.
+    conn.isolation_level = None
     # Support dict-like access to rows
     conn.row_factory = sqlite3.Row
     schema_count = list(conn.execute("SELECT COUNT(*) FROM sqlite_master"))[0][0]
