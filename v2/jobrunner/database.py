@@ -14,11 +14,14 @@ def insert(table, row):
     get_connection().execute(sql, encode_row_values(row))
 
 
-def update(table, column, value, **query_params):
-    where, params = query_params_to_sql(query_params)
-    sql = f"UPDATE {escape(table)} SET {escape(column)} = ? WHERE {where}"
-    params[:1] = value
-    get_connection().execute(sql, params)
+def update(table, value_dict, **query_params):
+    updates = ", ".join(f"{escape(column)} = ?" for column in value_dict.keys())
+    update_params = list(value_dict.values())
+    where, where_params = query_params_to_sql(query_params)
+    get_connection().execute(
+        f"UPDATE {escape(table)} SET {updates} WHERE {where}",
+        update_params + where_params,
+    )
 
 
 def find_where(table, **query_params):
