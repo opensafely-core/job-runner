@@ -9,25 +9,22 @@ from jobrunner.sync import job_request_from_remote_format
 
 
 @pytest.fixture(autouse=True)
-def temp_db(monkeypatch, tmp_path):
+def temp_db_and_git_repo_dir(monkeypatch, tmp_path):
     monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
     get_connection.cache_clear()
+    monkeypatch.setattr("jobrunner.config.GIT_REPO_DIR", tmp_path / "repos")
 
 
-@patch("jobrunner.jobrequest.read_file_from_repo")
-@patch("jobrunner.jobrequest.get_sha_from_remote_ref")
-def test_create_or_update_jobs(get_sha_from_remote_ref, read_file_from_repo):
-    get_sha_from_remote_ref.return_value = "abcdef123"
-    read_file_from_repo.return_value = _read_file("fixtures/project.yaml")
-
+def test_create_or_update_jobs():
+    repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
     # fmt: off
     job_request = {
         "pk": "123",
         "workspace": {
-            "repo": "https://github.com/opensafely/_no_such_repo",
-            "branch": "develop",
+            "repo": repo_url,
+            "branch": "v1",
         },
-        "action_id": "run_model",
+        "action_id": "generate_cohort",
         "workspace_id": "1",
     }
     # fmt: on
@@ -40,14 +37,14 @@ def test_create_or_update_jobs(get_sha_from_remote_ref, read_file_from_repo):
         {
             "job_request_id": "123",
             "status": "P",
-            "repo_url": "https://github.com/opensafely/_no_such_repo",
-            "commit": "abcdef123",
+            "repo_url": repo_url,
+            "commit": "d1e88b31cbe8f67c58f938adb5ee500d54a69764",
             "workspace": "1",
-            "action": "run_model",
+            "action": "generate_cohort",
             "wait_for_job_ids_json": [],
-            "requires_outputs_from_json": ["generate_cohorts"],
-            "run_command": "stata-mp:1.0 analysis/model.do",
-            "output_spec_json": {"moderately_sensitive": {"log": "model.log"}},
+            "requires_outputs_from_json": [],
+            "run_command": "cohortextractor:latest generate_cohort",
+            "output_spec_json": {"highly_sensitive": {"cohort": "input.csv"}},
             "output_files_json": None,
             "error_message": None,
         }

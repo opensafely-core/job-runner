@@ -31,10 +31,15 @@ def create_jobs(job_request):
         job_request["commit"] = get_sha_from_remote_ref(
             job_request["repo_url"], job_request["branch"]
         )
-
     project_file = read_file_from_repo(
         job_request["repo_url"], job_request["commit"], "project.yaml"
     )
+    # Do most of the work in a separate functon which never needs to talk to
+    # git, for easier testing
+    create_jobs_with_project_file(job_request, project_file)
+
+
+def create_jobs_with_project_file(job_request, project_file):
     project = parse_and_validate_project_file(project_file)
 
     action = project["actions"][job_request["action"]]
