@@ -3,6 +3,7 @@ import uuid
 from .database import transaction, insert, exists_where
 from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
 from .project import parse_and_validate_project_file, ProjectValidationError
+from .job import State
 
 
 def create_or_update_jobs(job_request):
@@ -49,7 +50,7 @@ def create_jobs_with_project_file(job_request, project_file):
     job = dict(
         id=str(uuid.uuid4()),
         job_request_id=job_request["id"],
-        status="P",
+        status=State.PENDING,
         repo_url=job_request["repo_url"],
         commit=job_request["commit"],
         workspace=job_request["workspace"],
@@ -79,7 +80,7 @@ def create_failed_job(job_request, exception):
             dict(
                 id=str(uuid.uuid4()),
                 job_request_id=job_request["id"],
-                status="F",
+                status=State.FAILED,
                 repo_url=job_request["repo_url"],
                 commit=job_request["commit"],
                 workspace=job_request["workspace"],
