@@ -27,6 +27,8 @@ def related_jobs_exist(job_request):
 
 
 def create_jobs(job_request):
+    # In future I expect the job-server to only ever supply commits and so this
+    # branch resolution will be redundant
     if not job_request["commit"]:
         job_request["commit"] = get_sha_from_remote_ref(
             job_request["repo_url"], job_request["branch"]
@@ -78,6 +80,8 @@ def create_failed_job(job_request, exception):
                 id=str(uuid.uuid4()),
                 job_request_id=job_request["id"],
                 status="F",
+                repo_url=job_request["repo_url"],
+                commit=job_request["commit"],
                 workspace=job_request["workspace"],
                 action=job_request["action"],
                 error_message=f"{type(exception).__name__}: {exception}",
