@@ -46,7 +46,7 @@ def test_get_sha_from_remote_ref():
     sha = get_sha_from_remote_ref(
         "https://github.com/opensafely/cohort-extractor", "v1.0.0"
     )
-    assert sha == b"d78522cce38e6f431353e9e96de62d49b7ee86ea"
+    assert sha == "d78522cce38e6f431353e9e96de62d49b7ee86ea"
 
 
 @pytest.mark.skipif(
@@ -84,4 +84,4 @@ def test_checkout_commit_local(tmp_path):
 
 def test_get_sha_from_remote_ref_local():
     sha = get_sha_from_remote_ref(REPO_FIXTURE, "v1")
-    assert sha == b"d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+    assert sha == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"

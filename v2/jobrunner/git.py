@@ -25,6 +25,8 @@ def read_file_from_repo(repo_url, commit_sha, path):
         )
     except subprocess.SubprocessError:
         raise GitError(f"Error reading file: {path}")
+    # Note the response here is bytes not text as git doesn't know what
+    # encoding the file is supposed to have
     return response.stdout
 
 
@@ -66,10 +68,12 @@ def get_sha_from_remote_ref(repo_url, ref):
             check=True,
             capture_output=True,
             env=supply_access_token(repo_url),
+            text=True,
+            encoding="utf-8",
         )
         output = response.stdout
     except subprocess.SubprocessError:
-        output = b""
+        output = ""
     lines = [line.split() for line in output.splitlines()]
     if len(lines) != 1 or len(lines[0]) != 2:
         raise GitError(f"Error resolving ref '{ref}' from {repo_url}")
