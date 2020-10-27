@@ -19,7 +19,7 @@ jobs.
 
 Jobs belong to a `workspace`. This describes the git repo containing the
 OpenSAFELY-compliant project under execution; the git branch, and kind of
-database to use. The workspace also accts as a kind of namespace for
+database to use. The workspace also acts as a kind of namespace for
 partitioning outputs of its jobs.
 
 An OpenSAFELY-compliant project must provide a `project.yaml` file which

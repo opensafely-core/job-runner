@@ -289,6 +289,7 @@ class Job:
                     "docker",
                     "run",
                     "--rm",
+                    "--init",
                     "--name",
                     prepared_job["container_name"],
                     "--volume",

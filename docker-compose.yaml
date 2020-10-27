@@ -1,8 +1,10 @@
-version: "3.6"
+version: "3.7"
 services:
   job-runner:
     build: .
     image: docker.opensafely.org/job-runner:latest
+    init: true
+    restart: unless-stopped
     environment:
       # The job server endpoint
       - JOB_SERVER_ENDPOINT=${OPENSAFELY_JOB_SERVER_ENDPOINT}
@@ -25,7 +27,6 @@ services:
       - POLL_INTERVAL=${OPENSAFELY_POLL_INTERVAL}
       # Parallelism
       - MAX_WORKERS=${OPENSAFELY_MAX_WORKERS}
-
     volumes:
       - type: bind
         source: ${OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE}
