@@ -4,7 +4,7 @@ import pytest
 
 from jobrunner.database import find_where, get_connection
 from jobrunner.models import JobRequest, Job, State
-from jobrunner.jobrequest import create_or_update_jobs
+from jobrunner.create_or_update_jobs import create_or_update_jobs
 
 
 @pytest.fixture(autouse=True)

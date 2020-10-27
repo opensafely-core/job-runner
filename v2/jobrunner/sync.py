@@ -7,7 +7,7 @@ import time
 import requests
 
 from . import config
-from .jobrequest import create_or_update_jobs
+from .create_or_update_jobs import create_or_update_jobs
 from .database import find_where
 from .models import JobRequest, Job
 
