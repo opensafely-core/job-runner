@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner.database import get_connection, insert, find_where, update
+from jobrunner.database import get_connection, insert, find_where, update, select_values
 from jobrunner.models import Job, State
 
 
@@ -30,3 +30,13 @@ def test_update():
     update(job, update_fields=["action"])
     jobs = find_where(Job, id="foo123")
     assert jobs[0].action == "bar"
+
+
+def test_select_values():
+    insert(Job(id="foo123", status=State.PENDING))
+    insert(Job(id="foo124", status=State.RUNNING))
+    insert(Job(id="foo125", status=State.FAILED))
+    values = select_values(Job, "id", status__in=[State.PENDING, State.FAILED])
+    assert values == ["foo123", "foo125"]
+    values = select_values(Job, "status", id="foo124")
+    assert values == [State.RUNNING]

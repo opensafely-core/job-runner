@@ -2,7 +2,6 @@ import dataclasses
 from enum import Enum
 import functools
 import json
-import os
 from pathlib import Path
 import sqlite3
 
@@ -34,10 +33,11 @@ def update(item, update_fields):
 
 def find_where(itemclass, **query_params):
     table = itemclass.__tablename__
+    fields = dataclasses.fields(itemclass)
     where, params = query_params_to_sql(query_params)
     sql = f"SELECT * FROM {escape(table)} WHERE {where}"
     cursor = get_connection().execute(sql, params)
-    return [decode_field_values(itemclass, row) for row in cursor]
+    return [itemclass(*decode_field_values(fields, row)) for row in cursor]
 
 
 def exists_where(itemclass, **query_params):
@@ -46,6 +46,16 @@ def exists_where(itemclass, **query_params):
     sql = f"SELECT EXISTS (SELECT 1 FROM {escape(table)} WHERE {where})"
     cursor = get_connection().execute(sql, params)
     return bool(cursor.fetchone()[0])
+
+
+def select_values(itemclass, column, **query_params):
+    table = itemclass.__tablename__
+    fields = [f for f in dataclasses.fields(itemclass) if f.name == column]
+    assert fields
+    where, params = query_params_to_sql(query_params)
+    sql = f"SELECT {escape(column)} FROM {escape(table)} WHERE {where}"
+    cursor = get_connection().execute(sql, params)
+    return [decode_field_values(fields, row)[0] for row in cursor]
 
 
 def transaction():
@@ -58,10 +68,10 @@ def transaction():
 
 @functools.lru_cache()
 def get_connection():
-    os.makedirs(config.DATABASE_FILE.parent, exist_ok=True)
+    config.DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(config.DATABASE_FILE)
     # Enable autocommit so changes made outside of a transaction still get
-    # persisted to disk.  We can use explicit transactions when we need
+    # persisted to disk. We can use explicit transactions when we need
     # atomicity.
     conn.isolation_level = None
     # Support dict-like access to rows
@@ -86,6 +96,9 @@ def query_params_to_sql(params):
         else:
             parts.append(f"{escape(key)} = ?")
             values.append(value)
+    # Bit of a hack: convert any Enum instances to their values so we can use
+    # them in querying
+    values = [v.value if isinstance(v, Enum) else v for v in values]
     if not parts:
         parts = ["1 = 1"]
     return " AND ".join(parts), values
@@ -100,24 +113,36 @@ def escape(s):
 
 
 def encode_field_values(fields, item):
+    """
+    Takes a list of dataclass fields and a dataclass instance and returns the
+    field values as a list with the appropriate conversions applied
+    """
     values = []
     for field in fields:
         value = getattr(item, field.name)
+        # Dicts and lists get encoded as JSON
         if field.type in (list, dict) and value is not None:
             value = json.dumps(value)
+        # Enums get encoded as their string/int values
         elif issubclass(field.type, Enum) and value is not None:
             value = value.value
         values.append(value)
     return values
 
 
-def decode_field_values(itemclass, row):
-    values = {}
-    for field in dataclasses.fields(itemclass):
+def decode_field_values(fields, row):
+    """
+    Takes a list of dataclass fields and a SQLite row (or any dict-like) and
+    returns field values as a list with the appropriate conversions applied
+    """
+    values = []
+    for field in fields:
         value = row[field.name]
+        # Dicts and lists get decoded from JSON
         if field.type in (list, dict) and value is not None:
             value = json.loads(value)
+        # Enums get transformed back from their string/int values
         elif issubclass(field.type, Enum) and value is not None:
             value = field.type(value)
-        values[field.name] = value
-    return itemclass(**values)
+        values.append(value)
+    return values
