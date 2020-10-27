@@ -4,7 +4,7 @@
 -- job outputs, so we store it here as blob of JSON.
 CREATE TABLE job_request (
     id TEXT,
-    original_json TEXT,
+    original TEXT,
 
     PRIMARY KEY (id)
 );
@@ -21,11 +21,11 @@ CREATE TABLE job (
     -- currently runnning job_ids which we must wait to complete before we can
     -- start. The second is a list of action_ids whos outputs must be copied
     -- into the job container.
-    wait_for_job_ids_json TEXT,
-    requires_outputs_from_json TEXT,
+    wait_for_job_ids TEXT,
+    requires_outputs_from TEXT,
     run_command TEXT,
-    output_spec_json TEXT,
-    output_files_json TEXT,
+    output_spec TEXT,
+    output_files TEXT,
     error_message TEXT,
 
     PRIMARY KEY (id)

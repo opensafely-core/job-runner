@@ -1,6 +1,7 @@
 import pytest
 
 from jobrunner.database import get_connection, insert, find_where, update
+from jobrunner.models import Job, State
 
 
 @pytest.fixture(autouse=True)
@@ -10,20 +11,22 @@ def temp_db(monkeypatch, tmp_path):
 
 
 def test_basic_roundtrip():
-    job = {
-        "id": "foo123",
-        "job_request_id": "bar123",
-        "output_spec_json": {"hello": [1, 2, 3]},
-    }
-    insert("job", job)
-    jobs = find_where("job", job_request_id__in=["bar123", "baz123"])
-    assert job["id"] == jobs[0]["id"]
-    assert job["output_spec_json"] == jobs[0]["output_spec_json"]
+    job = Job(
+        id="foo123",
+        job_request_id="bar123",
+        status=State.RUNNING,
+        output_spec={"hello": [1, 2, 3]},
+    )
+    insert(job)
+    jobs = find_where(Job, job_request_id__in=["bar123", "baz123"])
+    assert job.id == jobs[0].id
+    assert job.output_spec == jobs[0].output_spec
 
 
 def test_update():
-    insert("job", {"id": "foo123", "action": "foo"})
-    insert("job", {"id": "foo124", "action": "bar"})
-    update("job", {"action": "baz"}, id="foo123")
-    jobs = find_where("job", id="foo123")
-    assert jobs[0]["action"] == "baz"
+    job = Job(id="foo123", action="foo")
+    insert(job)
+    job.action = "bar"
+    update(job, update_fields=["action"])
+    jobs = find_where(Job, id="foo123")
+    assert jobs[0].action == "bar"
