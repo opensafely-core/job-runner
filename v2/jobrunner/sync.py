@@ -9,6 +9,7 @@ import requests
 from . import config
 from .jobrequest import create_or_update_jobs
 from .database import find_where
+from .models import JobRequest, Job
 
 
 session = requests.Session()
@@ -25,10 +26,10 @@ def sync():
         "job-requests", params={"active": "true", "backend": config.BACKEND}
     )
     job_requests = [job_request_from_remote_format(i) for i in job_requests]
-    job_request_ids = [i["id"] for i in job_requests]
+    job_request_ids = [i.id for i in job_requests]
     for job_request in job_requests:
         create_or_update_jobs(job_request)
-    jobs = find_where("job", job_request_id__in=job_request_ids)
+    jobs = find_where(Job, job_request_id__in=job_request_ids)
     jobs = [job_to_remote_format(i) for i in jobs]
     api_post("jobs", json=jobs)
 
@@ -56,7 +57,7 @@ def job_request_from_remote_format(job_request):
     Convert a JobRequest as received from the job-server into our own internal
     representation
     """
-    return dict(
+    return JobRequest(
         id=job_request["pk"],
         repo_url=job_request["workspace"]["repo"],
         commit=job_request.get("commit"),
@@ -72,7 +73,8 @@ def job_to_remote_format(job):
     Convert our internal representation of a Job into whatever format the
     job-server expects
     """
-    return job
+    # TODO: Work out what we need to do here
+    return job.asdict()
 
 
 if __name__ == "__main__":
