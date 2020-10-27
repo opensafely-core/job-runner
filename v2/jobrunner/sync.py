@@ -22,16 +22,16 @@ def main():
 
 
 def sync():
-    job_requests = api_get(
+    results = api_get(
         "job-requests", params={"active": "true", "backend": config.BACKEND}
     )
-    job_requests = [job_request_from_remote_format(i) for i in job_requests]
+    job_requests = [job_request_from_remote_format(i) for i in results]
     job_request_ids = [i.id for i in job_requests]
     for job_request in job_requests:
         create_or_update_jobs(job_request)
     jobs = find_where(Job, job_request_id__in=job_request_ids)
-    jobs = [job_to_remote_format(i) for i in jobs]
-    api_post("jobs", json=jobs)
+    jobs_data = [job_to_remote_format(i) for i in jobs]
+    api_post("jobs", json=jobs_data)
 
 
 def api_get(*args, **kwargs):

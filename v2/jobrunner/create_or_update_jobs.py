@@ -2,7 +2,11 @@ import uuid
 
 from .database import transaction, insert, exists_where
 from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
-from .project import parse_and_validate_project_file, ProjectValidationError
+from .project import (
+    parse_and_validate_project_file,
+    ProjectValidationError,
+    docker_args_from_run_command,
+)
 from .models import Job, SavedJobRequest, State
 
 
@@ -57,7 +61,7 @@ def create_jobs_with_project_file(job_request, project_file):
         action=job_request.action,
         wait_for_job_ids=[],
         requires_outputs_from=action.get("needs", []),
-        run_command=action["run"],
+        run_command=docker_args_from_run_command(action["run"]),
         output_spec=action["outputs"],
     )
 
