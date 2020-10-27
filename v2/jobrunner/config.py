@@ -21,3 +21,5 @@ RUN_COMMANDS = {
     "r": {"docker_invocation": ["docker.opensafely.org/r"]},
     "jupyter": {"docker_invocation": ["docker.opensafely.org/jupyter"]},
 }
+
+JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "0.5"))

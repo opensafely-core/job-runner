@@ -74,10 +74,26 @@ def get_sha_from_remote_ref(repo_url, ref):
         output = response.stdout
     except subprocess.SubprocessError:
         output = ""
-    lines = [line.split() for line in output.splitlines()]
-    if len(lines) != 1 or len(lines[0]) != 2:
+    results = _parse_ls_remote_output(output)
+    if len(results) == 1:
+        return list(results.values())[0]
+    elif len(results) > 1:
+        # Where we have more than one match, but one is an exact match for a
+        # local branch then use that result. (This happens when using local
+        # repos where there are references to both the local and remote
+        # branches.)
+        target_ref = f"refs/heads/{ref}"
+        if target_ref in results:
+            return results[target_ref]
+        else:
+            raise GitError(f"Ambiguous ref '{ref}' in {repo_url}")
+    else:
         raise GitError(f"Error resolving ref '{ref}' from {repo_url}")
-    return lines[0][0]
+
+
+def _parse_ls_remote_output(output):
+    lines = [line.split() for line in output.splitlines()]
+    return {line[1]: line[0] for line in lines}
 
 
 def get_local_repo_dir(repo_url):

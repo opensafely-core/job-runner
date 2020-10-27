@@ -96,6 +96,14 @@ def validate_project(project):
                 raise ProjectValidationError(f"Unable to find variable {v}")
 
 
+def docker_args_from_run_command(run_command):
+    run_token, version, args = split_and_format_run_command(run_command)
+    docker_image = config.RUN_COMMANDS[run_token]["docker_invocation"][0]
+    if version is None:
+        version = "latest"
+    return " ".join([f"{docker_image}:{version}"] + args)
+
+
 def split_and_format_run_command(run_command):
     """A `run` command is in the form of `run_token:optional_version [args]`.
 

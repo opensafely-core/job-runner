@@ -1,3 +1,4 @@
+import json
 import re
 import subprocess
 
@@ -147,3 +148,67 @@ def _glob_pattern_to_regex(glob_pattern):
 
 def manager_name(volume_name):
     return f"{volume_name}-manager"
+
+
+def container_is_running(name):
+    return container_inspect(name, "State.Running", none_if_not_exists=True) or False
+
+
+def container_inspect(name, key="", none_if_not_exists=False):
+    """
+    Retrieves metadata about the named container. By default will return
+    everything but `key` can be a dotted path to a specific piece of metadata.
+
+    Optionally returns None if the container does not exist
+
+    See: https://docs.docker.com/engine/reference/commandline/inspect/
+    """
+    try:
+        response = subprocess.run(
+            ["docker", "container", "inspect", "--format", "{{json .%s}}" % key, name],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        if (
+            none_if_not_exists
+            and e.returncode == 1
+            and b"No such container" in e.stderr
+        ):
+            return
+        else:
+            raise
+    return json.loads(response.stdout)
+
+
+def run(name, args, volume=None, env=None):
+    run_args = ["docker", "run", "--detach", "--name", name]
+    if volume:
+        run_args.extend(["--volume", f"{volume[0]}:{volume[1]}"])
+    if env:
+        for key, value in env.items():
+            run_args.extend(["--env", f"{key}={value}"])
+    subprocess.run(run_args + args, check=True, capture_output=True)
+
+
+def delete_container(name):
+    try:
+        subprocess.run(
+            ["docker", "container", "rm", "--force", name],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        # Ignore error if container has already been removed
+        if e.returncode != 1 or b"No such container" not in e.stderr:
+            raise
+
+
+def write_logs_to_file(container_name, filename):
+    with open(filename, "wb") as f:
+        subprocess.run(
+            ["docker", "container", "logs", "--timestamps", container_name],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=f,
+        )
