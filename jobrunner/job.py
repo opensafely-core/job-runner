@@ -279,7 +279,7 @@ class Job:
         # This initial filespec entry will copy the study repo to the root. It's
         # important this happens before input files are copied in, so it doesn't
         # overwrite any important data
-        input_filespec = [(self.workdir + "/.", ".")]
+        input_filespec = [(str(self.workdir) + "/.", ".")]
         # Now add all the other inputs from the job
         input_filespec.extend(get_input_filespec_from_job(prepared_job))
         with volume_from_filespec(input_filespec) as volume_info:
