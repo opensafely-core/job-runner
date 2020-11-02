@@ -30,3 +30,7 @@ CREATE TABLE job (
 
     PRIMARY KEY (id)
 );
+
+CREATE INDEX idx_job__job_request_id ON job (job_request_id);
+
+CREATE INDEX idx_job__status ON job (status);

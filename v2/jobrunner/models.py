@@ -7,7 +7,7 @@ these objects.
 
 Note the schema is defined separately in `schema.sql`.
 """
-from dataclasses import dataclass
+import dataclasses
 from enum import Enum
 
 
@@ -20,21 +20,23 @@ class State(Enum):
 
 # This is our internal representation of a JobRequest which we pass around but
 # never save to the database (hence no __tablename__ attribute)
-@dataclass
+@dataclasses.dataclass
 class JobRequest:
     id: str
     repo_url: str
     commit: str
-    branch: str
     action: str
     workspace: str
-    original: dict
+    force_run: bool = False
+    force_run_dependencies: bool = False
+    branch: str = None
+    original: dict = None
 
 
 # This stores the original JobRequest as received from the job-server. We only
 # store this so that we can include it with the job outputs for debugging/audit
 # purposes.
-@dataclass
+@dataclasses.dataclass
 class SavedJobRequest:
     __tablename__ = "job_request"
 
@@ -42,7 +44,7 @@ class SavedJobRequest:
     original: dict
 
 
-@dataclass
+@dataclasses.dataclass
 class Job:
     __tablename__ = "job"
 
@@ -59,3 +61,11 @@ class Job:
     output_spec: dict = None
     output_files: dict = None
     error_message: str = None
+
+    def asdict(self):
+        data = dataclasses.asdict(self)
+        for key, value in data.items():
+            # Convert Enums to strings for straightforward JSON serialization
+            if isinstance(value, Enum):
+                data[key] = value.value
+        return data

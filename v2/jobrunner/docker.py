@@ -96,10 +96,26 @@ def copy_to_volume(volume_name, directory):
     )
 
 
+def copy_from_volume(volume_name, source_file, dest_file):
+    subprocess.run(
+        [
+            "docker",
+            "cp",
+            f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{source_file}",
+            dest_file,
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+
 def glob_volume_files(volume_name, glob_patterns):
     """
-    Return a list of all files in `volume_name` whose paths match any of
-    `glob_patterns`
+    Accept a list of glob patterns and return a dict mapping each pattern to a
+    list of all the files in `volume_name` which match
+
+    Accepting multiple patterns like this allow us to avoid multiple round
+    trips through Docker when we need to match several different patterns.
     """
     # Guard against the easy mistake of passing a single string pattern, rather
     # than a list of patterns
@@ -131,10 +147,15 @@ def glob_volume_files(volume_name, glob_patterns):
         text=True,
         encoding="utf-8",
     )
-    matches = response.stdout.splitlines()
     # Remove the volume path prefix from the results
     chars_to_strip = len(VOLUME_MOUNT_POINT) + 1
-    return [match[chars_to_strip:] for match in matches]
+    files = [f[chars_to_strip:] for f in response.stdout.splitlines()]
+    files = sorted(files)
+    matches = {}
+    for pattern in glob_patterns:
+        regex = re.compile(_glob_pattern_to_regex(pattern))
+        matches[pattern] = [f for f in files if regex.match(f)]
+    return matches
 
 
 def _glob_pattern_to_regex(glob_pattern):

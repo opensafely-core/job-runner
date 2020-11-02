@@ -64,6 +64,8 @@ def job_request_from_remote_format(job_request):
         branch=job_request["workspace"].get("branch"),
         action=job_request["action_id"],
         workspace=job_request["workspace_id"],
+        force_run=job_request["force_run"],
+        force_run_dependencies=job_request["force_run_dependencies"],
         original=job_request,
     )
 
