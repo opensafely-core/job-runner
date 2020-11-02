@@ -38,9 +38,9 @@ def test_basic_volume_interaction(tmp_path):
     docker.create_volume(volume)
     docker.copy_to_volume(volume, tmp_path)
     matches = docker.glob_volume_files(volume, ["*.txt", "*.json"])
-    assert sorted(matches) == ["test1.txt", "test2.json"]
+    assert matches == {"*.txt": ["test1.txt"], "*.json": ["test2.json"]}
     matches = docker.glob_volume_files(volume, ["subdir/*"])
-    assert sorted(matches) == ["subdir/test3.txt", "subdir/test4.json"]
+    assert matches == {"subdir/*": ["subdir/test3.txt", "subdir/test4.json"]}
     docker.delete_volume(volume)
     # Test no error is thrown if volume is already deleted
     docker.delete_volume(volume)

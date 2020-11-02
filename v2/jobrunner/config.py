@@ -23,3 +23,5 @@ RUN_COMMANDS = {
 }
 
 JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "0.5"))
+
+BACKEND = os.environ.get("BACKEND", "expectations")

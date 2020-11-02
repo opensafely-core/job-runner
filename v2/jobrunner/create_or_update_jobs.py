@@ -1,6 +1,6 @@
 import uuid
 
-from .database import transaction, insert, exists_where
+from .database import transaction, insert, exists_where, find_where
 from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
 from .project import (
     parse_and_validate_project_file,
@@ -8,13 +8,18 @@ from .project import (
     docker_args_from_run_command,
 )
 from .models import Job, SavedJobRequest, State
+from .manage_containers import outputs_exist
+
+
+class JobRequestError(Exception):
+    pass
 
 
 def create_or_update_jobs(job_request):
     if not related_jobs_exist(job_request):
         try:
             create_jobs(job_request)
-        except (GitError, ProjectValidationError) as e:
+        except (GitError, ProjectValidationError, JobRequestError) as e:
             create_failed_job(job_request, e)
     else:
         # TODO: think about what sort of updates we want to support
@@ -48,8 +53,47 @@ def create_jobs(job_request):
 
 def create_jobs_with_project_file(job_request, project_file):
     project = parse_and_validate_project_file(project_file)
+    with transaction():
+        recursively_add_jobs(
+            job_request, project, job_request.action, is_primary_action=True
+        )
+        insert(SavedJobRequest(id=job_request.id, original=job_request.original))
 
-    action = project["actions"][job_request.action]
+
+def recursively_add_jobs(job_request, project, action_id, is_primary_action=False):
+    # Has the job already run?
+    if outputs_exist(job_request.workspace, action_id):
+        if is_primary_action:
+            if not job_request.force_run and not job_request.force_run_dependencies:
+                raise JobRequestError("Outputs already exist")
+        else:
+            if not job_request.force_run_dependencies:
+                return
+
+    # Is there already an equivalent job scheduled to run?
+    already_active_jobs = find_where(
+        Job,
+        workspace=job_request.workspace,
+        action=action_id,
+        status__in=[State.PENDING, State.RUNNING],
+    )
+    if already_active_jobs:
+        if is_primary_action:
+            raise JobRequestError("Action is already scheduled to run")
+        else:
+            return already_active_jobs[0].id
+
+    action_spec = project["actions"][action_id]
+    required_actions = action_spec.get("needs", [])
+
+    # Get the job IDs of any required jobs
+    wait_for_job_ids = [
+        recursively_add_jobs(job_request, project, required_action)
+        for required_action in required_actions
+    ]
+    # Remove any None entries (these are for actions which have already
+    # completed and so there is no associated job we need to wait for)
+    wait_for_job_ids = list(filter(None, wait_for_job_ids))
 
     job = Job(
         id=str(uuid.uuid4()),
@@ -58,16 +102,14 @@ def create_jobs_with_project_file(job_request, project_file):
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
-        action=job_request.action,
-        wait_for_job_ids=[],
-        requires_outputs_from=action.get("needs", []),
-        run_command=docker_args_from_run_command(action["run"]),
-        output_spec=action["outputs"],
+        action=action_id,
+        wait_for_job_ids=wait_for_job_ids,
+        requires_outputs_from=required_actions,
+        run_command=docker_args_from_run_command(action_spec["run"]),
+        output_spec=action_spec["outputs"],
     )
-
-    with transaction():
-        insert(SavedJobRequest(id=job_request.id, original=job_request.original))
-        insert(job)
+    insert(job)
+    return job.id
 
 
 def create_failed_job(job_request, exception):

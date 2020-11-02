@@ -37,6 +37,6 @@ def test_select_values():
     insert(Job(id="foo124", status=State.RUNNING))
     insert(Job(id="foo125", status=State.FAILED))
     values = select_values(Job, "id", status__in=[State.PENDING, State.FAILED])
-    assert values == ["foo123", "foo125"]
+    assert sorted(values) == ["foo123", "foo125"]
     values = select_values(Job, "status", id="foo124")
     assert values == [State.RUNNING]
