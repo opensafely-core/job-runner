@@ -54,21 +54,21 @@ def create_jobs(job_request):
 def create_jobs_with_project_file(job_request, project_file):
     project = parse_and_validate_project_file(project_file)
     with transaction():
-        recursively_add_jobs(
-            job_request, project, job_request.action, is_primary_action=True
-        )
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))
+        primary_job = recursively_add_jobs(
+            job_request, project, job_request.action, force_run=job_request.force_run
+        )
+        if not primary_job:
+            raise JobRequestError("Outputs already exist")
+        elif primary_job.job_request_id != job_request.id:
+            raise JobRequestError("Action is already scheduled to run")
 
 
-def recursively_add_jobs(job_request, project, action_id, is_primary_action=False):
-    # Has the job already run?
-    if outputs_exist(job_request.workspace, action_id):
-        if is_primary_action:
-            if not job_request.force_run and not job_request.force_run_dependencies:
-                raise JobRequestError("Outputs already exist")
-        else:
-            if not job_request.force_run_dependencies:
-                return
+def recursively_add_jobs(job_request, project, action_id, force_run=False):
+    # Return an empty job if the outputs already exist and we're not forcing a run
+    if not force_run:
+        if outputs_exist(job_request.workspace, action_id):
+            return
 
     # Is there already an equivalent job scheduled to run?
     already_active_jobs = find_where(
@@ -78,22 +78,22 @@ def recursively_add_jobs(job_request, project, action_id, is_primary_action=Fals
         status__in=[State.PENDING, State.RUNNING],
     )
     if already_active_jobs:
-        if is_primary_action:
-            raise JobRequestError("Action is already scheduled to run")
-        else:
-            return already_active_jobs[0].id
+        return already_active_jobs[0]
 
     action_spec = project["actions"][action_id]
     required_actions = action_spec.get("needs", [])
 
-    # Get the job IDs of any required jobs
-    wait_for_job_ids = [
-        recursively_add_jobs(job_request, project, required_action)
+    # Get or create any required jobs
+    required_jobs = [
+        recursively_add_jobs(
+            job_request,
+            project,
+            required_action,
+            force_run=job_request.force_run_dependencies,
+        )
         for required_action in required_actions
     ]
-    # Remove any None entries (these are for actions which have already
-    # completed and so there is no associated job we need to wait for)
-    wait_for_job_ids = list(filter(None, wait_for_job_ids))
+    wait_for_job_ids = [awaited_job.id for awaited_job in required_jobs if awaited_job]
 
     job = Job(
         id=str(uuid.uuid4()),
@@ -109,7 +109,7 @@ def recursively_add_jobs(job_request, project, action_id, is_primary_action=Fals
         output_spec=action_spec["outputs"],
     )
     insert(job)
-    return job.id
+    return job
 
 
 def create_failed_job(job_request, exception):
