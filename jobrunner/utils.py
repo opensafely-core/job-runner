@@ -1,6 +1,7 @@
 import glob
 import logging
 import os
+import posixpath
 import re
 import subprocess
 from pathlib import Path
@@ -45,10 +46,10 @@ def get_auth():
 def safe_join(startdir, path):
     """Given a `startdir` and `path`, join them together, while protecting against directory traversal attacks that take us outside `startdir`
     """
-    requested_path = os.path.normpath(os.path.join(startdir, path))
+    requested_path = posixpath.normpath(posixpath.join(startdir, path))
     startdir = str(startdir)  # Normalise from PosixPath
     assert (
-        os.path.commonprefix([requested_path, startdir]) == startdir
+        posixpath.commonprefix([requested_path, startdir]) == startdir
     ), f"Invalid requested path {requested_path}, not in {startdir}"
     return requested_path
 
