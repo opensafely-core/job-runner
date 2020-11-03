@@ -7,6 +7,13 @@ from . import config
 from .os_utils import safe_join, UnsafePathError
 
 
+# Build a config dict in the same format the old code expects
+RUN_COMMANDS_CONFIG = {
+    image: {"docker_invocation": [f"{config.DOCKER_REGISTRY}/{image}"]}
+    for image in config.ALLOWED_IMAGES
+}
+
+
 class ProjectValidationError(Exception):
     pass
 
@@ -69,7 +76,7 @@ def validate_project(project):
                 seen_output_files.add(filename)
         # Check it's a permitted run command
         name, version, args = split_and_format_run_command(action_config["run"])
-        if name not in config.RUN_COMMANDS:
+        if name not in RUN_COMMANDS_CONFIG:
             raise ProjectValidationError(f"{name} is not a supported command")
         if not version:
             raise ProjectValidationError(
@@ -98,7 +105,7 @@ def validate_project(project):
 
 def docker_args_from_run_command(run_command):
     run_token, version, args = split_and_format_run_command(run_command)
-    docker_image = config.RUN_COMMANDS[run_token]["docker_invocation"][0]
+    docker_image = RUN_COMMANDS_CONFIG[run_token]["docker_invocation"][0]
     if version is None:
         version = "latest"
     return " ".join([f"{docker_image}:{version}"] + args)

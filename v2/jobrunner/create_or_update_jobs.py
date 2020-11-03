@@ -12,7 +12,6 @@ from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
 from .project import (
     parse_and_validate_project_file,
     ProjectValidationError,
-    docker_args_from_run_command,
 )
 from .models import Job, SavedJobRequest, State
 from .manage_jobs import outputs_exist
@@ -125,7 +124,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
         action=action_id,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=required_actions,
-        run_command=docker_args_from_run_command(action_spec["run"]),
+        run_command=action_spec["run"],
         output_spec=action_spec["outputs"],
     )
     insert(job)

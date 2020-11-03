@@ -30,12 +30,14 @@ def start_job(job):
     action_args = shlex.split(job.run_command)
     # allow_networking = False
     env = {}
-    if action_args[0].startswith("docker.opensafely.org/cohortextractor:"):
+    if action_args[0].startswith("cohortextractor:"):
         if config.BACKEND == "expectations":
             action_args.extend(["--expectations-population", "10000"])
         else:
             # allow_networking = True
             env["DATABASE_URL"] = "foobar"
+    # Prepend registry name
+    action_args[0] = f"{config.DOCKER_REGISTRY}/{action_args[0]}"
     docker.run(container_name(job), action_args, volume=(volume, "/workspace"), env=env)
 
 
