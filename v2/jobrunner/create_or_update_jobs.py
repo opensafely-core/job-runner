@@ -5,8 +5,6 @@ It handles all logic connected with creating or updating Jobs in response to
 JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
-import uuid
-
 from .database import transaction, insert, exists_where, find_where
 from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
 from .project import (
@@ -115,7 +113,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
     wait_for_job_ids = [awaited_job.id for awaited_job in required_jobs if awaited_job]
 
     job = Job(
-        id=str(uuid.uuid4()),
+        id=Job.new_id(),
         job_request_id=job_request.id,
         status=State.PENDING,
         repo_url=job_request.repo_url,
@@ -136,7 +134,7 @@ def create_failed_job(job_request, exception):
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))
         insert(
             Job(
-                id=str(uuid.uuid4()),
+                id=Job.new_id(),
                 job_request_id=job_request.id,
                 status=State.FAILED,
                 repo_url=job_request.repo_url,

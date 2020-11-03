@@ -7,8 +7,10 @@ these objects.
 
 Note the schema is defined separately in `schema.sql`.
 """
+import base64
 import dataclasses
 from enum import Enum
+import secrets
 
 
 class State(Enum):
@@ -71,3 +73,14 @@ class Job:
             if isinstance(value, Enum):
                 data[key] = value.value
         return data
+
+    @staticmethod
+    def new_id():
+        """
+        Return a random 16 character lowercase alphanumeric string
+
+        We used to use UUID4's but they are unnecessarily long for our purposes
+        (particularly the hex representation) and shorter IDs make debugging
+        and inspecting the job-runner a bit more ergonomic.
+        """
+        return base64.b32encode(secrets.token_bytes(10)).decode('ascii').lower()
