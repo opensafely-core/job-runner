@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import time
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import PosixPath
 
 from jobrunner.exceptions import (
     DependencyRunning,
@@ -195,7 +195,7 @@ class Job:
             dir=os.environ["HIGH_PRIVACY_STORAGE_BASE"]
         )
         if workdir is None:
-            self.workdir = Path(self.tmpdir.name)
+            self.workdir = PosixPath(self.tmpdir.name)
         else:
             self.workdir = workdir
         self.logger = self.get_job_logger()
