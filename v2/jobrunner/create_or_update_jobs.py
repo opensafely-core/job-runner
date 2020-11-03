@@ -1,3 +1,10 @@
+"""
+This module provides a single public entry point `create_or_update_jobs`.
+
+It handles all logic connected with creating or updating Jobs in response to
+JobRequests. This includes fetching the code with git, validating the project
+and doing the necessary dependency resolution.
+"""
 import uuid
 
 from .database import transaction, insert, exists_where, find_where
@@ -8,7 +15,7 @@ from .project import (
     docker_args_from_run_command,
 )
 from .models import Job, SavedJobRequest, State
-from .manage_containers import outputs_exist
+from .manage_jobs import outputs_exist
 
 
 class JobRequestError(Exception):
@@ -16,6 +23,14 @@ class JobRequestError(Exception):
 
 
 def create_or_update_jobs(job_request):
+    """
+    Create or update Jobs in response to a JobRequest
+
+    Note that where there is an error with the JobRequest it will create a
+    single, failed job with the error details rather than raising an exception.
+    This allows the error to be synced back to the job-server where it can be
+    displayed to the user.
+    """
     if not related_jobs_exist(job_request):
         try:
             create_jobs(job_request)
@@ -58,18 +73,17 @@ def create_jobs_with_project_file(job_request, project_file):
         primary_job = recursively_add_jobs(
             job_request, project, job_request.action, force_run=job_request.force_run
         )
+        # If we didn't create a job at all that means the outputs already exist
+        # and we weren't forcing a run
         if not primary_job:
             raise JobRequestError("Outputs already exist")
+        # If the returned job belongs to a different JobRequest that means we
+        # just picked up an existing scheduled job and didn't create a new one
         elif primary_job.job_request_id != job_request.id:
             raise JobRequestError("Action is already scheduled to run")
 
 
 def recursively_add_jobs(job_request, project, action_id, force_run=False):
-    # Return an empty job if the outputs already exist and we're not forcing a run
-    if not force_run:
-        if outputs_exist(job_request.workspace, action_id):
-            return
-
     # Is there already an equivalent job scheduled to run?
     already_active_jobs = find_where(
         Job,
@@ -79,6 +93,12 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
     )
     if already_active_jobs:
         return already_active_jobs[0]
+
+    # Return an empty job if the outputs already exist and we're not forcing a
+    # run
+    if not force_run:
+        if outputs_exist(job_request.workspace, action_id):
+            return
 
     action_spec = project["actions"][action_id]
     required_actions = action_spec.get("needs", [])

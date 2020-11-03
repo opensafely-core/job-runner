@@ -31,6 +31,7 @@ def test_create_or_update_jobs():
         branch="v1",
         action="generate_cohort",
         workspace="1",
+        database_name="full",
         original={},
     )
     create_or_update_jobs(job_request)
@@ -69,6 +70,7 @@ def test_create_or_update_jobs_with_git_error():
         branch="no-such-branch",
         action="generate_cohort",
         workspace="1",
+        database_name="full",
         original={},
     )
     create_or_update_jobs(job_request)
@@ -159,6 +161,7 @@ def make_job_request(**kwargs):
         repo_url="https://example.com/repo.git",
         commit="abcdef0123456789",
         workspace="1",
+        database_name="full",
         action="generate_cohort",
         original={},
     )

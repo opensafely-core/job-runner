@@ -27,6 +27,7 @@ class JobRequest:
     commit: str
     action: str
     workspace: str
+    database_name: str
     force_run: bool = False
     force_run_dependencies: bool = False
     branch: str = None
@@ -54,6 +55,7 @@ class Job:
     repo_url: str = None
     commit: str = None
     workspace: str = None
+    database_name: str = None
     action: str = None
     wait_for_job_ids: list = None
     requires_outputs_from: list = None
