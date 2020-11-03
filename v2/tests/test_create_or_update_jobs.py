@@ -48,7 +48,7 @@ def test_create_or_update_jobs():
             action="generate_cohort",
             wait_for_job_ids=[],
             requires_outputs_from=[],
-            run_command="docker.opensafely.org/cohortextractor:latest generate_cohort",
+            run_command="cohortextractor:latest generate_cohort",
             output_spec={"highly_sensitive": {"cohort": "input.csv"}},
             output_files=None,
             error_message=None,
