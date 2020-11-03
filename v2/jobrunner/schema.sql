@@ -16,10 +16,11 @@ CREATE TABLE job (
     repo_url TEXT,
     "commit" TEXT,
     workspace TEXT,
+    database_name TEXT,
     action TEXT,
     -- The below two fields are related but distinct: the first is a list of
     -- currently runnning job_ids which we must wait to complete before we can
-    -- start. The second is a list of action_ids whos outputs must be copied
+    -- start. The second is a list of action_ids whose outputs must be copied
     -- into the job container.
     wait_for_job_ids TEXT,
     requires_outputs_from TEXT,

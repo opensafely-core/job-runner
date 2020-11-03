@@ -14,7 +14,7 @@ from .create_or_update_jobs import create_or_update_jobs
 from . import run
 
 
-def main(repo_url, action, branch, workspace):
+def main(repo_url, action, branch, workspace, database):
     jobs = find_where(Job, status__in=[State.PENDING, State.RUNNING])
     if jobs:
         print(f"Not adding new JobRequest, found {len(jobs)} active jobs:")
@@ -28,6 +28,7 @@ def main(repo_url, action, branch, workspace):
             branch=branch,
             action=action,
             workspace=workspace,
+            database_name=database,
             original={},
         )
         print(f"Submitting JobRequest: {job_request}")
@@ -53,5 +54,8 @@ if __name__ == "__main__":
         "--branch", help="Git branch to use (default master)", default="master"
     )
     parser.add_argument("--workspace", help="Workspace ID (default 1)", default="1")
+    parser.add_argument(
+        "--database", help="Database name (default 'dummy')", default="dummy"
+    )
     args = parser.parse_args()
     main(**vars(args))

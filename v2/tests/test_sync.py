@@ -5,7 +5,11 @@ from jobrunner.models import JobRequest
 def test_job_request_from_remote_format():
     remote_job_request = {
         "pk": "123",
-        "workspace": {"repo": "https://github.com/opensafely/foo", "branch": "master"},
+        "workspace": {
+            "repo": "https://github.com/opensafely/foo",
+            "branch": "master",
+            "db": "full",
+        },
         "workspace_id": "5",
         "action_id": "generate_cohort",
         "force_run": True,
@@ -17,6 +21,7 @@ def test_job_request_from_remote_format():
         commit=None,
         branch="master",
         workspace="5",
+        database_name="full",
         action="generate_cohort",
         force_run=True,
         force_run_dependencies=True,

@@ -1,3 +1,11 @@
+"""
+This module contains the logic for starting jobs in Docker containers and
+dealing with them when they are finished.
+
+It's important that the `start_job` and `finalise_job` functions are
+idempotent. This means that the job-runner can be killed at any point and will
+still end up in a consistent state when it's restarted.
+"""
 import json
 import shlex
 import tempfile
@@ -13,7 +21,7 @@ class JobError(Exception):
     pass
 
 
-def start_job_running(job):
+def start_job(job):
     # If we started the job but were killed before we updated the state then
     # there's nothing further to do
     if job_still_running(job):

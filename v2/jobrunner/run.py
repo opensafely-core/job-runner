@@ -3,9 +3,9 @@ import time
 from . import config
 from .database import find_where, update, select_values
 from .models import Job, State
-from .manage_containers import (
+from .manage_jobs import (
     JobError,
-    start_job_running,
+    start_job,
     job_still_running,
     finalise_job,
 )
@@ -34,7 +34,7 @@ def handle_job(job):
         elif all(state == State.COMPLETED for state in awaited_states):
             if job_running_capacity_available():
                 try:
-                    start_job_running(job)
+                    start_job(job)
                 except JobError as e:
                     mark_job_as_failed(job, e)
                 else:
@@ -42,11 +42,11 @@ def handle_job(job):
     elif job.status == State.RUNNING:
         if not job_still_running(job):
             try:
-                outputs = finalise_job(job)
+                finalise_job(job)
             except JobError as e:
                 mark_job_as_failed(job, e)
             else:
-                mark_job_as_completed(job, outputs)
+                mark_job_as_completed(job)
 
 
 def get_states_of_awaited_jobs(job):
@@ -67,10 +67,9 @@ def mark_job_as_running(job):
     update(job, update_fields=["status"])
 
 
-def mark_job_as_completed(job, outputs):
+def mark_job_as_completed(job):
     job.status = State.COMPLETED
-    job.output_files = outputs
-    update(job, update_fields=["status", "output_files"])
+    update(job, update_fields=["status"])
 
 
 def job_running_capacity_available():
