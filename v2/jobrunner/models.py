@@ -83,4 +83,4 @@ class Job:
         (particularly the hex representation) and shorter IDs make debugging
         and inspecting the job-runner a bit more ergonomic.
         """
-        return base64.b32encode(secrets.token_bytes(10)).decode('ascii').lower()
+        return base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()

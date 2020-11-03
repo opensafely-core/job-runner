@@ -202,8 +202,10 @@ def container_inspect(name, key="", none_if_not_exists=False):
     return json.loads(response.stdout)
 
 
-def run(name, args, volume=None, env=None):
+def run(name, args, volume=None, env=None, allow_network_access=False):
     run_args = ["docker", "run", "--detach", "--name", name]
+    if not allow_network_access:
+        run_args.extend(["--network", "none"])
     if volume:
         run_args.extend(["--volume", f"{volume[0]}:{volume[1]}"])
     if env:
