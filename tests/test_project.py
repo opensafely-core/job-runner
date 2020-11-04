@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
+from jobrunner import utils
 from jobrunner.exceptions import ProjectValidationError
 from jobrunner.project import make_container_name, parse_project_yaml, validate_project
 
@@ -31,7 +32,7 @@ def test_job_to_project_nodeps(job_spec_maker):
         "TEMP_DATABASE_NAME=temp",
         "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
-        "--output-dir=/workspace/",
+        f"--output-dir={utils.get_workdir()}",
     ]
     assert project["outputs"]["highly_sensitive"]["cohort"] == "input.csv"
 
@@ -65,7 +66,7 @@ def test_valid_run_in_project(job_spec_maker):
         "TEMP_DATABASE_NAME=temp",
         "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
-        "--output-dir=/workspace/",
+        f"--output-dir={utils.get_workdir()}",
     ]
 
 
@@ -80,8 +81,9 @@ def test_action_id_not_in_project(job_spec_maker):
         parse_project_yaml(project_path, job_spec)
 
 
-@patch("jobrunner.project.all_output_paths_for_action")
-def test_project_needs_run(dummy_output_paths, job_spec_maker):
+@patch("jobrunner.utils.get_workdir")
+@patch("jobrunner.utils.all_output_paths_for_action")
+def test_project_needs_run(dummy_output_paths, mock_get_workdir, job_spec_maker):
     """Do complete dependencies with force_run set raise an exception?
     """
     project_path = "tests/fixtures/simple_project_1"
@@ -91,12 +93,14 @@ def test_project_needs_run(dummy_output_paths, job_spec_maker):
     dummy_output_paths.return_value = [
         {"base_path": "", "namespace": "", "relative_path": "test-xxx"}
     ]
+    mock_get_workdir.return_value = ""
     parsed = parse_project_yaml(project_path, job_spec)
     assert parsed["needs_run"] is True
 
     # Check using output paths that do exist, so run not needed unless
     # explicitly asked
     with tempfile.TemporaryDirectory() as d:
+        mock_get_workdir.return_value = d
         mock_output_filename = os.path.join(d, "input.csv")
         with open(mock_output_filename, "w") as f:
             f.write("")

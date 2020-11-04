@@ -8,16 +8,10 @@ from types import SimpleNamespace
 import networkx as nx
 import yaml
 
+from jobrunner import utils
 from jobrunner.exceptions import ProjectValidationError
-from jobrunner.utils import (
-    all_output_paths_for_action,
-    getlogger,
-    make_volume_name,
-    needs_run,
-    safe_join,
-)
 
-logger = getlogger(__name__)
+logger = utils.getlogger(__name__)
 baselogger = logging.LoggerAdapter(logger, {"job_id": "-"})
 
 # These numbers correspond to "levels" as described in our security
@@ -136,7 +130,7 @@ def validate_project(workdir, project):
 
             for output_id, filename in output.items():
                 try:
-                    safe_join(workdir, filename)
+                    utils.safe_join(workdir, filename)
                 except AssertionError:
                     raise ProjectValidationError(
                         f"Output path {filename} is not permitted", report_args=True
@@ -286,10 +280,10 @@ def add_runtime_metadata(
     job_config["callback_url"] = callback_url
     job_config["workspace"] = workspace
     job_config["container_name"] = make_container_name(
-        make_volume_name(job_config) + "-" + job_config["action_id"]
+        utils.make_volume_name(job_config) + "-" + job_config["action_id"]
     )
-    job_config["output_locations"] = all_output_paths_for_action(job_config)
-    job_config["needs_run"] = needs_run(job_config)
+    job_config["output_locations"] = utils.all_output_paths_for_action(job_config)
+    job_config["needs_run"] = utils.needs_run(job_config)
 
     # Convert the command name into a full set of arguments that can
     # be passed to `docker run`, but preserving user-defined variables

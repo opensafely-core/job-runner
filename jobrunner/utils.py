@@ -43,6 +43,10 @@ def get_auth():
     return (os.environ["QUEUE_USER"], os.environ["QUEUE_PASS"])
 
 
+def get_workdir():
+    return "/workspace"
+
+
 def safe_join(startdir, path):
     """Given a `startdir` and `path`, join them together, while protecting against directory traversal attacks that take us outside `startdir`
     """
