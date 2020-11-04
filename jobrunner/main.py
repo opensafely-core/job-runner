@@ -10,14 +10,14 @@ from pebble import ProcessPool
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
+from jobrunner import utils
 from jobrunner.exceptions import DependencyRunning, OpenSafelyError
 from jobrunner.job import Job
-from jobrunner.utils import get_auth, getlogger
 
 HOUR = 60 * 60
 COHORT_EXTRACTOR_TIMEOUT = 24 * HOUR
 
-logger = getlogger("main")
+logger = utils.getlogger("main")
 baselogger = logging.LoggerAdapter(logger, {"job_id": "-"})
 
 
@@ -41,7 +41,7 @@ def report_result(future):
                 "outputs": outputs,
                 "status_message": job["status_message"],
             },
-            auth=get_auth(),
+            auth=utils.get_auth(),
         )
         if not response.ok:
             joblogger.error("Problem updating job: %s", response.text)
@@ -54,7 +54,7 @@ def report_result(future):
                 "status_code": -1,
                 "status_message": f"TimeoutError({COHORT_EXTRACTOR_TIMEOUT}s) {id_message}",
             },
-            auth=get_auth(),
+            auth=utils.get_auth(),
         )
         response.raise_for_status()
         joblogger.info("Reported error -1 (timeout) to job server")
@@ -70,7 +70,7 @@ def report_result(future):
             "started": False,
             "status_message": f"{error.safe_details()} {id_message}",
         }
-        response = requests.patch(job_spec["url"], json=payload, auth=get_auth())
+        response = requests.patch(job_spec["url"], json=payload, auth=utils.get_auth())
         response.raise_for_status()
 
         joblogger.info(
@@ -86,7 +86,7 @@ def report_result(future):
                 "status_code": error.status_code,
                 "status_message": f"{error.safe_details()} {id_message}",
             },
-            auth=get_auth(),
+            auth=utils.get_auth(),
         )
         response.raise_for_status()
         joblogger.info(
@@ -107,7 +107,7 @@ def report_result(future):
                     "status_code": 99,
                     "status_message": f"Unclassified error {id_message}",
                 },
-                auth=get_auth(),
+                auth=utils.get_auth(),
             )
             response_text = response.text
             response.raise_for_status()
@@ -162,7 +162,7 @@ def watch(queue_endpoint, loop=True, job_class=Job):
                         "backend": os.environ["BACKEND"],
                         "page_size": 25,
                     },
-                    auth=get_auth(),
+                    auth=utils.get_auth(),
                 )
                 result.raise_for_status()
             except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError):
@@ -175,7 +175,7 @@ def watch(queue_endpoint, loop=True, job_class=Job):
             job_specs = result.json()
             for job_spec in job_specs["results"]:
                 response = requests.patch(
-                    job_spec["url"], json={"started": True}, auth=get_auth()
+                    job_spec["url"], json={"started": True}, auth=utils.get_auth()
                 )
                 response.raise_for_status()
                 runner = job_class(job_spec)

@@ -9,6 +9,7 @@ import time
 from contextlib import contextmanager
 from pathlib import PosixPath
 
+from jobrunner import utils
 from jobrunner.exceptions import (
     DependencyRunning,
     DockerRunError,
@@ -18,9 +19,8 @@ from jobrunner.exceptions import (
 )
 from jobrunner.project import parse_project_yaml
 from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinished
-from jobrunner.utils import getlogger, safe_join, writable_job_subset
 
-logger = getlogger(__name__)
+logger = utils.getlogger(__name__)
 
 
 def get_input_filespec_from_job(prepared_job):
@@ -45,8 +45,10 @@ def get_input_filespec_from_job(prepared_job):
     seen_relpaths = []
 
     for location in prepared_job["inputs"]:
-        namespace_path = safe_join(location["base_path"], location["namespace"])
-        source_paths = glob.glob(safe_join(namespace_path, location["relative_path"]))
+        namespace_path = utils.safe_join(location["base_path"], location["namespace"])
+        source_paths = glob.glob(
+            utils.safe_join(namespace_path, location["relative_path"])
+        )
         for source_path in source_paths:
             relpath = os.path.relpath(source_path, start=namespace_path)
             if relpath in seen_relpaths:
@@ -78,8 +80,6 @@ def volume_from_filespec(input_file_spec):
         ["docker", "volume", "create"], encoding="utf8"
     ).strip()
     volume_container_name = f"volume-maker-{volume_name}"
-    output_storage_path = "/workspace"
-
     # Create a temporary container the exclusive purpose of copying data onto a
     # new volume. We use the job-runner image for convenience, but it could be
     # any image with `cp` and `mkdir` available. Because we keep the TTY open
@@ -95,7 +95,7 @@ def volume_from_filespec(input_file_spec):
         "--name",
         volume_container_name,
         "-v",
-        f"{volume_name}:{output_storage_path}",
+        f"{volume_name}:{utils.get_workdir()}",
         "docker.opensafely.org/job-runner",
     ]
     subprocess.check_call(cmd, encoding="utf8")
@@ -109,14 +109,14 @@ def volume_from_filespec(input_file_spec):
             volume_container_name,
             "mkdir",
             "-p",
-            os.path.join(output_storage_path, os.path.dirname(relpath)),
+            os.path.join(utils.get_workdir(), os.path.dirname(relpath)),
         ]
         subprocess.check_call(cmd)
         cmd = [
             "docker",
             "cp",
             source_path,
-            f"{volume_container_name}:{os.path.join(output_storage_path, relpath)}",
+            f"{volume_container_name}:{os.path.join(utils.get_workdir(), relpath)}",
         ]
         subprocess.check_call(cmd)
 
@@ -153,7 +153,7 @@ def copy_from_container(container_name, file_copy_spec):
     """
     for source_base, dest_base, rel_path_with_glob in file_copy_spec:
         found_any = False
-        source_path_with_glob = safe_join(source_base, rel_path_with_glob)
+        source_path_with_glob = utils.safe_join(source_base, rel_path_with_glob)
         source_paths = subprocess.check_output(
             [
                 "docker",
@@ -169,7 +169,7 @@ def copy_from_container(container_name, file_copy_spec):
         for source_path in source_paths:
             found_any = True
             rel_path = os.path.relpath(source_path, source_base)
-            dest_path = safe_join(dest_base, rel_path)
+            dest_path = utils.safe_join(dest_base, rel_path)
             dest_dir = os.path.dirname(dest_path)
             os.makedirs(dest_dir, exist_ok=True)
             cmd = [
@@ -212,7 +212,7 @@ class Job:
         self.logger.info(
             "Added runtime metadata to job_spec %s: %s",
             prepared_job["action_id"],
-            writable_job_subset(prepared_job),
+            utils.writable_job_subset(prepared_job),
         )
         # First, run all the dependencies
         last_error = None
@@ -293,7 +293,7 @@ class Job:
                     "--name",
                     prepared_job["container_name"],
                     "--volume",
-                    f"{volume_name}:/workspace",
+                    f"{volume_name}:{utils.get_workdir()}",
                 ]
                 # Run the docker command
                 cmd = run_cmd + prepared_job["docker_invocation"]
@@ -309,7 +309,7 @@ class Job:
                         location["base_path"], location["namespace"]
                     )
                     file_copy_triples.append(
-                        ("/workspace", dest_base, location["relative_path"])
+                        (utils.get_workdir(), dest_base, location["relative_path"])
                     )
                 self.logger.debug("Copying %s output specs", len(file_copy_triples))
                 copy_from_container(volume_container_name, file_copy_triples)
