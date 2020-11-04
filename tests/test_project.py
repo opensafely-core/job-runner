@@ -89,7 +89,7 @@ def test_project_needs_run(dummy_output_paths, job_spec_maker):
 
     # Check using output paths that don't exist, so run is needed
     dummy_output_paths.return_value = [
-        {"base_path": "", "namespace": "", "relative_path": "x"}
+        {"base_path": "", "namespace": "", "relative_path": "test-xxx"}
     ]
     parsed = parse_project_yaml(project_path, job_spec)
     assert parsed["needs_run"] is True
