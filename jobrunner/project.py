@@ -301,7 +301,9 @@ def add_runtime_metadata(
             docker_args.extend(["-e", "DATABASE_URL={database_url}"])
             docker_args.extend(["-e", "TEMP_DATABASE_NAME={temp_database_name}"])
         cohort_output_location = job_config["output_locations"][0]["relative_path"]
-        output_dir = os.path.join("/workspace", os.path.dirname(cohort_output_location))
+        output_dir = utils.safe_join(
+            utils.get_workdir(), os.path.dirname(cohort_output_location)
+        )
         user_args.append(f"--output-dir={output_dir}")
 
     # Interpolate variables from the job_config into user-supplied
