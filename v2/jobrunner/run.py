@@ -8,6 +8,7 @@ from .manage_jobs import (
     start_job,
     job_still_running,
     finalise_job,
+    cleanup_job,
 )
 
 
@@ -37,6 +38,7 @@ def handle_job(job):
                     start_job(job)
                 except JobError as e:
                     mark_job_as_failed(job, e)
+                    cleanup_job(job)
                 else:
                     mark_job_as_running(job)
     elif job.status == State.RUNNING:
@@ -47,6 +49,7 @@ def handle_job(job):
                 mark_job_as_failed(job, e)
             else:
                 mark_job_as_completed(job)
+            cleanup_job(job)
 
 
 def get_states_of_awaited_jobs(job):
