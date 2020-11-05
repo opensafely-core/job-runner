@@ -63,7 +63,9 @@ def transaction():
     # See: https://docs.python.org/3/library/sqlite3.html#using-the-connection-as-a-context-manager
     # We're relying here on the fact that because of the lru_cache,
     # `get_connection` actually returns the same connection instance every time
-    return get_connection()
+    conn = get_connection()
+    conn.execute("BEGIN")
+    return conn
 
 
 @functools.lru_cache()
