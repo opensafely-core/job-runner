@@ -109,14 +109,14 @@ def volume_from_filespec(input_file_spec):
             volume_container_name,
             "mkdir",
             "-p",
-            os.path.join(utils.get_workdir(), os.path.dirname(relpath)),
+            utils.safe_join(utils.get_workdir(), os.path.dirname(relpath)),
         ]
         subprocess.check_call(cmd)
         cmd = [
             "docker",
             "cp",
             source_path,
-            f"{volume_container_name}:{os.path.join(utils.get_workdir(), relpath)}",
+            f"{volume_container_name}:{utils.safe_join(utils.get_workdir(), relpath)}",
         ]
         subprocess.check_call(cmd)
 
@@ -309,6 +309,7 @@ class Job:
                 # Copy expected outputs to the final location
                 file_copy_triples = []
                 for location in prepared_job["output_locations"]:
+                    # safe_join
                     dest_base = os.path.join(
                         location["base_path"], location["namespace"]
                     )
