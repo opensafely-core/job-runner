@@ -14,7 +14,9 @@ from .create_or_update_jobs import create_or_update_jobs
 from . import run
 
 
-def main(repo_url, action, branch, workspace, database):
+def main(
+    repo_url, action, branch, workspace, database, force_run, force_run_dependencies
+):
     jobs = find_where(Job, status__in=[State.PENDING, State.RUNNING])
     if jobs:
         print(f"Not adding new JobRequest, found {len(jobs)} active jobs:")
@@ -29,6 +31,8 @@ def main(repo_url, action, branch, workspace, database):
             action=action,
             workspace=workspace,
             database_name=database,
+            force_run=force_run,
+            force_run_dependencies=force_run_dependencies,
             original={},
         )
         print(f"Submitting JobRequest: {job_request}")
@@ -57,5 +61,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--database", help="Database name (default 'dummy')", default="dummy"
     )
+    parser.add_argument("--force-run", action="store_true")
+    parser.add_argument("--force-run-dependencies", action="store_true")
     args = parser.parse_args()
     main(**vars(args))
