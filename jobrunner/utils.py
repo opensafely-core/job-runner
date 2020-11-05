@@ -95,7 +95,7 @@ def all_output_paths_for_action(action):
     paths = []
     for privacy_level, outputs in action.get("outputs", {}).items():
         for output_name, relative_path in outputs.items():
-            namespace = os.path.join(action["action_id"], output_name)
+            namespace = safe_join(action["action_id"], output_name)
             paths.append(
                 {
                     "base_path": make_output_bucket(action, privacy_level),
@@ -116,7 +116,7 @@ def needs_run(action):
     if action["force_run"]:
         return True
     for output in action["output_locations"]:
-        namespaced_path = os.path.join(output["namespace"], output["relative_path"])
+        namespaced_path = safe_join(output["namespace"], output["relative_path"])
         full_path = safe_join(output["base_path"], namespaced_path)
         existing_outputs = glob.glob(full_path)
         if not existing_outputs:
