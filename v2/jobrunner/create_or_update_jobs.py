@@ -94,7 +94,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
     # Return an empty job if the outputs already exist and we're not forcing a
     # run
     if not force_run:
-        if outputs_exist(job_request.workspace, action_id):
+        if outputs_exist(job_request, action_id):
             return
 
     action_spec = project["actions"][action_id]
@@ -119,6 +119,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
+        database_name=job_request.database_name,
         action=action_id,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=required_actions,
