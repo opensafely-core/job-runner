@@ -6,15 +6,20 @@ It's important that the `start_job` and `finalise_job` functions are
 idempotent. This means that the job-runner can be killed at any point and will
 still end up in a consistent state when it's restarted.
 """
+import datetime
 import json
 import shlex
+import shutil
 import tempfile
 
 from . import config
 from . import docker
 from .database import find_where
-from .git import checkout_commit
-from .models import SavedJobRequest
+from .git import checkout_commit, name_from_repo_url
+from .models import SavedJobRequest, State
+
+
+SUCCESS_MARKER_FILE = "job_successful.txt"
 
 
 class JobError(Exception):
@@ -58,22 +63,55 @@ def create_and_populate_volume(job):
         docker.copy_to_volume(volume, tmpdir)
     # copy in files from dependencies
     for action in job.requires_outputs_from:
-        pass
+        action_dir = high_privacy_output_dir(job, action=action)
+        if not action_dir.joinpath(SUCCESS_MARKER_FILE).exists():
+            raise JobError("Unexpected missing output for '{action}'")
+        for action_output_dir in action_dir.iterdir():
+            if action_output_dir.is_dir():
+                docker.copy_to_volume(volume, action_output_dir)
     return volume
 
 
 def finalise_job(job):
-    container = container_name(job)
-    volume = volume_name(job)
-    output_dir = config.WORK_DIR / "outputs" / container
-    if not output_dir.exists():
+    output_dir = high_privacy_output_dir(job)
+    if not directory_contains_job_metadata(job, output_dir):
         tmp_output_dir = output_dir.with_suffix(".tmp")
         error = save_job_outputs(job, tmp_output_dir)
+        save_job_metadata(job, tmp_output_dir, error)
+        copy_log_data_to_log_dir(job, tmp_output_dir)
+        copy_medium_privacy_data(job, tmp_output_dir)
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
         tmp_output_dir.rename(output_dir)
-    docker.delete_container(container)
-    docker.delete_volume(volume)
+    docker.delete_container(container_name(job))
+    docker.delete_volume(volume_name(job))
     if error:
         raise error
+
+
+def directory_contains_job_metadata(job, directory):
+    try:
+        with open(directory / "job_metadata.json") as f:
+            return json.load(f)["id"] == job.id
+    except (FileNotFoundError, ValueError, KeyError):
+        return False
+
+
+def save_job_metadata(job, output_dir, error):
+    job_metadata = job.asdict()
+    job_request = find_where(SavedJobRequest, id=job.job_request_id)[0]
+    job_metadata["job_request"] = job_request.original
+    if error:
+        job_metadata["status"] = State.FAILED.value
+        job_metadata["error_message"] = f"{type(error).__name__}: {error}"
+    else:
+        job_metadata["status"] = State.COMPLETED.value
+        # Create a marker file which we can use to easily determine if this
+        # directory contains the outputs of a successful job which we can then
+        # use elsewhere
+        output_dir.joinpath(SUCCESS_MARKER_FILE).touch()
+    with open(output_dir / "job_metadata.json", "w") as f:
+        json.dump(job_metadata, f, indent=2)
 
 
 def save_job_outputs(job, output_dir):
@@ -87,14 +125,8 @@ def save_job_outputs(job, output_dir):
     redact_environment_variables(container_metadata)
     with open(output_dir / "docker_metadata.json", "w") as f:
         json.dump(container_metadata, f, indent=2)
-    # Dump job metadata
-    job_metadata = job.asdict()
-    job_request = find_where(SavedJobRequest, id=job.job_request_id)[0]
-    job_metadata["job_request"] = job_request.original
-    with open(output_dir / "job_metadata.json", "w") as f:
-        json.dump(job_metadata, f, indent=2)
     # Dump Docker logs
-    docker.write_logs_to_file(container, output_dir / "log.txt")
+    docker.write_logs_to_file(container, output_dir / "logs.txt")
     # Extract specified outputs
     output_spec = flatten_file_spec(job.output_spec)
     patterns = output_spec.values()
@@ -107,7 +139,13 @@ def save_job_outputs(job, output_dir):
         for filename in files:
             dest_filename = output_dir / name / filename
             dest_filename.parent.mkdir(parents=True, exist_ok=True)
-            docker.copy_from_volume(volume, filename, dest_filename)
+            # Only copy filles we haven't copied already: this means that if we
+            # get interrupted while copying out several large files we don't
+            # need to start again from scratch when we resume
+            tmp_filename = dest_filename.with_suffix(".partial.tmp")
+            if not dest_filename.exists():
+                docker.copy_from_volume(volume, filename, tmp_filename)
+                tmp_filename.rename(dest_filename)
     # Return errors if appropriate
     if container_metadata["State"]["ExitCode"] != 0:
         return JobError("Job exited with an error code")
@@ -146,6 +184,50 @@ def redact_environment_variables(container_metadata):
     container_metadata["Config"]["Env"] = redacted_vars
 
 
+def copy_log_data_to_log_dir(job, data_dir):
+    month_dir = datetime.date.today().strftime("%Y-%m")
+    log_dir = config.JOB_LOG_DIR / month_dir / container_name(job)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    for filename in ("docker_metadata.json", "job_metadata.json", "logs.txt"):
+        copy_file(data_dir / filename, log_dir / filename)
+
+
+def copy_medium_privacy_data(job, data_dir):
+    output_dir = medium_privacy_output_dir(job)
+    tmp_output_dir = output_dir.with_suffix(".tmp")
+    tmp_output_dir.mkdir(parents=True, exist_ok=True)
+    file_spec = job.output_spec.get("moderately_sensitive", {})
+    for output_name in file_spec.keys():
+        copy_directory(data_dir / output_name, tmp_output_dir / output_name)
+    for filename in ("job_metadata.json", "logs.txt"):
+        copy_file(data_dir / filename, tmp_output_dir / filename)
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    tmp_output_dir.rename(output_dir)
+
+
+def copy_file(source, dest):
+    # shutil.copy() should be reasonably efficient in Python 3.8+, but if we
+    # need to stick with 3.7 for some reason we could replace this with a
+    # shellout to `cp`. See:
+    # https://docs.python.org/3/library/shutil.html#shutil-platform-dependent-efficient-copy-operations
+    shutil.copy(source, dest)
+
+
+def copy_directory(source, dest):
+    for source_file in source.glob("**/*"):
+        if source_file.is_dir():
+            continue
+        relative_path = source_file.relative_to(source)
+        dest_path = dest / relative_path
+        if dest_path.exists():
+            continue
+        tmp_path = dest_path.with_suffix(".partial.tmp")
+        tmp_path.parent.mkdir(parents=True, exist_ok=True)
+        copy_file(source_file, tmp_path)
+        tmp_path.rename(dest_path)
+
+
 def job_still_running(job):
     return docker.container_is_running(container_name(job))
 
@@ -158,6 +240,32 @@ def volume_name(job):
     return f"volume-{job.id}"
 
 
-def outputs_exist(workspace, action):
-    # TODO
-    return False
+def high_privacy_output_dir(job, action=None):
+    workspace_dir = get_workspace_dir(job, config.HIGH_PRIVACY_WORKSPACES_DIR)
+    if action is None:
+        action = job.action
+    return workspace_dir / action
+
+
+def medium_privacy_output_dir(job, action=None):
+    workspace_dir = get_workspace_dir(job, config.MEDIUM_PRIVACY_WORKSPACES_DIR)
+    if action is None:
+        action = job.action
+    return workspace_dir / action
+
+
+def outputs_exist(job_request, action):
+    output_dir = high_privacy_output_dir(job_request, action)
+    return output_dir.joinpath(SUCCESS_MARKER_FILE).exists()
+
+
+def get_workspace_dir(job_or_job_request, base_dir):
+    repo_name = name_from_repo_url(job_or_job_request.repo_url)
+    database_name = job_or_job_request.database_name
+    workspace_id = job_or_job_request.workspace
+    workspace_dir = base_dir / f"{repo_name}-{database_name}-{workspace_id}"
+    if not workspace_dir.exists() and base_dir.exists():
+        matching_dirs = sorted(base_dir.glob(f"*-{workspace_id}"))
+        if matching_dirs:
+            return matching_dirs[0]
+    return workspace_dir

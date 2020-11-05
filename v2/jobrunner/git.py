@@ -97,13 +97,26 @@ def _parse_ls_remote_output(output):
 
 
 def get_local_repo_dir(repo_url):
-    # We don't need to worry that this transformation might not result in
-    # unique names (e.g. if we end up using repos from different
-    # organisations). We're just treating these directories as big buckets of
-    # commits, so we could in principle use the same local git directory for
-    # everything and it would work fine.
+    # We don't need to worry that repo_name may not be unique here (e.g. if we
+    # end up using repos from different organisations): we're just treating
+    # these directories as big buckets of commits, so we could in principle use
+    # the same local git directory for all repositories and it would work fine.
+    # But it's probably more operationally convenient to split them up like
+    # this.
+    repo_name = name_from_repo_url(repo_url)
+    return config.GIT_REPO_DIR / Path(repo_name).with_suffix(".git")
+
+
+def name_from_repo_url(repo_url):
+    """
+    Return the name of a repository from its URL (there's nothing particularly
+    significant about a repository's name but it can make debugging easier to
+    include it in various places)
+    """
     repo_name = urlparse(repo_url).path.strip("/").split("/")[-1]
-    return config.GIT_REPO_DIR / Path(repo_name)
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
+    return repo_name
 
 
 def fetch_commit(repo_dir, repo_url, commit_sha):
