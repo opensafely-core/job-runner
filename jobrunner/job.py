@@ -125,6 +125,10 @@ def volume_from_filespec(input_file_spec):
     finally:
         cmd = ["docker", "stop", volume_container_name]
         subprocess.check_call(cmd)
+        # docker volumes are reference counted, apparently
+        # non-deterministically, so wait to ensure that the docker daemon has
+        # decremented the volume count, or we can not remove it.
+        time.sleep(0.1)
         cmd = ["docker", "volume", "rm", volume_name]
         subprocess.check_call(cmd)
 

@@ -17,7 +17,7 @@ from jobrunner.job import Job, copy_from_container, volume_from_filespec
 from tests.common import default_job, test_job_list
 
 
-class TestError(OpenSafelyError):
+class MyError(OpenSafelyError):
     status_code = 10
 
 
@@ -34,13 +34,13 @@ def workspace():
 
 
 def test_exception_reporting():
-    error = TestError("thing not to leak", report_args=False)
-    assert error.safe_details() == "TestError: [possibly-unsafe details redacted]"
-    assert repr(error) == "TestError('thing not to leak')"
+    error = MyError("thing not to leak", report_args=False)
+    assert error.safe_details() == "MyError: [possibly-unsafe details redacted]"
+    assert repr(error) == "MyError('thing not to leak')"
 
-    error = TestError("thing OK to leak", report_args=True)
-    assert error.safe_details() == "TestError: thing OK to leak"
-    assert repr(error) == "TestError('thing OK to leak')"
+    error = MyError("thing OK to leak", report_args=True)
+    assert error.safe_details() == "MyError: thing OK to leak"
+    assert repr(error) == "MyError('thing OK to leak')"
 
 
 def test_reserved_exception():
