@@ -40,7 +40,9 @@ def start_job(job):
             action_args.extend(["--expectations-population", "10000"])
         else:
             allow_network_access = True
-            env["DATABASE_URL"] = "foobar"
+            env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
+            if config.TEMP_DATABASE_NAME:
+                env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
     # Prepend registry name
     action_args[0] = f"{config.DOCKER_REGISTRY}/{action_args[0]}"
     docker.run(

@@ -31,7 +31,7 @@ def test_create_or_update_jobs():
         branch="v1",
         action="generate_cohort",
         workspace="1",
-        database_name="full",
+        database_name="dummy",
         original={},
     )
     create_or_update_jobs(job_request)
@@ -66,7 +66,7 @@ def test_create_or_update_jobs_with_git_error():
         branch="no-such-branch",
         action="generate_cohort",
         workspace="1",
-        database_name="full",
+        database_name="dummy",
         original={},
     )
     create_or_update_jobs(job_request)
