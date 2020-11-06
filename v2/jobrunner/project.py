@@ -1,3 +1,4 @@
+import dataclasses
 from pathlib import Path
 import shlex
 from types import SimpleNamespace
@@ -29,6 +30,13 @@ class ProjectYAMLError(ProjectValidationError):
 
 class UnknownActionError(ProjectValidationError):
     pass
+
+
+@dataclasses.dataclass
+class ActionSpecifiction:
+    run: str
+    needs: list
+    outputs: dict
 
 
 def parse_and_validate_project_file(project_file):
@@ -161,11 +169,11 @@ def get_action_specification(project, action_id):
                 f"directory, found {output_dirs}"
             )
         run_command += f" --output-dir={output_dirs[0]}"
-    return {
-        "run": run_command,
-        "needs": action_spec.get("needs", []),
-        "outputs": action_spec["outputs"],
-    }
+    return ActionSpecifiction(
+        run=run_command,
+        needs=action_spec.get("needs", []),
+        outputs=action_spec["outputs"],
+    )
 
 
 def is_generate_cohort_command(args):
