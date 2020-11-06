@@ -46,9 +46,9 @@ def test_create_or_update_jobs():
     assert j.action == "generate_cohort"
     assert j.wait_for_job_ids == []
     assert j.requires_outputs_from == []
-    assert (
-        j.run_command
-        == "cohortextractor:latest generate_cohort --expectations-population=1000"
+    assert j.run_command == (
+        "cohortextractor:latest generate_cohort --expectations-population=1000"
+        " --output-dir=."
     )
     assert j.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
     assert j.output_files == None

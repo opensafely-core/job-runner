@@ -1,3 +1,4 @@
+from pathlib import Path
 import shlex
 from types import SimpleNamespace
 
@@ -148,10 +149,18 @@ def get_action_specification(project, action_id):
     except KeyError:
         raise UnknownActionError(f"Action '{action_id}' not found in project.yaml")
     run_command = action_spec["run"]
+    # Specical case handling for the `cohortextractor generate_cohort` command
     if is_generate_cohort_command(shlex.split(run_command)):
         if config.USING_DUMMY_DATA_BACKEND:
             size = int(project["expectations"]["population_size"])
             run_command += f" --expectations-population={size}"
+        output_dirs = get_output_dirs(action_spec["outputs"])
+        if len(output_dirs) != 1:
+            raise ProjectValidationError(
+                f"generate_cohort command should produce output in only one "
+                f"directory, found {output_dirs}"
+            )
+        run_command += f" --output-dir={output_dirs[0]}"
     return {
         "run": run_command,
         "needs": action_spec.get("needs", []),
@@ -168,6 +177,14 @@ def is_generate_cohort_command(args):
     ):
         return True
     return False
+
+
+def get_output_dirs(output_spec):
+    filenames = []
+    for group in output_spec.values():
+        filenames.extend(group.values())
+    dirs = set(Path(filename).parent for filename in filenames)
+    return list(dirs)
 
 
 def get_feature_flags_for_version(version):
