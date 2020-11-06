@@ -1,7 +1,8 @@
 import re
 import shlex
 
-import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
 
 from . import config
 from .os_utils import safe_join, UnsafePathError
@@ -18,13 +19,41 @@ class ProjectValidationError(Exception):
     pass
 
 
+class ProjectYAMLError(ProjectValidationError):
+    pass
+
+
 def parse_and_validate_project_file(project_file):
     try:
-        project = yaml.safe_load(project_file)
-    except yaml.YAMLError:
-        raise ProjectValidationError("Invalid YAML")
+        # We're using the pure-Python version here as we don't care about speed
+        # and this gives better error messages (and consistent behaviour
+        # cross-platform)
+        project = YAML(typ="safe", pure=True).load(project_file)
+        # ruamel doesn't have a nice exception hierarchy so we have to catch
+        # these four separate base classes
+    except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
+        e = make_yaml_error_more_helpful(e)
+        raise ProjectYAMLError(f"{type(e).__name__} {e}")
     validate_project(project)
     return project
+
+
+def make_yaml_error_more_helpful(exc):
+    """
+    ruamel produces quite helpful error messages but they refer to the file as
+    `<byte_string>` (which will be confusing for users) and they also include
+    notes and warnings to developers about API changes. This function attempts
+    to fix these issues, but just returns the exception unchanged if anything
+    goes wrong.
+    """
+    try:
+        exc.context_mark.name = "project.yaml"
+        exc.problem_mark.name = "project.yaml"
+        exc.note = ""
+        exc.warn = ""
+    except Exception:
+        pass
+    return exc
 
 
 def validate_project(project):
