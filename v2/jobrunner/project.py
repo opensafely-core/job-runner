@@ -5,7 +5,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
 
 from . import config
-from .os_utils import safe_join, UnsafePathError
+from .path_utils import assert_is_safe_path, UnsafePathError
 
 
 # Build a config dict in the same format the old code expects
@@ -93,10 +93,10 @@ def validate_project(project):
 
             for output_id, filename in output.items():
                 try:
-                    safe_join("/", filename)
-                except UnsafePathError:
+                    assert_is_safe_path(filename)
+                except UnsafePathError as e:
                     raise ProjectValidationError(
-                        f"Output path {filename} is not permitted"
+                        f"Output path {filename} is not permitted: {e}"
                     )
                 if filename in seen_output_files:
                     raise ProjectValidationError(
