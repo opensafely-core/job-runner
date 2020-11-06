@@ -36,24 +36,20 @@ def test_create_or_update_jobs():
     )
     create_or_update_jobs(job_request)
     jobs = find_where(Job)
-    assert jobs == [
-        Job(
-            # This is a UUID so we can't predict its value
-            id=jobs[0].id,
-            job_request_id="123",
-            status=State.PENDING,
-            repo_url=repo_url,
-            commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
-            workspace="1",
-            action="generate_cohort",
-            wait_for_job_ids=[],
-            requires_outputs_from=[],
-            run_command="cohortextractor:latest generate_cohort",
-            output_spec={"highly_sensitive": {"cohort": "input.csv"}},
-            output_files=None,
-            error_message=None,
-        )
-    ]
+    assert len(jobs) == 1
+    j = jobs[0]
+    assert j.job_request_id == "123"
+    assert j.status == State.PENDING
+    assert j.repo_url == repo_url
+    assert j.commit == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+    assert j.workspace == "1"
+    assert j.action == "generate_cohort"
+    assert j.wait_for_job_ids == []
+    assert j.requires_outputs_from == []
+    assert j.run_command == "cohortextractor:latest generate_cohort"
+    assert j.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
+    assert j.output_files == None
+    assert j.error_message == None
     # Check no new jobs created from same JobRequest
     create_or_update_jobs(job_request)
     new_jobs = find_where(Job)
@@ -75,24 +71,23 @@ def test_create_or_update_jobs_with_git_error():
     )
     create_or_update_jobs(job_request)
     jobs = find_where(Job)
-    assert jobs == [
-        Job(
-            # This is a UUID so we can't predict its value
-            id=jobs[0].id,
-            job_request_id="123",
-            status=State.FAILED,
-            repo_url=repo_url,
-            commit=None,
-            workspace="1",
-            action="generate_cohort",
-            wait_for_job_ids=None,
-            requires_outputs_from=None,
-            run_command=None,
-            output_spec=None,
-            output_files=None,
-            error_message=f"GitError: Error resolving ref 'no-such-branch' from {repo_url}",
-        )
-    ]
+    assert len(jobs) == 1
+    j = jobs[0]
+    assert j.job_request_id == "123"
+    assert j.status == State.FAILED
+    assert j.repo_url == repo_url
+    assert j.commit == None
+    assert j.workspace == "1"
+    assert j.action == "generate_cohort"
+    assert j.wait_for_job_ids == None
+    assert j.requires_outputs_from == None
+    assert j.run_command == None
+    assert j.output_spec == None
+    assert j.output_files == None
+    assert (
+        j.error_message
+        == f"GitError: Error resolving ref 'no-such-branch' from {repo_url}"
+    )
 
 
 TEST_PROJECT = """
