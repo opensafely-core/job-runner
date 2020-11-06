@@ -51,7 +51,7 @@ def test_create_or_update_jobs():
         " --output-dir=."
     )
     assert j.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
-    assert j.error_message == None
+    assert j.status_message == None
     # Check no new jobs created from same JobRequest
     create_or_update_jobs(job_request)
     new_jobs = find_where(Job)
@@ -86,7 +86,7 @@ def test_create_or_update_jobs_with_git_error():
     assert j.run_command == None
     assert j.output_spec == None
     assert (
-        j.error_message
+        j.status_message
         == f"GitError: Error resolving ref 'no-such-branch' from {repo_url}"
     )
 

@@ -147,7 +147,7 @@ def save_job_metadata(job, output_dir, error):
     job_metadata["job_request"] = job_request.original
     if error:
         job_metadata["status"] = "FAILED"
-        job_metadata["error_message"] = f"{type(error).__name__}: {error}"
+        job_metadata["status_message"] = f"{type(error).__name__}: {error}"
     else:
         job_metadata["status"] = "COMPLETED"
         # Create a marker file which we can use to easily determine if this

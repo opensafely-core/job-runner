@@ -63,7 +63,7 @@ class Job:
     requires_outputs_from: list = None
     run_command: str = None
     output_spec: dict = None
-    error_message: str = None
+    status_message: str = None
 
     def asdict(self):
         data = dataclasses.asdict(self)

@@ -163,6 +163,6 @@ def create_failed_job(job_request, exception):
                 commit=job_request.commit,
                 workspace=job_request.workspace,
                 action=job_request.action,
-                error_message=f"{type(exception).__name__}: {exception}",
+                status_message=f"{type(exception).__name__}: {exception}",
             ),
         )

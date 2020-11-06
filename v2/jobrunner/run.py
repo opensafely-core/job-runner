@@ -61,8 +61,8 @@ def get_states_of_awaited_jobs(job):
 
 def mark_job_as_failed(job, exception):
     job.status = State.FAILED
-    job.error_message = f"{type(exception).__name__}: {exception}"
-    update(job, update_fields=["status", "error_message"])
+    job.status_message = f"{type(exception).__name__}: {exception}"
+    update(job, update_fields=["status", "status_message"])
 
 
 def mark_job_as_running(job):
