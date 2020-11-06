@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+from multiprocessing import cpu_count
+
 
 default_work_dir = Path(__file__) / "../../workdir"
 
@@ -13,7 +15,7 @@ DATABASE_FILE = WORK_DIR / "db.sqlite"
 
 PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 
-JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "0.5"))
+JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 
 BACKEND = os.environ.get("BACKEND", "expectations")
 
@@ -42,3 +44,5 @@ DATABASE_URLS = {
 }
 
 TEMP_DATABASE_NAME = os.environ.get("TEMP_DATABASE_NAME")
+
+MAX_WORKERS = int(os.environ.get("MAX_WORKERS", max(cpu_count() - 1, 1)))

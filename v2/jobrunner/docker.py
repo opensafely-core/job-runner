@@ -202,12 +202,14 @@ def container_inspect(name, key="", none_if_not_exists=False):
     return json.loads(response.stdout)
 
 
-def run(name, args, volume=None, env=None, allow_network_access=False):
+def run(name, args, volume=None, env=None, allow_network_access=False, label=None):
     run_args = ["docker", "run", "--detach", "--name", name]
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
         run_args.extend(["--volume", f"{volume[0]}:{volume[1]}"])
+    if label:
+        run_args.extend(["--label", label])
     if env:
         for key, value in env.items():
             run_args.extend(["--env", f"{key}={value}"])
@@ -235,3 +237,11 @@ def write_logs_to_file(container_name, filename):
             stdout=subprocess.PIPE,
             stderr=f,
         )
+
+
+def count_running_containers(label=None):
+    args = ["docker", "ps", "--quiet"]
+    if label:
+        args.extend(["--filter", f"label={label}"])
+    response = subprocess.run(args, check=True, capture_output=True)
+    return len(response.stdout.splitlines())
