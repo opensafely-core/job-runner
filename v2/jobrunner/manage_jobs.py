@@ -17,6 +17,7 @@ from . import docker
 from .database import find_where
 from .git import checkout_commit
 from .models import SavedJobRequest
+from .project import is_generate_cohort_command
 from .string_utils import slugify
 
 
@@ -40,10 +41,8 @@ def start_job(job):
     action_args = shlex.split(job.run_command)
     allow_network_access = False
     env = {}
-    if action_args[0].startswith("cohortextractor:"):
-        if config.BACKEND == "expectations":
-            action_args.extend(["--expectations-population", "10000"])
-        else:
+    if not config.USING_DUMMY_DATA_BACKEND:
+        if is_generate_cohort_command(action_args):
             allow_network_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
             if config.TEMP_DATABASE_NAME:

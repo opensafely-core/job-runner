@@ -26,6 +26,10 @@ class ProjectYAMLError(ProjectValidationError):
     pass
 
 
+class UnknownActionError(ProjectValidationError):
+    pass
+
+
 def parse_and_validate_project_file(project_file):
     try:
         # We're using the pure-Python version here as we don't care about speed
@@ -84,13 +88,11 @@ def validate_project_and_set_defaults(project):
     project_actions = project["actions"]
 
     for action_id, action_config in project_actions.items():
-        parts = shlex.split(action_config["run"])
-        if parts[0].startswith("cohortextractor"):
-            if len(parts) > 1 and parts[1] == "generate_cohort":
-                if len(action_config["outputs"]) != 1:
-                    raise ProjectValidationError(
-                        f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}",
-                    )
+        if is_generate_cohort_command(shlex.split(action_config["run"])):
+            if len(action_config["outputs"]) != 1:
+                raise ProjectValidationError(
+                    f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}",
+                )
 
         # Check a `generate_cohort` command only generates a single output
         # Check outputs are permitted
@@ -138,6 +140,34 @@ def validate_project_and_set_defaults(project):
         seen_runs.append(run_signature)
 
     return project
+
+
+def get_action_specification(project, action_id):
+    try:
+        action_spec = project["actions"][action_id]
+    except KeyError:
+        raise UnknownActionError(f"Action '{action_id}' not found in project.yaml")
+    run_command = action_spec["run"]
+    if is_generate_cohort_command(shlex.split(run_command)):
+        if config.USING_DUMMY_DATA_BACKEND:
+            size = int(project["expectations"]["population_size"])
+            run_command += f" --expectations-population={size}"
+    return {
+        "run": run_command,
+        "needs": action_spec.get("needs", []),
+        "outputs": action_spec["outputs"],
+    }
+
+
+def is_generate_cohort_command(args):
+    assert not isinstance(args, str)
+    if (
+        len(args) > 1
+        and args[0].startswith("cohortextractor:")
+        and args[1] == "generate_cohort"
+    ):
+        return True
+    return False
 
 
 def get_feature_flags_for_version(version):
