@@ -9,7 +9,9 @@ import requests
 from . import config
 from .create_or_update_jobs import create_or_update_jobs
 from .database import find_where
+from .git import name_from_repo_url
 from .models import JobRequest, Job
+from .string_utils import slugify
 
 
 session = requests.Session()
@@ -61,14 +63,28 @@ def job_request_from_remote_format(job_request):
         id=job_request["pk"],
         repo_url=job_request["workspace"]["repo"],
         commit=job_request.get("commit"),
-        branch=job_request["workspace"].get("branch"),
+        branch=job_request["workspace"]["branch"],
         action=job_request["action_id"],
-        workspace=job_request["workspace_id"],
+        workspace=generate_workspace_name(job_request),
         database_name=job_request["workspace"]["db"],
         force_run=job_request["force_run"],
         force_run_dependencies=job_request["force_run_dependencies"],
         original=job_request,
     )
+
+
+def generate_workspace_name(job_request):
+    repo_url = job_request["workspace"]["repo"]
+    branch = job_request["workspace"]["branch"]
+    database_name = job_request["workspace"]["db"]
+    workspace_id = job_request["workspace_id"]
+    parts = [name_from_repo_url(repo_url)]
+    if branch not in ["master", "main"]:
+        parts.append(branch)
+    if database_name != "full" and not config.USING_DUMMY_DATA_BACKEND:
+        parts.append(database_name)
+    parts.append(workspace_id)
+    return slugify("-".join(parts))
 
 
 def job_to_remote_format(job):

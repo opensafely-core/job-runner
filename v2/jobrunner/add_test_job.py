@@ -8,8 +8,9 @@ import argparse
 import uuid
 
 from .sys_excepthook import add_excepthook
+from .sync import job_request_from_remote_format
 from .database import find_where
-from .models import JobRequest, Job, State
+from .models import Job, State
 from .create_or_update_jobs import create_or_update_jobs
 from . import run
 
@@ -23,17 +24,15 @@ def main(
         for job in jobs:
             print(job)
     else:
-        job_request = JobRequest(
-            id=str(uuid.uuid4()),
-            repo_url=repo_url,
-            commit=None,
-            branch=branch,
-            action=action,
-            workspace=workspace,
-            database_name=database,
-            force_run=force_run,
-            force_run_dependencies=force_run_dependencies,
-            original={},
+        job_request = job_request_from_remote_format(
+            dict(
+                pk=str(uuid.uuid4()),
+                workspace=dict(repo=repo_url, branch=branch, db=database),
+                workspace_id=workspace,
+                action_id=action,
+                force_run=force_run,
+                force_run_dependencies=force_run_dependencies,
+            )
         )
         print(f"Submitting JobRequest: {job_request}")
         create_or_update_jobs(job_request)
