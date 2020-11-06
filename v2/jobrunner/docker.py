@@ -237,11 +237,3 @@ def write_logs_to_file(container_name, filename):
             stdout=subprocess.PIPE,
             stderr=f,
         )
-
-
-def count_running_containers(label=None):
-    args = ["docker", "ps", "--quiet"]
-    if label:
-        args.extend(["--filter", f"label={label}"])
-    response = subprocess.run(args, check=True, capture_output=True)
-    return len(response.stdout.splitlines())

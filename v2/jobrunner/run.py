@@ -1,7 +1,7 @@
 import time
 
 from . import config
-from .database import find_where, update, select_values
+from .database import find_where, count_where, update, select_values
 from .models import Job, State
 from .manage_jobs import (
     JobError,
@@ -9,7 +9,6 @@ from .manage_jobs import (
     job_still_running,
     finalise_job,
     cleanup_job,
-    count_running_jobs,
 )
 
 
@@ -77,7 +76,8 @@ def mark_job_as_completed(job):
 
 
 def job_running_capacity_available():
-    return count_running_jobs() < config.MAX_WORKERS
+    running_jobs = count_where(Job, status=State.RUNNING)
+    return running_jobs < config.MAX_WORKERS
 
 
 if __name__ == "__main__":

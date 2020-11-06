@@ -48,6 +48,14 @@ def exists_where(itemclass, **query_params):
     return bool(cursor.fetchone()[0])
 
 
+def count_where(itemclass, **query_params):
+    table = itemclass.__tablename__
+    where, params = query_params_to_sql(query_params)
+    sql = f"SELECT COUNT(*) FROM {escape(table)} WHERE {where}"
+    cursor = get_connection().execute(sql, params)
+    return cursor.fetchone()[0]
+
+
 def select_values(itemclass, column, **query_params):
     table = itemclass.__tablename__
     fields = [f for f in dataclasses.fields(itemclass) if f.name == column]

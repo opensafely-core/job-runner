@@ -27,10 +27,6 @@ from .string_utils import slugify
 # to subsequent actions
 SUCCESS_MARKER_FILE = ".success"
 
-# Apply this label to all job containers so we can keep track of how many we're
-# running
-CONTAINER_LABEL = "job-runner"
-
 
 class JobError(Exception):
     pass
@@ -59,7 +55,8 @@ def start_job(job):
         volume=(volume, "/workspace"),
         env=env,
         allow_network_access=allow_network_access,
-        label=CONTAINER_LABEL,
+        # Apply label (Docker-speak for "tag") to all job containers
+        label="job-runner",
     )
 
 
@@ -229,10 +226,6 @@ def get_glob_patterns_from_spec(output_spec, privacy_level=None):
 
 def job_still_running(job):
     return docker.container_is_running(container_name(job))
-
-
-def count_running_jobs():
-    return docker.count_running_containers(label=CONTAINER_LABEL)
 
 
 def container_name(job):
