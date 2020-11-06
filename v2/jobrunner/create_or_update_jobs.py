@@ -10,6 +10,7 @@ from .database import transaction, insert, exists_where, find_where
 from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
 from .project import (
     parse_and_validate_project_file,
+    get_action_specification,
     ProjectValidationError,
 )
 from .models import Job, SavedJobRequest, State
@@ -99,11 +100,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
         if outputs_exist(job_request, action_id):
             return
 
-    try:
-        action_spec = project["actions"][action_id]
-    except KeyError:
-        raise JobRequestError(f"Action '{action_id}' not found in project.yaml")
-    required_actions = action_spec.get("needs", [])
+    action_spec = get_action_specification(project, action_id)
 
     # Get or create any required jobs
     required_jobs = [
@@ -113,7 +110,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
             required_action,
             force_run=job_request.force_run_dependencies,
         )
-        for required_action in required_actions
+        for required_action in action_spec["needs"]
     ]
     wait_for_job_ids = [awaited_job.id for awaited_job in required_jobs if awaited_job]
 
@@ -127,7 +124,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
         database_name=job_request.database_name,
         action=action_id,
         wait_for_job_ids=wait_for_job_ids,
-        requires_outputs_from=required_actions,
+        requires_outputs_from=action_spec["needs"],
         run_command=action_spec["run"],
         output_spec=action_spec["outputs"],
     )
