@@ -9,6 +9,7 @@ from .manage_jobs import (
     job_still_running,
     finalise_job,
     cleanup_job,
+    job_slug,
 )
 
 
@@ -33,17 +34,25 @@ def handle_job(job):
         if State.FAILED in awaited_states:
             mark_job_as_failed(job, JobError("Not starting as dependency failed"))
         elif all(state == State.COMPLETED for state in awaited_states):
-            if job_running_capacity_available():
+            if not job_running_capacity_available():
+                log(job, "Waiting for available workers")
+            else:
                 try:
+                    log(job, "Starting")
                     start_job(job)
                 except JobError as e:
                     mark_job_as_failed(job, e)
                     cleanup_job(job)
                 else:
                     mark_job_as_running(job)
+        else:
+            log(job, "Waiting on dependencies")
     elif job.status == State.RUNNING:
-        if not job_still_running(job):
+        if job_still_running(job):
+            log(job, "Still running")
+        else:
             try:
+                log(job, "Finished, copying outputs")
                 finalise_job(job)
             except JobError as e:
                 mark_job_as_failed(job, e)
@@ -63,21 +72,37 @@ def mark_job_as_failed(job, exception):
     job.status = State.FAILED
     job.status_message = f"{type(exception).__name__}: {exception}"
     update(job, update_fields=["status", "status_message"])
+    display(job)
 
 
 def mark_job_as_running(job):
     job.status = State.RUNNING
-    update(job, update_fields=["status"])
+    job.status_message = "Started"
+    update(job, update_fields=["status", "status_message"])
+    display(job)
 
 
 def mark_job_as_completed(job):
     job.status = State.COMPLETED
-    update(job, update_fields=["status"])
+    job.status_message = "Completed successfully"
+    update(job, update_fields=["status", "status_message"])
+    display(job)
 
 
 def job_running_capacity_available():
     running_jobs = count_where(Job, status=State.RUNNING)
     return running_jobs < config.MAX_WORKERS
+
+
+def log(job, message):
+    if job.status_message != message:
+        job.status_message = message
+        update(job, update_fields=["status_message"])
+        display(job)
+
+
+def display(job):
+    print(f"Job #{job_slug(job)}: {job.status_message}")
 
 
 if __name__ == "__main__":
