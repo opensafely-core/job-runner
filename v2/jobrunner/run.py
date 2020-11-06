@@ -24,40 +24,45 @@ def main(exit_when_done=False):
 def handle_jobs():
     jobs = find_where(Job, status__in=[State.PENDING, State.RUNNING])
     for job in jobs:
-        handle_job(job)
+        if job.status == State.PENDING:
+            handle_pending_job(job)
+        elif job.status == State.RUNNING:
+            handle_running_job(job)
     return len(jobs)
 
 
-def handle_job(job):
-    if job.status == State.PENDING:
-        awaited_states = get_states_of_awaited_jobs(job)
-        if State.FAILED in awaited_states:
-            mark_job_as_failed(job, JobError("Not starting as dependency failed"))
-        elif all(state == State.COMPLETED for state in awaited_states):
-            if not job_running_capacity_available():
-                log(job, "Waiting for available workers")
-            else:
-                try:
-                    log(job, "Starting")
-                    start_job(job)
-                except JobError as e:
-                    mark_job_as_failed(job, e)
-                    cleanup_job(job)
-                else:
-                    mark_job_as_running(job)
-        else:
-            log(job, "Waiting on dependencies")
-    elif job.status == State.RUNNING:
-        if job_still_running(job):
-            log(job, "Still running")
+def handle_pending_job(job):
+    awaited_states = get_states_of_awaited_jobs(job)
+    if State.FAILED in awaited_states:
+        mark_job_as_failed(job, JobError("Not starting as dependency failed"))
+    elif all(state == State.COMPLETED for state in awaited_states):
+        if not job_running_capacity_available():
+            log(job, "Waiting for available workers")
         else:
             try:
-                log(job, "Finished, copying outputs")
-                finalise_job(job)
+                log(job, "Starting")
+                start_job(job)
             except JobError as e:
                 mark_job_as_failed(job, e)
+                cleanup_job(job)
             else:
-                mark_job_as_completed(job)
+                mark_job_as_running(job)
+    else:
+        log(job, "Waiting on dependencies")
+
+
+def handle_running_job(job):
+    if job_still_running(job):
+        log(job, "Running")
+    else:
+        try:
+            log(job, "Finished, copying outputs")
+            finalise_job(job)
+        except JobError as e:
+            mark_job_as_failed(job, e)
+        else:
+            mark_job_as_completed(job)
+        finally:
             cleanup_job(job)
 
 
@@ -77,7 +82,7 @@ def mark_job_as_failed(job, exception):
 
 def mark_job_as_running(job):
     job.status = State.RUNNING
-    job.status_message = "Started"
+    job.status_message = "Running"
     update(job, update_fields=["status", "status_message"])
     display(job)
 
