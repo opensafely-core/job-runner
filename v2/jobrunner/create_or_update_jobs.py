@@ -5,6 +5,7 @@ It handles all logic connected with creating or updating Jobs in response to
 JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
+from . import config
 from .database import transaction, insert, exists_where, find_where
 from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
 from .project import (
@@ -49,6 +50,7 @@ def related_jobs_exist(job_request):
 
 
 def create_jobs(job_request):
+    validate_job_request(job_request)
     # In future I expect the job-server to only ever supply commits and so this
     # branch resolution will be redundant
     if not job_request.commit:
@@ -58,7 +60,7 @@ def create_jobs(job_request):
     project_file = read_file_from_repo(
         job_request.repo_url, job_request.commit, "project.yaml"
     )
-    # Do most of the work in a separate functon which never needs to talk to
+    # Do most of the work in a separate function which never needs to talk to
     # git, for easier testing
     create_jobs_with_project_file(job_request, project_file)
 
@@ -97,7 +99,10 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
         if outputs_exist(job_request, action_id):
             return
 
-    action_spec = project["actions"][action_id]
+    try:
+        action_spec = project["actions"][action_id]
+    except KeyError:
+        raise JobRequestError(f"Action '{action_id}' not found in project.yaml")
     required_actions = action_spec.get("needs", [])
 
     # Get or create any required jobs
@@ -128,6 +133,24 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
     )
     insert(job)
     return job
+
+
+def validate_job_request(job_request):
+    database_name = job_request.database_name
+    if config.USING_DUMMY_DATA_BACKEND:
+        valid_names = ["dummy"]
+    else:
+        valid_names = config.DATABASE_URLS.keys()
+    if database_name not in valid_names:
+        raise JobRequestError(
+            f"Invalid database name '{database_name}', allowed are: "
+            + ", ".join(valid_names)
+        )
+    if not config.USING_DUMMY_DATA_BACKEND and not config.DATABASE_URLS[database_name]:
+        raise JobRequestError(
+            f"Database name '{database_name}' is not currently defined "
+            f"for backend '{config.BACKEND}'"
+        )
 
 
 def create_failed_job(job_request, exception):
