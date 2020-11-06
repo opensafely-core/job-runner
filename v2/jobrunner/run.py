@@ -9,6 +9,7 @@ from .manage_jobs import (
     job_still_running,
     finalise_job,
     cleanup_job,
+    count_running_jobs,
 )
 
 
@@ -76,8 +77,7 @@ def mark_job_as_completed(job):
 
 
 def job_running_capacity_available():
-    # TODO: Decide what to do here
-    return True
+    return count_running_jobs() < config.MAX_WORKERS
 
 
 if __name__ == "__main__":
