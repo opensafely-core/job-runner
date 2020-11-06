@@ -26,7 +26,7 @@ CREATE TABLE job (
     requires_outputs_from TEXT,
     run_command TEXT,
     output_spec TEXT,
-    error_message TEXT,
+    status_message TEXT,
 
     PRIMARY KEY (id)
 );
