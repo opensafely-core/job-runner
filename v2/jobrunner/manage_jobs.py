@@ -61,7 +61,8 @@ def create_and_populate_volume(job):
     # git-archive will create a tarball on stdout and docker cp will accept a
     # tarball on stdin, so if we wanted to we could do this all without a
     # temporary directory, but not worth it at this stage
-    with tempfile.TemporaryDirectory() as tmpdir:
+    config.TMP_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as tmpdir:
         checkout_commit(job.repo_url, job.commit, tmpdir)
         docker.copy_to_volume(volume, tmpdir)
     # Copy in files from dependencies
