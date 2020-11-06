@@ -26,7 +26,6 @@ CREATE TABLE job (
     requires_outputs_from TEXT,
     run_command TEXT,
     output_spec TEXT,
-    output_files TEXT,
     error_message TEXT,
 
     PRIMARY KEY (id)
