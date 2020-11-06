@@ -1,5 +1,5 @@
-import re
 import shlex
+from types import SimpleNamespace
 
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
@@ -7,6 +7,9 @@ from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutur
 from . import config
 from .path_utils import assert_is_safe_path, UnsafePathError
 
+
+# The version of `project.yaml` where each feature was introduced
+FEATURE_FLAGS_BY_VERSION = {"UNIQUE_OUTPUT_PATH": 2, "EXPECTATIONS_POPULATION": 3}
 
 # Build a config dict in the same format the old code expects
 RUN_COMMANDS_CONFIG = {
@@ -34,7 +37,7 @@ def parse_and_validate_project_file(project_file):
     except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
         e = make_yaml_error_more_helpful(e)
         raise ProjectYAMLError(f"{type(e).__name__} {e}")
-    validate_project(project)
+    project = validate_project_and_set_defaults(project)
     return project
 
 
@@ -56,15 +59,28 @@ def make_yaml_error_more_helpful(exc):
     return exc
 
 
-def validate_project(project):
-    """Check that a dictionary of project actions is valid"""
-    expected_version = project.get("version", None)
-    if expected_version != "1.0":
-        raise ProjectValidationError(
-            "Project file must specify a valid version (currently only 1.0)"
-        )
-    seen_runs = set()
-    seen_output_files = set()
+def validate_project_and_set_defaults(project):
+    """Check that a dictionary of project actions is valid, and set any defaults"""
+    feat = get_feature_flags_for_version(float(project["version"]))
+    seen_runs = []
+    seen_output_files = []
+    if feat.EXPECTATIONS_POPULATION:
+        if "expectations" not in project:
+            raise ProjectValidationError("Project must include `expectations` section")
+        if "population_size" not in project["expectations"]:
+            raise ProjectValidationError(
+                "Project `expectations` section must include `population` section",
+            )
+        try:
+            int(project["expectations"]["population_size"])
+        except TypeError:
+            raise ProjectValidationError(
+                "Project expectations population size must be a number",
+            )
+    else:
+        project["expectations"] = {}
+        project["expectations"]["population_size"] = 1000
+
     project_actions = project["actions"]
 
     for action_id, action_config in project_actions.items():
@@ -73,8 +89,7 @@ def validate_project(project):
             if len(parts) > 1 and parts[1] == "generate_cohort":
                 if len(action_config["outputs"]) != 1:
                     raise ProjectValidationError(
-                        f"A `generate_cohort` action must have exactly one output; "
-                        f"{action_id} had {len(action_config['outputs'])}"
+                        f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}",
                     )
 
         # Check a `generate_cohort` command only generates a single output
@@ -87,8 +102,7 @@ def validate_project(project):
             ]
             if privacy_level not in permitted_privacy_levels:
                 raise ProjectValidationError(
-                    f"{privacy_level} is not valid (must be one of "
-                    f"{', '.join(permitted_privacy_levels)})"
+                    f"{privacy_level} is not valid (must be one of {', '.join(permitted_privacy_levels)})",
                 )
 
             for output_id, filename in output.items():
@@ -98,18 +112,21 @@ def validate_project(project):
                     raise ProjectValidationError(
                         f"Output path {filename} is not permitted: {e}"
                     )
-                if filename in seen_output_files:
+
+                if feat.UNIQUE_OUTPUT_PATH and filename in seen_output_files:
                     raise ProjectValidationError(
                         f"Output path {filename} is not unique"
                     )
-                seen_output_files.add(filename)
+                seen_output_files.append(filename)
         # Check it's a permitted run command
-        name, version, args = split_and_format_run_command(action_config["run"])
+
+        command, *args = shlex.split(action_config["run"])
+        name, _, version = command.partition(":")
         if name not in RUN_COMMANDS_CONFIG:
             raise ProjectValidationError(f"{name} is not a supported command")
         if not version:
             raise ProjectValidationError(
-                f"{name} must have a version specified (e.g. {name}:0.5.2)"
+                f"{name} must have a version specified (e.g. {name}:0.5.2)",
             )
         # Check the run command + args signature appears only once in
         # a project
@@ -118,74 +135,23 @@ def validate_project(project):
             raise ProjectValidationError(
                 f"{name} {' '.join(args)} appears more than once"
             )
-        seen_runs.add(run_signature)
+        seen_runs.append(run_signature)
 
-        # Check any variables are supported
-        for v in variables_in_string(action_config["run"]):
-            if not v.replace(" ", "").startswith("${{needs"):
-                raise ProjectValidationError(f"Unsupported variable {v}")
-            try:
-                _, action_id, outputs_key, privacy_level, output_id = v.split(".")
-                if outputs_key != "outputs":
-                    raise ProjectValidationError(f"Unable to find variable {v}")
-            except ValueError:
-                raise ProjectValidationError(f"Unable to find variable {v}")
+    return project
 
 
-def docker_args_from_run_command(run_command):
-    run_token, version, args = split_and_format_run_command(run_command)
-    docker_image = RUN_COMMANDS_CONFIG[run_token]["docker_invocation"][0]
-    if version is None:
-        version = "latest"
-    return " ".join([f"{docker_image}:{version}"] + args)
-
-
-def split_and_format_run_command(run_command):
-    """A `run` command is in the form of `run_token:optional_version [args]`.
-
-    Shell-split this into its constituent parts, with any substitution
-    tokens normalized and escaped for later parsing and formatting.
-
-    """
-    for v in variables_in_string(run_command):
-        # Remove spaces to prevent shell escaping from thinking these
-        # are different tokens
-        run_command = run_command.replace(v, v.replace(" ", ""))
-        # Escape braces to prevent python `format()` from coverting
-        # doubled braces in single ones
-        run_command = escape_braces(run_command)
-
-    parts = shlex.split(run_command)
-    # Commands are in the form command:version
-    if ":" in parts[0]:
-        run_token, version = parts[0].split(":")
-    else:
-        run_token = parts[0]
-        version = None
-
-    return run_token, version, parts[1:]
-
-
-def variables_in_string(string_with_variables, variable_name_only=False):
-    """Return a list of variables of the form `${{ var }}` (or `${{var}}`)
-    in the given string.
-
-    Setting the `variable_name_only` flag will a list of variables of
-    the form `var`
-
-    """
-    matches = re.findall(
-        r"(\$\{\{ ?([A-Za-z][A-Za-z0-9.-_]+) ?\}\})", string_with_variables
-    )
-    if variable_name_only:
-        return [x[1] for x in matches]
-    else:
-        return [x[0] for x in matches]
-
-
-def escape_braces(unescaped_string):
-    """Escape braces so that they will be preserved through a string
-    `format()` operation
-
-    """
-    return unescaped_string.replace("{", "{{").replace("}", "}}")
+def get_feature_flags_for_version(version):
+    feat = SimpleNamespace()
+    matched_any = False
+    for k, v in FEATURE_FLAGS_BY_VERSION.items():
+        if v <= version:
+            setattr(feat, k, True)
+            matched_any = True
+        else:
+            setattr(feat, k, False)
+    if version > 1 and not matched_any:
+        raise ProjectValidationError(
+            f"Project file must specify a valid version (currently only "
+            f"<= {max(FEATURE_FLAGS_BY_VERSION.values())})",
+        )
+    return feat
