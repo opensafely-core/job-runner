@@ -5,6 +5,8 @@ default_work_dir = Path(__file__) / "../../workdir"
 
 WORK_DIR = Path(os.environ.get("WORK_DIR", default_work_dir)).resolve()
 
+TMP_DIR = WORK_DIR / "temp"
+
 GIT_REPO_DIR = WORK_DIR / "repos"
 
 DATABASE_FILE = WORK_DIR / "db.sqlite"
