@@ -63,7 +63,6 @@ class Job:
     requires_outputs_from: list = None
     run_command: str = None
     output_spec: dict = None
-    output_files: dict = None
     error_message: str = None
 
     def asdict(self):
