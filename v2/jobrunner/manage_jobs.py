@@ -20,7 +20,11 @@ from .models import SavedJobRequest
 from .string_utils import slugify
 
 
-SUCCESS_MARKER_FILE = "job_successful.txt"
+# We use a file with this name to mark output directories as containing the
+# results of successful runs.  For debugging purposes we want to store the
+# results even of failed runs, but we don't want to ever use them as the inputs
+# to subsequent actions
+SUCCESS_MARKER_FILE = ".success"
 
 
 class JobError(Exception):
