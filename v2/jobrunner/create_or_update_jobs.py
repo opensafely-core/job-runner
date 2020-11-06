@@ -73,12 +73,13 @@ def create_jobs_with_project_file(job_request, project_file):
         primary_job = recursively_add_jobs(
             job_request, project, job_request.action, force_run=job_request.force_run
         )
-        # If we didn't create a job at all that means the outputs already exist
-        # and we weren't forcing a run
+        # If the outputs already exist and we weren't forcing a run then we
+        # won't create a job at all, which is an error
         if not primary_job:
             raise JobRequestError("Outputs already exist")
         # If the returned job belongs to a different JobRequest that means we
-        # just picked up an existing scheduled job and didn't create a new one
+        # just picked up an existing scheduled job and didn't create a new one,
+        # which is also an error
         elif primary_job.job_request_id != job_request.id:
             raise JobRequestError("Action is already scheduled to run")
 
@@ -110,7 +111,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
             required_action,
             force_run=job_request.force_run_dependencies,
         )
-        for required_action in action_spec["needs"]
+        for required_action in action_spec.needs
     ]
     wait_for_job_ids = [awaited_job.id for awaited_job in required_jobs if awaited_job]
 
@@ -124,9 +125,9 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
         database_name=job_request.database_name,
         action=action_id,
         wait_for_job_ids=wait_for_job_ids,
-        requires_outputs_from=action_spec["needs"],
-        run_command=action_spec["run"],
-        output_spec=action_spec["outputs"],
+        requires_outputs_from=action_spec.needs,
+        run_command=action_spec.run,
+        output_spec=action_spec.outputs,
     )
     insert(job)
     return job
