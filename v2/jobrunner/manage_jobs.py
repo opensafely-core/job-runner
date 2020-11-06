@@ -68,9 +68,7 @@ def create_and_populate_volume(job):
         action_dir = high_privacy_output_dir(job, action=action)
         if not action_dir.joinpath(SUCCESS_MARKER_FILE).exists():
             raise JobError("Unexpected missing output for '{action}'")
-        for action_output_dir in action_dir.iterdir():
-            if action_output_dir.is_dir():
-                docker.copy_to_volume(volume, action_output_dir)
+        docker.copy_to_volume(volume, action_dir / "outputs")
     return volume
 
 
@@ -111,16 +109,15 @@ def save_job_outputs(job, output_dir):
     # Dump Docker logs
     docker.write_logs_to_file(container, output_dir / "logs.txt")
     # Extract specified outputs
-    output_spec = flatten_file_spec(job.output_spec)
-    patterns = output_spec.values()
+    patterns = get_glob_patterns_from_spec(job.output_spec)
     all_matches = docker.glob_volume_files(volume, patterns)
     unmatched_patterns = []
-    for (privacy_level, name), pattern in output_spec.items():
+    for pattern in patterns:
         files = all_matches[pattern]
         if not files:
             unmatched_patterns.append(pattern)
         for filename in files:
-            dest_filename = output_dir / name / filename
+            dest_filename = output_dir / "outputs" / filename
             dest_filename.parent.mkdir(parents=True, exist_ok=True)
             # Only copy filles we haven't copied already: this means that if we
             # get interrupted while copying out several large files we don't
@@ -154,14 +151,6 @@ def save_job_metadata(job, output_dir, error):
         json.dump(job_metadata, f, indent=2)
 
 
-def flatten_file_spec(file_spec):
-    flattened = {}
-    for privacy_level, patterns in file_spec.items():
-        for name, pattern in patterns.items():
-            flattened[privacy_level, name] = pattern
-    return flattened
-
-
 # Environment variables whose values do not need to be hidden from the debug
 # logs. At present the only sensitive value is DATABASE_URL, but its better to
 # have an explicit safelist here.
@@ -192,20 +181,23 @@ def copy_log_data_to_log_dir(job, data_dir):
         copy_file(data_dir / filename, log_dir / filename)
 
 
-def copy_medium_privacy_data(job, data_dir):
+def copy_medium_privacy_data(job, source_dir):
     output_dir = medium_privacy_output_dir(job)
-    tmp_output_dir = output_dir.with_suffix(".tmp")
-    tmp_output_dir.mkdir(parents=True, exist_ok=True)
-    file_spec = job.output_spec.get("moderately_sensitive", {})
-    for output_name in file_spec.keys():
-        files_dir = data_dir / output_name
-        if files_dir.exists():
-            copy_directory(files_dir, tmp_output_dir / output_name)
-    for filename in ("job_metadata.json", "logs.txt"):
-        copy_file(data_dir / filename, tmp_output_dir / filename)
+    dest_dir = output_dir.with_suffix(".tmp")
+    files_to_copy = {source_dir / "job_metadata.json", source_dir / "logs.txt"}
+    patterns = get_glob_patterns_from_spec(job.output_spec, "moderately_sensitive")
+    for pattern in patterns:
+        files_to_copy.update(source_dir.joinpath("outputs").glob(pattern))
+    for source_file in files_to_copy:
+        if source_file.is_dir():
+            continue
+        relative_path = source_file.relative_to(source_dir)
+        dest_file = dest_dir / relative_path
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        copy_file(source_file, dest_file)
     if output_dir.exists():
         shutil.rmtree(output_dir)
-    tmp_output_dir.rename(output_dir)
+    dest_dir.rename(output_dir)
 
 
 def copy_file(source, dest):
@@ -216,18 +208,13 @@ def copy_file(source, dest):
     shutil.copy(source, dest)
 
 
-def copy_directory(source, dest):
-    for source_file in source.glob("**/*"):
-        if source_file.is_dir():
-            continue
-        relative_path = source_file.relative_to(source)
-        dest_path = dest / relative_path
-        if dest_path.exists():
-            continue
-        tmp_path = dest_path.with_suffix(".partial.tmp")
-        tmp_path.parent.mkdir(parents=True, exist_ok=True)
-        copy_file(source_file, tmp_path)
-        tmp_path.rename(dest_path)
+def get_glob_patterns_from_spec(output_spec, privacy_level=None):
+    assert privacy_level in [None, "highly_sensitive", "moderately_sensitive"]
+    if privacy_level is None:
+        # Return all patterns across all privacy levels
+        return set().union(*[i.values() for i in output_spec.values()])
+    else:
+        return output_spec.get(privacy_level, {}).values()
 
 
 def job_still_running(job):
