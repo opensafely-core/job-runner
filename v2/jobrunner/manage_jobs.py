@@ -15,8 +15,9 @@ import tempfile
 from . import config
 from . import docker
 from .database import find_where
-from .git import checkout_commit, name_from_repo_url
+from .git import checkout_commit
 from .models import SavedJobRequest
+from .string_utils import slugify
 
 
 SUCCESS_MARKER_FILE = "job_successful.txt"
@@ -222,22 +223,26 @@ def job_still_running(job):
 
 
 def container_name(job):
-    return f"job-{job.id}"
+    return f"job-{job_slug(job)}"
 
 
 def volume_name(job):
-    return f"volume-{job.id}"
+    return f"volume-{job_slug(job)}"
+
+
+def job_slug(job):
+    return slugify(f"{job.workspace}-{job.action}-{job.id}")
 
 
 def high_privacy_output_dir(job, action=None):
-    workspace_dir = get_workspace_dir(job, config.HIGH_PRIVACY_WORKSPACES_DIR)
+    workspace_dir = config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
     if action is None:
         action = job.action
     return workspace_dir / action
 
 
 def medium_privacy_output_dir(job, action=None):
-    workspace_dir = get_workspace_dir(job, config.MEDIUM_PRIVACY_WORKSPACES_DIR)
+    workspace_dir = config.MEDIUM_PRIVACY_WORKSPACES_DIR / job.workspace
     if action is None:
         action = job.action
     return workspace_dir / action
@@ -246,15 +251,3 @@ def medium_privacy_output_dir(job, action=None):
 def outputs_exist(job_request, action):
     output_dir = high_privacy_output_dir(job_request, action)
     return output_dir.joinpath(SUCCESS_MARKER_FILE).exists()
-
-
-def get_workspace_dir(job_or_job_request, base_dir):
-    repo_name = name_from_repo_url(job_or_job_request.repo_url)
-    database_name = job_or_job_request.database_name
-    workspace_id = job_or_job_request.workspace
-    workspace_dir = base_dir / f"{repo_name}-{database_name}-{workspace_id}"
-    if not workspace_dir.exists() and base_dir.exists():
-        matching_dirs = sorted(base_dir.glob(f"*-{workspace_id}"))
-        if matching_dirs:
-            return matching_dirs[0]
-    return workspace_dir

@@ -20,7 +20,7 @@ def test_job_request_from_remote_format():
         repo_url="https://github.com/opensafely/foo",
         commit=None,
         branch="master",
-        workspace="5",
+        workspace="foo-5",
         database_name="full",
         action="generate_cohort",
         force_run=True,
