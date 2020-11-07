@@ -40,6 +40,7 @@ def create_volume(volume_name):
                 "--entrypoint",
                 "sh",
                 "--interactive",
+                "--init",
                 MANAGEMENT_CONTAINER_IMAGE,
             ],
             check=True,
@@ -203,7 +204,7 @@ def container_inspect(name, key="", none_if_not_exists=False):
 
 
 def run(name, args, volume=None, env=None, allow_network_access=False, label=None):
-    run_args = ["docker", "run", "--detach", "--name", name]
+    run_args = ["docker", "run", "--init", "--detach", "--name", name]
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
