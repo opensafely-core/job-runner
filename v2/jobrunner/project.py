@@ -1,5 +1,6 @@
 import dataclasses
-from pathlib import Path
+from pathlib import Path, PureWindowsPath, PurePosixPath
+import posixpath
 import shlex
 from types import SimpleNamespace
 
@@ -7,7 +8,6 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
 
 from . import config
-from .path_utils import assert_is_safe_path, UnsafePathError
 
 
 # The version of `project.yaml` where each feature was introduced
@@ -29,6 +29,10 @@ class ProjectYAMLError(ProjectValidationError):
 
 
 class UnknownActionError(ProjectValidationError):
+    pass
+
+
+class InvalidPatternError(ProjectValidationError):
     pass
 
 
@@ -118,8 +122,8 @@ def validate_project_and_set_defaults(project):
 
             for output_id, filename in output.items():
                 try:
-                    assert_is_safe_path(filename)
-                except UnsafePathError as e:
+                    assert_valid_glob_pattern(filename)
+                except InvalidPatternError as e:
                     raise ProjectValidationError(
                         f"Output path {filename} is not permitted: {e}"
                     )
@@ -210,3 +214,40 @@ def get_feature_flags_for_version(version):
             f"<= {max(FEATURE_FLAGS_BY_VERSION.values())})",
         )
     return feat
+
+
+def assert_valid_glob_pattern(pattern):
+    """
+    A valid pattern, for our purposes:
+      * has no backslashes;
+      * contains no special characters other than '*'
+      * does not end in a slash.
+      * has no path-traversal elements;
+      * is relative.
+
+    In fact these patterns get converted into regular expressions and matched
+    with a `find` command so there shouldn't be any possibility of a path
+    traversal attack anyway. But it's still good to ensure that they are
+    well-formed.
+    """
+    if "\\" in pattern:
+        raise InvalidPatternError("contains back slashes (use forward slashes only)")
+    # These aren't unsafe, but they won't behave as expected so we shouldn't let
+    # people use them
+    for expr in ("**", "?", "["):
+        if expr in pattern:
+            raise InvalidPatternError(
+                f"contains '{expr}' (only the * wildcard character is supported)"
+            )
+    if pattern.endswith("/"):
+        raise InvalidPatternError(
+            "looks like a directory (only files should be specified)"
+        )
+    if posixpath.normpath(pattern) != pattern:
+        raise InvalidPatternError(
+            "is not in standard form (contains double slashes or '..' elements)"
+        )
+    # Windows has a different notion of aboslute paths (e.g c:/foo) so we check
+    # for both platforms
+    if PurePosixPath(pattern).is_absolute() or PureWindowsPath(pattern).is_absolute():
+        raise InvalidPatternError("is an absolute path")
