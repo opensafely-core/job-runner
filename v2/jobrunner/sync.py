@@ -60,7 +60,7 @@ def job_request_from_remote_format(job_request):
     representation
     """
     return JobRequest(
-        id=job_request["pk"],
+        id=str(job_request["pk"]),
         repo_url=job_request["workspace"]["repo"],
         commit=job_request.get("commit"),
         branch=job_request["workspace"]["branch"],
