@@ -1,3 +1,4 @@
+import datetime
 import time
 
 from . import config
@@ -37,7 +38,7 @@ def handle_pending_job(job):
         mark_job_as_failed(job, JobError("Not starting as dependency failed"))
     elif all(state == State.COMPLETED for state in awaited_states):
         if not job_running_capacity_available():
-            log(job, "Waiting for available workers")
+            log(job, "Waiting for available workers", timestamp=True)
         else:
             try:
                 log(job, "Starting")
@@ -48,12 +49,12 @@ def handle_pending_job(job):
             else:
                 mark_job_as_running(job)
     else:
-        log(job, "Waiting on dependencies")
+        log(job, "Waiting on dependencies", timestamp=True)
 
 
 def handle_running_job(job):
     if job_still_running(job):
-        log(job, "Running")
+        log(job, "Running", timestamp=True)
     else:
         try:
             log(job, "Finished, copying outputs")
@@ -82,7 +83,7 @@ def mark_job_as_failed(job, exception):
 
 def mark_job_as_running(job):
     job.status = State.RUNNING
-    job.status_message = "Running"
+    job.status_message = "Started"
     update(job, update_fields=["status", "status_message"])
     display(job)
 
@@ -99,8 +100,26 @@ def job_running_capacity_available():
     return running_jobs < config.MAX_WORKERS
 
 
-def log(job, message):
-    if job.status_message != message:
+def log(job, message, timestamp=False):
+    # A bit of a hack, but hopefully worthwhile: there are certain states
+    # (waiting and running) which we can expect some jobs to stay in a for a
+    # long time. We don't want to spam the logs (or the database) by writing
+    # these out everytime. But if we only write them when they change then we
+    # may have to look a long way back in the logs to find the last update, and
+    # it's harder for users to have confidence that the job really is still
+    # running or waiting. By appending a timestamp and ignoring the final
+    # character when checking for changes we end up only logging the state
+    # every 10 minutes which seems about right.
+    if timestamp:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        message = f"{message} at {now:%Y-%m-%d %H:%M}"
+        if job.status_message:
+            changed = job.status_message[:-1] != message[:-1]
+        else:
+            changed = True
+    else:
+        changed = job.status_message != message
+    if changed:
         job.status_message = message
         update(job, update_fields=["status_message"])
         display(job)
