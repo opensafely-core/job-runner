@@ -55,8 +55,6 @@ def start_job(job):
         volume=(volume, "/workspace"),
         env=env,
         allow_network_access=allow_network_access,
-        # Apply label (Docker-speak for "tag") to all job containers
-        label="job-runner",
     )
 
 

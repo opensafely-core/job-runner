@@ -16,6 +16,10 @@ MANAGEMENT_CONTAINER_IMAGE = "docker.opensafely.org/job-runner"
 # which they may get attached.
 VOLUME_MOUNT_POINT = "/workspace"
 
+# Apply this label (Docker-speak for "tag") to all containers and volumes we
+# create for easier management and test cleanup
+LABEL = "job-runner"
+
 
 def create_volume(volume_name):
     """
@@ -23,7 +27,7 @@ def create_volume(volume_name):
     container which we can use to copy files in and out of the volume
     """
     subprocess.run(
-        ["docker", "volume", "create", "--name", volume_name],
+        ["docker", "volume", "create", "--label", LABEL, "--name", volume_name],
         check=True,
         capture_output=True,
     )
@@ -33,6 +37,8 @@ def create_volume(volume_name):
                 "docker",
                 "container",
                 "create",
+                "--label",
+                LABEL,
                 "--name",
                 manager_name(volume_name),
                 "--volume",
@@ -203,14 +209,12 @@ def container_inspect(name, key="", none_if_not_exists=False):
     return json.loads(response.stdout)
 
 
-def run(name, args, volume=None, env=None, allow_network_access=False, label=None):
-    run_args = ["docker", "run", "--init", "--detach", "--name", name]
+def run(name, args, volume=None, env=None, allow_network_access=False):
+    run_args = ["docker", "run", "--init", "--detach", "--label", LABEL, "--name", name]
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
         run_args.extend(["--volume", f"{volume[0]}:{volume[1]}"])
-    if label:
-        run_args.extend(["--label", label])
     if env:
         for key, value in env.items():
             run_args.extend(["--env", f"{key}={value}"])
