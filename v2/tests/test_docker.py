@@ -5,25 +5,30 @@ import pytest
 from jobrunner import docker
 
 
-TEST_PREFIX = "jobrunner-test-R5o1iLu-"
-
-
 @pytest.fixture(autouse=True, scope="module")
 def cleanup():
-    delete_test_containers_and_volumes()
+    # Workaround for the fact that `monkeypatch` is only function-scoped.
+    # Hopefully will be unnecessary soon. See:
+    # https://github.com/pytest-dev/pytest/issues/363
+    from _pytest.monkeypatch import MonkeyPatch
+
+    label_for_tests = "jobrunner-test-R5o1iLu"
+    monkeypatch = MonkeyPatch()
+    monkeypatch.setattr("jobrunner.docker.LABEL", label_for_tests)
     yield
-    delete_test_containers_and_volumes()
+    delete_docker_entities("container", label_for_tests)
+    delete_docker_entities("volume", label_for_tests)
+    monkeypatch.undo()
 
 
-def delete_test_containers_and_volumes():
-    for entity in ("container", "volume"):
-        extra_arg = "--all" if entity == "container" else ""
-        subprocess.run(
-            f"docker {entity} ls {extra_arg} --filter name={TEST_PREFIX} --quiet "
-            f"| xargs --no-run-if-empty docker {entity} rm --force",
-            check=True,
-            shell=True,
-        )
+def delete_docker_entities(entity, label):
+    extra_arg = "--all" if entity == "container" else ""
+    subprocess.run(
+        f"docker {entity} ls {extra_arg} --filter label={label} --quiet "
+        f"| xargs --no-run-if-empty docker {entity} rm --force",
+        check=True,
+        shell=True,
+    )
 
 
 def test_basic_volume_interaction(tmp_path):
@@ -32,7 +37,7 @@ def test_basic_volume_interaction(tmp_path):
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
-    volume = TEST_PREFIX + "1"
+    volume = "jobrunner-volume-test"
     docker.create_volume(volume)
     # Test no error is thrown if volume already exists
     docker.create_volume(volume)
