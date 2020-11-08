@@ -76,10 +76,14 @@ def transaction():
     return conn
 
 
-@functools.lru_cache()
 def get_connection():
-    config.DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(config.DATABASE_FILE)
+    return get_connection_from_file(config.DATABASE_FILE)
+
+
+@functools.lru_cache()
+def get_connection_from_file(filename):
+    filename.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(filename)
     # Enable autocommit so changes made outside of a transaction still get
     # persisted to disk. We can use explicit transactions when we need
     # atomicity.
