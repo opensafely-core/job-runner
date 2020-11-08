@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 
-from jobrunner.database import find_where, get_connection
+from jobrunner.database import find_where
 from jobrunner.models import JobRequest, Job, State
 from jobrunner.create_or_update_jobs import (
     create_or_update_jobs,
@@ -18,7 +18,6 @@ def setup(monkeypatch, tmp_path):
     )
     monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
     monkeypatch.setattr("jobrunner.config.GIT_REPO_DIR", tmp_path / "repos")
-    get_connection.cache_clear()
 
 
 # Basic smoketest to test the full execution path

@@ -1,13 +1,12 @@
 import pytest
 
-from jobrunner.database import get_connection, insert, find_where, update, select_values
+from jobrunner.database import insert, find_where, update, select_values
 from jobrunner.models import Job, State
 
 
 @pytest.fixture(autouse=True)
 def temp_db(monkeypatch, tmp_path):
     monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
-    get_connection.cache_clear()
 
 
 def test_basic_roundtrip():
