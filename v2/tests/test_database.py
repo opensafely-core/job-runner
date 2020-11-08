@@ -1,15 +1,8 @@
-import pytest
-
 from jobrunner.database import insert, find_where, update, select_values
 from jobrunner.models import Job, State
 
 
-@pytest.fixture(autouse=True)
-def temp_db(monkeypatch, tmp_path):
-    monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
-
-
-def test_basic_roundtrip():
+def test_basic_roundtrip(tmp_work_dir):
     job = Job(
         id="foo123",
         job_request_id="bar123",
@@ -22,7 +15,7 @@ def test_basic_roundtrip():
     assert job.output_spec == jobs[0].output_spec
 
 
-def test_update():
+def test_update(tmp_work_dir):
     job = Job(id="foo123", action="foo")
     insert(job)
     job.action = "bar"
@@ -31,7 +24,7 @@ def test_update():
     assert jobs[0].action == "bar"
 
 
-def test_select_values():
+def test_select_values(tmp_work_dir):
     insert(Job(id="foo123", status=State.PENDING))
     insert(Job(id="foo124", status=State.RUNNING))
     insert(Job(id="foo125", status=State.FAILED))

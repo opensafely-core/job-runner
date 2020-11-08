@@ -1,8 +1,6 @@
 from pathlib import Path
 import uuid
 
-import pytest
-
 from jobrunner.database import find_where
 from jobrunner.models import JobRequest, Job, State
 from jobrunner.create_or_update_jobs import (
@@ -11,17 +9,8 @@ from jobrunner.create_or_update_jobs import (
 )
 
 
-@pytest.fixture(autouse=True)
-def setup(monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        "jobrunner.create_or_update_jobs.outputs_exist", lambda *args: False
-    )
-    monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
-    monkeypatch.setattr("jobrunner.config.GIT_REPO_DIR", tmp_path / "repos")
-
-
 # Basic smoketest to test the full execution path
-def test_create_or_update_jobs():
+def test_create_or_update_jobs(tmp_work_dir):
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
     job_request = JobRequest(
         id="123",
@@ -58,7 +47,7 @@ def test_create_or_update_jobs():
 
 
 # Basic smoketest to test the error path
-def test_create_or_update_jobs_with_git_error():
+def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
     job_request = JobRequest(
         id="123",
@@ -122,7 +111,7 @@ actions:
 """
 
 
-def test_adding_job_creates_dependencies():
+def test_adding_job_creates_dependencies(tmp_work_dir):
     create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
     analyse_job = find_where(Job, action="analyse_data")[0]
     prepare_1_job = find_where(Job, action="prepare_data_1")[0]
@@ -134,7 +123,7 @@ def test_adding_job_creates_dependencies():
     assert generate_job.wait_for_job_ids == []
 
 
-def test_existing_active_jobs_are_picked_up_when_checking_dependencies():
+def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_dir):
     create_jobs_with_project_file(
         make_job_request(action="prepare_data_1"), TEST_PROJECT
     )
