@@ -7,7 +7,7 @@ Will only submit a new JobRequest if there are no active Jobs in the database.
 import argparse
 import uuid
 
-from .sys_excepthook import add_excepthook
+from .log_utils import configure_logging
 from .sync import job_request_from_remote_format
 from .database import find_where
 from .models import Job, State
@@ -49,7 +49,7 @@ def main(
 
 
 if __name__ == "__main__":
-    add_excepthook()
+    configure_logging()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("repo_url", help="URL (or local path) of git repository")
     parser.add_argument("action", help="Name of project action to run")

@@ -6,6 +6,7 @@ import time
 
 import requests
 
+from .log_utils import configure_logging
 from . import config
 from .create_or_update_jobs import create_or_update_jobs
 from .database import find_where
@@ -97,4 +98,5 @@ def job_to_remote_format(job):
 
 
 if __name__ == "__main__":
+    configure_logging()
     main()
