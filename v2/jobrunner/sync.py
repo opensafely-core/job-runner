@@ -6,7 +6,7 @@ import time
 
 import requests
 
-from .log_utils import configure_logging
+from .log_utils import configure_logging, set_log_context
 from . import config
 from .create_or_update_jobs import create_or_update_jobs
 from .database import find_where
@@ -31,7 +31,8 @@ def sync():
     job_requests = [job_request_from_remote_format(i) for i in results]
     job_request_ids = [i.id for i in job_requests]
     for job_request in job_requests:
-        create_or_update_jobs(job_request)
+        with set_log_context(job_request=job_request):
+            create_or_update_jobs(job_request)
     jobs = find_where(Job, job_request_id__in=job_request_ids)
     jobs_data = [job_to_remote_format(i) for i in jobs]
     api_post("jobs", json=jobs_data)

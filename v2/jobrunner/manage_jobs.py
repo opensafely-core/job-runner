@@ -8,6 +8,7 @@ still end up in a consistent state when it's restarted.
 """
 import datetime
 import json
+import logging
 import shlex
 import shutil
 import tempfile
@@ -20,6 +21,8 @@ from .models import SavedJobRequest
 from .project import is_generate_cohort_command
 from .string_utils import slugify
 
+
+log = logging.getLogger(__name__)
 
 # We use a file with this name to mark output directories as containing the
 # results of successful runs.  For debugging purposes we want to store the
@@ -36,6 +39,7 @@ def start_job(job):
     # If we started the job but were killed before we updated the state then
     # there's nothing further to do
     if job_still_running(job):
+        log.info("Job already running, nothing to do")
         return
     volume = create_and_populate_volume(job)
     action_args = shlex.split(job.run_command)
@@ -65,12 +69,14 @@ def create_and_populate_volume(job):
     # tarball on stdin, so if we wanted to we could do this all without a
     # temporary directory, but not worth it at this stage
     config.TMP_DIR.mkdir(parents=True, exist_ok=True)
+    log.info(f"Copying in code from {job.repo_url}@{job.commit}")
     with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as tmpdir:
         checkout_commit(job.repo_url, job.commit, tmpdir)
         docker.copy_to_volume(volume, tmpdir)
     # Copy in files from dependencies
     for action in job.requires_outputs_from:
         action_dir = high_privacy_output_dir(job, action=action)
+        log.info(f"Copying in outputs from {action_dir}")
         if not action_dir.joinpath(SUCCESS_MARKER_FILE).exists():
             raise JobError("Unexpected missing output for '{action}'")
         docker.copy_to_volume(volume, action_dir / "outputs")
@@ -89,13 +95,16 @@ def finalise_job(job):
     copy_log_data_to_log_dir(job, tmp_output_dir)
     copy_medium_privacy_data(job, tmp_output_dir)
     if output_dir.exists():
+        log.info("Deleting existing output directory")
         shutil.rmtree(output_dir)
+    log.info(f"Renaming temporary directory to {output_dir}")
     tmp_output_dir.rename(output_dir)
     if error:
         raise error
 
 
 def cleanup_job(job):
+    log.info("Deleting container and volume")
     docker.delete_container(container_name(job))
     docker.delete_volume(volume_name(job))
 
@@ -105,6 +114,7 @@ def save_job_outputs(job, output_dir):
     container = container_name(job)
     volume = volume_name(job)
     # Dump container metadata
+    log.info("Dumping container metadata")
     container_metadata = docker.container_inspect(container, none_if_not_exists=True)
     if not container_metadata:
         raise JobError("Job container has vanished")
@@ -112,6 +122,7 @@ def save_job_outputs(job, output_dir):
     with open(output_dir / "docker_metadata.json", "w") as f:
         json.dump(container_metadata, f, indent=2)
     # Dump Docker logs
+    log.info("Writing out Docker logs")
     docker.write_logs_to_file(container, output_dir / "logs.txt")
     # Extract specified outputs
     patterns = get_glob_patterns_from_spec(job.output_spec)
@@ -129,6 +140,7 @@ def save_job_outputs(job, output_dir):
             # need to start again from scratch when we resume
             tmp_filename = dest_filename.with_suffix(".partial.tmp")
             if not dest_filename.exists():
+                log.info(f"Copying {volume}:{filename} to {dest_filename}")
                 docker.copy_from_volume(volume, filename, tmp_filename)
                 tmp_filename.rename(dest_filename)
     # Raise errors if appropriate
@@ -140,6 +152,7 @@ def save_job_outputs(job, output_dir):
 
 
 def save_job_metadata(job, output_dir, error):
+    log.info("Saving job metadata")
     job_metadata = job.asdict()
     job_request = find_where(SavedJobRequest, id=job.job_request_id)[0]
     job_metadata["job_request"] = job_request.original
@@ -181,6 +194,7 @@ def redact_environment_variables(container_metadata):
 def copy_log_data_to_log_dir(job, data_dir):
     month_dir = datetime.date.today().strftime("%Y-%m")
     log_dir = config.JOB_LOG_DIR / month_dir / container_name(job)
+    log.info(f"Copying logs and metadata to {log_dir}")
     log_dir.mkdir(parents=True, exist_ok=True)
     for filename in ("docker_metadata.json", "job_metadata.json", "logs.txt"):
         copy_file(data_dir / filename, log_dir / filename)
