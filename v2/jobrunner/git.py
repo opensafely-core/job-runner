@@ -1,9 +1,13 @@
+import logging
 import os
 from pathlib import Path
 import subprocess
 from urllib.parse import urlparse
 
 from . import config
+
+
+log = logging.getLogger(__name__)
 
 
 class GitError(Exception):
@@ -24,6 +28,7 @@ def read_file_from_repo(repo_url, commit_sha, path):
             cwd=repo_dir,
         )
     except subprocess.SubprocessError:
+        log.exception(f"Error reading {path} from {repo_url}@{commit_sha}")
         raise GitError(f"Error reading file: {path}")
     # Note the response here is bytes not text as git doesn't know what
     # encoding the file is supposed to have
@@ -73,6 +78,7 @@ def get_sha_from_remote_ref(repo_url, ref):
         )
         output = response.stdout
     except subprocess.SubprocessError:
+        log.exception(f"Error resolving {ref} from {repo_url}")
         output = ""
     results = _parse_ls_remote_output(output)
     if len(results) == 1:
@@ -135,6 +141,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
             env=supply_access_token(repo_url),
         )
     except subprocess.SubprocessError:
+        log.exception(f"Error fetching commit {commit_sha} from {repo_url}")
         raise GitError(f"Error fetching commit {commit_sha} from {repo_url}")
 
 
