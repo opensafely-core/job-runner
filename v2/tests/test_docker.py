@@ -1,37 +1,7 @@
-import subprocess
-
-import pytest
-
 from jobrunner import docker
 
 
-@pytest.fixture(autouse=True, scope="module")
-def cleanup():
-    # Workaround for the fact that `monkeypatch` is only function-scoped.
-    # Hopefully will be unnecessary soon. See:
-    # https://github.com/pytest-dev/pytest/issues/363
-    from _pytest.monkeypatch import MonkeyPatch
-
-    label_for_tests = "jobrunner-test-R5o1iLu"
-    monkeypatch = MonkeyPatch()
-    monkeypatch.setattr("jobrunner.docker.LABEL", label_for_tests)
-    yield
-    delete_docker_entities("container", label_for_tests)
-    delete_docker_entities("volume", label_for_tests)
-    monkeypatch.undo()
-
-
-def delete_docker_entities(entity, label):
-    extra_arg = "--all" if entity == "container" else ""
-    subprocess.run(
-        f"docker {entity} ls {extra_arg} --filter label={label} --quiet "
-        f"| xargs --no-run-if-empty docker {entity} rm --force",
-        check=True,
-        shell=True,
-    )
-
-
-def test_basic_volume_interaction(tmp_path):
+def test_basic_volume_interaction(tmp_path, docker_cleanup):
     files = ["test1.txt", "test2.json", "subdir/test3.txt", "subdir/test4.json"]
     for name in files:
         path = tmp_path / name
