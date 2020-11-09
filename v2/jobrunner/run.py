@@ -51,6 +51,9 @@ def handle_pending_job(job):
             except JobError as e:
                 mark_job_as_failed(job, e)
                 cleanup_job(job)
+            except Exception:
+                mark_job_as_failed(job, JobError("Internal error when starting job"))
+                raise
             else:
                 mark_job_as_running(job)
     else:
@@ -66,6 +69,9 @@ def handle_running_job(job):
             finalise_job(job)
         except JobError as e:
             mark_job_as_failed(job, e)
+        except Exception:
+            mark_job_as_failed(job, JobError("Internal error when finalising job"))
+            raise
         else:
             mark_job_as_completed(job)
         finally:
