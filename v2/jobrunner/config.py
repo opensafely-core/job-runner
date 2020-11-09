@@ -25,6 +25,12 @@ MEDIUM_PRIVACY_WORKSPACES_DIR = MEDIUM_PRIVACY_STORAGE_BASE / "workspaces"
 
 JOB_LOG_DIR = HIGH_PRIVACY_STORAGE_BASE / "logs"
 
+JOB_SERVER_ENDPOINT = os.environ.get(
+    "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api"
+)
+QUEUE_USER = os.environ.get("QUEUE_USER", "user")
+QUEUE_PASS = os.environ.get("QUEUE_PASS", "pass")
+
 PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 
 JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "0.5"))

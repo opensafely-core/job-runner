@@ -1,0 +1,32 @@
+version: '3.0'
+
+expectations:
+  population_size: 100
+
+actions:
+  generate_cohort:
+    run: cohortextractor:latest generate_cohort
+    outputs:
+      highly_sensitive:
+        cohort: output/input.csv
+
+  prepare_data_m:
+    run: jupyter:latest python /workspace/analysis/filter_by_sex.py M /workspace/output/input.csv /workspace/male.csv
+    needs: [generate_cohort]
+    outputs:
+      highly_sensitive:
+        male_cohort: male.*
+
+  prepare_data_f:
+    run: jupyter:latest python /workspace/analysis/filter_by_sex.py F /workspace/output/input.csv /workspace/female.csv
+    needs: [generate_cohort]
+    outputs:
+      highly_sensitive:
+        female_cohort: female.*
+
+  analyse_data:
+    run: jupyter:latest python /workspace/analysis/count_lines.py /workspace/counts.txt /workspace/male.csv /workspace/female.csv
+    needs: [prepare_data_m, prepare_data_f]
+    outputs:
+      moderately_sensitive:
+        counts: counts.txt
