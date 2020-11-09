@@ -137,6 +137,7 @@ def save_job_outputs(job, output_dir):
     patterns = get_glob_patterns_from_spec(job.output_spec)
     all_matches = docker.glob_volume_files(volume, patterns)
     unmatched_patterns = []
+    output_manifest = {}
     for pattern in patterns:
         files = all_matches[pattern]
         if not files:
@@ -152,6 +153,11 @@ def save_job_outputs(job, output_dir):
                 log.info(f"Copying {volume}:{filename} to {dest_filename}")
                 docker.copy_from_volume(volume, filename, tmp_filename)
                 tmp_filename.rename(dest_filename)
+            output_manifest[filename] = {"size": dest_filename.stat().st_size}
+    # Dump a record of all output files and their sizes
+    log.info(f"Writing output manifest for {len(output_manifest)} files")
+    with open(output_dir / "output_manifest.json", "w") as f:
+        json.dump(output_manifest, f, indent=2)
     # Raise errors if appropriate
     if container_metadata["State"]["ExitCode"] != 0:
         raise JobError("Job exited with an error code")
@@ -205,14 +211,29 @@ def copy_log_data_to_log_dir(job, data_dir):
     log_dir = config.JOB_LOG_DIR / month_dir / container_name(job)
     log.info(f"Copying logs and metadata to {log_dir}")
     log_dir.mkdir(parents=True, exist_ok=True)
-    for filename in ("docker_metadata.json", "job_metadata.json", "logs.txt"):
+    for filename in (
+        "docker_metadata.json",
+        "job_metadata.json",
+        "output_manifest.json",
+        "logs.txt",
+    ):
         copy_file(data_dir / filename, log_dir / filename)
 
 
 def copy_medium_privacy_data(job, source_dir):
     output_dir = medium_privacy_output_dir(job)
     dest_dir = output_dir.with_suffix(".tmp")
-    files_to_copy = {source_dir / "job_metadata.json", source_dir / "logs.txt"}
+    # We're copying most of the metadata here, the exception currently being
+    # the Docker metadata which is probably of limited to use to L4 users. We
+    # are including a manifest giving the names and sizes of all output files
+    # (including the high privacy ones) although obviously only the medium
+    # privacy files have their contents copied as well. These seems like a
+    # reasonably balance between helping debugging and maintaining L3 privacy.
+    files_to_copy = {
+        source_dir / "job_metadata.json",
+        source_dir / "logs.txt",
+        source_dir / "output_manifest.json",
+    }
     patterns = get_glob_patterns_from_spec(job.output_spec, "moderately_sensitive")
     for pattern in patterns:
         files_to_copy.update(source_dir.joinpath("outputs").glob(pattern))
