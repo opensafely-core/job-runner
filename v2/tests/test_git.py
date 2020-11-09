@@ -9,13 +9,7 @@ from jobrunner.git import read_file_from_repo, checkout_commit, get_sha_from_rem
 REPO_FIXTURE = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
 
 
-remote_repo_test = pytest.mark.skipif(
-    bool(os.environ.get("LOCAL_TESTS_ONLY")),
-    reason="Skipping tests which talk to GitHub",
-)
-
-
-@remote_repo_test
+@pytest.mark.slow_test
 def test_read_file_from_repo(tmp_work_dir):
     output = read_file_from_repo(
         "https://github.com/opensafely/documentation.git",
@@ -25,7 +19,7 @@ def test_read_file_from_repo(tmp_work_dir):
     assert output == b"# documentation"
 
 
-@remote_repo_test
+@pytest.mark.slow_test
 def test_checkout_commit(tmp_work_dir, tmp_path):
     target_dir = tmp_path / "files"
     checkout_commit(
@@ -36,7 +30,7 @@ def test_checkout_commit(tmp_work_dir, tmp_path):
     assert [f.name for f in target_dir.iterdir()] == ["README.md"]
 
 
-@remote_repo_test
+@pytest.mark.slow_test
 def test_get_sha_from_remote_ref(tmp_work_dir):
     sha = get_sha_from_remote_ref(
         "https://github.com/opensafely/cohort-extractor", "v1.0.0"
@@ -48,7 +42,7 @@ def test_get_sha_from_remote_ref(tmp_work_dir):
     not os.environ.get("PRIVATE_REPO_ACCESS_TOKEN"),
     reason="No access token in environment",
 )
-@remote_repo_test
+@pytest.mark.slow_test
 def test_read_file_from_private_repo(tmp_work_dir):
     output = read_file_from_repo(
         "https://github.com/opensafely/test-repository.git",

@@ -1,6 +1,8 @@
 from pathlib import Path
 import subprocess
 
+import pytest
+
 import jobrunner.sync
 import jobrunner.run
 from jobrunner import config, docker
@@ -9,6 +11,7 @@ from jobrunner import config, docker
 # Big integration test that creates a basic project in a git repo, mocks out a
 # JobRequest from the job-server to run it, and then exercises the sync and run
 # loops to run entire pipeline
+@pytest.mark.slow_test
 def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
     ensure_docker_images_present()
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")

@@ -3,6 +3,10 @@ import subprocess
 import pytest
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow_test: mark test as being slow running")
+
+
 @pytest.fixture
 def tmp_work_dir(monkeypatch, tmp_path):
     monkeypatch.setattr("jobrunner.config.WORK_DIR", tmp_path)
