@@ -85,7 +85,7 @@ def generate_workspace_name(job_request):
         parts.append(branch)
     if database_name != "full" and not config.USING_DUMMY_DATA_BACKEND:
         parts.append(database_name)
-    parts.append(workspace_id)
+    parts.append(str(workspace_id))
     return slugify("-".join(parts))
 
 
