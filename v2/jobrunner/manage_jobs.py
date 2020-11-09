@@ -52,7 +52,16 @@ def start_job(job):
             if config.TEMP_DATABASE_NAME:
                 env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
     # Prepend registry name
-    action_args[0] = f"{config.DOCKER_REGISTRY}/{action_args[0]}"
+    image = action_args[0]
+    full_image = f"{config.DOCKER_REGISTRY}/{image}"
+    # Newer versions of docker-cli support `--pull=never` as an argument to
+    # `docker run` which would make this simpler, but it looks like it will be
+    # a while before this makes it to Docker for Windows:
+    # https://github.com/docker/cli/pull/1498
+    if not docker.image_exists_locally(full_image):
+        log.info(f"Image {full_image} not found locally (might need to docker pull)")
+        raise JobError("Docker image {image} is not currently available")
+    action_args[0] = full_image
     docker.run(
         container_name(job),
         action_args,

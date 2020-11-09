@@ -221,6 +221,20 @@ def run(name, args, volume=None, env=None, allow_network_access=False):
     subprocess.run(run_args + args, check=True, capture_output=True)
 
 
+def image_exists_locally(image_name_and_version):
+    try:
+        subprocess.run(
+            ["docker", "image", "inspect", "--format", "ok", image_name_and_version],
+            check=True,
+            capture_output=True,
+        )
+        return True
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 1 and b"No such image" in e.stderr:
+            return False
+        raise
+
+
 def delete_container(name):
     try:
         subprocess.run(
