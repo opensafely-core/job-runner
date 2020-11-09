@@ -94,7 +94,7 @@ def create_and_populate_volume(job):
 
 def finalise_job(job):
     output_dir = high_privacy_output_dir(job)
-    tmp_output_dir = output_dir.with_suffix(".tmp")
+    tmp_output_dir = output_dir.with_suffix(f".{job.id}.tmp")
     error = None
     try:
         save_job_outputs(job, tmp_output_dir)
@@ -222,7 +222,7 @@ def copy_log_data_to_log_dir(job, data_dir):
 
 def copy_medium_privacy_data(job, source_dir):
     output_dir = medium_privacy_output_dir(job)
-    dest_dir = output_dir.with_suffix(".tmp")
+    dest_dir = output_dir.with_suffix(f".{job.id}.tmp")
     # We're copying most of the metadata here, the exception currently being
     # the Docker metadata which is probably of limited to use to L4 users. We
     # are including a manifest giving the names and sizes of all output files
