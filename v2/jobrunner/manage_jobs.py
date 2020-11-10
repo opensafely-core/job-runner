@@ -60,7 +60,7 @@ def start_job(job):
     # https://github.com/docker/cli/pull/1498
     if not docker.image_exists_locally(full_image):
         log.info(f"Image {full_image} not found locally (might need to docker pull)")
-        raise JobError("Docker image {image} is not currently available")
+        raise JobError(f"Docker image {image} is not currently available")
     action_args[0] = full_image
     docker.run(
         container_name(job),

@@ -13,7 +13,7 @@ from jobrunner import config, docker
 # loops to run entire pipeline
 @pytest.mark.slow_test
 def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
-    ensure_docker_images_present()
+    ensure_docker_images_present("cohortextractor", "jupyter")
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")
     repo_path = tmp_work_dir / "test-repo"
     commit_directory_contents(repo_path, project_fixture)
@@ -76,8 +76,8 @@ def commit_directory_contents(repo_path, directory):
     subprocess.run(["git", "commit", "--quiet", "-m", "initial"], check=True, env=env)
 
 
-def ensure_docker_images_present():
-    for image in ["cohortextractor", "jupyter"]:
+def ensure_docker_images_present(*images):
+    for image in images:
         full_image = f"{config.DOCKER_REGISTRY}/{image}"
         if not docker.image_exists_locally(full_image):
             subprocess.run(["docker", "pull", "--quiet", full_image], check=True)
