@@ -1,0 +1,7 @@
+requests
+
+# For YAML parsing. We only use the pure Python implementation as that has
+# better error messages and we don't care about speed, but I don't know the
+# magic incantation to add below to prevent pip installing the ruamel.yaml.clib
+# extension as well.
+ruamel.yaml
