@@ -12,6 +12,8 @@ import dataclasses
 from enum import Enum
 import secrets
 
+from .string_utils import slugify
+
 
 class State(Enum):
     PENDING = "P"
@@ -72,6 +74,14 @@ class Job:
             if isinstance(value, Enum):
                 data[key] = value.value
         return data
+
+    @property
+    def slug(self):
+        """
+        Use a human-readable slug rather than just an opaque ID to identify jobs in
+        order to make debugging easier
+        """
+        return slugify(f"{self.workspace}-{self.action}-{self.id}")
 
     @staticmethod
     def new_id():

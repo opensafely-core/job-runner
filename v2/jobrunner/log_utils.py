@@ -28,7 +28,7 @@ class JobRunnerFormatter(logging.Formatter):
         or job request we're processing
         """
         if hasattr(record, "job"):
-            context = f"job#{record.job.id}: "
+            context = f"job#{record.job.slug}: "
         elif hasattr(record, "job_request"):
             context = f"job_request#{record.job_request.id}: "
         else:
