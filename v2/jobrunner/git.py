@@ -8,6 +8,7 @@ import subprocess
 from urllib.parse import urlparse
 
 from . import config
+from .string_utils import project_name_from_url
 
 
 log = logging.getLogger(__name__)
@@ -112,20 +113,8 @@ def get_local_repo_dir(repo_url):
     # the same local git directory for all repositories and it would work fine.
     # But it's probably more operationally convenient to split them up like
     # this.
-    repo_name = name_from_repo_url(repo_url)
+    repo_name = project_name_from_url(repo_url)
     return config.GIT_REPO_DIR / Path(repo_name).with_suffix(".git")
-
-
-def name_from_repo_url(repo_url):
-    """
-    Return the name of a repository from its URL (there's nothing particularly
-    significant about a repository's name but it can make debugging easier to
-    include it in various places)
-    """
-    repo_name = urlparse(repo_url).path.strip("/").split("/")[-1]
-    if repo_name.endswith(".git"):
-        repo_name = repo_name[:-4]
-    return repo_name
 
 
 def fetch_commit(repo_dir, repo_url, commit_sha):
