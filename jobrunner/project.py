@@ -28,6 +28,7 @@ RUN_COMMANDS_CONFIG = {
     "stata-mp": {"docker_invocation": ["docker.opensafely.org/stata-mp"]},
     "r": {"docker_invocation": ["docker.opensafely.org/r"]},
     "jupyter": {"docker_invocation": ["docker.opensafely.org/jupyter"]},
+    "python": {"docker_invocation": ["docker.opensafely.org/python"]},
 }
 
 # The version of `project.yaml` where each feature was introduced
