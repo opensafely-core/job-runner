@@ -40,7 +40,7 @@ BACKEND = os.environ.get("BACKEND", "expectations")
 
 USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
-ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter"}
+ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter", "python"}
 
 DOCKER_REGISTRY = "docker.opensafely.org"
 

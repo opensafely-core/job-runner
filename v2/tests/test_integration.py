@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import subprocess
 
@@ -8,12 +9,15 @@ import jobrunner.run
 from jobrunner import config, docker
 
 
+log = logging.getLogger(__name__)
+
+
 # Big integration test that creates a basic project in a git repo, mocks out a
 # JobRequest from the job-server to run it, and then exercises the sync and run
 # loops to run entire pipeline
 @pytest.mark.slow_test
 def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
-    ensure_docker_images_present("cohortextractor", "jupyter")
+    ensure_docker_images_present("cohortextractor", "python")
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")
     repo_path = tmp_work_dir / "test-repo"
     commit_directory_contents(repo_path, project_fixture)
@@ -80,6 +84,7 @@ def ensure_docker_images_present(*images):
     for image in images:
         full_image = f"{config.DOCKER_REGISTRY}/{image}"
         if not docker.image_exists_locally(full_image):
+            log.info(f"Pulling Docker image {full_image}")
             subprocess.run(["docker", "pull", "--quiet", full_image], check=True)
 
 
