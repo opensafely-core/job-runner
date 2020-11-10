@@ -109,16 +109,16 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
     action_spec = get_action_specification(project, action_id)
 
     # Get or create any required jobs
-    required_jobs = [
-        recursively_add_jobs(
+    wait_for_job_ids = []
+    for required_action in action_spec.needs:
+        required_job = recursively_add_jobs(
             job_request,
             project,
             required_action,
             force_run=job_request.force_run_dependencies,
         )
-        for required_action in action_spec.needs
-    ]
-    wait_for_job_ids = [awaited_job.id for awaited_job in required_jobs if awaited_job]
+        if required_job:
+            wait_for_job_ids.append(required_job.id)
 
     job = Job(
         id=Job.new_id(),
