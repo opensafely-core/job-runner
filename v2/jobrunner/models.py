@@ -12,7 +12,7 @@ import dataclasses
 from enum import Enum
 import secrets
 
-from .string_utils import slugify
+from .string_utils import slugify, project_name_from_url
 
 
 class State(Enum):
@@ -75,13 +75,17 @@ class Job:
                 data[key] = value.value
         return data
 
+    # On Python 3.8 we could use `functools.cached_property` here and avoid
+    # recomputing this every time
     @property
     def slug(self):
         """
         Use a human-readable slug rather than just an opaque ID to identify jobs in
         order to make debugging easier
         """
-        return slugify(f"{self.workspace}-{self.action}-{self.id}")
+        return slugify(
+            f"{project_name_from_url(self.repo_url)}-{self.action}-{self.id}"
+        )
 
     @staticmethod
     def new_id():
