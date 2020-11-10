@@ -1,0 +1,26 @@
+[tool.black]
+exclude = '''
+(
+  /(
+      \.git
+  )/
+)
+'''
+
+[tool.coverage.run]
+branch = true
+source = ["jobrunner"]
+
+[tool.coverage.report]
+skip_covered = true
+
+[tool.coverage.html]
+
+[tool.isort]
+force_grid_wrap = 0
+include_trailing_comma = true
+line_length = 88
+multi_line_output = 3
+use_parentheses = true
+skip_glob = []
+known_third_party = ["pytest", "requests", "requests_mock", "setuptools", "ruamel.yaml"]

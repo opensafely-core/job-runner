@@ -1,0 +1,48 @@
+# The name of this backend
+OPENSAFELY_BACKEND=tpp
+
+# Credentials for logging into the job server
+OPENSAFELY_QUEUE_USER=user
+OPENSAFELY_QUEUE_PASS=pass
+
+# The endpoint to poll for jobs
+OPENSAFELY_JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/
+
+# A location where cohort CSVs (one row per patient) should be
+# stored. This folder must exist.
+OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
+# Or in Windows:
+# OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE=/e/Users/opensafely/high_security
+
+# A location where script outputs (some for publication) should be
+# stored
+OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE=/tmp/outputs/medium_security
+
+# A Github developer token that has read access to private repos
+OPENSAFELY_PRIVATE_REPO_ACCESS_TOKEN=xxxx
+
+# A database containing dummy data; results from this could be freely
+# published without review
+OPENSAFELY_DUMMY_DATABASE_URL=mssql+pyodbc://xxxx
+
+# A database containing a slice of the full data; useful for checking
+# or debuggin real data without potentially having to wait for hours
+# for completion
+OPENSAFELY_SLICE_DATABASE_URL=mssql+pyodbc://xxxx
+
+# The full database
+OPENSAFELY_FULL_DATABASE_URL=mssql+pyodbc://xxxx
+
+# Database in which we can create temporary tables
+OPENSAFELY_TEMP_DATABASE_NAME=OPENCoronaTempTables
+
+# How frequently to poll the job-server to pick up new JobRequests and post
+# updates to Jobs
+OPENSAFELY_POLL_INTERVAL=5
+
+# How frequently to poll internal database and Docker for the current state of
+# active jobs
+OPENSAEFLY_JOB_LOOP_INTERVAL=0.5
+
+# Default is number of CPUs minus one. Change this to reduce parallelism
+OPENSAFELY_MAX_WORKERS=
