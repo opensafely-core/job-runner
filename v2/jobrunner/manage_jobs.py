@@ -25,7 +25,7 @@ from .string_utils import slugify
 log = logging.getLogger(__name__)
 
 # We use a file with this name to mark output directories as containing the
-# results of successful runs.  For debugging purposes we want to store the
+# results of successful runs. For debugging purposes we want to store the
 # results even of failed runs, but we don't want to ever use them as the inputs
 # to subsequent actions
 SUCCESS_MARKER_FILE = ".success"
@@ -61,10 +61,9 @@ def start_job(job):
     if not docker.image_exists_locally(full_image):
         log.info(f"Image {full_image} not found locally (might need to docker pull)")
         raise JobError(f"Docker image {image} is not currently available")
-    action_args[0] = full_image
     docker.run(
         container_name(job),
-        action_args,
+        [full_image] + action_args[1:],
         volume=(volume, "/workspace"),
         env=env,
         allow_network_access=allow_network_access,
@@ -74,11 +73,11 @@ def start_job(job):
 def create_and_populate_volume(job):
     volume = volume_name(job)
     docker.create_volume(volume)
+    log.info(f"Copying in code from {job.repo_url}@{job.commit}")
     # git-archive will create a tarball on stdout and docker cp will accept a
     # tarball on stdin, so if we wanted to we could do this all without a
     # temporary directory, but not worth it at this stage
     config.TMP_DIR.mkdir(parents=True, exist_ok=True)
-    log.info(f"Copying in code from {job.repo_url}@{job.commit}")
     with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as tmpdir:
         checkout_commit(job.repo_url, job.commit, tmpdir)
         docker.copy_to_volume(volume, tmpdir)
@@ -93,15 +92,19 @@ def create_and_populate_volume(job):
 
 
 def finalise_job(job):
+    """
+    This involves checking whether the job finished successfully or not and
+    extracting all outputs, logs and metadata
+    """
     output_dir = high_privacy_output_dir(job)
     tmp_output_dir = output_dir.with_suffix(f".{job.id}.tmp")
     error = None
     try:
-        save_job_outputs(job, tmp_output_dir)
+        save_job_outputs_and_metadata(job, tmp_output_dir)
     except JobError as e:
         error = e
-    save_job_metadata(job, tmp_output_dir, error)
-    copy_log_data_to_log_dir(job, tmp_output_dir)
+    save_internal_metadata(job, tmp_output_dir, error)
+    copy_logs_and_metadata_to_log_dir(job, tmp_output_dir)
     copy_medium_privacy_data(job, tmp_output_dir)
     if output_dir.exists():
         log.info("Deleting existing output directory")
@@ -118,7 +121,12 @@ def cleanup_job(job):
     docker.delete_volume(volume_name(job))
 
 
-def save_job_outputs(job, output_dir):
+def save_job_outputs_and_metadata(job, output_dir):
+    """
+    Saves all matching output files, container logs and container metadata to
+    the output directory. Raises JobError *after* doing all this if there were
+    any issues found.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     container = container_name(job)
     volume = volume_name(job)
@@ -166,16 +174,28 @@ def save_job_outputs(job, output_dir):
         raise JobError(f"No outputs found matching {unmatched_pattern_str}")
 
 
-def save_job_metadata(job, output_dir, error):
-    log.info("Saving job metadata")
+def save_internal_metadata(job, output_dir, error):
+    """
+    Saves a blob of JSON which includes the internal state of the job, and also
+    the associated JobRequest (exactly as it was received from the job-server).
+    This means that if the job-server includes data on e.g which user kicked
+    off the job then this will be preserved on disk along with the job outputs.
+    """
+    log.info("Saving internal job metadata")
     job_metadata = job.asdict()
     job_request = find_where(SavedJobRequest, id=job.job_request_id)[0]
     job_metadata["job_request"] = job_request.original
+    # There's a slight structural infelicity here: what we really want on disk
+    # is the final state of the job.  But the job won't transition into its
+    # final state until after we've finished writing all the outputs. So
+    # there's a little bit of duplication of the logic in `jobrunner.run` here
+    # to anticpate what the final state will be.
     if error:
         job_metadata["status"] = "FAILED"
         job_metadata["status_message"] = f"{type(error).__name__}: {error}"
     else:
         job_metadata["status"] = "COMPLETED"
+        job_metadata["status_message"] = "Completed successfully"
         # Create a marker file which we can use to easily determine if this
         # directory contains the outputs of a successful job which we can then
         # use elsewhere
@@ -186,7 +206,8 @@ def save_job_metadata(job, output_dir, error):
 
 # Environment variables whose values do not need to be hidden from the debug
 # logs. At present the only sensitive value is DATABASE_URL, but its better to
-# have an explicit safelist here.
+# have an explicit safelist here. We might end up including things like license
+# keys in the environment.
 SAFE_ENVIRONMENT_VARIABLES = set(
     """
     PATH PYTHON_VERSION DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN UBUNTU_VERSION
@@ -196,6 +217,10 @@ SAFE_ENVIRONMENT_VARIABLES = set(
 
 
 def redact_environment_variables(container_metadata):
+    """
+    Redact the values of any environment variables in the container which
+    aren't on the explicit safelist
+    """
     env_vars = [line.split("=", 1) for line in container_metadata["Config"]["Env"]]
     redacted_vars = [
         f"{key}=xxxx-REDACTED-xxxx"
@@ -206,7 +231,15 @@ def redact_environment_variables(container_metadata):
     container_metadata["Config"]["Env"] = redacted_vars
 
 
-def copy_log_data_to_log_dir(job, data_dir):
+def copy_logs_and_metadata_to_log_dir(job, data_dir):
+    """
+    Ideally we'd keep all the output, logs, and metadata for every job and the
+    workspace would just contain symlinks to the current version. Unfortunately
+    Windows make this impractical. However the logs and metadata are small
+    enough that we can copy these into separate log directories that we do keep
+    around longer term.
+    """
+    # Split log directory up by month to make things slightly more manageable
     month_dir = datetime.date.today().strftime("%Y-%m")
     log_dir = config.JOB_LOG_DIR / month_dir / container_name(job)
     log.info(f"Copying logs and metadata to {log_dir}")
@@ -221,11 +254,23 @@ def copy_log_data_to_log_dir(job, data_dir):
 
 
 def copy_medium_privacy_data(job, source_dir):
+    """
+    Copies (rather than moves) all outputs specified as medium privacy to the
+    medium privacy workspace. This does mean duplicate copies of the data but
+    there's a big advantage in terms of operational simplicity and user
+    experience to having the high privacy workspace contain all the outputs (of
+    all privacy levels) in one place. It's also reasonable to assume that, by
+    their nature, medium privacy outputs will be smaller than high privacy ones
+    as they shouldn't contain large amounts of patient data.
+
+    Along with the output files we also copy (some of) the metadata and logs to
+    aid with debugging.
+    """
     output_dir = medium_privacy_output_dir(job)
     dest_dir = output_dir.with_suffix(f".{job.id}.tmp")
     # We're copying most of the metadata here, the exception currently being
-    # the Docker metadata which is probably of limited to use to L4 users. We
-    # are including a manifest giving the names and sizes of all output files
+    # the Docker metadata which is probably of limited use to L4 users. We are
+    # including a manifest giving the names and sizes of all output files
     # (including the high privacy ones) although obviously only the medium
     # privacy files have their contents copied as well. These seems like a
     # reasonably balance between helping debugging and maintaining L3 privacy.
@@ -258,6 +303,10 @@ def copy_file(source, dest):
 
 
 def get_glob_patterns_from_spec(output_spec, privacy_level=None):
+    """
+    Return all glob patterns from a file output specification matching the
+    required privacy level, if supplied
+    """
     assert privacy_level in [None, "highly_sensitive", "moderately_sensitive"]
     if privacy_level is None:
         # Return all patterns across all privacy levels
@@ -279,9 +328,15 @@ def volume_name(job):
 
 
 def job_slug(job):
+    """
+    Use a human-readable slug rather than just an opaque ID to identify jobs in
+    order to make debugging easier
+    """
     return slugify(f"{job.workspace}-{job.action}-{job.id}")
 
 
+# Note: this function can accept a JobRequest in place of a Job (anything with
+# a workspace attribute will do)
 def high_privacy_output_dir(job, action=None):
     workspace_dir = config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
     if action is None:

@@ -38,6 +38,8 @@ def test_get_sha_from_remote_ref(tmp_work_dir):
     assert sha == "d78522cce38e6f431353e9e96de62d49b7ee86ea"
 
 
+# This test makes a request to an actual private GitHub repo and so will only
+# work if there's an appropriate access token in the environment
 @pytest.mark.skipif(
     not os.environ.get("PRIVATE_REPO_ACCESS_TOKEN"),
     reason="No access token in environment",

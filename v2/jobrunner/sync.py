@@ -67,7 +67,7 @@ def job_request_from_remote_format(job_request):
         commit=job_request.get("commit"),
         branch=job_request["workspace"]["branch"],
         action=job_request["action_id"],
-        workspace=generate_workspace_name(job_request),
+        workspace=generate_workspace_slug(job_request),
         database_name=job_request["workspace"]["db"],
         force_run=job_request["force_run"],
         force_run_dependencies=job_request["force_run_dependencies"],
@@ -75,14 +75,28 @@ def job_request_from_remote_format(job_request):
     )
 
 
-def generate_workspace_name(job_request):
+def generate_workspace_slug(job_request):
+    """
+    We identify workspaces internally using a slugs which look something like this:
+
+        some-study-123
+        some-study-daves-branch-145
+
+    These slugs are used as the directory name for the workspace output and
+    also appear as part of job names, log directories etc. The workspace ID at
+    the end ensures uniqueness so we just need to ensure that these are helpful
+    for a human eyeballing a log file or directory listing.
+    """
     repo_url = job_request["workspace"]["repo"]
     branch = job_request["workspace"]["branch"]
     database_name = job_request["workspace"]["db"]
     workspace_id = job_request["workspace_id"]
     parts = [name_from_repo_url(repo_url)]
+    # Only include the branch if it's not the default to minimise clutter
     if branch not in ["master", "main"]:
         parts.append(branch)
+    # Only include the database name if it's not the default to minimise
+    # clutter
     if database_name != "full" and not config.USING_DUMMY_DATA_BACKEND:
         parts.append(database_name)
     parts.append(str(workspace_id))
