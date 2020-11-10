@@ -19,7 +19,6 @@ from .database import find_where
 from .git import checkout_commit
 from .models import SavedJobRequest
 from .project import is_generate_cohort_command
-from .string_utils import slugify
 
 
 log = logging.getLogger(__name__)
@@ -319,20 +318,14 @@ def job_still_running(job):
     return docker.container_is_running(container_name(job))
 
 
+# We use the slug (which is the ID with some human-readable stuff prepended)
+# rather than just the opaque ID to make for easier debugging
 def container_name(job):
-    return f"job-{job_slug(job)}"
+    return f"job-{job.slug}"
 
 
 def volume_name(job):
-    return f"volume-{job_slug(job)}"
-
-
-def job_slug(job):
-    """
-    Use a human-readable slug rather than just an opaque ID to identify jobs in
-    order to make debugging easier
-    """
-    return slugify(f"{job.workspace}-{job.action}-{job.id}")
+    return f"volume-{job.slug}"
 
 
 # Note: this function can accept a JobRequest in place of a Job (anything with
