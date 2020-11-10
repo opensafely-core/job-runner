@@ -1,3 +1,13 @@
+"""
+Super-crude ORM layer than works with dataclasses and implements just the bare
+minimum of database functions we need. There was some discussion earlier about
+avoiding heavywieght external dependencies like SQLAlchemy hence this little
+piece of NIH-ism. However, given that we're going to be relying on external
+dependencies for YAML parsing it might make sense to replace this with
+something like SQLAlchemny, pinned to a known compromise-free version. The API
+surface area of this module is sufficiently small that swapping it out
+shouldn't be too large a job.
+"""
 import dataclasses
 from enum import Enum
 import functools
@@ -80,6 +90,10 @@ def get_connection():
     return get_connection_from_file(config.DATABASE_FILE)
 
 
+# LRU cache means we get the same connection to the database every time which
+# is done not so much for efficiency as so that we can easily implement
+# transaction support without having to explicitly pass round a connection
+# object.
 @functools.lru_cache()
 def get_connection_from_file(filename):
     filename.parent.mkdir(parents=True, exist_ok=True)
@@ -99,6 +113,11 @@ def get_connection_from_file(filename):
 
 
 def query_params_to_sql(params):
+    """
+    Turn a dict of query parameters into a pair of (SQL string, SQL values).
+    All parameters are implicitly ANDed together, and there's a bit of magic to
+    handle `field__in=list_of_values` queries and to handle Enum classes.
+    """
     parts = []
     values = []
     for key, value in params.items():

@@ -1,5 +1,5 @@
 import dataclasses
-from pathlib import Path, PureWindowsPath, PurePosixPath
+from pathlib import PureWindowsPath, PurePosixPath
 import posixpath
 import shlex
 from types import SimpleNamespace
@@ -36,6 +36,7 @@ class InvalidPatternError(ProjectValidationError):
     pass
 
 
+# Tiny dataclass to capture the specification of a project action
 @dataclasses.dataclass
 class ActionSpecifiction:
     run: str
@@ -76,6 +77,7 @@ def make_yaml_error_more_helpful(exc):
     return exc
 
 
+# Copied almost verbatim from the original job-runner
 def validate_project_and_set_defaults(project):
     """Check that a dictionary of project actions is valid, and set any defaults"""
     feat = get_feature_flags_for_version(float(project["version"]))
@@ -156,6 +158,10 @@ def validate_project_and_set_defaults(project):
 
 
 def get_action_specification(project, action_id):
+    """
+    Given a project and action, return an ActionSpecification which contains
+    everything the job-runner needs to run this action
+    """
     try:
         action_spec = project["actions"][action_id]
     except KeyError:
@@ -163,9 +169,17 @@ def get_action_specification(project, action_id):
     run_command = action_spec["run"]
     # Specical case handling for the `cohortextractor generate_cohort` command
     if is_generate_cohort_command(shlex.split(run_command)):
+        # Set the size of the dummy data population, if that's what were
+        # generating.  Possibly this should be moved to the study definition
+        # anyway, which would make this unnecessary.
         if config.USING_DUMMY_DATA_BACKEND:
             size = int(project["expectations"]["population_size"])
             run_command += f" --expectations-population={size}"
+        # Automatically configure the cohortextractor to produce output in the
+        # directory the `outputs` spec is expecting. Longer term I'd like to
+        # just make it an error if the directories don't match, rather than
+        # silently fixing it. (We can use the project versioning system to
+        # ensure this doesn't break existing studies.)
         output_dirs = get_output_dirs(action_spec["outputs"])
         if len(output_dirs) != 1:
             raise ProjectValidationError(
@@ -181,6 +195,11 @@ def get_action_specification(project, action_id):
 
 
 def is_generate_cohort_command(args):
+    """
+    The `cohortextractor generate_cohort` command gets special treatment in
+    various places (e.g. it's the only command which gets access to the
+    database) so it's helpful to have a single function for identifying it
+    """
     assert not isinstance(args, str)
     if (
         len(args) > 1
@@ -192,13 +211,18 @@ def is_generate_cohort_command(args):
 
 
 def get_output_dirs(output_spec):
+    """
+    Given the set of output files specified by an action, return a list of the
+    unique directory names of those outputs
+    """
     filenames = []
     for group in output_spec.values():
         filenames.extend(group.values())
-    dirs = set(Path(filename).parent for filename in filenames)
+    dirs = set(PurePosixPath(filename).parent for filename in filenames)
     return list(dirs)
 
 
+# Copied almost verbatim from the original job-runner
 def get_feature_flags_for_version(version):
     feat = SimpleNamespace()
     matched_any = False
@@ -247,7 +271,7 @@ def assert_valid_glob_pattern(pattern):
         raise InvalidPatternError(
             "is not in standard form (contains double slashes or '..' elements)"
         )
-    # Windows has a different notion of aboslute paths (e.g c:/foo) so we check
+    # Windows has a different notion of absolute paths (e.g c:/foo) so we check
     # for both platforms
     if PurePosixPath(pattern).is_absolute() or PureWindowsPath(pattern).is_absolute():
         raise InvalidPatternError("is an absolute path")

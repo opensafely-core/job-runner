@@ -1,3 +1,8 @@
+"""
+Script which polls the database for active (i.e. non-terminated) jobs, takes
+the appropriate action for each job depending on its current state, and then
+updates its state as appropriate.
+"""
 import datetime
 import logging
 import time
@@ -20,28 +25,32 @@ log = logging.getLogger(__name__)
 
 def main(exit_when_done=False):
     while True:
-        job_count = handle_jobs()
-        if exit_when_done and job_count == 0:
+        active_job_count = handle_jobs()
+        if exit_when_done and active_job_count == 0:
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
 def handle_jobs():
-    jobs = find_where(Job, status__in=[State.PENDING, State.RUNNING])
-    for job in jobs:
+    active_jobs = find_where(Job, status__in=[State.PENDING, State.RUNNING])
+    for job in active_jobs:
+        # `set_log_context` ensures that all log messages triggered anywhere
+        # further down the stack will have `job` set on them
         with set_log_context(job=job):
             if job.status == State.PENDING:
                 handle_pending_job(job)
             elif job.status == State.RUNNING:
                 handle_running_job(job)
-    return len(jobs)
+    return len(active_jobs)
 
 
 def handle_pending_job(job):
     awaited_states = get_states_of_awaited_jobs(job)
     if State.FAILED in awaited_states:
         mark_job_as_failed(job, JobError("Not starting as dependency failed"))
-    elif all(state == State.COMPLETED for state in awaited_states):
+    elif any(state != State.COMPLETED for state in awaited_states):
+        set_message(job, "Waiting on dependencies", timestamp=True)
+    else:
         if not job_running_capacity_available():
             set_message(job, "Waiting for available workers", timestamp=True)
         else:
@@ -56,8 +65,6 @@ def handle_pending_job(job):
                 raise
             else:
                 mark_job_as_running(job)
-    else:
-        set_message(job, "Waiting on dependencies", timestamp=True)
 
 
 def handle_running_job(job):
@@ -65,16 +72,25 @@ def handle_running_job(job):
         set_message(job, "Running", timestamp=True)
     else:
         try:
-            set_message(job, "Finished, copying outputs")
+            set_message(job, "Finished, checking status and extracting outputs")
             finalise_job(job)
         except JobError as e:
             mark_job_as_failed(job, e)
+            # Question: do we want to clean up failed jobs? Given that we now
+            # tag all job-runner volumes and containers with a specific label
+            # we could leave them around for debugging purposes and have a
+            # cronjob which cleans them up a few days after they've stopped.
+            cleanup_job(job)
         except Exception:
             mark_job_as_failed(job, JobError("Internal error when finalising job"))
+            # We deliberately don't clean up after an internal error so we have
+            # some change of debugging. It's also possible, after fixing the
+            # error, to manually flip the state of the job back to "running" in
+            # the database and the code will then be able to finalise it
+            # correctly without having to re-run the job.
             raise
         else:
             mark_job_as_completed(job)
-        finally:
             cleanup_job(job)
 
 

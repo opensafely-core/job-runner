@@ -1,3 +1,6 @@
+"""
+Utility functions for interacting with Docker
+"""
 import json
 import re
 import subprocess
@@ -24,7 +27,9 @@ LABEL = "job-runner"
 def create_volume(volume_name):
     """
     Creates the named volume and also creates (but does not start) a "manager"
-    container which we can use to copy files in and out of the volume
+    container which we can use to copy files in and out of the volume. Note
+    that in order to interact with the volume a container with that volume
+    mounted must exist, but it doesn't need to be running.
     """
     subprocess.run(
         ["docker", "volume", "create", "--label", LABEL, "--name", volume_name],

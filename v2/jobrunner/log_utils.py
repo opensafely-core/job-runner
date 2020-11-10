@@ -1,9 +1,24 @@
+"""
+This sets up some basic logging configuration (log to stderr with a default log
+level of INFO) with some job-runner specific tweaks. In particular it supports
+automatically including the currently executing Job or JobRequest in the log
+output. It also includes the stderr output from any failed attempts to shell
+out to external processes.
+"""
 import contextlib
 import logging
 import os
 import subprocess
 import sys
 import threading
+
+
+def configure_logging():
+    handler = logging.StreamHandler()
+    handler.addFilter(set_log_context)
+    handler.setFormatter(JobRunnerFormatter("{context}{message}", style="{"))
+    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
+    sys.excepthook = show_subprocess_stderr
 
 
 class JobRunnerFormatter(logging.Formatter):
@@ -96,11 +111,3 @@ class SetLogContext(threading.local):
 
 
 set_log_context = SetLogContext()
-
-
-def configure_logging():
-    handler = logging.StreamHandler()
-    handler.addFilter(set_log_context)
-    handler.setFormatter(JobRunnerFormatter("{context}{message}", style="{"))
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
-    sys.excepthook = show_subprocess_stderr
