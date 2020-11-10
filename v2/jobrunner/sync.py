@@ -10,9 +10,8 @@ from .log_utils import configure_logging, set_log_context
 from . import config
 from .create_or_update_jobs import create_or_update_jobs
 from .database import find_where
-from .git import name_from_repo_url
 from .models import JobRequest, Job
-from .string_utils import slugify
+from .string_utils import slugify, project_name_from_url
 
 
 session = requests.Session()
@@ -91,7 +90,7 @@ def generate_workspace_slug(job_request):
     branch = job_request["workspace"]["branch"]
     database_name = job_request["workspace"]["db"]
     workspace_id = job_request["workspace_id"]
-    parts = [name_from_repo_url(repo_url)]
+    parts = [project_name_from_url(repo_url)]
     # Only include the branch if it's not the default to minimise clutter
     if branch not in ["master", "main"]:
         parts.append(branch)
