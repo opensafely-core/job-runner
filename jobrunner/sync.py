@@ -95,8 +95,9 @@ def generate_workspace_slug(job_request):
     database_name = job_request["workspace"]["db"]
     workspace_id = job_request["workspace_id"]
     parts = [project_name_from_url(repo_url)]
-    # Only include the branch if it's not the default to minimise clutter
-    if branch not in ["master", "main"]:
+    # Only include the branch if it's not the default to minimise clutter. (We
+    # include HEAD here only because it's useful in local testing.)
+    if branch and branch not in ["master", "main", "HEAD"]:
         parts.append(branch)
     # Only include the database name if it's not the default to minimise
     # clutter
