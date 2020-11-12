@@ -1,0 +1,61 @@
+version: "3.7"
+services:
+
+  jobrunner-run:
+    build: .
+    image: docker.opensafely.org/job-runner-v2:latest
+    init: true
+    restart: unless-stopped
+    environment:
+      &jobrunner_environment
+      # The job server endpoint
+      - JOB_SERVER_ENDPOINT=${OPENSAFELY_JOB_SERVER_ENDPOINT}
+      # The backend requests which we should monitor
+      - BACKEND=${OPENSAFELY_BACKEND}
+      # Credentials for acessing the job server
+      - QUEUE_USER=${OPENSAFELY_QUEUE_USER}
+      - QUEUE_PASS=${OPENSAFELY_QUEUE_PASS}
+      # Working directory (see the volume mounts below)
+      - WORK_DIR=/work_dir
+      # A location where outputs should be stored
+      - HIGH_PRIVACY_STORAGE_BASE=${OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE}
+      - MEDIUM_PRIVACY_STORAGE_BASE=${OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE}
+      # A Github developer access key which can read private repos
+      - PRIVATE_REPO_ACCESS_TOKEN=${OPENSAFELY_PRIVATE_REPO_ACCESS_TOKEN}
+      # Database URLs
+      - FULL_DATABASE_URL=${OPENSAFELY_FULL_DATABASE_URL}
+      - SLICE_DATABASE_URL=${OPENSAFELY_SLICE_DATABASE_URL}
+      - DUMMY_DATABASE_URL=${OPENSAFELY_DUMMY_DATABASE_URL}
+      - TEMP_DATABASE_NAME=${OPENSAFELY_TEMP_DATABASE_NAME}
+      # Polling
+      - POLL_INTERVAL=${OPENSAFELY_POLL_INTERVAL}
+      - JOB_LOOP_INTERVAL=${OPENSAFELY_JOB_LOOP_INTERVAL}
+      # Parallelism
+      - MAX_WORKERS=${OPENSAFELY_MAX_WORKERS}
+    volumes:
+      &jobrunner_volumes
+      - type: bind
+        source: ${OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE}
+        target: ${OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE}
+      - type: bind
+        source: ${OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE}
+        target: ${OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE}
+      - type: bind
+        source: //var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: volume
+        source: job_runner_work_dir
+        target: /work_dir
+    command: python -m jobrunner.run
+
+  jobrunner-sync:
+    image: docker.opensafely.org/job-runner-v2:latest
+    init: true
+    restart: unless-stopped
+    # Re-use environment and volume config from above
+    environment: *jobrunner_environment
+    volumes: *jobrunner_volumes
+    command: python -m jobrunner.sync
+
+volumes:
+  job_runner_work_dir:
