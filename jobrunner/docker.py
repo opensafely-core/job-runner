@@ -183,6 +183,10 @@ def manager_name(volume_name):
     return f"{volume_name}-manager"
 
 
+def container_exists(name):
+    return bool(container_inspect(name, "ID", none_if_not_exists=True))
+
+
 def container_is_running(name):
     return container_inspect(name, "State.Running", none_if_not_exists=True) or False
 

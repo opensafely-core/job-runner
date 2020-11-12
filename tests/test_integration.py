@@ -76,9 +76,7 @@ def commit_directory_contents(repo_path, directory):
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"], check=True, env=env
     )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"], check=True, env=env
-    )
+    subprocess.run(["git", "config", "user.name", "Test"], check=True, env=env)
     subprocess.run(["git", "add", "."], check=True, env=env)
     subprocess.run(["git", "commit", "--quiet", "-m", "initial"], check=True, env=env)
 
