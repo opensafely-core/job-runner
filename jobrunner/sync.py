@@ -25,7 +25,11 @@ def main():
 
 def sync():
     results = api_get(
-        "job-requests", params={"active": "true", "backend": config.BACKEND}
+        "job-requests",
+        # We're deliberately not paginating here on the assumption that the set
+        # of active jobs is always going to be small enough that we can fetch
+        # them in a single request and we don't need the extra complexity
+        params={"active": "true", "backend": config.BACKEND},
     )
     job_requests = [job_request_from_remote_format(i) for i in results]
     job_request_ids = [i.id for i in job_requests]
