@@ -35,10 +35,10 @@ class JobError(Exception):
 
 
 def start_job(job):
-    # If we started the job but were killed before we updated the state then
-    # there's nothing further to do
-    if job_still_running(job):
-        log.info("Job already running, nothing to do")
+    # If we already created the job but were killed before we updated the state
+    # then there's nothing further to do
+    if docker.container_exists(container_name(job)):
+        log.info("Container already created, nothing to do")
         return
     volume = create_and_populate_volume(job)
     action_args = shlex.split(job.run_command)
