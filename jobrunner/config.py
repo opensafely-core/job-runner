@@ -52,4 +52,4 @@ DATABASE_URLS = {
 
 TEMP_DATABASE_NAME = os.environ.get("TEMP_DATABASE_NAME")
 
-MAX_WORKERS = int(os.environ.get("MAX_WORKERS", max(cpu_count() - 1, 1)))
+MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
