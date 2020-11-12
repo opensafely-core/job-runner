@@ -1,0 +1,19 @@
+# Created from .gitignore file using:
+# https://npm.runkit.com/gitignore-to-dockerignore
+
+.git/
+
+**/*~
+**/.#*
+**/*#
+**/htmlcov
+**/model.log
+**/*/input.csv
+**/__pycache__
+**/.python-version
+**/app.log
+**/.env
+**/.coverage
+**/*.egg-info/
+**/pip-wheel-metadata/*
+workdir
