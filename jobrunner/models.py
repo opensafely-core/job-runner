@@ -66,7 +66,7 @@ class Job:
     run_command: str = None
     output_spec: dict = None
     status_message: str = None
-    last_updated: int = None
+    updated_at: int = None
 
     def asdict(self):
         data = dataclasses.asdict(self)
