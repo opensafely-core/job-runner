@@ -9,6 +9,7 @@ Note the schema is defined separately in `schema.sql`.
 """
 import base64
 import dataclasses
+import datetime
 from enum import Enum
 import secrets
 
@@ -77,6 +78,9 @@ class Job:
             # Convert Enums to strings for straightforward JSON serialization
             if isinstance(value, Enum):
                 data[key] = value.name.lower()
+            # Convert UNIX timestamp to ISO format
+            elif isinstance(value, int) and key.endswith("_at"):
+                data[key] = timestamp_to_isoformat(value)
         return data
 
     # On Python 3.8 we could use `functools.cached_property` here and avoid
@@ -101,3 +105,7 @@ class Job:
         and inspecting the job-runner a bit more ergonomic.
         """
         return base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
+
+
+def timestamp_to_isoformat(ts):
+    return datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"
