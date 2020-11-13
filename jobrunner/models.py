@@ -19,7 +19,7 @@ class State(Enum):
     PENDING = "P"
     RUNNING = "R"
     FAILED = "F"
-    COMPLETED = "C"
+    SUCCEEDED = "S"
 
 
 # This is our internal representation of a JobRequest which we pass around but

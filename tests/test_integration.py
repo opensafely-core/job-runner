@@ -67,12 +67,12 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
     # Run the main loop to completion and then sync
     jobrunner.run.main(exit_when_done=True)
     jobrunner.sync.sync()
-    # All jobs should now be completed
+    # All jobs should now have succeeded
     jobs = get_posted_jobs(requests_mock)
-    assert jobs["generate_cohort"]["status"] == "completed"
-    assert jobs["prepare_data_m"]["status"] == "completed"
-    assert jobs["prepare_data_f"]["status"] == "completed"
-    assert jobs["analyse_data"]["status"] == "completed"
+    assert jobs["generate_cohort"]["status"] == "succeeded"
+    assert jobs["prepare_data_m"]["status"] == "succeeded"
+    assert jobs["prepare_data_f"]["status"] == "succeeded"
+    assert jobs["analyse_data"]["status"] == "succeeded"
 
 
 def commit_directory_contents(repo_path, directory):
