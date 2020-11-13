@@ -194,7 +194,7 @@ def save_internal_metadata(job, output_dir, error):
         job_metadata["status"] = "FAILED"
         job_metadata["status_message"] = f"{type(error).__name__}: {error}"
     else:
-        job_metadata["status"] = "COMPLETED"
+        job_metadata["status"] = "SUCCEEDED"
         job_metadata["status_message"] = "Completed successfully"
         # Create a marker file which we can use to easily determine if this
         # directory contains the outputs of a successful job which we can then

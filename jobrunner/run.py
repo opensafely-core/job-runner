@@ -48,7 +48,7 @@ def handle_pending_job(job):
     awaited_states = get_states_of_awaited_jobs(job)
     if State.FAILED in awaited_states:
         mark_job_as_failed(job, JobError("Not starting as dependency failed"))
-    elif any(state != State.COMPLETED for state in awaited_states):
+    elif any(state != State.SUCCEEDED for state in awaited_states):
         set_message(job, "Waiting on dependencies")
     else:
         if not job_running_capacity_available():
@@ -114,14 +114,14 @@ def mark_job_as_running(job):
 
 
 def mark_job_as_completed(job):
-    set_state(job, State.COMPLETED, "Completed successfully")
+    set_state(job, State.SUCCEEDED, "Completed successfully")
 
 
 def set_state(job, status, message):
     timestamp = int(time.time())
     if status == State.RUNNING:
         job.started_at = timestamp
-    elif status == State.FAILED or status == State.COMPLETED:
+    elif status == State.FAILED or status == State.SUCCEEDED:
         job.completed_at = timestamp
     job.status = status
     job.status_message = message
