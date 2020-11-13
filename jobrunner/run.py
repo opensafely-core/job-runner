@@ -120,8 +120,8 @@ def mark_job_as_completed(job):
 def set_state(job, status, message):
     job.status = status
     job.status_message = message
-    job.last_updated = int(time.time())
-    update(job, update_fields=["status", "status_message", "last_updated"])
+    job.updated_at = int(time.time())
+    update(job, update_fields=["status", "status_message", "updated_at"])
     log.info(job.status_message)
 
 
@@ -130,15 +130,15 @@ def set_message(job, message):
     # If message has changed then update and log
     if job.status_message != message:
         job.status_message = message
-        job.last_updated = timestamp
-        update(job, update_fields=["status_message", "last_updated"])
+        job.updated_at = timestamp
+        update(job, update_fields=["status_message", "updated_at"])
         log.info(job.status_message)
     # If the status message hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
     # active without writing to the database every single time we poll
-    elif timestamp - job.last_updated >= 60:
-        job.last_updated = timestamp
-        update(job, update_fields=["last_updated"])
+    elif timestamp - job.updated_at >= 60:
+        job.updated_at = timestamp
+        update(job, update_fields=["updated_at"])
         # For long running jobs we don't want to fill the logs up with "Job X
         # is still running" messages, but it is useful to have semi-regular
         # confirmations in the logs that it is still running. The below will
