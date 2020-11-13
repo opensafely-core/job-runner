@@ -118,10 +118,24 @@ def mark_job_as_completed(job):
 
 
 def set_state(job, status, message):
+    timestamp = int(time.time())
+    if status == State.RUNNING:
+        job.started_at = timestamp
+    elif status == State.FAILED or status == State.COMPLETED:
+        job.completed_at = timestamp
     job.status = status
     job.status_message = message
-    job.updated_at = int(time.time())
-    update(job, update_fields=["status", "status_message", "updated_at"])
+    job.updated_at = timestamp
+    update(
+        job,
+        update_fields=[
+            "status",
+            "status_message",
+            "updated_at",
+            "started_at",
+            "completed_at",
+        ],
+    )
     log.info(job.status_message)
 
 

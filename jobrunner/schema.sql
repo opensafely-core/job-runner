@@ -27,7 +27,10 @@ CREATE TABLE job (
     run_command TEXT,
     output_spec TEXT,
     status_message TEXT,
+    created_at INT,
     updated_at INT,
+    started_at INT,
+    completed_at INT,
 
     PRIMARY KEY (id)
 );

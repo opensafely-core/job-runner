@@ -5,6 +5,8 @@ It handles all logic connected with creating or updating Jobs in response to
 JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
+import time
+
 from . import config
 from .database import transaction, insert, exists_where, find_where
 from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
@@ -133,6 +135,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
         requires_outputs_from=action_spec.needs,
         run_command=action_spec.run,
         output_spec=action_spec.outputs,
+        created_at=int(time.time()),
     )
     insert(job)
     return job
@@ -180,5 +183,7 @@ def create_failed_job(job_request, exception):
                 workspace=job_request.workspace,
                 action=job_request.action,
                 status_message=f"{type(exception).__name__}: {exception}",
+                created_at=int(time.time()),
+                completed_at=int(time.time()),
             ),
         )
