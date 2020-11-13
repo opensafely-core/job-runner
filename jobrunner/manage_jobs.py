@@ -12,6 +12,7 @@ import logging
 import shlex
 import shutil
 import tempfile
+import time
 
 from . import config
 from . import docker
@@ -185,7 +186,7 @@ def save_internal_metadata(job, output_dir, error):
     job_request = find_where(SavedJobRequest, id=job.job_request_id)[0]
     job_metadata["job_request"] = job_request.original
     # There's a slight structural infelicity here: what we really want on disk
-    # is the final state of the job.  But the job won't transition into its
+    # is the final state of the job. But the job won't transition into its
     # final state until after we've finished writing all the outputs. So
     # there's a little bit of duplication of the logic in `jobrunner.run` here
     # to anticpate what the final state will be.
@@ -199,6 +200,7 @@ def save_internal_metadata(job, output_dir, error):
         # directory contains the outputs of a successful job which we can then
         # use elsewhere
         output_dir.joinpath(SUCCESS_MARKER_FILE).touch()
+    job_metadata["completed_at"] = int(time.time())
     with open(output_dir / "job_metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
 
