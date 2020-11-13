@@ -45,11 +45,9 @@ def submit_job_request(
         repo_url = str(path).replace("\\", "/")
     job_request = job_request_from_remote_format(
         dict(
-            pk=Job.new_id(),
-            workspace=dict(repo=repo_url, branch=branch, db=database),
-            workspace_id=workspace,
-            action_id=action,
-            force_run=True,
+            id=Job.new_id(),
+            workspace=dict(id=workspace, repo=repo_url, branch=branch, db=database),
+            requested_actions=[action],
             force_run_dependencies=force_run_dependencies,
         )
     )

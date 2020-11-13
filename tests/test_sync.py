@@ -4,15 +4,14 @@ from jobrunner.models import JobRequest
 
 def test_job_request_from_remote_format():
     remote_job_request = {
-        "pk": "123",
+        "id": "123",
         "workspace": {
+            "id": "5",
             "repo": "https://github.com/opensafely/foo",
             "branch": "master",
             "db": "full",
         },
-        "workspace_id": "5",
-        "action_id": "generate_cohort",
-        "force_run": True,
+        "requested_actions": ["generate_cohort"],
         "force_run_dependencies": True,
     }
     expected = JobRequest(
