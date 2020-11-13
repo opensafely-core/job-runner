@@ -64,15 +64,17 @@ def job_request_from_remote_format(job_request):
     Convert a JobRequest as received from the job-server into our own internal
     representation
     """
+    # Temporary assertion
+    assert len(job_request["requested_actions"]) == 1
     return JobRequest(
-        id=str(job_request["pk"]),
+        id=str(job_request["id"]),
         repo_url=job_request["workspace"]["repo"],
-        commit=job_request.get("commit"),
+        commit=job_request.get("sha"),
         branch=job_request["workspace"]["branch"],
-        action=job_request["action_id"],
+        action=job_request["requested_actions"][0],
         workspace=generate_workspace_slug(job_request),
         database_name=job_request["workspace"]["db"],
-        force_run=job_request["force_run"],
+        force_run=True,
         force_run_dependencies=job_request["force_run_dependencies"],
         original=job_request,
     )
@@ -93,7 +95,7 @@ def generate_workspace_slug(job_request):
     repo_url = job_request["workspace"]["repo"]
     branch = job_request["workspace"]["branch"]
     database_name = job_request["workspace"]["db"]
-    workspace_id = job_request["workspace_id"]
+    workspace_id = job_request["workspace"]["id"]
     parts = [project_name_from_url(repo_url)]
     # Only include the branch if it's not the default to minimise clutter. (We
     # include HEAD here only because it's useful in local testing.)

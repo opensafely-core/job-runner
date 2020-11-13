@@ -25,12 +25,11 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
         "https://jobs.opensafely.org/api/job-requests?active=true&backend=expectations",
         json=[
             {
-                "pk": 1,
-                "action_id": "analyse_data",
-                "force_run": False,
+                "id": 1,
+                "requested_actions": ["analyse_data"],
                 "force_run_dependencies": False,
-                "workspace_id": 1,
                 "workspace": {
+                    "id": 1,
                     "repo": str(repo_path),
                     "branch": "master",
                     "db": "dummy",
