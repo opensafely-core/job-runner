@@ -6,6 +6,7 @@ It's important that the `start_job` and `finalise_job` functions are
 idempotent. This means that the job-runner can be killed at any point and will
 still end up in a consistent state when it's restarted.
 """
+import dataclasses
 import datetime
 import json
 import logging
@@ -18,7 +19,7 @@ from . import config
 from . import docker
 from .database import find_where
 from .git import checkout_commit
-from .models import SavedJobRequest
+from .models import SavedJobRequest, State
 from .project import is_generate_cohort_command
 
 
@@ -182,25 +183,27 @@ def save_internal_metadata(job, output_dir, error):
     off the job then this will be preserved on disk along with the job outputs.
     """
     log.info("Saving internal job metadata")
-    job_metadata = job.asdict()
-    job_request = find_where(SavedJobRequest, id=job.job_request_id)[0]
-    job_metadata["job_request"] = job_request.original
     # There's a slight structural infelicity here: what we really want on disk
     # is the final state of the job. But the job won't transition into its
     # final state until after we've finished writing all the outputs. So
     # there's a little bit of duplication of the logic in `jobrunner.run` here
     # to anticpate what the final state will be.
     if error:
-        job_metadata["status"] = "FAILED"
-        job_metadata["status_message"] = f"{type(error).__name__}: {error}"
+        final_job = dataclasses.replace(
+            job, status=State.FAILED, status_message=f"{type(error).__name__}: {error}"
+        )
     else:
-        job_metadata["status"] = "SUCCEEDED"
-        job_metadata["status_message"] = "Completed successfully"
+        final_job = dataclasses.replace(
+            job, status=State.SUCCEEDED, status_message="Completed successfully"
+        )
         # Create a marker file which we can use to easily determine if this
         # directory contains the outputs of a successful job which we can then
         # use elsewhere
         output_dir.joinpath(SUCCESS_MARKER_FILE).touch()
-    job_metadata["completed_at"] = int(time.time())
+    final_job.completed_at = int(time.time())
+    job_metadata = final_job.asdict()
+    job_request = find_where(SavedJobRequest, id=final_job.job_request_id)[0]
+    job_metadata["job_request"] = job_request.original
     with open(output_dir / "job_metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
 
