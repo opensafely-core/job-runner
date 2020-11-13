@@ -76,7 +76,7 @@ class Job:
         for key, value in data.items():
             # Convert Enums to strings for straightforward JSON serialization
             if isinstance(value, Enum):
-                data[key] = value.value
+                data[key] = value.name.lower()
         return data
 
     # On Python 3.8 we could use `functools.cached_property` here and avoid
