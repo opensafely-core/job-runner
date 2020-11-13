@@ -45,13 +45,18 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
     jobrunner.sync.sync()
     # Check that three pending jobs are created
     jobs = get_posted_jobs(requests_mock)
-    assert [job["status"] for job in jobs.values()] == ["P", "P", "P", "P"]
+    assert [job["status"] for job in jobs.values()] == [
+        "pending",
+        "pending",
+        "pending",
+        "pending",
+    ]
     # Exectue one tick of the run loop and then sync
     jobrunner.run.handle_jobs()
     jobrunner.sync.sync()
     # We should now have one running job and two waiting on dependencies
     jobs = get_posted_jobs(requests_mock)
-    assert jobs["generate_cohort"]["status"] == "R"
+    assert jobs["generate_cohort"]["status"] == "running"
     assert jobs["prepare_data_m"]["status_message"].startswith(
         "Waiting on dependencies"
     )
@@ -64,10 +69,10 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
     jobrunner.sync.sync()
     # All jobs should now be completed
     jobs = get_posted_jobs(requests_mock)
-    assert jobs["generate_cohort"]["status"] == "C"
-    assert jobs["prepare_data_m"]["status"] == "C"
-    assert jobs["prepare_data_f"]["status"] == "C"
-    assert jobs["analyse_data"]["status"] == "C"
+    assert jobs["generate_cohort"]["status"] == "completed"
+    assert jobs["prepare_data_m"]["status"] == "completed"
+    assert jobs["prepare_data_f"]["status"] == "completed"
+    assert jobs["analyse_data"]["status"] == "completed"
 
 
 def commit_directory_contents(repo_path, directory):
