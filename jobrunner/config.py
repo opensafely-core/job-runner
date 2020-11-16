@@ -34,7 +34,7 @@ QUEUE_PASS = os.environ.get("QUEUE_PASS", "pass")
 PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 
 POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
-JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "0.5"))
+JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 
 BACKEND = os.environ.get("BACKEND", "expectations")
 
