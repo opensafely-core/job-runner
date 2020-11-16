@@ -14,7 +14,6 @@ from .sync import job_request_from_remote_format
 from .database import find_where
 from .models import Job, State
 from .create_or_update_jobs import create_or_update_jobs
-from .manage_jobs import high_privacy_output_dir
 from . import config
 from . import run
 
@@ -69,7 +68,7 @@ def run_main_loop():
     for job in final_jobs:
         print(f"=> {job.action}")
         print(f"   {job.status_message}")
-        print(f"   {high_privacy_output_dir(job)}")
+        print(f"   {config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace}")
         print()
 
 
