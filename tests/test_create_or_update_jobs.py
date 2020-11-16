@@ -17,7 +17,7 @@ def test_create_or_update_jobs(tmp_work_dir):
         repo_url=repo_url,
         commit=None,
         branch="v1",
-        action="generate_cohort",
+        requested_actions=["generate_cohort"],
         workspace="1",
         database_name="dummy",
         original={},
@@ -54,7 +54,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
         repo_url=repo_url,
         commit=None,
         branch="no-such-branch",
-        action="generate_cohort",
+        requested_actions=["generate_cohort"],
         workspace="1",
         database_name="dummy",
         original={},
@@ -68,7 +68,6 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     assert j.repo_url == repo_url
     assert j.commit == None
     assert j.workspace == "1"
-    assert j.action == "generate_cohort"
     assert j.wait_for_job_ids == None
     assert j.requires_outputs_from == None
     assert j.run_command == None
@@ -139,14 +138,14 @@ def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_
     assert prepare_2_job.wait_for_job_ids == [generate_job.id]
 
 
-def make_job_request(**kwargs):
+def make_job_request(action="generate_cohort", **kwargs):
     job_request = JobRequest(
         id=str(uuid.uuid4()),
         repo_url="https://example.com/repo.git",
         commit="abcdef0123456789",
         workspace="1",
         database_name="full",
-        action="generate_cohort",
+        requested_actions=[action],
         original={},
     )
     for key, value in kwargs.items():

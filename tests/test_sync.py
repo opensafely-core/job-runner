@@ -21,8 +21,7 @@ def test_job_request_from_remote_format():
         branch="master",
         workspace="foo-5",
         database_name="full",
-        action="generate_cohort",
-        force_run=True,
+        requested_actions=["generate_cohort"],
         force_run_dependencies=True,
         original=remote_job_request,
     )

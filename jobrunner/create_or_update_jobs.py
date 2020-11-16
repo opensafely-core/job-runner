@@ -75,28 +75,31 @@ def create_jobs(job_request):
 
 def create_jobs_with_project_file(job_request, project_file):
     project = parse_and_validate_project_file(project_file)
+    if job_request.force_run_dependencies:
+        # Wildcard marker to indicate that we should match any action
+        force_run_actions = "*"
+    else:
+        force_run_actions = job_request.requested_actions
     with transaction():
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))
-        primary_job = recursively_add_jobs(
-            job_request, project, job_request.action, force_run=job_request.force_run
-        )
-        # If the outputs already exist and we weren't forcing a run then we
-        # won't create a job at all, which is an error
-        if not primary_job:
-            raise JobRequestError("Outputs already exist")
-        # If the returned job belongs to a different JobRequest that means we
-        # just picked up an existing scheduled job and didn't create a new one,
-        # which is also an error
-        elif primary_job.job_request_id != job_request.id:
-            raise JobRequestError("Action is already scheduled to run")
+        new_job_scheduled = False
+        for action in job_request.requested_actions:
+            job = recursively_add_jobs(job_request, project, action, force_run_actions)
+            # If the returned job doesn't belong to the current JobRequest that
+            # means we just picked up an existing scheduled job and didn't
+            # create a new one, if it does match then it's a new job
+            if job.job_request_id == job_request.id:
+                new_job_scheduled = True
+        if not new_job_scheduled:
+            raise JobRequestError("All requested actions are already scheduled to run")
 
 
-def recursively_add_jobs(job_request, project, action_id, force_run=False):
+def recursively_add_jobs(job_request, project, action, force_run_actions):
     # Is there already an equivalent job scheduled to run?
     already_active_jobs = find_where(
         Job,
         workspace=job_request.workspace,
-        action=action_id,
+        action=action,
         status__in=[State.PENDING, State.RUNNING],
     )
     if already_active_jobs:
@@ -104,20 +107,17 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
 
     # Return an empty job if the outputs already exist and we're not forcing a
     # run
-    if not force_run:
-        if outputs_exist(job_request, action_id):
+    if force_run_actions != "*" and action not in force_run_actions:
+        if outputs_exist(job_request, action):
             return
 
-    action_spec = get_action_specification(project, action_id)
+    action_spec = get_action_specification(project, action)
 
     # Get or create any required jobs
     wait_for_job_ids = []
     for required_action in action_spec.needs:
         required_job = recursively_add_jobs(
-            job_request,
-            project,
-            required_action,
-            force_run=job_request.force_run_dependencies,
+            job_request, project, required_action, force_run_actions
         )
         if required_job:
             wait_for_job_ids.append(required_job.id)
@@ -130,7 +130,7 @@ def recursively_add_jobs(job_request, project, action_id, force_run=False):
         commit=job_request.commit,
         workspace=job_request.workspace,
         database_name=job_request.database_name,
-        action=action_id,
+        action=action,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=action_spec.needs,
         run_command=action_spec.run,
@@ -181,7 +181,7 @@ def create_failed_job(job_request, exception):
                 repo_url=job_request.repo_url,
                 commit=job_request.commit,
                 workspace=job_request.workspace,
-                action=job_request.action,
+                action="",
                 status_message=f"{type(exception).__name__}: {exception}",
                 created_at=int(time.time()),
                 completed_at=int(time.time()),

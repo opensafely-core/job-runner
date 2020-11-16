@@ -64,17 +64,14 @@ def job_request_from_remote_format(job_request):
     Convert a JobRequest as received from the job-server into our own internal
     representation
     """
-    # Temporary assertion
-    assert len(job_request["requested_actions"]) == 1
     return JobRequest(
         id=str(job_request["id"]),
         repo_url=job_request["workspace"]["repo"],
         commit=job_request.get("sha"),
         branch=job_request["workspace"]["branch"],
-        action=job_request["requested_actions"][0],
+        requested_actions=job_request["requested_actions"],
         workspace=generate_workspace_slug(job_request),
         database_name=job_request["workspace"]["db"],
-        force_run=True,
         force_run_dependencies=job_request["force_run_dependencies"],
         original=job_request,
     )

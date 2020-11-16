@@ -30,10 +30,9 @@ class JobRequest:
     id: str
     repo_url: str
     commit: str
-    action: str
+    requested_actions: list
     workspace: str
     database_name: str
-    force_run: bool = False
     force_run_dependencies: bool = False
     branch: str = None
     original: dict = None
