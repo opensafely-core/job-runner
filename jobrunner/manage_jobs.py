@@ -6,10 +6,11 @@ It's important that the `start_job` and `finalise_job` functions are
 idempotent. This means that the job-runner can be killed at any point and will
 still end up in a consistent state when it's restarted.
 """
-import dataclasses
+import copy
 import datetime
 import json
 import logging
+from pathlib import PurePosixPath, Path
 import shlex
 import shutil
 import tempfile
@@ -25,14 +26,19 @@ from .project import is_generate_cohort_command
 
 log = logging.getLogger(__name__)
 
-# We use a file with this name to mark output directories as containing the
-# results of successful runs. For debugging purposes we want to store the
-# results even of failed runs, but we don't want to ever use them as the inputs
-# to subsequent actions
-SUCCESS_MARKER_FILE = ".success"
+# Directory inside working directory where manifest and logs are created
+METADATA_DIR = "metadata"
+
+# Records details of which action created each file (leading underscore so it
+# gets listed before all the log files)
+MANIFEST_FILE = "_manifest.json"
 
 
 class JobError(Exception):
+    pass
+
+
+class MissingOutputError(JobError):
     pass
 
 
@@ -72,6 +78,9 @@ def start_job(job):
 
 
 def create_and_populate_volume(job):
+    input_files = []
+    for action in job.requires_outputs_from:
+        input_files.extend(list_outputs_from_action(job.workspace, action))
     volume = volume_name(job)
     docker.create_volume(volume)
     log.info(f"Copying in code from {job.repo_url}@{job.commit}")
@@ -80,16 +89,34 @@ def create_and_populate_volume(job):
     # temporary directory, but not worth it at this stage
     config.TMP_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as tmpdir:
+        tmpdir = Path(tmpdir)
         checkout_commit(job.repo_url, job.commit, tmpdir)
-        docker.copy_to_volume(volume, tmpdir)
-    # Copy in files from dependencies
-    for action in job.requires_outputs_from:
-        action_dir = high_privacy_output_dir(job, action=action)
-        log.info(f"Copying in outputs from {action_dir}")
-        if not action_dir.joinpath(SUCCESS_MARKER_FILE).exists():
-            raise JobError("Unexpected missing output for '{action}'")
-        docker.copy_to_volume(volume, action_dir / "outputs")
+        # Because `docker cp` can't create parent directories automatically, we
+        # make sure parent directories exist for all the files we're going to
+        # copy in
+        directories = set(PurePosixPath(filename).parent for filename in input_files)
+        for directory in directories:
+            tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
+        docker.copy_to_volume(volume, tmpdir, ".")
+    workspace_dir = config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
+    for filename in input_files:
+        log.info(f"Copying in {filename}")
+        docker.copy_to_volume(volume, workspace_dir / filename, filename)
     return volume
+
+
+def job_still_running(job):
+    return docker.container_is_running(container_name(job))
+
+
+# We use the slug (which is the ID with some human-readable stuff prepended)
+# rather than just the opaque ID to make for easier debugging
+def container_name(job):
+    return f"job-{job.slug}"
+
+
+def volume_name(job):
+    return f"volume-{job.slug}"
 
 
 def finalise_job(job):
@@ -97,21 +124,64 @@ def finalise_job(job):
     This involves checking whether the job finished successfully or not and
     extracting all outputs, logs and metadata
     """
-    output_dir = high_privacy_output_dir(job)
-    tmp_output_dir = output_dir.with_suffix(f".{job.id}.tmp")
-    error = None
-    try:
-        save_job_outputs_and_metadata(job, tmp_output_dir)
-    except JobError as e:
-        error = e
-    save_internal_metadata(job, tmp_output_dir, error)
-    copy_logs_and_metadata_to_log_dir(job, tmp_output_dir)
-    copy_medium_privacy_data(job, tmp_output_dir)
-    if output_dir.exists():
-        log.info("Deleting existing output directory")
-        shutil.rmtree(output_dir)
-    log.info(f"Renaming temporary directory to {output_dir}")
-    tmp_output_dir.rename(output_dir)
+    container_metadata = get_container_metadata(job)
+    outputs, unmatched_patterns = find_matching_outputs(job)
+
+    # Extract outputs to workspaces
+    high_privacy_dir = config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
+    med_privacy_dir = config.MEDIUM_PRIVACY_WORKSPACES_DIR / job.workspace
+    volume = volume_name(job)
+    for filename, privacy_level in outputs.items():
+        docker.copy_from_volume(volume, filename, high_privacy_dir / filename)
+        if privacy_level == "moderately_sensitive":
+            copy_file(high_privacy_dir / filename, med_privacy_dir / filename)
+
+    # Error handling is slightly tricky here: for most classes of error we
+    # still want to extract outputs and logs for debugging purposes, so we
+    # can't just raise an exception at this point. But we need to know now if
+    # there are any errors so we can write the appropriate state to disk.  So
+    # we create the error here, pass it to `get_job_metadata` so it can persist
+    # the correct state, run all the extraction code, and then raise the
+    # exception at the end once we've updated everything.
+    if container_metadata["State"]["ExitCode"] != 0:
+        error = JobError("Job exited with an error code")
+    elif unmatched_patterns:
+        error = JobError(f"No outputs found matching: {', '.join(unmatched_patterns)}")
+    else:
+        error = None
+
+    # job_metadata is a big dict capturing everything we know about the state
+    # of the job
+    job_metadata = get_job_metadata(job, container_metadata, outputs, error)
+
+    # Dump useful info in log directory
+    log_dir = get_log_dir(job)
+    write_log_file(job, job_metadata, log_dir / "logs.txt")
+    with open(log_dir / "metadata.json", "w") as f:
+        json.dump(job_metadata, f, indent=2)
+
+    # Copy logs to workspaces
+    copy_file(
+        log_dir / "logs.txt", high_privacy_dir / METADATA_DIR / f"{job.action}.log"
+    )
+    copy_file(
+        log_dir / "logs.txt", med_privacy_dir / METADATA_DIR / f"{job.action}.log"
+    )
+
+    # Delete outputs from previous run of action
+    existing_files = list_outputs_from_action(
+        job.workspace, job.action, ignore_errors=True
+    )
+    files_to_remove = set(existing_files) - set(outputs)
+    delete_files(high_privacy_dir, files_to_remove)
+    delete_files(med_privacy_dir, files_to_remove)
+
+    # Update manifest
+    manifest = read_manifest_file(high_privacy_dir)
+    update_manifest(manifest, job_metadata)
+    write_manifest_file(high_privacy_dir, manifest)
+    write_manifest_file(med_privacy_dir, manifest)
+
     if error:
         raise error
 
@@ -122,90 +192,95 @@ def cleanup_job(job):
     docker.delete_volume(volume_name(job))
 
 
-def save_job_outputs_and_metadata(job, output_dir):
-    """
-    Saves all matching output files, container logs and container metadata to
-    the output directory. Raises JobError *after* doing all this if there were
-    any issues found.
-    """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    container = container_name(job)
-    volume = volume_name(job)
-    # Dump container metadata
-    log.info("Dumping container metadata")
-    container_metadata = docker.container_inspect(container, none_if_not_exists=True)
-    if not container_metadata:
+def get_container_metadata(job):
+    metadata = docker.container_inspect(container_name(job), none_if_not_exists=True)
+    if not metadata:
         raise JobError("Job container has vanished")
-    redact_environment_variables(container_metadata)
-    with open(output_dir / "docker_metadata.json", "w") as f:
-        json.dump(container_metadata, f, indent=2)
-    # Dump Docker logs
-    log.info("Writing out Docker logs")
-    docker.write_logs_to_file(container, output_dir / "logs.txt")
-    # Extract specified outputs
-    patterns = get_glob_patterns_from_spec(job.output_spec)
-    all_matches = docker.glob_volume_files(volume, patterns)
+    redact_environment_variables(metadata)
+    return metadata
+
+
+def find_matching_outputs(job):
+    """
+    Returns a dict mapping output filenames to their privacy level, plus a list
+    of any patterns that had no matches at all
+    """
+    all_patterns = []
+    for privacy_level, named_patterns in job.output_spec.items():
+        for name, pattern in named_patterns.items():
+            all_patterns.append(pattern)
+    all_matches = docker.glob_volume_files(volume_name(job), all_patterns)
     unmatched_patterns = []
-    output_manifest = {}
-    for pattern in patterns:
-        files = all_matches[pattern]
-        if not files:
-            unmatched_patterns.append(pattern)
-        for filename in files:
-            dest_filename = output_dir / "outputs" / filename
-            dest_filename.parent.mkdir(parents=True, exist_ok=True)
-            # Only copy filles we haven't copied already: this means that if we
-            # get interrupted while copying out several large files we don't
-            # need to start again from scratch when we resume
-            tmp_filename = dest_filename.with_suffix(".partial.tmp")
-            if not dest_filename.exists():
-                log.info(f"Copying {volume}:{filename} to {dest_filename}")
-                docker.copy_from_volume(volume, filename, tmp_filename)
-                tmp_filename.rename(dest_filename)
-            output_manifest[filename] = {"size": dest_filename.stat().st_size}
-    # Dump a record of all output files and their sizes
-    log.info(f"Writing output manifest for {len(output_manifest)} files")
-    with open(output_dir / "output_manifest.json", "w") as f:
-        json.dump(output_manifest, f, indent=2)
-    # Raise errors if appropriate
-    if container_metadata["State"]["ExitCode"] != 0:
-        raise JobError("Job exited with an error code")
-    if unmatched_patterns:
-        unmatched_pattern_str = ", ".join(f"'{p}'" for p in unmatched_patterns)
-        raise JobError(f"No outputs found matching {unmatched_pattern_str}")
+    outputs = {}
+    for privacy_level, named_patterns in job.output_spec.items():
+        for name, pattern in named_patterns.items():
+            filenames = all_matches[pattern]
+            if not filenames:
+                unmatched_patterns.append(pattern)
+            for filename in filenames:
+                outputs[filename] = privacy_level
+    return outputs, unmatched_patterns
 
 
-def save_internal_metadata(job, output_dir, error):
+def get_job_metadata(job, container_metadata, outputs, error):
     """
-    Saves a blob of JSON which includes the internal state of the job, and also
-    the associated JobRequest (exactly as it was received from the job-server).
-    This means that if the job-server includes data on e.g which user kicked
-    off the job then this will be preserved on disk along with the job outputs.
+    Returns a JSON-serializable dict including everything we know about a job
     """
-    log.info("Saving internal job metadata")
-    # There's a slight structural infelicity here: what we really want on disk
-    # is the final state of the job. But the job won't transition into its
-    # final state until after we've finished writing all the outputs. So
-    # there's a little bit of duplication of the logic in `jobrunner.run` here
-    # to anticpate what the final state will be.
+    # There's a structural infelicity here that's hard to work around: what we
+    # need to write to disk is the final state of the job (i.e. did it succeed
+    # or fail and how long did it take). But the job won't transition into its
+    # final state until after we've finished writing all the outputs and return
+    # to the main run loop. (And it's important that only the main run loop
+    # gets to set the job's state.) So there's a little bit of duplication of
+    # the logic in `jobrunner.run` here to anticpate what the final state will
+    # be.
+    final_job = copy.copy(job)
     if error:
-        final_job = dataclasses.replace(
-            job, status=State.FAILED, status_message=f"{type(error).__name__}: {error}"
-        )
+        final_job.status = State.FAILED
+        final_job.status_message = f"{type(error).__name__}: {error}"
     else:
-        final_job = dataclasses.replace(
-            job, status=State.SUCCEEDED, status_message="Completed successfully"
-        )
-        # Create a marker file which we can use to easily determine if this
-        # directory contains the outputs of a successful job which we can then
-        # use elsewhere
-        output_dir.joinpath(SUCCESS_MARKER_FILE).touch()
+        final_job.status = State.SUCCEEDED
+        final_job.status_message = "Completed successfully"
     final_job.completed_at = int(time.time())
     job_metadata = final_job.asdict()
     job_request = find_where(SavedJobRequest, id=final_job.job_request_id)[0]
     job_metadata["job_request"] = job_request.original
-    with open(output_dir / "job_metadata.json", "w") as f:
-        json.dump(job_metadata, f, indent=2)
+    job_metadata["job_id"] = job_metadata["id"]
+    job_metadata["run_by_user"] = job_metadata["job_request"].get("created_by")
+    job_metadata["docker_image_id"] = container_metadata["Image"]
+    job_metadata["outputs"] = outputs
+    job_metadata["container_metadata"] = container_metadata
+    return job_metadata
+
+
+def write_log_file(job, job_metadata, filename):
+    """
+    This dumps the (timestamped) Docker logs for a job to disk, followed by
+    some useful metadata about the job and its outputs
+    """
+    filename.parent.mkdir(parents=True, exist_ok=True)
+    docker.write_logs_to_file(container_name(job), filename)
+    sorted_outputs = sorted(
+        (privacy_level, name)
+        for (name, privacy_level) in job_metadata["outputs"].items()
+    )
+    with open(filename, "a") as f:
+        f.write("\n\n")
+        for key in [
+            "status",
+            "status_message",
+            "commit",
+            "docker_image_id",
+            "job_id",
+            "run_by_user",
+            "created_at",
+            "started_at",
+            "completed_at",
+        ]:
+            f.write(f"{key}: {job_metadata[key]}\n")
+        f.write("\noutputs:\n")
+        for privacy_level, name in sorted_outputs:
+            f.write(f"  {privacy_level} - {name}\n")
 
 
 # Environment variables whose values do not need to be hidden from the debug
@@ -235,70 +310,14 @@ def redact_environment_variables(container_metadata):
     container_metadata["Config"]["Env"] = redacted_vars
 
 
-def copy_logs_and_metadata_to_log_dir(job, data_dir):
-    """
-    Ideally we'd keep all the output, logs, and metadata for every job and the
-    workspace would just contain symlinks to the current version. Unfortunately
-    Windows make this impractical. However the logs and metadata are small
-    enough that we can copy these into separate log directories that we do keep
-    around longer term.
-    """
+def get_log_dir(job):
     # Split log directory up by month to make things slightly more manageable
     month_dir = datetime.date.today().strftime("%Y-%m")
-    log_dir = config.JOB_LOG_DIR / month_dir / container_name(job)
-    log.info(f"Copying logs and metadata to {log_dir}")
-    log_dir.mkdir(parents=True, exist_ok=True)
-    for filename in (
-        "docker_metadata.json",
-        "job_metadata.json",
-        "output_manifest.json",
-        "logs.txt",
-    ):
-        copy_file(data_dir / filename, log_dir / filename)
-
-
-def copy_medium_privacy_data(job, source_dir):
-    """
-    Copies (rather than moves) all outputs specified as medium privacy to the
-    medium privacy workspace. This does mean duplicate copies of the data but
-    there's a big advantage in terms of operational simplicity and user
-    experience to having the high privacy workspace contain all the outputs (of
-    all privacy levels) in one place. It's also reasonable to assume that, by
-    their nature, medium privacy outputs will be smaller than high privacy ones
-    as they shouldn't contain large amounts of patient data.
-
-    Along with the output files we also copy (some of) the metadata and logs to
-    aid with debugging.
-    """
-    output_dir = medium_privacy_output_dir(job)
-    dest_dir = output_dir.with_suffix(f".{job.id}.tmp")
-    # We're copying most of the metadata here, the exception currently being
-    # the Docker metadata which is probably of limited use to L4 users. We are
-    # including a manifest giving the names and sizes of all output files
-    # (including the high privacy ones) although obviously only the medium
-    # privacy files have their contents copied as well. These seems like a
-    # reasonably balance between helping debugging and maintaining L3 privacy.
-    files_to_copy = {
-        source_dir / "job_metadata.json",
-        source_dir / "logs.txt",
-        source_dir / "output_manifest.json",
-    }
-    patterns = get_glob_patterns_from_spec(job.output_spec, "moderately_sensitive")
-    for pattern in patterns:
-        files_to_copy.update(source_dir.joinpath("outputs").glob(pattern))
-    for source_file in files_to_copy:
-        if source_file.is_dir():
-            continue
-        relative_path = source_file.relative_to(source_dir)
-        dest_file = dest_dir / relative_path
-        dest_file.parent.mkdir(parents=True, exist_ok=True)
-        copy_file(source_file, dest_file)
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-    dest_dir.rename(output_dir)
+    return config.JOB_LOG_DIR / month_dir / container_name(job)
 
 
 def copy_file(source, dest):
+    dest.parent.mkdir(parents=True, exist_ok=True)
     # shutil.copy() should be reasonably efficient in Python 3.8+, but if we
     # need to stick with 3.7 for some reason we could replace this with a
     # shellout to `cp`. See:
@@ -306,49 +325,90 @@ def copy_file(source, dest):
     shutil.copy(source, dest)
 
 
-def get_glob_patterns_from_spec(output_spec, privacy_level=None):
+def delete_files(directory, filenames):
+    for filename in filenames:
+        try:
+            directory.joinpath(filename).unlink()
+        # On py3.8 we can use the `missing_ok=True` argument to unlink()
+        except FileNotFoundError:
+            pass
+
+
+def outputs_exist(workspace, action):
+    try:
+        list_outputs_from_action(workspace, action)
+        return True
+    except MissingOutputError:
+        return False
+
+
+def list_outputs_from_action(workspace, action, ignore_errors=False):
+    directory = config.HIGH_PRIVACY_WORKSPACES_DIR / workspace
+    files = {}
+    try:
+        manifest = read_manifest_file(directory)
+        files = manifest["files"]
+        success = manifest["actions"][action]["status"] == State.SUCCEEDED.name.lower()
+    except KeyError:
+        success = False
+    if not ignore_errors and not success:
+        raise MissingOutputError(f"No successful outputs from {action}")
+    output_files = []
+    for filename, details in files.items():
+        if details["created_by_action"] == action:
+            output_files.append(filename)
+            # This would only happen if files were manually deleted from disk
+            if not ignore_errors and not directory.joinpath(filename).exists():
+                raise MissingOutputError(f"Output {filename} missing from {action}")
+    return output_files
+
+
+def read_manifest_file(workspace_dir):
     """
-    Return all glob patterns from a file output specification matching the
-    required privacy level, if supplied
+    Read the manifest of a given workspace, returning an empty manifest if none
+    found
     """
-    assert privacy_level in [None, "highly_sensitive", "moderately_sensitive"]
-    if privacy_level is None:
-        # Return all patterns across all privacy levels
-        return set().union(*[i.values() for i in output_spec.values()])
-    else:
-        return output_spec.get(privacy_level, {}).values()
+    try:
+        with open(workspace_dir / METADATA_DIR / MANIFEST_FILE) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {"files": {}, "actions": {}}
 
 
-def job_still_running(job):
-    return docker.container_is_running(container_name(job))
+def update_manifest(manifest, job_metadata):
+    action = job_metadata["action"]
+    # Popping and re-adding means it gets moved to the end of the dict so
+    # actions end up in the order they were run
+    manifest["actions"].pop(action, None)
+    manifest["actions"][action] = {
+        key: job_metadata[key]
+        for key in [
+            "status",
+            "commit",
+            "docker_image_id",
+            "job_id",
+            "run_by_user",
+            "created_at",
+            "completed_at",
+        ]
+    }
+    # Remove all files created by previous runs of this action
+    files = [
+        (name, details)
+        for (name, details) in manifest["files"].items()
+        if details["created_by_action"] != action
+    ]
+    # Add newly created files
+    for filename, privacy_level in job_metadata["outputs"].items():
+        files.append(
+            (filename, {"created_by_action": action, "privacy_level": privacy_level},)
+        )
+    files.sort()
+    manifest["files"] = dict(files)
 
 
-# We use the slug (which is the ID with some human-readable stuff prepended)
-# rather than just the opaque ID to make for easier debugging
-def container_name(job):
-    return f"job-{job.slug}"
-
-
-def volume_name(job):
-    return f"volume-{job.slug}"
-
-
-# Note: this function can accept a JobRequest in place of a Job (anything with
-# a workspace attribute will do)
-def high_privacy_output_dir(job, action=None):
-    workspace_dir = config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
-    if action is None:
-        action = job.action
-    return workspace_dir / action
-
-
-def medium_privacy_output_dir(job, action=None):
-    workspace_dir = config.MEDIUM_PRIVACY_WORKSPACES_DIR / job.workspace
-    if action is None:
-        action = job.action
-    return workspace_dir / action
-
-
-def outputs_exist(job_request, action):
-    output_dir = high_privacy_output_dir(job_request, action)
-    return output_dir.joinpath(SUCCESS_MARKER_FILE).exists()
+def write_manifest_file(workspace_dir, manifest):
+    manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
+    manifest_file_tmp = manifest_file.with_suffix(".tmp")
+    manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
+    manifest_file_tmp.rename(manifest_file)

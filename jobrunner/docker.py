@@ -89,32 +89,35 @@ def delete_volume(volume_name):
             raise
 
 
-def copy_to_volume(volume_name, directory):
+def copy_to_volume(volume_name, source, dest):
     """
     Copy the contents of `directory` to the root of the named volume
     """
+    if source.is_dir():
+        # Ensure the *contents* of the directory are copied, rather than the
+        # directory itself. See:
+        # https://docs.docker.com/engine/reference/commandline/cp/#extended-description
+        source = str(source).rstrip("/") + "/."
     subprocess.run(
         [
             "docker",
             "cp",
-            # Ensure the *contents* of the directory are copied, rather than
-            # the directory itself. See:
-            # https://docs.docker.com/engine/reference/commandline/cp/#extended-description
-            f"{str(directory).rstrip('/')}/.",
-            f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}",
+            source,
+            f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{dest}",
         ],
         check=True,
         capture_output=True,
     )
 
 
-def copy_from_volume(volume_name, source_file, dest_file):
+def copy_from_volume(volume_name, source, dest):
+    dest.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
             "docker",
             "cp",
-            f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{source_file}",
-            dest_file,
+            f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{source}",
+            dest,
         ],
         check=True,
         capture_output=True,

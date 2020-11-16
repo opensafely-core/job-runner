@@ -14,7 +14,7 @@ def test_basic_volume_interaction(tmp_path, docker_cleanup):
     docker.create_volume(volume)
     # Test no error is thrown if volume already exists
     docker.create_volume(volume)
-    docker.copy_to_volume(volume, tmp_path)
+    docker.copy_to_volume(volume, tmp_path, ".")
     matches = docker.glob_volume_files(volume, ["*.txt", "*.json"])
     assert matches == {"*.txt": ["test1.txt"], "*.json": ["test2.json"]}
     matches = docker.glob_volume_files(volume, ["subdir/*"])
