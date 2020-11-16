@@ -42,7 +42,7 @@ OPENSAFELY_POLL_INTERVAL=5
 
 # How frequently to poll internal database and Docker for the current state of
 # active jobs
-OPENSAFELY_JOB_LOOP_INTERVAL=0.5
+OPENSAFELY_JOB_LOOP_INTERVAL=1.0
 
 # Default is number of CPUs minus one. Change this to reduce parallelism
 OPENSAFELY_MAX_WORKERS=
