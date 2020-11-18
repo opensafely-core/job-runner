@@ -10,6 +10,10 @@ def test_safe_paths():
     assert utils.safe_join("/workdir", "../workdir/file.txt") == "/workdir/file.txt"
 
 
+def test_posix_windows_mixed_paths():
+    assert utils.safe_join("/workdir", "\\file.txt") == "/workdir/file.txt"
+
+
 def test_unsafe_paths_raise():
     with pytest.raises(AssertionError):
         utils.safe_join("/workdir", "../file.txt")
