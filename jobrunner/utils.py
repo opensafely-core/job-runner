@@ -50,7 +50,7 @@ def get_workdir():
 def safe_join(startdir, path):
     """Given a `startdir` and `path`, join them together, while protecting against directory traversal attacks that take us outside `startdir`
     """
-    requested_path = posixpath.normpath(posixpath.join(startdir, path))
+    requested_path = posixpath.normpath(posixpath.join(startdir, *path.split("\\")))
     startdir = str(startdir)  # Normalise from PosixPath
     assert (
         posixpath.commonprefix([requested_path, startdir]) == startdir
