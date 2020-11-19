@@ -110,7 +110,7 @@ def mark_job_as_failed(job, error):
 
 
 def mark_job_as_running(job):
-    set_state(job, State.RUNNING, "Started")
+    set_state(job, State.RUNNING, "Running")
 
 
 def mark_job_as_completed(job):
@@ -157,7 +157,7 @@ def set_message(job, message):
         # is still running" messages, but it is useful to have semi-regular
         # confirmations in the logs that it is still running. The below will
         # log approximately once every 10 minutes.
-        if datetime.fromtimestamp(timestamp).minute % 10:
+        if datetime.datetime.fromtimestamp(timestamp).minute % 10:
             log.info(job.status_message)
 
 

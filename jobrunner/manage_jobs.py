@@ -21,7 +21,11 @@ from . import docker
 from .database import find_where
 from .git import checkout_commit
 from .models import SavedJobRequest, State
-from .project import is_generate_cohort_command
+from .project import (
+    is_generate_cohort_command,
+    get_all_output_patterns_from_project_file,
+)
+from .path_utils import list_dir_with_ignore_patterns
 
 
 log = logging.getLogger(__name__)
@@ -61,13 +65,20 @@ def start_job(job):
     # Prepend registry name
     image = action_args[0]
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
+    # Check the image exists locally and do the appropriate thing.
     # Newer versions of docker-cli support `--pull=never` as an argument to
     # `docker run` which would make this simpler, but it looks like it will be
     # a while before this makes it to Docker for Windows:
     # https://github.com/docker/cli/pull/1498
     if not docker.image_exists_locally(full_image):
-        log.info(f"Image {full_image} not found locally (might need to docker pull)")
-        raise JobError(f"Docker image {image} is not currently available")
+        if not config.LOCAL_RUN_MODE:
+            log.info(f"Image not found, may need to run: docker pull {full_image}")
+            raise JobError(f"Docker image {image} is not currently available")
+        else:
+            log.info(f"Fetching docker image: {full_image}")
+            log.info("This may take some time...")
+            docker.pull(full_image)
+    # Start the container
     docker.run(
         container_name(job),
         [full_image] + action_args[1:],
@@ -75,14 +86,21 @@ def start_job(job):
         env=env,
         allow_network_access=allow_network_access,
     )
+    log.info("Started container")
+    log.info(f"View live logs using: docker logs -f {container_name(job)}")
 
 
 def create_and_populate_volume(job):
+    if config.LOCAL_RUN_MODE:
+        return create_and_populate_volume_from_local_workspace(job)
+
     input_files = []
     for action in job.requires_outputs_from:
-        input_files.extend(list_outputs_from_action(job.workspace, action))
+        input_files.extend(list_outputs_from_action(job, action))
+
     volume = volume_name(job)
     docker.create_volume(volume)
+
     log.info(f"Copying in code from {job.repo_url}@{job.commit}")
     # git-archive will create a tarball on stdout and docker cp will accept a
     # tarball on stdin, so if we wanted to we could do this all without a
@@ -98,9 +116,54 @@ def create_and_populate_volume(job):
         for directory in directories:
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
         docker.copy_to_volume(volume, tmpdir, ".")
-    workspace_dir = config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
+
+    workspace_dir = get_high_privacy_workspace(job)
     for filename in input_files:
-        log.info(f"Copying in {filename}")
+        log.info(f"Copying input file: {filename}")
+        docker.copy_to_volume(volume, workspace_dir / filename, filename)
+    return volume
+
+
+def create_and_populate_volume_from_local_workspace(job):
+    assert config.LOCAL_RUN_MODE
+    workspace_dir = get_high_privacy_workspace(job)
+
+    # To mimic a production run, we only want output files to appear in the
+    # volume if they were produced by an explicitly listed dependency. So
+    # before copying in the code we get a list of all output patterns in the
+    # project and ignore any files matching these patterns
+    project_file = workspace_dir / "project.yaml"
+    ignore_patterns = get_all_output_patterns_from_project_file(project_file)
+    ignore_patterns.extend([".git", METADATA_DIR])
+    code_files = list_dir_with_ignore_patterns(workspace_dir, ignore_patterns)
+
+    input_files = []
+    for action in job.requires_outputs_from:
+        input_files.extend(list_outputs_from_action(job, action))
+
+    volume = volume_name(job)
+    docker.create_volume(volume)
+
+    # Because `docker cp` can't create parent directories automatically, we
+    # need to make sure empty parent directories exist for all the files we're
+    # going to copy in. For now we do this by actually creating a bunch of
+    # empty dirs in a temp directory. It should be possible to do this using
+    # the `tarfile` module to talk directly to `docker cp` stdin if we care
+    # enough.
+    directories = set(Path(filename).parent for filename in input_files + code_files)
+    directories.discard(Path("."))
+    if directories:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            for directory in directories:
+                tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
+            docker.copy_to_volume(volume, tmpdir, ".")
+
+    log.info(f"Copying in code from {workspace_dir}")
+    for filename in code_files:
+        docker.copy_to_volume(volume, workspace_dir / filename, filename)
+    for filename in input_files:
+        log.info(f"Copying input file: {filename}")
         docker.copy_to_volume(volume, workspace_dir / filename, filename)
     return volume
 
@@ -127,22 +190,13 @@ def finalise_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
 
-    # Extract outputs to workspaces
-    high_privacy_dir = config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
-    med_privacy_dir = config.MEDIUM_PRIVACY_WORKSPACES_DIR / job.workspace
-    volume = volume_name(job)
-    for filename, privacy_level in outputs.items():
-        docker.copy_from_volume(volume, filename, high_privacy_dir / filename)
-        if privacy_level == "moderately_sensitive":
-            copy_file(high_privacy_dir / filename, med_privacy_dir / filename)
-
     # Error handling is slightly tricky here: for most classes of error we
     # still want to extract outputs and logs for debugging purposes, so we
     # can't just raise an exception at this point. But we need to know now if
     # there are any errors so we can write the appropriate state to disk.  So
     # we create the error here, pass it to `get_job_metadata` so it can persist
     # the correct state, run all the extraction code, and then raise the
-    # exception at the end once we've updated everything.
+    # exception at the end once we're done.
     if container_metadata["State"]["ExitCode"] != 0:
         error = JobError("Job exited with an error code")
     elif unmatched_patterns:
@@ -160,34 +214,51 @@ def finalise_job(job):
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
 
-    # Copy logs to workspaces
-    copy_file(
-        log_dir / "logs.txt", high_privacy_dir / METADATA_DIR / f"{job.action}.log"
-    )
-    copy_file(
-        log_dir / "logs.txt", med_privacy_dir / METADATA_DIR / f"{job.action}.log"
-    )
+    # Copy logs to workspace
+    workspace_dir = get_high_privacy_workspace(job)
+    metadata_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
+    copy_file(log_dir / "logs.txt", metadata_log_file)
+    log.info(f"Logs written to: {metadata_log_file}")
+
+    # Extract outputs to workspace
+    volume = volume_name(job)
+    for filename in outputs.keys():
+        log.info(f"Extracting output file: {filename}")
+        docker.copy_from_volume(volume, filename, workspace_dir / filename)
 
     # Delete outputs from previous run of action
-    existing_files = list_outputs_from_action(
-        job.workspace, job.action, ignore_errors=True
-    )
+    existing_files = list_outputs_from_action(job, job.action, ignore_errors=True)
     files_to_remove = set(existing_files) - set(outputs)
-    delete_files(high_privacy_dir, files_to_remove)
-    delete_files(med_privacy_dir, files_to_remove)
+    delete_files(workspace_dir, files_to_remove)
 
     # Update manifest
-    manifest = read_manifest_file(high_privacy_dir)
+    manifest = read_manifest_file(workspace_dir)
     update_manifest(manifest, job_metadata)
-    write_manifest_file(high_privacy_dir, manifest)
-    write_manifest_file(med_privacy_dir, manifest)
+
+    # Copy out logs and medium privacy files
+    medium_privacy_dir = get_medium_privacy_workspace(job)
+    if medium_privacy_dir:
+        copy_file(
+            workspace_dir / METADATA_DIR / f"{job.action}.log",
+            medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
+        )
+        for filename, privacy_level in outputs.items():
+            if privacy_level == "moderately_sensitive":
+                copy_file(workspace_dir / filename, medium_privacy_dir / filename)
+        delete_files(medium_privacy_dir, files_to_remove)
+        write_manifest_file(medium_privacy_dir, manifest)
+
+    # Don't update the primary manifest until after we've deleted old files
+    # from both the high and medium privacy directories, else we risk losing
+    # track of old files if we get interrupted
+    write_manifest_file(workspace_dir, manifest)
 
     if error:
         raise error
 
 
 def cleanup_job(job):
-    log.info("Deleting container and volume")
+    log.info("Cleaning up container and volume")
     docker.delete_container(container_name(job))
     docker.delete_volume(volume_name(job))
 
@@ -241,9 +312,12 @@ def get_job_metadata(job, container_metadata, outputs, error):
     else:
         final_job.status = State.SUCCEEDED
         final_job.status_message = "Completed successfully"
+    # This won't exactly match the final `completed_at` time which doesn't get
+    # set until the entire job has finished processing
     final_job.completed_at = int(time.time())
     job_metadata = final_job.asdict()
     job_request = find_where(SavedJobRequest, id=final_job.job_request_id)[0]
+    # The original job_request, exactly as received from the job-server
     job_metadata["job_request"] = job_request.original
     job_metadata["job_id"] = job_metadata["id"]
     job_metadata["run_by_user"] = job_metadata["job_request"].get("created_by")
@@ -334,16 +408,16 @@ def delete_files(directory, filenames):
             pass
 
 
-def outputs_exist(workspace, action):
+def outputs_exist(job, action):
     try:
-        list_outputs_from_action(workspace, action)
+        list_outputs_from_action(job, action)
         return True
     except MissingOutputError:
         return False
 
 
-def list_outputs_from_action(workspace, action, ignore_errors=False):
-    directory = config.HIGH_PRIVACY_WORKSPACES_DIR / workspace
+def list_outputs_from_action(job, action, ignore_errors=False):
+    directory = get_high_privacy_workspace(job)
     files = {}
     try:
         manifest = read_manifest_file(directory)
@@ -377,21 +451,6 @@ def read_manifest_file(workspace_dir):
 
 def update_manifest(manifest, job_metadata):
     action = job_metadata["action"]
-    # Popping and re-adding means it gets moved to the end of the dict so
-    # actions end up in the order they were run
-    manifest["actions"].pop(action, None)
-    manifest["actions"][action] = {
-        key: job_metadata[key]
-        for key in [
-            "status",
-            "commit",
-            "docker_image_id",
-            "job_id",
-            "run_by_user",
-            "created_at",
-            "completed_at",
-        ]
-    }
     # Remove all files created by previous runs of this action
     files = [
         (name, details)
@@ -405,6 +464,21 @@ def update_manifest(manifest, job_metadata):
         )
     files.sort()
     manifest["files"] = dict(files)
+    # Popping and re-adding means the action gets moved to the end of the dict
+    # so actions end up in the order they were run
+    manifest["actions"].pop(action, None)
+    manifest["actions"][action] = {
+        key: job_metadata[key]
+        for key in [
+            "status",
+            "commit",
+            "docker_image_id",
+            "job_id",
+            "run_by_user",
+            "created_at",
+            "completed_at",
+        ]
+    }
 
 
 def write_manifest_file(workspace_dir, manifest):
@@ -412,3 +486,17 @@ def write_manifest_file(workspace_dir, manifest):
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.rename(manifest_file)
+
+
+def get_high_privacy_workspace(job):
+    if not config.LOCAL_RUN_MODE:
+        return config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
+    else:
+        return Path(job.repo_url)
+
+
+def get_medium_privacy_workspace(job):
+    if not config.LOCAL_RUN_MODE:
+        return config.MEDIUM_PRIVACY_WORKSPACES_DIR / job.workspace
+    else:
+        return None

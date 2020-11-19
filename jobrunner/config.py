@@ -53,3 +53,6 @@ DATABASE_URLS = {
 TEMP_DATABASE_NAME = os.environ.get("TEMP_DATABASE_NAME")
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
+
+# See `local_run.py` for more detail
+LOCAL_RUN_MODE = False

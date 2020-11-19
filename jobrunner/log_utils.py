@@ -13,22 +13,33 @@ import sys
 import threading
 
 
-def configure_logging():
+def configure_logging(show_action_name_only=False):
     handler = logging.StreamHandler()
     handler.addFilter(set_log_context)
-    handler.setFormatter(JobRunnerFormatter("{context}{message}", style="{"))
+    handler.setFormatter(
+        JobRunnerFormatter(
+            "{context}{message}", style="{", show_action_name_only=show_action_name_only
+        )
+    )
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
     sys.excepthook = show_subprocess_stderr
 
 
 class JobRunnerFormatter(logging.Formatter):
+    def __init__(self, *args, show_action_name_only=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.show_action_name_only = show_action_name_only
+
     def format(self, record):
         """
         Set the `context` record attribute to a string giving the current job
         or job request we're processing
         """
         if hasattr(record, "job"):
-            context = f"job#{record.job.slug}: "
+            if self.show_action_name_only:
+                context = f"{record.job.action}: "
+            else:
+                context = f"job#{record.job.slug}: "
         elif hasattr(record, "job_request"):
             context = f"job_request#{record.job_request.id}: "
         else:

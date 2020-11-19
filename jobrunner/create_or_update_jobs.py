@@ -5,6 +5,7 @@ It handles all logic connected with creating or updating Jobs in response to
 JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
+from pathlib import Path
 import time
 
 from . import config
@@ -65,9 +66,12 @@ def create_jobs(job_request):
         job_request.commit = get_sha_from_remote_ref(
             job_request.repo_url, job_request.branch
         )
-    project_file = read_file_from_repo(
-        job_request.repo_url, job_request.commit, "project.yaml"
-    )
+    if not config.LOCAL_RUN_MODE:
+        project_file = read_file_from_repo(
+            job_request.repo_url, job_request.commit, "project.yaml"
+        )
+    else:
+        project_file = Path(job_request.repo_url).joinpath("project.yaml").read_bytes()
     # Do most of the work in a separate function which never needs to talk to
     # git, for easier testing
     create_jobs_with_project_file(job_request, project_file)
@@ -91,7 +95,7 @@ def create_jobs_with_project_file(job_request, project_file):
             if job.job_request_id == job_request.id:
                 new_job_scheduled = True
         if not new_job_scheduled:
-            raise JobRequestError("All requested actions are already scheduled to run")
+            raise JobRequestError("All requested actions were already scheduled to run")
 
 
 def recursively_add_jobs(job_request, project, action, force_run_actions):
@@ -108,7 +112,7 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
     # Return an empty job if the outputs already exist and we're not forcing a
     # run
     if force_run_actions != "*" and action not in force_run_actions:
-        if outputs_exist(job_request.workspace, action):
+        if outputs_exist(job_request, action):
             return
 
     action_spec = get_action_specification(project, action)
