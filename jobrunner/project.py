@@ -210,6 +210,15 @@ def is_generate_cohort_command(args):
     return False
 
 
+def get_all_output_patterns_from_project_file(project_file):
+    project = parse_and_validate_project_file(project_file)
+    all_patterns = set()
+    for action in project["actions"].values():
+        for patterns in action["outputs"].values():
+            all_patterns.update(patterns.values())
+    return list(all_patterns)
+
+
 def get_output_dirs(output_spec):
     """
     Given the set of output files specified by an action, return a list of the

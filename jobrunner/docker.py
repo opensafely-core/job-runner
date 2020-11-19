@@ -268,3 +268,9 @@ def write_logs_to_file(container_name, filename):
             stdout=subprocess.PIPE,
             stderr=f,
         )
+
+
+def pull(image):
+    # We're deliberately not capturing output here as this is only used in
+    # local run mode were we want to see Docker's output in the terminal
+    subprocess.run(["docker", "pull", image], check=True)
