@@ -28,6 +28,33 @@ jobs:
         password: ${{ secrets.OPENSAFELY_DOCKER_PASSWORD }}
     - name: Run actual tests
       run: python -m pytest
+
+  # A bit of inelegant copy/paste here, just to see if this works
+  test_job_windows:
+    runs-on: windows-2019
+    name: "Run test suite on Windows"
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.dev.txt
+    - name: Docker Login
+      uses: azure/docker-login@v1
+      with:
+        # It seems we can't do this with the standard GITHUB_TOKEN, but
+        # have to use a personal token with the correct permissions instead
+        login-server: docker.opensafely.org
+        username: docker
+        password: ${{ secrets.OPENSAFELY_DOCKER_PASSWORD }}
+    - name: Run actual tests
+      run: python -m pytest
+
   test-package-build:
     runs-on: ubuntu-latest
     name: Test we can build PyPI package
