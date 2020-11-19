@@ -1,6 +1,14 @@
 """
-Development utility for creating and submittng a JobRequest (and optionally
+Development utility for creating and submitting a JobRequest (and optionally
 running the main loop until all jobs have terminated).
+
+This is similar to, but distinct from, the `local_run` script, which is intended
+for end users to run their projects locally. Rather this is intended for
+developers who want to add and run jobs locally in as similar as possible a
+manner to production.
+
+In particular, it can only run code commited to a git repository and it uses a
+persistent database rather than creating and discarding one for each run.
 """
 import argparse
 import dataclasses
@@ -85,7 +93,7 @@ def display_obj(obj):
 
 if __name__ == "__main__":
     configure_logging()
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument("repo_url", help="URL (or local path) of git repository")
     parser.add_argument("action", help="Name of project action to run")
     parser.add_argument(

@@ -86,7 +86,7 @@ def start_job(job):
         env=env,
         allow_network_access=allow_network_access,
     )
-    log.info("Started container")
+    log.info("Started")
     log.info(f"View live logs using: docker logs -f {container_name(job)}")
 
 
@@ -489,14 +489,11 @@ def write_manifest_file(workspace_dir, manifest):
 
 
 def get_high_privacy_workspace(job):
-    if not config.LOCAL_RUN_MODE:
-        return config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
-    else:
-        return Path(job.repo_url)
+    return config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
 
 
 def get_medium_privacy_workspace(job):
-    if not config.LOCAL_RUN_MODE:
+    if config.MEDIUM_PRIVACY_WORKSPACES_DIR:
         return config.MEDIUM_PRIVACY_WORKSPACES_DIR / job.workspace
     else:
         return None

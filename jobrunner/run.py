@@ -55,7 +55,7 @@ def handle_pending_job(job):
             set_message(job, "Waiting for available workers")
         else:
             try:
-                set_message(job, "Starting")
+                set_message(job, "Preparing")
                 start_job(job)
             except JobError as exception:
                 mark_job_as_failed(job, exception)
