@@ -28,6 +28,9 @@ def configure_logging(show_action_name_only=False):
 class JobRunnerFormatter(logging.Formatter):
     def __init__(self, *args, show_action_name_only=False, **kwargs):
         super().__init__(*args, **kwargs)
+        # This gives us the option to show just a job's action name, rather
+        # than its full slug in the log output, which is useful when running
+        # locally to avoid clutter in the output
         self.show_action_name_only = show_action_name_only
 
     def format(self, record):

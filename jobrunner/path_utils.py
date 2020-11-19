@@ -2,9 +2,18 @@ import os
 
 
 def list_dir_with_ignore_patterns(directory, ignore_patterns):
+    """
+    Given a directory and list of glob patterns, return all paths in that
+    directory which don't match any of the glob patterns.
+
+    Note that this function won't descend further than it needs to so, for
+    instance, if there is a top level directory "foo" and no ignore pattern
+    begins with "foo/" then it will return "foo" without iterating any of the
+    files or sub-directories within it.
+    """
     matches = []
     for pattern in ignore_patterns:
-        matches.extend(directory.glob(escape_globs(pattern)))
+        matches.extend(directory.glob(pattern))
     match_tree = {}
     for match in matches:
         relative_match = match.relative_to(directory)
@@ -28,8 +37,3 @@ def _iter_dir(directory, match_tree):
         # Otherwise filter this subdirectory using the subtree
         else:
             yield from _iter_dir(item, subtree)
-
-
-def escape_globs(pattern):
-    # TODO
-    return pattern
