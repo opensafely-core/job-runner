@@ -92,8 +92,8 @@ def main(project_dir, actions, force_run_dependencies=False):
         print("\nCleaning up Docker containers and volumes ...")
         raise
     finally:
-        delete_docker_entities("container", docker_label)
-        delete_docker_entities("volume", docker_label)
+        delete_docker_entities("container", docker_label, ignore_errors=True)
+        delete_docker_entities("volume", docker_label, ignore_errors=True)
         shutil.rmtree(internal_work_dir)
 
     # Get the full list of outputs created by each action
@@ -127,7 +127,8 @@ def tabulate(rows, spacing=2, indent=0):
     return "\n".join(format_str.format(*row) for row in rows)
 
 
-def delete_docker_entities(entity, label):
+# Copied from test/conftest.py to avoid a more complex dependency tree
+def delete_docker_entities(entity, label, ignore_errors=False):
     ls_args = [
         "docker",
         entity,
@@ -138,11 +139,13 @@ def delete_docker_entities(entity, label):
         "--quiet",
     ]
     ls_args = list(filter(None, ls_args))
-    response = subprocess.run(ls_args, capture_output=True, encoding="ascii")
+    response = subprocess.run(
+        ls_args, capture_output=True, encoding="ascii", check=not ignore_errors
+    )
     ids = response.stdout.split()
     if ids and response.returncode == 0:
         rm_args = ["docker", entity, "rm", "--force"] + ids
-        subprocess.run(rm_args, capture_output=True)
+        subprocess.run(rm_args, capture_output=True, check=not ignore_errors)
 
 
 if __name__ == "__main__":

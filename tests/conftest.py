@@ -43,11 +43,21 @@ def docker_cleanup():
     monkeypatch.undo()
 
 
-def delete_docker_entities(entity, label):
-    extra_arg = "--all" if entity == "container" else ""
-    subprocess.run(
-        f"docker {entity} ls {extra_arg} --filter label={label} --quiet "
-        f"| xargs --no-run-if-empty docker {entity} rm --force",
-        check=True,
-        shell=True,
+def delete_docker_entities(entity, label, ignore_errors=False):
+    ls_args = [
+        "docker",
+        entity,
+        "ls",
+        "--all" if entity == "container" else None,
+        "--filter",
+        f"label={label}",
+        "--quiet",
+    ]
+    ls_args = list(filter(None, ls_args))
+    response = subprocess.run(
+        ls_args, capture_output=True, encoding="ascii", check=not ignore_errors
     )
+    ids = response.stdout.split()
+    if ids and response.returncode == 0:
+        rm_args = ["docker", entity, "rm", "--force"] + ids
+        subprocess.run(rm_args, capture_output=True, check=not ignore_errors)
