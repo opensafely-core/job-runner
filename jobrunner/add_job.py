@@ -54,7 +54,7 @@ def submit_job_request(
         dict(
             id=Job.new_id(),
             sha=commit,
-            workspace=dict(id=workspace, repo=repo_url, branch=branch, db=database),
+            workspace=dict(name=workspace, repo=repo_url, branch=branch, db=database),
             requested_actions=[action],
             force_run_dependencies=force_run_dependencies,
         )
