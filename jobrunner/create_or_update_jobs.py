@@ -113,7 +113,7 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
     # Return an empty job if the outputs already exist and we're not forcing a
     # run
     if force_run_actions != "*" and action not in force_run_actions:
-        if outputs_exist(job_request, action):
+        if outputs_exist(job_request.workspace, action):
             return
 
     action_spec = get_action_specification(project, action)
