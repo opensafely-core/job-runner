@@ -41,7 +41,7 @@ from .subprocess_utils import subprocess_run
 
 def main(project_dir, actions, force_run_dependencies=False):
     project_dir = Path(project_dir).resolve()
-    internal_work_dir = project_dir / METADATA_DIR / ".internal"
+    temp_log_dir = project_dir / METADATA_DIR / ".logs"
     # Generate unique docker label to use for all volumes and containers we
     # create during this run in order to make cleanup easy
     docker_label = "job-runner-local-{}".format(
@@ -51,14 +51,14 @@ def main(project_dir, actions, force_run_dependencies=False):
 
     # Configure
     config.LOCAL_RUN_MODE = True
-    config.WORK_DIR = internal_work_dir
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
-    config.DATABASE_FILE = internal_work_dir / "db.sqlite"
-    config.JOB_LOG_DIR = internal_work_dir / "logs"
+    config.DATABASE_FILE = ":memory:"
+    config.JOB_LOG_DIR = temp_log_dir
     config.BACKEND = "expectations"
     config.USING_DUMMY_DATA_BACKEND = True
 
     # None of the below should be used when running locally
+    config.WORK_DIR = None
     config.TMP_DIR = None
     config.GIT_REPO_DIR = None
     config.HIGH_PRIVACY_STORAGE_BASE = None
@@ -94,7 +94,7 @@ def main(project_dir, actions, force_run_dependencies=False):
     finally:
         delete_docker_entities("container", docker_label, ignore_errors=True)
         delete_docker_entities("volume", docker_label, ignore_errors=True)
-        shutil.rmtree(internal_work_dir)
+        shutil.rmtree(temp_log_dir)
 
     # Get the full list of outputs created by each action
     manifest = read_manifest_file(project_dir)
