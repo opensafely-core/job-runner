@@ -5,15 +5,17 @@ import json
 import re
 import subprocess
 
+from . import config
 from .subprocess_utils import subprocess_run
 
 
 # Docker requires a container in order to interact with volumes, but it doesn't
 # much matter what it is for our purposes as long as it has `sh` and `find`.
-# We're using the job-runner image here because we know that will already exist
-# in the production environment but it's a bit heavyweight for this. Something
-# like "busybox" would be ideal really.
-MANAGEMENT_CONTAINER_IMAGE = "docker.opensafely.org/job-runner"
+# We're using the cohortextractor image here because that's one which ought to
+# be present in any environment in which the job-runner is running.  But it's a
+# bit heavyweight for this purpose. Something like "busybox" would be ideal
+# really, if we could push a copy of that to our own registry.
+MANAGEMENT_CONTAINER_IMAGE = f"{config.DOCKER_REGISTRY}/cohortextractor"
 
 # This path is pretty arbitrary: it sets where we mount volumes inside their
 # management containers (which are used for copying files in and out), but this
