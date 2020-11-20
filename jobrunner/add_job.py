@@ -108,7 +108,9 @@ if __name__ == "__main__":
         help="Git branch or ref to use if no commit supplied (default HEAD)",
         default="HEAD",
     )
-    parser.add_argument("--workspace", help="Workspace ID (default 1)", default="1")
+    parser.add_argument(
+        "--workspace", help="Workspace ID (default 'test')", default="test"
+    )
     parser.add_argument(
         "--database", help="Database name (default 'dummy')", default="dummy"
     )
