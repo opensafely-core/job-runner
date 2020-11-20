@@ -16,3 +16,4 @@ def test_local_run(tmp_path):
     assert (project_dir / "counts.txt").exists()
     assert (project_dir / "metadata/_manifest.json").exists()
     assert (project_dir / "metadata/analyse_data.log").exists()
+    assert not (project_dir / "metadata/.logs").exists()
