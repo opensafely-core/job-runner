@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 # JobRequest from the job-server to run it, and then exercises the sync and run
 # loops to run entire pipeline
 @pytest.mark.slow_test
+@pytest.mark.needs_docker
 def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
     ensure_docker_images_present("cohortextractor", "python")
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")

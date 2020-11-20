@@ -7,6 +7,7 @@ from jobrunner import local_run
 
 
 @pytest.mark.slow_test
+@pytest.mark.needs_docker
 def test_local_run(tmp_path):
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")
     project_dir = tmp_path / "project"

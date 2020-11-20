@@ -5,6 +5,9 @@ import pytest
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "slow_test: mark test as being slow running")
+    config.addinivalue_line(
+        "markers", "needs_docker: mark test as needing Docker daemon"
+    )
 
 
 @pytest.fixture
