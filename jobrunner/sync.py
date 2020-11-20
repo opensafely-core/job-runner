@@ -51,7 +51,7 @@ def api_post(*args, **kwargs):
 
 
 def api_request(method, path, *args, **kwargs):
-    url = "{}/{}".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.lstrip("/"))
+    url = "{}/{}/".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.strip("/"))
     # We could do this just once on import, but it makes changing the config in
     # tests more fiddly
     session.auth = (config.QUEUE_USER, config.QUEUE_PASS)

@@ -26,7 +26,7 @@ MEDIUM_PRIVACY_WORKSPACES_DIR = MEDIUM_PRIVACY_STORAGE_BASE / "workspaces"
 JOB_LOG_DIR = HIGH_PRIVACY_STORAGE_BASE / "logs"
 
 JOB_SERVER_ENDPOINT = os.environ.get(
-    "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api"
+    "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/"
 )
 QUEUE_USER = os.environ.get("QUEUE_USER", "user")
 QUEUE_PASS = os.environ.get("QUEUE_PASS", "pass")
