@@ -2,6 +2,7 @@
 Script which polls the job-server endpoint for active JobRequests and POSTs
 back any associated Jobs.
 """
+import logging
 import time
 
 import requests
@@ -14,6 +15,7 @@ from .models import JobRequest, Job
 
 
 session = requests.Session()
+log = logging.getLogger(__name__)
 
 
 def main():
@@ -54,6 +56,10 @@ def api_request(method, path, *args, **kwargs):
     # tests more fiddly
     session.auth = (config.QUEUE_USER, config.QUEUE_PASS)
     response = session.request(method, url, *args, **kwargs)
+
+    if response.status_code == 400:
+        log.info("job-server returned 400: %s" % response.text)
+
     response.raise_for_status()
     return response.json()
 
