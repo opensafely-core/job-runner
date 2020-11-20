@@ -451,7 +451,7 @@ def list_outputs_from_action(workspace, action, ignore_errors=False):
     if not ignore_errors:
         if status is None:
             raise ActionNotRunError(f"{action} has not been run")
-        if status != State.SUCCEEDED.name.lower():
+        if status != State.SUCCEEDED.value:
             raise ActionFailedError(f"{action} failed")
     output_files = []
     for filename, details in files.items():
