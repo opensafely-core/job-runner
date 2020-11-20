@@ -4,6 +4,7 @@ from jobrunner import docker
 
 
 @pytest.mark.slow_test
+@pytest.mark.needs_docker
 def test_basic_volume_interaction(tmp_path, docker_cleanup):
     files = ["test1.txt", "test2.json", "subdir/test3.txt", "subdir/test4.json"]
     for name in files:
