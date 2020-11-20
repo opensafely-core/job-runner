@@ -24,22 +24,25 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
     commit_directory_contents(repo_path, project_fixture)
     requests_mock.get(
         "https://jobs.opensafely.org/api/job-requests?active=true&backend=expectations",
-        json=[
-            {
-                "id": 1,
-                "requested_actions": ["analyse_data"],
-                "force_run_dependencies": False,
-                "workspace": {
-                    "name": "testing",
-                    "repo": str(repo_path),
-                    "branch": "master",
-                    "db": "dummy",
-                },
-            }
-        ],
+        json={
+            "results": [
+                {
+                    "id": 1,
+                    "requested_actions": ["analyse_data"],
+                    "force_run_dependencies": False,
+                    "workspace": {
+                        "name": "testing",
+                        "repo": str(repo_path),
+                        "branch": "master",
+                        "db": "dummy",
+                    },
+                }
+            ],
+        },
     )
     requests_mock.post(
-        "https://jobs.opensafely.org/api/jobs", json={},
+        "https://jobs.opensafely.org/api/jobs",
+        json={},
     )
     # Run sync to grab the JobRequest from the mocked job-server
     jobrunner.sync.sync()
