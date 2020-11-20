@@ -18,7 +18,7 @@ from .project import (
     ProjectValidationError,
 )
 from .models import Job, SavedJobRequest, State
-from .manage_jobs import outputs_exist
+from .manage_jobs import action_has_successful_outputs
 
 
 class JobRequestError(Exception):
@@ -110,11 +110,19 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
     if already_active_jobs:
         return already_active_jobs[0]
 
-    # Return an empty job if the outputs already exist and we're not forcing a
-    # run
+    # If we're not forcing this particular action to run...
     if force_run_actions != "*" and action not in force_run_actions:
-        if outputs_exist(job_request.workspace, action):
+        action_status = action_has_successful_outputs(job_request.workspace, action)
+        # If we have already have successful outputs for an action then return
+        # an empty job as there's nothing to do
+        if action_status is True:
             return
+        # If the action has explicitly failed then raise an error
+        elif action_status is False:
+            raise JobRequestError(
+                f"{action} failed on a previous run and must be re-run"
+            )
+        # Otherwise create the job as normal
 
     action_spec = get_action_specification(project, action)
 
