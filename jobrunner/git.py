@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 from . import config
 from .string_utils import project_name_from_url
+from .subprocess_utils import subprocess_run
 
 
 log = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ def read_file_from_repo(repo_url, commit_sha, path):
     repo_dir = get_local_repo_dir(repo_url)
     fetch_commit(repo_dir, repo_url, commit_sha)
     try:
-        response = subprocess.run(
+        response = subprocess_run(
             ["git", "show", f"{commit_sha}:{path}"],
             capture_output=True,
             check=True,
@@ -46,7 +47,7 @@ def checkout_commit(repo_url, commit_sha, target_dir):
     repo_dir = get_local_repo_dir(repo_url)
     fetch_commit(repo_dir, repo_url, commit_sha)
     os.makedirs(target_dir, exist_ok=True)
-    subprocess.run(
+    subprocess_run(
         [
             "git",
             f"--work-tree={target_dir}",
@@ -72,7 +73,7 @@ def get_sha_from_remote_ref(repo_url, ref):
     transform them into SHAs.
     """
     try:
-        response = subprocess.run(
+        response = subprocess_run(
             ["git", "ls-remote", "--quiet", "--exit-code", repo_url, ref],
             check=True,
             capture_output=True,
@@ -118,13 +119,13 @@ def get_local_repo_dir(repo_url):
 
 def fetch_commit(repo_dir, repo_url, commit_sha):
     if not os.path.exists(repo_dir / "config"):
-        subprocess.run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
+        subprocess_run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
     # It's safe to keep re-fetching the same commit, but it requires talking to
     # the remote repo every time so it's better to avoid it if we can
     elif commit_already_fetched(repo_dir, commit_sha):
         return
     try:
-        subprocess.run(
+        subprocess_run(
             ["git", "fetch", "--depth", "1", "--force", repo_url, commit_sha],
             check=True,
             capture_output=True,
@@ -137,7 +138,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
 
 
 def commit_already_fetched(repo_dir, commit_sha):
-    response = subprocess.run(
+    response = subprocess_run(
         ["git", "cat-file", "-e", f"{commit_sha}^{{commit}}"],
         capture_output=True,
         cwd=repo_dir,
