@@ -42,6 +42,14 @@ class JobError(Exception):
     pass
 
 
+class ActionNotRunError(JobError):
+    pass
+
+
+class ActionFailedError(JobError):
+    pass
+
+
 class MissingOutputError(JobError):
     pass
 
@@ -410,12 +418,25 @@ def delete_files(directory, filenames):
             pass
 
 
-def outputs_exist(workspace, action):
+def action_has_successful_outputs(workspace, action):
+    """
+    Returns True if the action ran successfully and all its outputs still exist
+    on disk.
+    Returns False if the action was run and failed.
+    Returns None if the action hasn't been run yet.
+
+    If an action _has_ run, but some of its files have been manually deleted
+    from disk we treat this as equivalent to not being run i.e. there was no
+    explicit failure with the action, but we can't treat it as having
+    successful outputs either.
+    """
     try:
         list_outputs_from_action(workspace, action)
         return True
-    except MissingOutputError:
+    except ActionFailedError:
         return False
+    except (ActionNotRunError, MissingOutputError):
+        return None
 
 
 def list_outputs_from_action(workspace, action, ignore_errors=False):
@@ -424,11 +445,14 @@ def list_outputs_from_action(workspace, action, ignore_errors=False):
     try:
         manifest = read_manifest_file(directory)
         files = manifest["files"]
-        success = manifest["actions"][action]["status"] == State.SUCCEEDED.name.lower()
+        status = manifest["actions"][action]["status"]
     except KeyError:
-        success = False
-    if not ignore_errors and not success:
-        raise MissingOutputError(f"No successful outputs from {action}")
+        status = None
+    if not ignore_errors:
+        if status is None:
+            raise ActionNotRunError(f"{action} has not been run")
+        if status != State.SUCCEEDED.name.lower():
+            raise ActionFailedError(f"{action} failed")
     output_files = []
     for filename, details in files.items():
         if details["created_by_action"] == action:
