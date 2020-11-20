@@ -235,6 +235,41 @@ with:
 python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
 ```
 
+### Testing on Windows
+
+For reasons outlined in [#76](https://github.com/opensafely/job-runner/issues/76) this
+is a bit painful. None of the tests which require talking to Docker are
+run in CI. However it is possible to run them locally assuming you have
+Windows installed in a VM and Docker running on the host. The steps are:
+
+1. Install git in the Windows VM: https://git-scm.com/download/win
+
+2. Install Python 3.7 in the Windows VM:
+   I used Python 3.7.9 [Windows x86-64 executable](https://www.python.org/ftp/python/3.7.9/python-3.7.9-amd64.exe) installer from:
+   https://www.python.org/downloads/windows/
+
+3. On the host machine, navigate to your job-runner checkout and run
+   ```sh
+   ./scripts/host-services-for-win-testing.sh
+   ```
+   This will let you VM talk to host Docker and fetch stuff from your
+   git repo so you don't need to push to github to test locally.
+   (Note you'll need `socat` installed.)
+
+4. Inside the VM, open a git-bash shell and run:
+   ```sh
+   git clone git://10.0.2.2:8343/ job-runner
+   cd job-runner
+   ./scripts/run-tests-in-windows.sh
+   ```
+   `10.0.2.2` is the default NAT gateway in Virtualbox. Port 8343 is the
+   where we set our git-daemon to listen on.
+
+   This will (or should) create a virtualenv, install the requirements,
+   download the [docker cli](https://github.com/StefanScherer/docker-cli-builder/)
+   (not the full Docker package), and run the tests using the host
+   Docker daemon.
+
 
 ## Running jobs locally
 
