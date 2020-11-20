@@ -17,10 +17,10 @@ from .string_utils import slugify, project_name_from_url
 
 
 class State(Enum):
-    PENDING = "P"
-    RUNNING = "R"
-    FAILED = "F"
-    SUCCEEDED = "S"
+    PENDING = "pending"
+    RUNNING = "running"
+    FAILED = "failed"
+    SUCCEEDED = "succeeded"
 
 
 # This is our internal representation of a JobRequest which we pass around but
@@ -76,7 +76,7 @@ class Job:
         for key, value in data.items():
             # Convert Enums to strings for straightforward JSON serialization
             if isinstance(value, Enum):
-                data[key] = value.name.lower()
+                data[key] = value.value
             # Convert UNIX timestamp to ISO format
             elif isinstance(value, int) and key.endswith("_at"):
                 data[key] = timestamp_to_isoformat(value)
