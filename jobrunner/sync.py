@@ -31,7 +31,7 @@ def sync():
         # of active jobs is always going to be small enough that we can fetch
         # them in a single request and we don't need the extra complexity
         params={"active": "true", "backend": config.BACKEND},
-    )
+    )["results"]
     job_requests = [job_request_from_remote_format(i) for i in results]
     job_request_ids = [i.id for i in job_requests]
     for job_request in job_requests:
