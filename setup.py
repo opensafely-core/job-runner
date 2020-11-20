@@ -9,6 +9,7 @@ setup(
     name="opensafely-jobrunner",
     version=version,
     packages=find_packages(),
+    include_package_data=True,
     url="https://github.com/opensafely/job-runner",
     author="OpenSAFELY",
     author_email="tech@opensafely.org",
