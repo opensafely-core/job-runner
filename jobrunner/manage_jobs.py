@@ -485,7 +485,7 @@ def write_manifest_file(workspace_dir, manifest):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
-    manifest_file_tmp.rename(manifest_file)
+    manifest_file_tmp.replace(manifest_file)
 
 
 def get_high_privacy_workspace(job):
