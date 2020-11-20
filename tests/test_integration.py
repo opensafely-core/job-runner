@@ -1,12 +1,12 @@
 import logging
 from pathlib import Path
-import subprocess
 
 import pytest
 
 import jobrunner.sync
 import jobrunner.run
 from jobrunner import config, docker
+from jobrunner.subprocess_utils import subprocess_run
 
 
 log = logging.getLogger(__name__)
@@ -76,13 +76,13 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
 
 def commit_directory_contents(repo_path, directory):
     env = {"GIT_WORK_TREE": directory, "GIT_DIR": repo_path}
-    subprocess.run(["git", "init", "--bare", "--quiet", repo_path], check=True)
-    subprocess.run(
+    subprocess_run(["git", "init", "--bare", "--quiet", repo_path], check=True)
+    subprocess_run(
         ["git", "config", "user.email", "test@example.com"], check=True, env=env
     )
-    subprocess.run(["git", "config", "user.name", "Test"], check=True, env=env)
-    subprocess.run(["git", "add", "."], check=True, env=env)
-    subprocess.run(["git", "commit", "--quiet", "-m", "initial"], check=True, env=env)
+    subprocess_run(["git", "config", "user.name", "Test"], check=True, env=env)
+    subprocess_run(["git", "add", "."], check=True, env=env)
+    subprocess_run(["git", "commit", "--quiet", "-m", "initial"], check=True, env=env)
 
 
 def ensure_docker_images_present(*images):
@@ -90,7 +90,7 @@ def ensure_docker_images_present(*images):
         full_image = f"{config.DOCKER_REGISTRY}/{image}"
         if not docker.image_exists_locally(full_image):
             log.info(f"Pulling Docker image {full_image}")
-            subprocess.run(["docker", "pull", "--quiet", full_image], check=True)
+            subprocess_run(["docker", "pull", "--quiet", full_image], check=True)
 
 
 def get_posted_jobs(requests_mock):

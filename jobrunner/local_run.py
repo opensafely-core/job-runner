@@ -27,7 +27,6 @@ from pathlib import Path
 import random
 import shutil
 import string
-import subprocess
 
 import jobrunner.run
 from . import config
@@ -37,6 +36,7 @@ from .manage_jobs import METADATA_DIR, read_manifest_file
 from .models import JobRequest, Job
 from .create_or_update_jobs import create_jobs
 from .log_utils import configure_logging
+from .subprocess_utils import subprocess_run
 
 
 def main(project_dir, actions, force_run_dependencies=False):
@@ -139,13 +139,13 @@ def delete_docker_entities(entity, label, ignore_errors=False):
         "--quiet",
     ]
     ls_args = list(filter(None, ls_args))
-    response = subprocess.run(
+    response = subprocess_run(
         ls_args, capture_output=True, encoding="ascii", check=not ignore_errors
     )
     ids = response.stdout.split()
     if ids and response.returncode == 0:
         rm_args = ["docker", entity, "rm", "--force"] + ids
-        subprocess.run(rm_args, capture_output=True, check=not ignore_errors)
+        subprocess_run(rm_args, capture_output=True, check=not ignore_errors)
 
 
 if __name__ == "__main__":
