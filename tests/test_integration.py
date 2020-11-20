@@ -23,7 +23,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
     repo_path = tmp_work_dir / "test-repo"
     commit_directory_contents(repo_path, project_fixture)
     requests_mock.get(
-        "https://jobs.opensafely.org/api/job-requests?active=true&backend=expectations",
+        "https://jobs.opensafely.org/api/job-requests/?active=true&backend=expectations",
         json={
             "results": [
                 {
@@ -41,9 +41,10 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
         },
     )
     requests_mock.post(
-        "https://jobs.opensafely.org/api/jobs",
+        "https://jobs.opensafely.org/api/jobs/",
         json={},
     )
+
     # Run sync to grab the JobRequest from the mocked job-server
     jobrunner.sync.sync()
     # Check that three pending jobs are created
