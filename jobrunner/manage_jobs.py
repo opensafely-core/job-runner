@@ -96,7 +96,7 @@ def create_and_populate_volume(job):
 
     input_files = []
     for action in job.requires_outputs_from:
-        input_files.extend(list_outputs_from_action(job, action))
+        input_files.extend(list_outputs_from_action(job.workspace, action))
 
     volume = volume_name(job)
     docker.create_volume(volume)
@@ -117,7 +117,7 @@ def create_and_populate_volume(job):
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
         docker.copy_to_volume(volume, tmpdir, ".")
 
-    workspace_dir = get_high_privacy_workspace(job)
+    workspace_dir = get_high_privacy_workspace(job.workspace)
     for filename in input_files:
         log.info(f"Copying input file: {filename}")
         docker.copy_to_volume(volume, workspace_dir / filename, filename)
@@ -126,7 +126,7 @@ def create_and_populate_volume(job):
 
 def create_and_populate_volume_from_local_workspace(job):
     assert config.LOCAL_RUN_MODE
-    workspace_dir = get_high_privacy_workspace(job)
+    workspace_dir = get_high_privacy_workspace(job.workspace)
 
     # To mimic a production run, we only want output files to appear in the
     # volume if they were produced by an explicitly listed dependency. So
@@ -139,7 +139,7 @@ def create_and_populate_volume_from_local_workspace(job):
 
     input_files = []
     for action in job.requires_outputs_from:
-        input_files.extend(list_outputs_from_action(job, action))
+        input_files.extend(list_outputs_from_action(job.workspace, action))
 
     volume = volume_name(job)
     docker.create_volume(volume)
@@ -215,7 +215,7 @@ def finalise_job(job):
         json.dump(job_metadata, f, indent=2)
 
     # Copy logs to workspace
-    workspace_dir = get_high_privacy_workspace(job)
+    workspace_dir = get_high_privacy_workspace(job.workspace)
     metadata_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
     copy_file(log_dir / "logs.txt", metadata_log_file)
     log.info(f"Logs written to: {metadata_log_file}")
@@ -227,7 +227,9 @@ def finalise_job(job):
         docker.copy_from_volume(volume, filename, workspace_dir / filename)
 
     # Delete outputs from previous run of action
-    existing_files = list_outputs_from_action(job, job.action, ignore_errors=True)
+    existing_files = list_outputs_from_action(
+        job.workspace, job.action, ignore_errors=True
+    )
     files_to_remove = set(existing_files) - set(outputs)
     delete_files(workspace_dir, files_to_remove)
 
@@ -236,7 +238,7 @@ def finalise_job(job):
     update_manifest(manifest, job_metadata)
 
     # Copy out logs and medium privacy files
-    medium_privacy_dir = get_medium_privacy_workspace(job)
+    medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
     if medium_privacy_dir:
         copy_file(
             workspace_dir / METADATA_DIR / f"{job.action}.log",
@@ -408,16 +410,16 @@ def delete_files(directory, filenames):
             pass
 
 
-def outputs_exist(job, action):
+def outputs_exist(workspace, action):
     try:
-        list_outputs_from_action(job, action)
+        list_outputs_from_action(workspace, action)
         return True
     except MissingOutputError:
         return False
 
 
-def list_outputs_from_action(job, action, ignore_errors=False):
-    directory = get_high_privacy_workspace(job)
+def list_outputs_from_action(workspace, action, ignore_errors=False):
+    directory = get_high_privacy_workspace(workspace)
     files = {}
     try:
         manifest = read_manifest_file(directory)
@@ -488,12 +490,12 @@ def write_manifest_file(workspace_dir, manifest):
     manifest_file_tmp.replace(manifest_file)
 
 
-def get_high_privacy_workspace(job):
-    return config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace
+def get_high_privacy_workspace(workspace):
+    return config.HIGH_PRIVACY_WORKSPACES_DIR / workspace
 
 
-def get_medium_privacy_workspace(job):
+def get_medium_privacy_workspace(workspace):
     if config.MEDIUM_PRIVACY_WORKSPACES_DIR:
-        return config.MEDIUM_PRIVACY_WORKSPACES_DIR / job.workspace
+        return config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace
     else:
         return None
