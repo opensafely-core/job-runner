@@ -6,7 +6,7 @@ def test_job_request_from_remote_format():
     remote_job_request = {
         "id": "123",
         "workspace": {
-            "id": "5",
+            "name": "testing",
             "repo": "https://github.com/opensafely/foo",
             "branch": "master",
             "db": "full",
@@ -19,7 +19,7 @@ def test_job_request_from_remote_format():
         repo_url="https://github.com/opensafely/foo",
         commit=None,
         branch="master",
-        workspace="foo-5",
+        workspace="testing",
         database_name="full",
         requested_actions=["generate_cohort"],
         force_run_dependencies=True,

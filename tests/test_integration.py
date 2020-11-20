@@ -30,7 +30,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
                 "requested_actions": ["analyse_data"],
                 "force_run_dependencies": False,
                 "workspace": {
-                    "id": 1,
+                    "name": "testing",
                     "repo": str(repo_path),
                     "branch": "master",
                     "db": "dummy",

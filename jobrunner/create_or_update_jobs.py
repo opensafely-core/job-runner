@@ -6,6 +6,7 @@ JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
 from pathlib import Path
+import re
 import time
 
 from . import config
@@ -150,6 +151,17 @@ def validate_job_request(job_request):
     # should enforce that it's a repo from an allowed source, but we may want
     # to double check that here.  This should be a configurable check though,
     # so we can run against local repos in test/development.
+    if not job_request.workspace:
+        raise JobRequestError("Workspace name cannot be blank")
+    # In local run mode the workspace name is whatever the user's working
+    # directory happens to be called, which we don't want or need to place any
+    # restrictions on. Otherwise, as these are externally supplied strings that
+    # end up as paths, we want to be much more restrictive.
+    if not config.LOCAL_RUN_MODE:
+        if re.search(r"[^a-zA-Z0-9_\-]", job_request.workspace):
+            raise JobRequestError(
+                "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
+            )
     database_name = job_request.database_name
     if config.USING_DUMMY_DATA_BACKEND:
         valid_names = ["dummy"]

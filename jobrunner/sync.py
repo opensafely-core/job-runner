@@ -11,7 +11,6 @@ from . import config
 from .create_or_update_jobs import create_or_update_jobs
 from .database import find_where
 from .models import JobRequest, Job
-from .string_utils import slugify, project_name_from_url
 
 
 session = requests.Session()
@@ -70,40 +69,11 @@ def job_request_from_remote_format(job_request):
         commit=job_request.get("sha"),
         branch=job_request["workspace"]["branch"],
         requested_actions=job_request["requested_actions"],
-        workspace=generate_workspace_slug(job_request),
+        workspace=job_request["workspace"]["name"],
         database_name=job_request["workspace"]["db"],
         force_run_dependencies=job_request["force_run_dependencies"],
         original=job_request,
     )
-
-
-def generate_workspace_slug(job_request):
-    """
-    We identify workspaces internally using a slugs which look something like this:
-
-        some-study-123
-        some-study-daves-branch-145
-
-    These slugs are used as the directory name for the workspace output and
-    also appear as part of job names, log directories etc. The workspace ID at
-    the end ensures uniqueness so we just need to ensure that these are helpful
-    for a human eyeballing a log file or directory listing.
-    """
-    repo_url = job_request["workspace"]["repo"]
-    branch = job_request["workspace"]["branch"]
-    database_name = job_request["workspace"]["db"]
-    workspace_id = job_request["workspace"]["id"]
-    parts = [project_name_from_url(repo_url)]
-    # Only include the branch if it's not the default to minimise clutter. (We
-    # include HEAD here only because it's useful in local testing.)
-    if branch and branch not in ["master", "main", "HEAD"]:
-        parts.append(branch)
-    # Only include the database name if it's not the default to minimise
-    # clutter
-    if database_name != "full" and not config.USING_DUMMY_DATA_BACKEND:
-        parts.append(database_name)
-    parts.append(str(workspace_id))
-    return slugify("-".join(parts))
 
 
 def job_to_remote_format(job):
