@@ -269,8 +269,8 @@ def write_logs_to_file(container_name, filename):
         subprocess_run(
             ["docker", "container", "logs", "--timestamps", container_name],
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=f,
+            stdout=f,
+            stderr=subprocess.STDOUT,
         )
 
 
