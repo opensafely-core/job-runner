@@ -27,6 +27,7 @@ from pathlib import Path
 import random
 import shutil
 import string
+import sys
 import textwrap
 
 import jobrunner.run
@@ -34,7 +35,7 @@ from . import config
 from . import docker
 from .database import find_where
 from .manage_jobs import METADATA_DIR, read_manifest_file
-from .models import JobRequest, Job
+from .models import JobRequest, Job, State
 from .create_or_update_jobs import create_jobs, ProjectValidationError, JobRequestError
 from .log_utils import configure_logging
 from .subprocess_utils import subprocess_run
@@ -83,7 +84,7 @@ def main(project_dir, actions, force_run_dependencies=False):
     except (ProjectValidationError, JobRequestError) as e:
         print(f"=> {type(e).__name__}")
         print(textwrap.indent(str(e), "   "))
-        return
+        return False
 
     action_names = [job.action for job in find_where(Job)]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
@@ -121,6 +122,9 @@ def main(project_dir, actions, force_run_dependencies=False):
         )
         print(tabulate(outputs, indent=5))
         print()
+
+    success = all(job.status == State.SUCCEEDED for job in final_jobs)
+    return success
 
 
 def tabulate(rows, spacing=2, indent=0):
@@ -169,4 +173,5 @@ if __name__ == "__main__":
         default=".",
     )
     args = parser.parse_args()
-    main(**vars(args))
+    success = main(**vars(args))
+    sys.exit(0 if success else 1)
