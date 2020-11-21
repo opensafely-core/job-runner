@@ -27,6 +27,7 @@ from pathlib import Path
 import random
 import shutil
 import string
+import textwrap
 
 import jobrunner.run
 from . import config
@@ -34,7 +35,7 @@ from . import docker
 from .database import find_where
 from .manage_jobs import METADATA_DIR, read_manifest_file
 from .models import JobRequest, Job
-from .create_or_update_jobs import create_jobs
+from .create_or_update_jobs import create_jobs, ProjectValidationError, JobRequestError
 from .log_utils import configure_logging
 from .subprocess_utils import subprocess_run
 
@@ -77,7 +78,12 @@ def main(project_dir, actions, force_run_dependencies=False):
         branch="",
         original={"created_by": os.environ.get("USERNAME")},
     )
-    create_jobs(job_request)
+    try:
+        create_jobs(job_request)
+    except (ProjectValidationError, JobRequestError) as e:
+        print(f"=> {type(e).__name__}")
+        print(textwrap.indent(str(e), "   "))
+        return
 
     action_names = [job.action for job in find_where(Job)]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
@@ -107,7 +113,7 @@ def main(project_dir, actions, force_run_dependencies=False):
     print()
     for job in final_jobs:
         print(f"=> {job.action}")
-        print(f"   {job.status_message}")
+        print(textwrap.indent(job.status_message, "   "))
         print("   outputs:")
         outputs = sorted(outputs_by_action.get(job.action, []))
         outputs.insert(
