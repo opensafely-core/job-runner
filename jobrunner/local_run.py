@@ -50,7 +50,6 @@ def main(project_dir, actions, force_run_dependencies=False):
     docker_label = "job-runner-local-{}".format(
         "".join(random.choices(string.ascii_uppercase, k=8))
     )
-    docker.LABEL = docker_label
 
     try:
         success_flag = create_and_run_jobs(
@@ -75,6 +74,7 @@ def create_and_run_jobs(
     project_dir, actions, force_run_dependencies, temp_log_dir, docker_label
 ):
     # Configure
+    docker.LABEL = docker_label
     config.LOCAL_RUN_MODE = True
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
     config.DATABASE_FILE = ":memory:"
@@ -89,6 +89,7 @@ def create_and_run_jobs(
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
+
     # Create job_request and jobs
     job_request = JobRequest(
         id="local",
@@ -136,11 +137,7 @@ def create_and_run_jobs(
     final_jobs = find_where(Job)
 
     # Get the full list of outputs created by each action
-    manifest = read_manifest_file(project_dir)
-    outputs_by_action = {}
-    for filename, details in manifest["files"].items():
-        outputs = outputs_by_action.setdefault(details["created_by_action"], [])
-        outputs.append((filename, f"({details['privacy_level']})"))
+    outputs_by_action = get_all_outputs_from_manifest(project_dir)
 
     # Pretty print details of each action
     print()
@@ -148,24 +145,24 @@ def create_and_run_jobs(
         print(f"=> {job.action}")
         print(textwrap.indent(job.status_message, "   "))
         print("   outputs:")
-        outputs = sorted(outputs_by_action.get(job.action, []))
-        outputs.insert(
-            0, (f"{METADATA_DIR}/{job.action}.log", "(moderately_sensitive)")
-        )
-        print(tabulate(outputs, indent=5))
+        outputs = sorted(outputs_by_action.get(job.action, {}).items())
+        # The log file isn't strictly speaking an output, but it makes sense to
+        # list it there from the user's point of view
+        outputs.insert(0, (f"{METADATA_DIR}/{job.action}.log", "moderately_sensitive"))
+        print(tabulate(outputs, separator="  - ", indent=5))
         print()
 
     success_flag = all(job.status == State.SUCCEEDED for job in final_jobs)
     return success_flag
 
 
-def tabulate(rows, spacing=2, indent=0):
+def tabulate(rows, separator=" ", indent=0):
     """
     Formats two columns of data with the right hand column right-aligned
     """
     max_col_0 = max(len(row[0]) for row in rows)
     max_col_1 = max(len(row[1]) for row in rows)
-    format_str = f"{' ' * indent}{{0:<{max_col_0 + spacing}}}{{1:>{max_col_1}}}"
+    format_str = f"{' ' * indent}{{0:<{max_col_0}}}{separator}{{1:>{max_col_1}}}"
     return "\n".join(format_str.format(*row) for row in rows)
 
 
@@ -200,6 +197,16 @@ def get_missing_docker_images(jobs):
     return [
         image for image in full_docker_images if not docker.image_exists_locally(image)
     ]
+
+
+def get_all_outputs_from_manifest(project_dir):
+    manifest = read_manifest_file(project_dir)
+    outputs_by_action = {}
+    for filename, details in manifest["files"].items():
+        action = details["created_by_action"]
+        outputs = outputs_by_action.setdefault(action, {})
+        outputs[filename] = details["privacy_level"]
+    return outputs_by_action
 
 
 if __name__ == "__main__":
