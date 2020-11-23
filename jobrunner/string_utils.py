@@ -20,3 +20,13 @@ def project_name_from_url(url):
     if name.endswith(".git"):
         name = name[:-4]
     return name
+
+
+def tabulate(rows, separator=" ", indent=0):
+    """
+    Formats two columns of data
+    """
+    max_col_0 = max(len(row[0]) for row in rows)
+    max_col_1 = max(len(row[1]) for row in rows)
+    format_str = f"{' ' * indent}{{0:<{max_col_0}}}{separator}{{1:<{max_col_1}}}"
+    return "\n".join(format_str.format(*row) for row in rows)
