@@ -4,7 +4,7 @@ from jobrunner.models import JobRequest
 
 def test_job_request_from_remote_format():
     remote_job_request = {
-        "id": "123",
+        "identifier": "123",
         "workspace": {
             "name": "testing",
             "repo": "https://github.com/opensafely/foo",

@@ -27,7 +27,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
         json={
             "results": [
                 {
-                    "id": 1,
+                    "identifier": 1,
                     "requested_actions": ["analyse_data"],
                     "force_run_dependencies": False,
                     "workspace": {
