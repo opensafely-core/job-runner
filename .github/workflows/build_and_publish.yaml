@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - master
+  # this allows us to trigger manually
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: job-runner
