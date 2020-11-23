@@ -2,7 +2,7 @@ version: "3.7"
 services:
   job-runner:
     build: .
-    image: docker.opensafely.org/job-runner:latest
+    image: docker.opensafely.org/opensafely/job-runner:latest
     init: true
     restart: unless-stopped
     environment:
