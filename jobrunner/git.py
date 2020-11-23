@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 import subprocess
+import time
 from urllib.parse import urlparse
 
 from . import config
@@ -24,7 +25,7 @@ def read_file_from_repo(repo_url, commit_sha, path):
     Return the contents of the file at `path` in `repo_url` as of `commit_sha`
     """
     repo_dir = get_local_repo_dir(repo_url)
-    fetch_commit(repo_dir, repo_url, commit_sha)
+    ensure_commit_fetched(repo_dir, repo_url, commit_sha)
     try:
         response = subprocess_run(
             ["git", "show", f"{commit_sha}:{path}"],
@@ -45,7 +46,7 @@ def checkout_commit(repo_url, commit_sha, target_dir):
     Checkout the contents of `repo_url` as of `commit_sha` into `target_dir`
     """
     repo_dir = get_local_repo_dir(repo_url)
-    fetch_commit(repo_dir, repo_url, commit_sha)
+    ensure_commit_fetched(repo_dir, repo_url, commit_sha)
     os.makedirs(target_dir, exist_ok=True)
     subprocess_run(
         [
@@ -117,24 +118,16 @@ def get_local_repo_dir(repo_url):
     return config.GIT_REPO_DIR / Path(repo_name).with_suffix(".git")
 
 
-def fetch_commit(repo_dir, repo_url, commit_sha):
+def ensure_commit_fetched(repo_dir, repo_url, commit_sha):
     if not os.path.exists(repo_dir / "config"):
         subprocess_run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
+        fetched = False
     # It's safe to keep re-fetching the same commit, but it requires talking to
     # the remote repo every time so it's better to avoid it if we can
-    elif commit_already_fetched(repo_dir, commit_sha):
-        return
-    try:
-        subprocess_run(
-            ["git", "fetch", "--depth", "1", "--force", repo_url, commit_sha],
-            check=True,
-            capture_output=True,
-            cwd=repo_dir,
-            env=supply_access_token(repo_url),
-        )
-    except subprocess.SubprocessError:
-        log.exception(f"Error fetching commit {commit_sha} from {repo_url}")
-        raise GitError(f"Error fetching commit {commit_sha} from {repo_url}")
+    else:
+        fetched = commit_already_fetched(repo_dir, commit_sha)
+    if not fetched:
+        fetch_commit(repo_dir, repo_url, commit_sha)
 
 
 def commit_already_fetched(repo_dir, commit_sha):
@@ -144,6 +137,49 @@ def commit_already_fetched(repo_dir, commit_sha):
         cwd=repo_dir,
     )
     return response.returncode == 0
+
+
+def fetch_commit(repo_dir, repo_url, commit_sha):
+    # The unfortunate retry complexity here is due to mysterious errors we
+    # sometimes get when fetching commits in the live environment:
+    #
+    #   error: RPC failed; curl 56 GnuTLS recv error (-9): A TLS packed with unexpected length was received
+    #
+    # They are mostly transient (hence the retries) but certain commits seem to
+    # trigger them more often than others so presumably it's something to do
+    # with the precise sequence of packets that get sent. More details here:
+    # https://github.com/opensafely/job-runner/issues/5
+    max_retries = 5
+    sleep = 4
+    attempt = 1
+    while True:
+        try:
+            subprocess_run(
+                ["git", "fetch", "--depth", "1", "--force", repo_url, commit_sha],
+                check=True,
+                capture_output=True,
+                cwd=repo_dir,
+                env=supply_access_token(repo_url),
+            )
+            break
+        except subprocess.SubprocessError as e:
+            log.exception(
+                f"Error fetching commit {commit_sha} from {repo_url}"
+                f" (attempt {attempt}/{max_retries})"
+            )
+            if b"GnuTLS recv error" in e.stderr:
+                attempt += 1
+                if attempt > max_retries:
+                    raise GitError(
+                        f"Network error when fetching commit {commit_sha} from"
+                        f" {repo_url}\n"
+                        "(This may work if you try again later)"
+                    )
+                else:
+                    time.sleep(sleep)
+                    sleep *= 2
+            else:
+                raise GitError(f"Error fetching commit {commit_sha} from {repo_url}")
 
 
 def supply_access_token(repo_url):
