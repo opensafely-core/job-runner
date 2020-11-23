@@ -363,7 +363,7 @@ class Job:
                 )
                 # This two-step fetch+checkout appears to mitigate
                 # https://github.com/opensafely/job-runner/issues/5
-                cmd = ["git", "--work-tree=.", "checkout", "--force", branch]
+                cmd = ["git", "--work-tree=.", "checkout", "--force", "FETCH_HEAD"]
                 subprocess.check_output(
                     cmd,
                     stderr=subprocess.STDOUT,
