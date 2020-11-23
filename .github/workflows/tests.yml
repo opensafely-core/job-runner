@@ -44,3 +44,12 @@ jobs:
     - name: Build package
       run: |
         python setup.py sdist bdist_wheel
+  test-docker-build:
+    runs-on: ubuntu-latest
+    name: Test we can build the docker image
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Build image
+      run: docker build . --file Dockerfile --build-arg=pythonversion=3.8.3
+ 
