@@ -45,6 +45,25 @@ from .subprocess_utils import subprocess_run
 from .string_utils import tabulate
 
 
+HELP = __doc__.partition("\n\n")[0]
+
+
+def add_arguments(parser):
+    parser.add_argument("actions", nargs="+", help="Name of project action to run")
+    parser.add_argument(
+        "-f",
+        "--force-run-dependencies",
+        help="Re-run from scratch without using existing outputs",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--project-dir",
+        help="Project directory (default: current directory)",
+        default=".",
+    )
+    return parser
+
+
 def main(project_dir, actions, force_run_dependencies=False):
     project_dir = Path(project_dir).resolve()
     temp_log_dir = project_dir / METADATA_DIR / ".logs"
@@ -207,19 +226,8 @@ def get_all_outputs_from_manifest(project_dir):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
-    parser.add_argument("actions", nargs="+", help="Name of project action to run")
-    parser.add_argument(
-        "-f",
-        "--force-run-dependencies",
-        help="Re-run from scratch without using existing outputs",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--project-dir",
-        help="Project directory (default: current directory)",
-        default=".",
-    )
+    parser = argparse.ArgumentParser(description=HELP)
+    parser = add_arguments(parser)
     args = parser.parse_args()
     success = main(**vars(args))
     sys.exit(0 if success else 1)
