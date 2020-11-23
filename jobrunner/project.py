@@ -210,6 +210,10 @@ def is_generate_cohort_command(args):
     return False
 
 
+def get_all_actions(project):
+    return list(project["actions"].keys())
+
+
 def get_all_output_patterns_from_project_file(project_file):
     project = parse_and_validate_project_file(project_file)
     all_patterns = set()

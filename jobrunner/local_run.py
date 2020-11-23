@@ -37,7 +37,12 @@ from . import docker
 from .database import find_where
 from .manage_jobs import METADATA_DIR, read_manifest_file
 from .models import JobRequest, Job, State
-from .create_or_update_jobs import create_jobs, ProjectValidationError, JobRequestError
+from .create_or_update_jobs import (
+    create_jobs,
+    ProjectValidationError,
+    JobRequestError,
+    NothingToDoError,
+)
 from .log_utils import configure_logging
 from .subprocess_utils import subprocess_run
 
@@ -104,6 +109,10 @@ def create_and_run_jobs(
     )
     try:
         create_jobs(job_request)
+    except NothingToDoError:
+        print("=> All actions already completed")
+        print("   Use -f option to force everything to re-run")
+        return True
     except (ProjectValidationError, JobRequestError) as e:
         print(f"=> {type(e).__name__}")
         print(textwrap.indent(str(e), "   "))
