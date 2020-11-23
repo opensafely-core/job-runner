@@ -15,6 +15,7 @@ from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
 from .project import (
     parse_and_validate_project_file,
     get_action_specification,
+    get_all_actions,
     ProjectValidationError,
 )
 from .models import Job, SavedJobRequest, State
@@ -22,6 +23,10 @@ from .manage_jobs import action_has_successful_outputs
 
 
 class JobRequestError(Exception):
+    pass
+
+
+class NothingToDoError(JobRequestError):
     pass
 
 
@@ -80,23 +85,42 @@ def create_jobs(job_request):
 
 def create_jobs_with_project_file(job_request, project_file):
     project = parse_and_validate_project_file(project_file)
+    # By default just the actions which have been explicitly requested are
+    # forced to re-run, but if `force_run_dependencies` is set then any action
+    # whose outputs we need will be forced to re-run
     if job_request.force_run_dependencies:
         # Wildcard marker to indicate that we should match any action
         force_run_actions = "*"
     else:
         force_run_actions = job_request.requested_actions
+    # Handle the special `run_all` action (there's no need to specifically
+    # identify "leaf node" actions, the effect is the same)
+    if "run_all" in job_request.requested_actions:
+        requested_actions = get_all_actions(project)
+    else:
+        requested_actions = job_request.requested_actions
+
     with transaction():
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))
         new_job_scheduled = False
-        for action in job_request.requested_actions:
+        jobs_being_run = False
+        for action in requested_actions:
             job = recursively_add_jobs(job_request, project, action, force_run_actions)
-            # If the returned job doesn't belong to the current JobRequest that
-            # means we just picked up an existing scheduled job and didn't
-            # create a new one, if it does match then it's a new job
-            if job.job_request_id == job_request.id:
-                new_job_scheduled = True
-        if not new_job_scheduled:
-            raise JobRequestError("All requested actions were already scheduled to run")
+            if job:
+                jobs_being_run = True
+                # If the returned job doesn't belong to the current JobRequest
+                # that means we just picked up an existing scheduled job and
+                # didn't create a new one, if it does match then it's a new job
+                if job.job_request_id == job_request.id:
+                    new_job_scheduled = True
+
+        if jobs_being_run:
+            if not new_job_scheduled:
+                raise JobRequestError(
+                    "All requested actions were already scheduled to run"
+                )
+        else:
+            raise NothingToDoError()
 
 
 def recursively_add_jobs(job_request, project, action, force_run_actions):
@@ -195,19 +219,29 @@ def create_failed_job(job_request, exception):
     job. So this function creates a single job, which starts in the FAILED
     state and whose status_message contains the error we wish to communicate.
     """
+    # Special case for the NothingToDoError which we treat as a success
+    if isinstance(exception, NothingToDoError):
+        status = State.SUCCEEDED
+        status_message = "All actions have already run"
+    else:
+        status = State.FAILED
+        status_message = f"{type(exception).__name__}: {exception}"
     with transaction():
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))
+        now = int(time.time())
         insert(
             Job(
                 id=Job.new_id(),
                 job_request_id=job_request.id,
-                status=State.FAILED,
+                status=status,
                 repo_url=job_request.repo_url,
                 commit=job_request.commit,
                 workspace=job_request.workspace,
-                action="",
-                status_message=f"{type(exception).__name__}: {exception}",
-                created_at=int(time.time()),
-                completed_at=int(time.time()),
+                action=job_request.requested_actions[0],
+                status_message=status_message,
+                created_at=now,
+                started_at=now,
+                updated_at=now,
+                completed_at=now,
             ),
         )
