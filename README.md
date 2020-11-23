@@ -289,10 +289,6 @@ If you now run the main loop you'll see it pick up the jobs:
 python -m jobrunner.run
 ```
 
-As a convenience, the `add_job` command accepts a `--run` argument which
-will run the main loop after adding the job until all jobs are
-terminated.
-
 See the full set of options it accepts with:
 ```
 python -m jobrunner.add_job --help
