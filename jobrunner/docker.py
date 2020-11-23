@@ -229,12 +229,15 @@ def container_inspect(name, key="", none_if_not_exists=False):
     return json.loads(response.stdout)
 
 
-def run(name, args, volume=None, env=None, allow_network_access=False):
+def run(name, args, volume=None, env=None, allow_network_access=False, label=None):
     run_args = ["docker", "run", "--init", "--detach", "--label", LABEL, "--name", name]
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
         run_args.extend(["--volume", f"{volume[0]}:{volume[1]}"])
+    # This is in addition to the default LABEL which is always applied
+    if label is not None:
+        run_args.extend(["--label", label])
     if env:
         for key, value in env.items():
             run_args.extend(["--env", f"{key}={value}"])

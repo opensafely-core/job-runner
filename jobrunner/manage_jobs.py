@@ -36,6 +36,12 @@ METADATA_DIR = "metadata"
 # Records details of which action created each file
 MANIFEST_FILE = "manifest.json"
 
+# This is a Docker label applied in addition to the default label which
+# `docker.py` applies to all containers and volumes it creates. It allows us to
+# easily identify just the containers actually used for running jobs, which is
+# helpful for building tooling for inspecting live processes.
+JOB_LABEL = "jobrunner-job"
+
 
 class JobError(Exception):
     pass
@@ -72,10 +78,10 @@ def start_job(job):
     # Prepend registry name
     image = action_args[0]
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
-    # Check the image exists locally and do the appropriate thing.
-    # Newer versions of docker-cli support `--pull=never` as an argument to
-    # `docker run` which would make this simpler, but it looks like it will be
-    # a while before this makes it to Docker for Windows:
+    # Check the image exists locally and error if not. Newer versions of
+    # docker-cli support `--pull=never` as an argument to `docker run` which
+    # would make this simpler, but it looks like it will be a while before this
+    # makes it to Docker for Windows:
     # https://github.com/docker/cli/pull/1498
     if not docker.image_exists_locally(full_image):
         log.info(f"Image not found, may need to run: docker pull {full_image}")
@@ -87,6 +93,7 @@ def start_job(job):
         volume=(volume, "/workspace"),
         env=env,
         allow_network_access=allow_network_access,
+        label=JOB_LABEL,
     )
     log.info("Started")
     log.info(f"View live logs using: docker logs -f {container_name(job)}")
