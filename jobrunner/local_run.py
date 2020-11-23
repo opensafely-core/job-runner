@@ -13,9 +13,6 @@ explicit dependencies of the action.
 
 This is achieved by setting a LOCAL_RUN_MODE flag in the config which, in two
 key places, tells the code not to talk to git but do something else instead.
-This flag also enables automatic pulling of missing Docker images, which is
-makes the local dev experience much smoother but which we definitely don't want
-in production.
 
 Other than that, everything else runs entirely as it would in production. A
 temporary database and log directory is created for each run and then thrown
