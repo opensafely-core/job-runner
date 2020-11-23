@@ -25,6 +25,7 @@ import argparse
 import os
 from pathlib import Path
 import random
+import shlex
 import shutil
 import string
 import sys
@@ -108,6 +109,21 @@ def create_and_run_jobs(
         return False
 
     jobs = find_where(Job)
+
+    missing_docker_images = get_missing_docker_images(jobs)
+    if missing_docker_images:
+        print("Fetching missing docker images")
+        for image in missing_docker_images:
+            print(f"\nRunning: docker pull {image}")
+            try:
+                docker.pull(image)
+            except docker.DockerPullError as e:
+                # TODO: Detect authentication errors and supply specific
+                # instructions about how to obtain credentials
+                print("Failed with error:")
+                print(e)
+                return False
+
     action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
 
@@ -172,6 +188,18 @@ def delete_docker_entities(entity, label, ignore_errors=False):
     if ids and response.returncode == 0:
         rm_args = ["docker", entity, "rm", "--force"] + ids
         subprocess_run(rm_args, capture_output=True, check=not ignore_errors)
+
+
+def get_missing_docker_images(jobs):
+    docker_images = {shlex.split(job.run_command)[0] for job in jobs}
+    full_docker_images = {
+        f"{config.DOCKER_REGISTRY}/{image}" for image in docker_images
+    }
+    # We always need this image to work with volumes
+    full_docker_images.add(docker.MANAGEMENT_CONTAINER_IMAGE)
+    return [
+        image for image in full_docker_images if not docker.image_exists_locally(image)
+    ]
 
 
 if __name__ == "__main__":
