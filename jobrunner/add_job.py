@@ -1,14 +1,6 @@
 """
-Development utility for creating and submitting a JobRequest (and optionally
-running the main loop until all jobs have terminated).
-
-This is similar to, but distinct from, the `local_run` script, which is intended
-for end users to run their projects locally. Rather this is intended for
-developers who want to add and run jobs locally in as similar as possible a
-manner to production.
-
-In particular, it can only run code commited to a git repository and it uses a
-persistent database rather than creating and discarding one for each run.
+Development utility for creating and submitting a JobRequest without having a
+job-server
 """
 import argparse
 import dataclasses
@@ -20,31 +12,14 @@ import textwrap
 from .log_utils import configure_logging
 from .sync import job_request_from_remote_format
 from .database import find_where
-from .models import Job, State
+from .models import Job
 from .create_or_update_jobs import create_or_update_jobs
-from . import config
-from . import run
 
 
-def main(run=False, **kwargs):
-    if run:
-        if not config.USING_DUMMY_DATA_BACKEND:
-            raise RuntimeError("--run flag can only be used on dummy data backend")
-        active_jobs = find_where(Job, status__in=[State.PENDING, State.RUNNING])
-        if active_jobs:
-            print(f"Not adding new JobRequest, found {len(active_jobs)} active jobs:\n")
-            for job in active_jobs:
-                display_obj(job)
-        else:
-            submit_job_request(**kwargs)
-        run_main_loop()
-    else:
-        submit_job_request(**kwargs)
-
-
-def submit_job_request(
-    repo_url, action, commit, branch, workspace, database, force_run_dependencies
+def main(
+    repo_url, actions, commit, branch, workspace, database, force_run_dependencies
 ):
+    # Make paths to local repos absolute
     parsed = urlparse(repo_url)
     if not parsed.scheme and not parsed.netloc:
         path = Path(parsed.path).resolve()
@@ -52,10 +27,10 @@ def submit_job_request(
         repo_url = str(path).replace("\\", "/")
     job_request = job_request_from_remote_format(
         dict(
-            id=Job.new_id(),
+            identifier=Job.new_id(),
             sha=commit,
             workspace=dict(name=workspace, repo=repo_url, branch=branch, db=database),
-            requested_actions=[action],
+            requested_actions=actions,
             force_run_dependencies=force_run_dependencies,
         )
     )
@@ -66,19 +41,6 @@ def submit_job_request(
     print(f"Created {len(jobs)} new jobs:\n")
     for job in jobs:
         display_obj(job)
-
-
-def run_main_loop():
-    active_jobs = find_where(Job, status__in=[State.PENDING, State.RUNNING])
-    print("Running jobrunner.run loop")
-    run.main(exit_when_done=True)
-    final_jobs = find_where(Job, id__in=[job.id for job in active_jobs])
-    print("\nOutputs, logs etc can be found in the below directories:\n")
-    for job in final_jobs:
-        print(f"=> {job.action}")
-        print(f"   {job.status_message}")
-        print(f"   {config.HIGH_PRIVACY_WORKSPACES_DIR / job.workspace}")
-        print()
 
 
 def display_obj(obj):
@@ -95,7 +57,7 @@ if __name__ == "__main__":
     configure_logging()
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument("repo_url", help="URL (or local path) of git repository")
-    parser.add_argument("action", help="Name of project action to run")
+    parser.add_argument("actions", nargs="+", help="Name of project action to run")
     parser.add_argument(
         "--commit",
         help=(
@@ -115,14 +77,6 @@ if __name__ == "__main__":
         "--database", help="Database name (default 'dummy')", default="dummy"
     )
     parser.add_argument("-f", "--force-run-dependencies", action="store_true")
-    parser.add_argument(
-        "--run",
-        help=(
-            "Run the main loop until all jobs are terminated (will only run on "
-            "dummy data backend)"
-        ),
-        action="store_true",
-    )
 
     args = parser.parse_args()
     main(**vars(args))
