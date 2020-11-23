@@ -33,9 +33,8 @@ log = logging.getLogger(__name__)
 # Directory inside working directory where manifest and logs are created
 METADATA_DIR = "metadata"
 
-# Records details of which action created each file (leading underscore so it
-# gets listed before all the log files)
-MANIFEST_FILE = "_manifest.json"
+# Records details of which action created each file
+MANIFEST_FILE = "manifest.json"
 
 
 class JobError(Exception):
