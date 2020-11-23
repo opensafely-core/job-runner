@@ -28,6 +28,10 @@ VOLUME_MOUNT_POINT = "/workspace"
 LABEL = "job-runner"
 
 
+class DockerPullError(Exception):
+    pass
+
+
 def create_volume(volume_name):
     """
     Creates the named volume and also creates (but does not start) a "manager"
@@ -275,6 +279,14 @@ def write_logs_to_file(container_name, filename):
 
 
 def pull(image):
-    # We're deliberately not capturing output here as this is only used in
-    # local run mode were we want to see Docker's output in the terminal
-    subprocess_run(["docker", "pull", image], check=True)
+    # We're deliberately not capturing stdout here as this is only used in
+    # local run mode were we want to show progress in the terminal
+    try:
+        subprocess_run(
+            ["docker", "pull", image],
+            check=True,
+            encoding="utf-8",
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerPullError(e.stderr)

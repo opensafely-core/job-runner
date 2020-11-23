@@ -78,13 +78,8 @@ def start_job(job):
     # a while before this makes it to Docker for Windows:
     # https://github.com/docker/cli/pull/1498
     if not docker.image_exists_locally(full_image):
-        if not config.LOCAL_RUN_MODE:
-            log.info(f"Image not found, may need to run: docker pull {full_image}")
-            raise JobError(f"Docker image {image} is not currently available")
-        else:
-            log.info(f"Fetching docker image: {full_image}")
-            log.info("This may take some time...")
-            docker.pull(full_image)
+        log.info(f"Image not found, may need to run: docker pull {full_image}")
+        raise JobError(f"Docker image {image} is not currently available")
     # Start the container
     docker.run(
         container_name(job),
