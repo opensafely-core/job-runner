@@ -168,6 +168,15 @@ def create_and_run_jobs(
     # Pretty print details of each action
     print()
     for job in final_jobs:
+        # If a job fails we don't want to clutter the output with its failed
+        # dependants.
+        if (
+            job.status == State.FAILED
+            # TODO: We should probably add error status codes so we don't have
+            # to match on the string message like this.
+            and job.status_message == "JobError: Not starting as dependency failed"
+        ):
+            continue
         print(f"=> {job.action}")
         print(textwrap.indent(job.status_message, "   "))
         print("   outputs:")
