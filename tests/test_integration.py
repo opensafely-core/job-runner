@@ -41,8 +41,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
         },
     )
     requests_mock.post(
-        "https://jobs.opensafely.org/api/v2/jobs/",
-        json={},
+        "https://jobs.opensafely.org/api/v2/jobs/", json={},
     )
 
     # Run sync to grab the JobRequest from the mocked job-server
