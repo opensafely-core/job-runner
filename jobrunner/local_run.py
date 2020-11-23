@@ -51,6 +51,28 @@ def main(project_dir, actions, force_run_dependencies=False):
     )
     docker.LABEL = docker_label
 
+    try:
+        success_flag = create_and_run_jobs(
+            project_dir,
+            actions,
+            force_run_dependencies=force_run_dependencies,
+            temp_log_dir=temp_log_dir,
+            docker_label=docker_label,
+        )
+    except KeyboardInterrupt:
+        print("\nKilled by user")
+        print("Cleaning up Docker containers and volumes ...")
+        success_flag = False
+    finally:
+        delete_docker_entities("container", docker_label, ignore_errors=True)
+        delete_docker_entities("volume", docker_label, ignore_errors=True)
+        shutil.rmtree(temp_log_dir, ignore_errors=True)
+    return success_flag
+
+
+def create_and_run_jobs(
+    project_dir, actions, force_run_dependencies, temp_log_dir, docker_label
+):
     # Configure
     config.LOCAL_RUN_MODE = True
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
@@ -66,7 +88,6 @@ def main(project_dir, actions, force_run_dependencies=False):
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
-
     # Create job_request and jobs
     job_request = JobRequest(
         id="local",
@@ -86,22 +107,17 @@ def main(project_dir, actions, force_run_dependencies=False):
         print(textwrap.indent(str(e), "   "))
         return False
 
-    action_names = [job.action for job in find_where(Job)]
+    jobs = find_where(Job)
+    action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
 
     # We don't need the full job ID in the log output here, it only clutters
     # things
     configure_logging(show_action_name_only=True)
-    try:
-        jobrunner.run.main(exit_when_done=True)
-        final_jobs = find_where(Job)
-    except:
-        print("\nCleaning up Docker containers and volumes ...")
-        raise
-    finally:
-        delete_docker_entities("container", docker_label, ignore_errors=True)
-        delete_docker_entities("volume", docker_label, ignore_errors=True)
-        shutil.rmtree(temp_log_dir)
+
+    # Run everything
+    jobrunner.run.main(exit_when_done=True)
+    final_jobs = find_where(Job)
 
     # Get the full list of outputs created by each action
     manifest = read_manifest_file(project_dir)
@@ -123,8 +139,8 @@ def main(project_dir, actions, force_run_dependencies=False):
         print(tabulate(outputs, indent=5))
         print()
 
-    success = all(job.status == State.SUCCEEDED for job in final_jobs)
-    return success
+    success_flag = all(job.status == State.SUCCEEDED for job in final_jobs)
+    return success_flag
 
 
 def tabulate(rows, spacing=2, indent=0):
