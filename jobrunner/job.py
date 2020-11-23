@@ -331,15 +331,16 @@ class Job:
         sleep = 4
         os.makedirs(self.workdir, exist_ok=True)
         os.chdir(self.workdir)
-        subprocess.check_call(["git", "init"])
+        subprocess.check_call(["git", "init", "--bare"])
         for attempt in range(max_retries + 1):
             os.makedirs(self.workdir, exist_ok=True)
             os.chdir(self.workdir)
+            git_dir = "./.git-bare"
             try:
-                subprocess.check_call(["git", "init"])
+                subprocess.check_call(["git", "init", "--bare", git_dir])
                 cmd = [
                     "git",
-                    "pull",
+                    "fetch",
                     "--depth",
                     "1",
                     repo,
@@ -358,6 +359,16 @@ class Job:
                             os.path.dirname(__file__), "git_askpass_access_token.py"
                         ),
                     ),
+                    cwd=git_dir,
+                )
+                # This two-step fetch+checkout appears to mitigate
+                # https://github.com/opensafely/job-runner/issues/5
+                cmd = ["git", "--work-tree=.", "checkout", "--force", branch]
+                subprocess.check_output(
+                    cmd,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf8",
+                    env=dict(os.environ, GIT_DIR=git_dir),
                 )
                 break
             except subprocess.CalledProcessError as e:
