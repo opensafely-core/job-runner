@@ -26,6 +26,7 @@ from .project import (
     get_all_output_patterns_from_project_file,
 )
 from .path_utils import list_dir_with_ignore_patterns
+from .string_utils import tabulate
 
 
 log = logging.getLogger(__name__)
@@ -345,10 +346,7 @@ def write_log_file(job, job_metadata, filename):
     """
     filename.parent.mkdir(parents=True, exist_ok=True)
     docker.write_logs_to_file(container_name(job), filename)
-    sorted_outputs = sorted(
-        (privacy_level, name)
-        for (name, privacy_level) in job_metadata["outputs"].items()
-    )
+    outputs = sorted(job_metadata["outputs"].items())
     with open(filename, "a") as f:
         f.write("\n\n")
         for key in [
@@ -364,8 +362,7 @@ def write_log_file(job, job_metadata, filename):
         ]:
             f.write(f"{key}: {job_metadata[key]}\n")
         f.write("\noutputs:\n")
-        for privacy_level, name in sorted_outputs:
-            f.write(f"  {privacy_level} - {name}\n")
+        f.write(tabulate(outputs, separator="  - ", indent=2))
 
 
 # Environment variables whose values do not need to be hidden from the debug

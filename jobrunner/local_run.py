@@ -45,6 +45,7 @@ from .create_or_update_jobs import (
 )
 from .log_utils import configure_logging
 from .subprocess_utils import subprocess_run
+from .string_utils import tabulate
 
 
 def main(project_dir, actions, force_run_dependencies=False):
@@ -163,16 +164,6 @@ def create_and_run_jobs(
 
     success_flag = all(job.status == State.SUCCEEDED for job in final_jobs)
     return success_flag
-
-
-def tabulate(rows, separator=" ", indent=0):
-    """
-    Formats two columns of data with the right hand column right-aligned
-    """
-    max_col_0 = max(len(row[0]) for row in rows)
-    max_col_1 = max(len(row[1]) for row in rows)
-    format_str = f"{' ' * indent}{{0:<{max_col_0}}}{separator}{{1:>{max_col_1}}}"
-    return "\n".join(format_str.format(*row) for row in rows)
 
 
 # Copied from test/conftest.py to avoid a more complex dependency tree
