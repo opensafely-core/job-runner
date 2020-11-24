@@ -75,7 +75,15 @@ def get_sha_from_remote_ref(repo_url, ref):
     """
     try:
         response = subprocess_run(
-            ["git", "ls-remote", "--quiet", "--exit-code", repo_url, ref],
+            [
+                "git",
+                *auth_arguments(),
+                "ls-remote",
+                "--quiet",
+                "--exit-code",
+                repo_url,
+                ref,
+            ],
             check=True,
             capture_output=True,
             env=supply_access_token(repo_url),
@@ -155,7 +163,16 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
     while True:
         try:
             subprocess_run(
-                ["git", "fetch", "--depth", "1", "--force", repo_url, commit_sha],
+                [
+                    "git",
+                    *auth_arguments(),
+                    "fetch",
+                    "--depth",
+                    "1",
+                    "--force",
+                    repo_url,
+                    commit_sha,
+                ],
                 check=True,
                 capture_output=True,
                 cwd=repo_dir,
@@ -182,16 +199,28 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
                 raise GitError(f"Error fetching commit {commit_sha} from {repo_url}")
 
 
+def auth_arguments():
+    """
+    Adds authentication related arguments to git invocations
+    """
+    # This script will supply as the username the access token from the
+    # environment variable GIT_ACCESS_TOKEN
+    askpath_exec = Path(__file__).parent / "git_askpass_access_token.py"
+    return [
+        # Disable the default credentials helper so git never tries to pop up a
+        # modal dialog or anyting awful like that
+        "-c",
+        "credential.helper=''",
+        # Use our askpath executable
+        "-c",
+        f"core.askpass={askpath_exec}",
+    ]
+
+
 def supply_access_token(repo_url):
     token = config.PRIVATE_REPO_ACCESS_TOKEN
     # Ensure we only ever send our token to github.com over https
     parsed = urlparse(repo_url)
     if parsed.hostname != "github.com" or parsed.scheme != "https":
         token = ""
-    return dict(
-        os.environ,
-        # This script will supply as the username the access token from
-        # the environment variable GIT_ACCESS_TOKEN
-        GIT_ASKPASS=Path(__file__).parent / "git_askpass_access_token.py",
-        GIT_ACCESS_TOKEN=token,
-    )
+    return dict(os.environ, GIT_ACCESS_TOKEN=token)
