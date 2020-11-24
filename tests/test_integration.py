@@ -17,13 +17,17 @@ log = logging.getLogger(__name__)
 # loops to run entire pipeline
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
+def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+    )
+
     ensure_docker_images_present("cohortextractor", "python")
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")
     repo_path = tmp_work_dir / "test-repo"
     commit_directory_contents(repo_path, project_fixture)
     requests_mock.get(
-        "https://jobs.opensafely.org/api/v2/job-requests/?active=true&backend=expectations",
+        "http://testserver/api/v2/job-requests/?backend=expectations",
         json={
             "results": [
                 {
@@ -40,9 +44,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock):
             ],
         },
     )
-    requests_mock.post(
-        "https://jobs.opensafely.org/api/v2/jobs/", json={},
-    )
+    requests_mock.post("http://testserver/api/v2/jobs/", json={})
 
     # Run sync to grab the JobRequest from the mocked job-server
     jobrunner.sync.sync()
