@@ -92,7 +92,10 @@ def create_jobs_with_project_file(job_request, project_file):
     # Handle the special `run_all` action (there's no need to specifically
     # identify "leaf node" actions, the effect is the same)
     if "run_all" in job_request.requested_actions:
-        requested_actions = get_all_actions(project)
+        # We exclude any manually defined "run_all" action
+        requested_actions = [
+            action for action in get_all_actions(project) if action != "run_all"
+        ]
     else:
         requested_actions = job_request.requested_actions
 
