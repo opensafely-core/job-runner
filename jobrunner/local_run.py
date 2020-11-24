@@ -121,6 +121,9 @@ def create_and_run_jobs(
         workspace=project_dir.name,
         database_name="dummy",
         force_run_dependencies=force_run_dependencies,
+        # The default behaviour of refusing to run if a dependency has failed
+        # makes for an awkward workflow when interating in development
+        force_run_failed=True,
         branch="",
         original={"created_by": os.environ.get("USERNAME")},
     )

@@ -88,11 +88,7 @@ def create_jobs_with_project_file(job_request, project_file):
     # By default just the actions which have been explicitly requested are
     # forced to re-run, but if `force_run_dependencies` is set then any action
     # whose outputs we need will be forced to re-run
-    if job_request.force_run_dependencies:
-        # Wildcard marker to indicate that we should match any action
-        force_run_actions = "*"
-    else:
-        force_run_actions = job_request.requested_actions
+    force_run_actions = job_request.requested_actions
     # Handle the special `run_all` action (there's no need to specifically
     # identify "leaf node" actions, the effect is the same)
     if "run_all" in job_request.requested_actions:
@@ -135,14 +131,15 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
         return already_active_jobs[0]
 
     # If we're not forcing this particular action to run...
-    if force_run_actions != "*" and action not in force_run_actions:
+    if not job_request.force_run_dependencies and action not in force_run_actions:
         action_status = action_has_successful_outputs(job_request.workspace, action)
         # If we have already have successful outputs for an action then return
         # an empty job as there's nothing to do
         if action_status is True:
             return
-        # If the action has explicitly failed then raise an error
-        elif action_status is False:
+        # If the action has explicitly failed (and we're not automatically
+        # re-running failed jobs) then raise an error
+        elif action_status is False and not job_request.force_run_failed:
             raise JobRequestError(
                 f"{action} failed on a previous run and must be re-run"
             )
