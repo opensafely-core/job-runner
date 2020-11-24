@@ -184,7 +184,8 @@ def get_action_specification(project, action_id):
         if len(output_dirs) != 1:
             raise ProjectValidationError(
                 f"generate_cohort command should produce output in only one "
-                f"directory, found {output_dirs}"
+                f"directory, found {len(output_dirs)}:\n"
+                + "\n".join([f" - {d}/" for d in output_dirs])
             )
         run_command += f" --output-dir={output_dirs[0]}"
     return ActionSpecifiction(

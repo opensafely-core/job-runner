@@ -210,7 +210,11 @@ def finalise_job(job):
     if container_metadata["State"]["ExitCode"] != 0:
         error = JobError("Job exited with an error code")
     elif unmatched_patterns:
-        error = JobError(f"No outputs found matching: {', '.join(unmatched_patterns)}")
+        error = JobError(
+            "No outputs found matching patterns:\n - {}".format(
+                "\n - ".join(unmatched_patterns)
+            )
+        )
     else:
         error = None
 
