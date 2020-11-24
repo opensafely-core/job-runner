@@ -179,12 +179,11 @@ def create_and_run_jobs(
             continue
         print(f"=> {job.action}")
         print(textwrap.indent(job.status_message, "   "))
+        print()
+        print(f"   log file: {METADATA_DIR}/{job.action}.log")
         print("   outputs:")
         outputs = sorted(outputs_by_action.get(job.action, {}).items())
-        # The log file isn't strictly speaking an output, but it makes sense to
-        # list it there from the user's point of view
-        outputs.insert(0, (f"{METADATA_DIR}/{job.action}.log", "moderately_sensitive"))
-        print(tabulate(outputs, separator="  - ", indent=5))
+        print(tabulate(outputs, separator="  - ", indent=5, empty="(no outputs)"))
         print()
 
     success_flag = all(job.status == State.SUCCEEDED for job in final_jobs)

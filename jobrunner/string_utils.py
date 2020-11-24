@@ -22,10 +22,12 @@ def project_name_from_url(url):
     return name
 
 
-def tabulate(rows, separator=" ", indent=0):
+def tabulate(rows, separator=" ", indent=0, empty=""):
     """
     Formats two columns of data
     """
+    if not rows:
+        return f"{' ' * indent}{empty}"
     max_col_0 = max(len(row[0]) for row in rows)
     max_col_1 = max(len(row[1]) for row in rows)
     format_str = f"{' ' * indent}{{0:<{max_col_0}}}{separator}{{1:<{max_col_1}}}"

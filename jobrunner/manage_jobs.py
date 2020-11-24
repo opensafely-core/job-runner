@@ -366,10 +366,7 @@ def write_log_file(job, job_metadata, filename):
         ]:
             f.write(f"{key}: {job_metadata[key]}\n")
         f.write("\noutputs:\n")
-        if outputs:
-            f.write(tabulate(outputs, separator="  - ", indent=2))
-        else:
-            f.write("  none")
+        f.write(tabulate(outputs, separator="  - ", indent=2, empty="(no outputs)"))
 
 
 # Environment variables whose values do not need to be hidden from the debug
