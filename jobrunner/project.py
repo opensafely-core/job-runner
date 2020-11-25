@@ -19,20 +19,53 @@ baselogger = logging.LoggerAdapter(logger, {"job_id": "-"})
 PRIVACY_LEVEL_HIGH = 3
 PRIVACY_LEVEL_MEDIUM = 4
 
-# The keys of this dictionary are all the supported `run` commands in
-# jobs
-RUN_COMMANDS_CONFIG = {
-    "cohortextractor": {
-        "docker_invocation": ["docker.opensafely.org/cohortextractor"],
-    },
-    "stata-mp": {"docker_invocation": ["docker.opensafely.org/stata-mp"]},
-    "r": {"docker_invocation": ["docker.opensafely.org/r"]},
-    "jupyter": {"docker_invocation": ["docker.opensafely.org/jupyter"]},
-    "python": {"docker_invocation": ["docker.opensafely.org/python"]},
+# Valid docker source urls
+DOCKER_URLS_LIST = [
+    "docker.opensafely.org/opensafely",  # default
+    "ghcr.io/opensafely",  # GH actions
+    "docker-proxy.opensafely.org/opensafely",  # testing
+    "docker.opensafely.org",  # migration
+]
+# Valid actions mapped to docker run commands. Can be used to switch images or
+# add cli flags to the base action invocation
+ACTION_TYPE_TO_CMD = {
+    "cohortextractor": "cohortextractor",
+    "jupyter": "jupyter",
+    "python": "python",
+    "r": "r",
+    "stata-mp": "stata-mp",
 }
 
 # The version of `project.yaml` where each feature was introduced
 FEATURE_FLAGS_BY_VERSION = {"UNIQUE_OUTPUT_PATH": 2, "EXPECTATIONS_POPULATION": 3}
+
+
+def validate_action_name(name):
+    """Validate the base image name is trusted."""
+    return name in ACTION_TYPE_TO_CMD
+
+
+def get_run_command(name, env=os.environ):
+    """Returns the docker image for action type.
+
+    Validates against an allowed list of sites/images.
+    """
+
+    assert validate_action_name(name)
+    cmd = ACTION_TYPE_TO_CMD[name]
+    # We could cache the load/validation of the base docker url, but it makes
+    # testing easy and is not expensive.
+    docker_url = env.get("DOCKER_URL", DOCKER_URLS_LIST[0])
+    if docker_url not in DOCKER_URLS_LIST:
+        raise RuntimeError(
+            "Invalid DOCKER_URL environment variable: %s. Valid options are: %s",
+            docker_url,
+            DOCKER_URLS_LIST,
+        )
+
+    return {
+        "docker_invocation": [docker_url + "/" + cmd],
+    }
 
 
 def escape_braces(unescaped_string):
@@ -144,7 +177,7 @@ def validate_project(workdir, project):
                 seen_output_files.append(filename)
         # Check it's a permitted run command
         name, version, args = split_and_format_run_command(action_config["run"])
-        if name not in RUN_COMMANDS_CONFIG:
+        if not validate_action_name(name):
             raise ProjectValidationError(
                 f"{name} is not a supported command", report_args=True
             )
@@ -275,7 +308,7 @@ def add_runtime_metadata(
             f"{workspace['db'].upper()}_DATABASE_URL"
         ]
         job_config["temp_database_name"] = os.environ["TEMP_DATABASE_NAME"]
-    info = copy.deepcopy(RUN_COMMANDS_CONFIG[name])
+    info = get_run_command(name)
 
     # Other metadata required to run and/or debug containers
     job_config["callback_url"] = callback_url

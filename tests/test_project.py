@@ -8,7 +8,12 @@ import yaml
 
 from jobrunner import utils
 from jobrunner.exceptions import ProjectValidationError
-from jobrunner.project import make_container_name, parse_project_yaml, validate_project
+from jobrunner.project import (
+    get_run_command,
+    make_container_name,
+    parse_project_yaml,
+    validate_project,
+)
 
 
 def test_bad_volume_name_is_corrected():
@@ -30,7 +35,7 @@ def test_job_to_project_nodeps(job_spec_maker):
         "DATABASE_URL=sqlite:///test.db",
         "-e",
         "TEMP_DATABASE_NAME=temp",
-        "docker.opensafely.org/cohortextractor:0.5.2",
+        "docker.opensafely.org/opensafely/cohortextractor:0.5.2",
         "generate_cohort",
         f"--output-dir={utils.get_workdir()}",
     ]
@@ -64,7 +69,7 @@ def test_valid_run_in_project(job_spec_maker):
         "DATABASE_URL=sqlite:///test.db",
         "-e",
         "TEMP_DATABASE_NAME=temp",
-        "docker.opensafely.org/cohortextractor:0.5.2",
+        "docker.opensafely.org/opensafely/cohortextractor:0.5.2",
         "generate_cohort",
         f"--output-dir={utils.get_workdir()}",
     ]
@@ -235,3 +240,25 @@ def test_old_versions_supply_default_popuation():
         project = yaml.safe_load(f)
     project = validate_project(project_path, project)
     assert project["expectations"]["population_size"] == 1000
+
+
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        ("docker.opensafely.org/opensafely", "docker.opensafely.org/opensafely/python"),
+        ("ghcr.io/opensafely", "ghcr.io/opensafely/python"),
+        (
+            "docker-proxy.opensafely.org/opensafely",
+            "docker-proxy.opensafely.org/opensafely/python",
+        ),
+        ("docker.opensafely.org", "docker.opensafely.org/python"),
+    ],
+)
+def test_docker_valid_urls(url, expected):
+    cmd = get_run_command("python", {"DOCKER_URL": url})
+    assert cmd["docker_invocation"] == [expected]
+
+
+def test_docker_invalid_urls():
+    with pytest.raises(RuntimeError):
+        get_run_command("python", {"DOCKER_URL": "evil.com"})
