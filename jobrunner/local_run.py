@@ -32,7 +32,7 @@ import jobrunner.run
 from . import config
 from . import docker
 from .database import find_where
-from .manage_jobs import METADATA_DIR, read_manifest_file
+from .manage_jobs import METADATA_DIR
 from .models import JobRequest, Job, State
 from .create_or_update_jobs import (
     create_jobs,
@@ -165,9 +165,6 @@ def create_and_run_jobs(
     jobrunner.run.main(exit_when_done=True)
     final_jobs = find_where(Job)
 
-    # Get the full list of outputs created by each action
-    outputs_by_action = get_all_outputs_from_manifest(project_dir)
-
     # Pretty print details of each action
     print()
     for job in final_jobs:
@@ -185,7 +182,7 @@ def create_and_run_jobs(
         print()
         print(f"   log file: {METADATA_DIR}/{job.action}.log")
         print("   outputs:")
-        outputs = sorted(outputs_by_action.get(job.action, {}).items())
+        outputs = sorted(job.outputs.items()) if job.outputs else []
         print(tabulate(outputs, separator="  - ", indent=5, empty="(no outputs)"))
         print()
 
@@ -224,16 +221,6 @@ def get_missing_docker_images(jobs):
     return [
         image for image in full_docker_images if not docker.image_exists_locally(image)
     ]
-
-
-def get_all_outputs_from_manifest(project_dir):
-    manifest = read_manifest_file(project_dir)
-    outputs_by_action = {}
-    for filename, details in manifest["files"].items():
-        action = details["created_by_action"]
-        outputs = outputs_by_action.setdefault(action, {})
-        outputs[filename] = details["privacy_level"]
-    return outputs_by_action
 
 
 if __name__ == "__main__":

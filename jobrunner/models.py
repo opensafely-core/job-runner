@@ -66,6 +66,7 @@ class Job:
     requires_outputs_from: list = None
     run_command: str = None
     output_spec: dict = None
+    outputs: dict = None
     status_message: str = None
     created_at: int = None
     updated_at: int = None

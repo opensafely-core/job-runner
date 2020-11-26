@@ -198,6 +198,7 @@ def finalise_job(job):
     """
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
+    job.outputs = outputs
 
     # Set the final state of the job
     if container_metadata["State"]["ExitCode"] != 0:
@@ -214,7 +215,7 @@ def finalise_job(job):
 
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
-    job_metadata = get_job_metadata(job, container_metadata, outputs)
+    job_metadata = get_job_metadata(job, container_metadata)
 
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
@@ -230,7 +231,7 @@ def finalise_job(job):
 
     # Extract outputs to workspace
     volume = volume_name(job)
-    for filename in outputs.keys():
+    for filename in job.outputs.keys():
         log.info(f"Extracting output file: {filename}")
         docker.copy_from_volume(volume, filename, workspace_dir / filename)
 
@@ -238,7 +239,7 @@ def finalise_job(job):
     existing_files = list_outputs_from_action(
         job.workspace, job.action, ignore_errors=True
     )
-    files_to_remove = set(existing_files) - set(outputs)
+    files_to_remove = set(existing_files) - set(job.outputs)
     delete_files(workspace_dir, files_to_remove)
 
     # Update manifest
@@ -252,7 +253,7 @@ def finalise_job(job):
             workspace_dir / METADATA_DIR / f"{job.action}.log",
             medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
         )
-        for filename, privacy_level in outputs.items():
+        for filename, privacy_level in job.outputs.items():
             if privacy_level == "moderately_sensitive":
                 copy_file(workspace_dir / filename, medium_privacy_dir / filename)
         delete_files(medium_privacy_dir, files_to_remove)
@@ -302,7 +303,7 @@ def find_matching_outputs(job):
     return outputs, unmatched_patterns
 
 
-def get_job_metadata(job, container_metadata, outputs):
+def get_job_metadata(job, container_metadata):
     """
     Returns a JSON-serializable dict including everything we know about a job
     """
@@ -317,7 +318,6 @@ def get_job_metadata(job, container_metadata, outputs):
     job_metadata["job_id"] = job_metadata["id"]
     job_metadata["run_by_user"] = job_metadata["job_request"].get("created_by")
     job_metadata["docker_image_id"] = container_metadata["Image"]
-    job_metadata["outputs"] = outputs
     job_metadata["container_metadata"] = container_metadata
     return job_metadata
 
