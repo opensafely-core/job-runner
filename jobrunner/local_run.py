@@ -33,7 +33,7 @@ from . import config
 from . import docker
 from .database import find_where
 from .manage_jobs import METADATA_DIR
-from .models import JobRequest, Job, State
+from .models import JobRequest, Job, State, StatusCode
 from .create_or_update_jobs import (
     create_jobs,
     ProjectValidationError,
@@ -157,9 +157,19 @@ def create_and_run_jobs(
     action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
 
-    # We don't need the full job ID in the log output here, it only clutters
-    # things
-    configure_logging(show_action_name_only=True)
+    configure_logging(
+        # We don't need the full job ID in the log output here, it only clutters
+        # things
+        show_action_name_only=True,
+        # None of these status messages are particularly useful in local run
+        # mode, and they can generate a lot of clutter in large dependency
+        # trees
+        status_codes_to_ignore=[
+            StatusCode.WAITING_ON_DEPENDENCIES,
+            StatusCode.DEPENDENCY_FAILED,
+            StatusCode.WAITING_ON_WORKERS,
+        ],
+    )
 
     # Run everything
     jobrunner.run.main(exit_when_done=True)
@@ -172,9 +182,7 @@ def create_and_run_jobs(
         # dependants.
         if (
             job.state == State.FAILED
-            # TODO: We should probably add error status codes so we don't have
-            # to match on the string message like this.
-            and job.status_message == "JobError: Not starting as dependency failed"
+            and job.status_code == StatusCode.DEPENDENCY_FAILED
         ):
             continue
         print(f"=> {job.action}")
