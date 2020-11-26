@@ -10,6 +10,9 @@ from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutur
 from . import config
 
 
+# The magic action name which means "run every action"
+RUN_ALL_COMMAND = "run_all"
+
 # The version of `project.yaml` where each feature was introduced
 FEATURE_FLAGS_BY_VERSION = {"UNIQUE_OUTPUT_PATH": 2, "EXPECTATIONS_POPULATION": 3}
 
@@ -212,7 +215,9 @@ def is_generate_cohort_command(args):
 
 
 def get_all_actions(project):
-    return list(project["actions"].keys())
+    # We ignore any manually defined run_all action (in later project versions
+    # this will be an error)
+    return list(project["actions"].keys() - {RUN_ALL_COMMAND})
 
 
 def get_all_output_patterns_from_project_file(project_file):

@@ -17,6 +17,7 @@ from .project import (
     get_action_specification,
     get_all_actions,
     ProjectValidationError,
+    RUN_ALL_COMMAND,
 )
 from .models import Job, SavedJobRequest, State
 from .manage_jobs import action_has_successful_outputs
@@ -91,11 +92,8 @@ def create_jobs_with_project_file(job_request, project_file):
     force_run_actions = job_request.requested_actions
     # Handle the special `run_all` action (there's no need to specifically
     # identify "leaf node" actions, the effect is the same)
-    if "run_all" in job_request.requested_actions:
-        # We exclude any manually defined "run_all" action
-        requested_actions = [
-            action for action in get_all_actions(project) if action != "run_all"
-        ]
+    if RUN_ALL_COMMAND in job_request.requested_actions:
+        requested_actions = get_all_actions(project)
     else:
         requested_actions = job_request.requested_actions
 
