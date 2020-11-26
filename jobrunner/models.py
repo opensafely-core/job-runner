@@ -39,9 +39,10 @@ class JobRequest:
     original: dict = None
 
 
-# This stores the original JobRequest as received from the job-server. We only
-# store this so that we can include it with the job outputs for debugging/audit
-# purposes.
+# This stores the original JobRequest as received from the job-server. Once
+# we've created the relevant Jobs we have no real need for the JobRequest
+# object, but we it's useful to store it for debugging/audit purposes so we
+# just save a blob of the original JSON as received from the job-server.
 @dataclasses.dataclass
 class SavedJobRequest:
     __tablename__ = "job_request"
@@ -57,17 +58,37 @@ class Job:
     id: str
     job_request_id: str = None
     state: State = None
+    # Git repository URL (may be a local path in LOCAL_RUN_MODE)
     repo_url: str = None
+    # Full commit sha
     commit: str = None
+    # Name of workspace (effictively, the output directory)
     workspace: str = None
+    # Only applicable to "generate_cohort" jobs: the name of the database to
+    # query against
     database_name: str = None
+    # Name of the action (one of the keys in the `actions` dict in
+    # project.yaml)
     action: str = None
-    wait_for_job_ids: list = None
+    # List of action names whose outputs need to be used as inputs to this
+    # action
     requires_outputs_from: list = None
+    # List of job IDs we need to wait to finish before we can run (these will
+    # represent the subset of the actions above which hadn't already run when
+    # this job was scheduled)
+    wait_for_job_ids: list = None
+    # The docker run arguments to execute
     run_command: str = None
+    # The specification of what outputs this job expects to produce, as a bunch
+    # of named glob patterns organised by privacy level
     output_spec: dict = None
+    # The outputs the job did produce matching the patterns above, as a mapping
+    # of filenames to privacy levels
     outputs: dict = None
+    # Human readable string giving details about what's currently happening
+    # with this job
     status_message: str = None
+    # Times (stored as integer UNIX timestamps)
     created_at: int = None
     updated_at: int = None
     started_at: int = None
