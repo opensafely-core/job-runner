@@ -32,14 +32,14 @@ def main(exit_when_done=False):
 
 
 def handle_jobs():
-    active_jobs = find_where(Job, status__in=[State.PENDING, State.RUNNING])
+    active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            if job.status == State.PENDING:
+            if job.state == State.PENDING:
                 handle_pending_job(job)
-            elif job.status == State.RUNNING:
+            elif job.state == State.RUNNING:
                 handle_running_job(job)
     return len(active_jobs)
 
@@ -76,7 +76,7 @@ def handle_running_job(job):
             job = finalise_job(job)
             # We expect the job to be transitioned into its final state at this
             # point
-            assert job.status in [State.SUCCEEDED, State.FAILED]
+            assert job.state in [State.SUCCEEDED, State.FAILED]
         except JobError as exception:
             mark_job_as_failed(job, exception)
             # Question: do we want to clean up failed jobs? Given that we now
@@ -101,7 +101,7 @@ def get_states_of_awaited_jobs(job):
     job_ids = job.wait_for_job_ids
     if not job_ids:
         return []
-    return select_values(Job, "status", id__in=job_ids)
+    return select_values(Job, "state", id__in=job_ids)
 
 
 def mark_job_as_failed(job, error):
@@ -120,24 +120,24 @@ def mark_job_as_completed(job):
     # Completed means either SUCCEEDED or FAILED. We just save the job to the
     # database exactly as is with the exception of setting the completed at
     # timestamp
-    assert job.status in [State.SUCCEEDED, State.FAILED]
+    assert job.state in [State.SUCCEEDED, State.FAILED]
     job.completed_at = int(time.time())
     update(job)
 
 
-def set_state(job, status, message):
+def set_state(job, state, message):
     timestamp = int(time.time())
-    if status == State.RUNNING:
+    if state == State.RUNNING:
         job.started_at = timestamp
-    elif status == State.FAILED or status == State.SUCCEEDED:
+    elif state == State.FAILED or state == State.SUCCEEDED:
         job.completed_at = timestamp
-    job.status = status
+    job.state = state
     job.status_message = message
     job.updated_at = timestamp
     update(
         job,
         update_fields=[
-            "status",
+            "state",
             "status_message",
             "updated_at",
             "started_at",
@@ -170,7 +170,7 @@ def set_message(job, message):
 
 
 def job_running_capacity_available():
-    running_jobs = count_where(Job, status=State.RUNNING)
+    running_jobs = count_where(Job, state=State.RUNNING)
     return running_jobs < config.MAX_WORKERS
 
 

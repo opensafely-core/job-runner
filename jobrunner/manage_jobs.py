@@ -202,15 +202,15 @@ def finalise_job(job):
 
     # Set the final state of the job
     if container_metadata["State"]["ExitCode"] != 0:
-        job.status = State.FAILED
+        job.state = State.FAILED
         job.status_message = "Job exited with an error code"
     elif unmatched_patterns:
-        job.status = State.FAILED
+        job.state = State.FAILED
         job.status_message = "No outputs found matching patterns:\n - {}".format(
             "\n - ".join(unmatched_patterns)
         )
     else:
-        job.status = State.SUCCEEDED
+        job.state = State.SUCCEEDED
         job.status_message = "Completed successfully"
 
     # job_metadata is a big dict capturing everything we know about the state
@@ -333,7 +333,7 @@ def write_log_file(job, job_metadata, filename):
     with open(filename, "a") as f:
         f.write("\n\n")
         for key in [
-            "status",
+            "state",
             "status_message",
             "commit",
             "docker_image_id",
@@ -426,13 +426,13 @@ def list_outputs_from_action(workspace, action, ignore_errors=False):
     try:
         manifest = read_manifest_file(directory)
         files = manifest["files"]
-        status = manifest["actions"][action]["status"]
+        state = manifest["actions"][action]["state"]
     except KeyError:
-        status = None
+        state = None
     if not ignore_errors:
-        if status is None:
+        if state is None:
             raise ActionNotRunError(f"{action} has not been run")
-        if status != State.SUCCEEDED.value:
+        if state != State.SUCCEEDED.value:
             raise ActionFailedError(f"{action} failed")
     output_files = []
     for filename, details in files.items():
@@ -477,7 +477,7 @@ def update_manifest(manifest, job_metadata):
     manifest["actions"][action] = {
         key: job_metadata[key]
         for key in [
-            "status",
+            "state",
             "commit",
             "docker_image_id",
             "job_id",

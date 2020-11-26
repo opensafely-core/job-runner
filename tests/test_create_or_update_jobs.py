@@ -27,7 +27,7 @@ def test_create_or_update_jobs(tmp_work_dir):
     assert len(jobs) == 1
     j = jobs[0]
     assert j.job_request_id == "123"
-    assert j.status == State.PENDING
+    assert j.state == State.PENDING
     assert j.repo_url == repo_url
     assert j.commit == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
     assert j.workspace == "1"
@@ -64,7 +64,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     assert len(jobs) == 1
     j = jobs[0]
     assert j.job_request_id == "123"
-    assert j.status == State.FAILED
+    assert j.state == State.FAILED
     assert j.repo_url == repo_url
     assert j.commit == None
     assert j.workspace == "1"

@@ -171,7 +171,7 @@ def create_and_run_jobs(
         # If a job fails we don't want to clutter the output with its failed
         # dependants.
         if (
-            job.status == State.FAILED
+            job.state == State.FAILED
             # TODO: We should probably add error status codes so we don't have
             # to match on the string message like this.
             and job.status_message == "JobError: Not starting as dependency failed"
@@ -186,7 +186,7 @@ def create_and_run_jobs(
         print(tabulate(outputs, separator="  - ", indent=5, empty="(no outputs)"))
         print()
 
-    success_flag = all(job.status == State.SUCCEEDED for job in final_jobs)
+    success_flag = all(job.state == State.SUCCEEDED for job in final_jobs)
     return success_flag
 
 

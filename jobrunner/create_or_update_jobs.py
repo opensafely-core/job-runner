@@ -126,7 +126,7 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
         Job,
         workspace=job_request.workspace,
         action=action,
-        status__in=[State.PENDING, State.RUNNING],
+        state__in=[State.PENDING, State.RUNNING],
     )
     if already_active_jobs:
         return already_active_jobs[0]
@@ -160,7 +160,7 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
     job = Job(
         id=Job.new_id(),
         job_request_id=job_request.id,
-        status=State.PENDING,
+        state=State.PENDING,
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
@@ -219,10 +219,10 @@ def create_failed_job(job_request, exception):
     """
     # Special case for the NothingToDoError which we treat as a success
     if isinstance(exception, NothingToDoError):
-        status = State.SUCCEEDED
+        state = State.SUCCEEDED
         status_message = "All actions have already run"
     else:
-        status = State.FAILED
+        state = State.FAILED
         status_message = f"{type(exception).__name__}: {exception}"
     with transaction():
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))
@@ -231,7 +231,7 @@ def create_failed_job(job_request, exception):
             Job(
                 id=Job.new_id(),
                 job_request_id=job_request.id,
-                status=status,
+                state=state,
                 repo_url=job_request.repo_url,
                 commit=job_request.commit,
                 workspace=job_request.workspace,

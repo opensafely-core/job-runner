@@ -94,7 +94,7 @@ def job_to_remote_format(job):
         in [
             "job_request_id",
             "action",
-            "status",
+            "state",
             "status_message",
             "created_at",
             "updated_at",
@@ -105,6 +105,8 @@ def job_to_remote_format(job):
 
     # convert cross-system identifier key
     data["identifier"] = job.id
+    # Rename field
+    data["status"] = data.pop("state")
 
     return data
 
