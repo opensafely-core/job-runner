@@ -13,25 +13,32 @@ import sys
 import threading
 
 
-def configure_logging(show_action_name_only=False):
+def configure_logging(show_action_name_only=False, status_codes_to_ignore=None):
     handler = logging.StreamHandler()
     handler.addFilter(set_log_context)
     handler.setFormatter(
         JobRunnerFormatter(
-            "{context}{message}", style="{", show_action_name_only=show_action_name_only
+            "{context}{message}",
+            style="{",
+            show_action_name_only=show_action_name_only,
         )
     )
+    if status_codes_to_ignore:
+        handler.addFilter(IgnoreStatusCodes(status_codes_to_ignore))
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
     sys.excepthook = show_subprocess_stderr
 
 
 class JobRunnerFormatter(logging.Formatter):
-    def __init__(self, *args, show_action_name_only=False, **kwargs):
+    def __init__(
+        self, *args, show_action_name_only=False, ignore_status_codes=None, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         # This gives us the option to show just a job's action name, rather
         # than its full slug in the log output, which is useful when running
         # locally to avoid clutter in the output
         self.show_action_name_only = show_action_name_only
+        self.ignore_status_codes = set(ignore_status_codes or [])
 
     def format(self, record):
         """
@@ -79,6 +86,20 @@ def show_subprocess_stderr(typ, value, traceback):
                 stderr = stderr.decode("utf-8", "ignore")
             print("\nstderr:\n", file=sys.stderr)
             print(stderr, file=sys.stderr)
+
+
+class IgnoreStatusCodes:
+    """
+    Skip log lines which have certain status codes
+    """
+
+    def __init__(self, status_codes_to_ignore):
+        self.status_codes_to_ignore = set(status_codes_to_ignore)
+
+    def filter(self, record):
+        if hasattr(record, "status_code"):
+            return record.status_code not in self.status_codes_to_ignore
+        return True
 
 
 class SetLogContext(threading.local):

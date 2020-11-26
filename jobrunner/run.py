@@ -10,7 +10,7 @@ import time
 from .log_utils import configure_logging, set_log_context
 from . import config
 from .database import find_where, count_where, update, select_values
-from .models import Job, State
+from .models import Job, State, StatusCode
 from .manage_jobs import (
     JobError,
     start_job,
@@ -47,12 +47,18 @@ def handle_jobs():
 def handle_pending_job(job):
     awaited_states = get_states_of_awaited_jobs(job)
     if State.FAILED in awaited_states:
-        mark_job_as_failed(job, JobError("Not starting as dependency failed"))
+        mark_job_as_failed(
+            job, "Not starting as dependency failed", code=StatusCode.DEPENDENCY_FAILED
+        )
     elif any(state != State.SUCCEEDED for state in awaited_states):
-        set_message(job, "Waiting on dependencies")
+        set_message(
+            job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
+        )
     else:
         if not job_running_capacity_available():
-            set_message(job, "Waiting for available workers")
+            set_message(
+                job, "Waiting for available workers", code=StatusCode.WAITING_ON_WORKERS
+            )
         else:
             try:
                 set_message(job, "Preparing")
