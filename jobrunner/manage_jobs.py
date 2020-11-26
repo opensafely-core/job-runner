@@ -6,7 +6,6 @@ It's important that the `start_job` and `finalise_job` functions are
 idempotent. This means that the job-runner can be killed at any point and will
 still end up in a consistent state when it's restarted.
 """
-import copy
 import datetime
 import json
 import logging
@@ -200,27 +199,22 @@ def finalise_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
 
-    # Error handling is slightly tricky here: for most classes of error we
-    # still want to extract outputs and logs for debugging purposes, so we
-    # can't just raise an exception at this point. But we need to know now if
-    # there are any errors so we can write the appropriate state to disk.  So
-    # we create the error here, pass it to `get_job_metadata` so it can persist
-    # the correct state, run all the extraction code, and then raise the
-    # exception at the end once we're done.
+    # Set the final state of the job
     if container_metadata["State"]["ExitCode"] != 0:
-        error = JobError("Job exited with an error code")
+        job.status = State.FAILED
+        job.status_message = "Job exited with an error code"
     elif unmatched_patterns:
-        error = JobError(
-            "No outputs found matching patterns:\n - {}".format(
-                "\n - ".join(unmatched_patterns)
-            )
+        job.status = State.FAILED
+        job.status_message = "No outputs found matching patterns:\n - {}".format(
+            "\n - ".join(unmatched_patterns)
         )
     else:
-        error = None
+        job.status = State.SUCCEEDED
+        job.status_message = "Completed successfully"
 
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
-    job_metadata = get_job_metadata(job, container_metadata, outputs, error)
+    job_metadata = get_job_metadata(job, container_metadata, outputs)
 
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
@@ -269,8 +263,7 @@ def finalise_job(job):
     # track of old files if we get interrupted
     write_manifest_file(workspace_dir, manifest)
 
-    if error:
-        raise error
+    return job
 
 
 def cleanup_job(job):
@@ -309,30 +302,16 @@ def find_matching_outputs(job):
     return outputs, unmatched_patterns
 
 
-def get_job_metadata(job, container_metadata, outputs, error):
+def get_job_metadata(job, container_metadata, outputs):
     """
     Returns a JSON-serializable dict including everything we know about a job
     """
-    # There's a structural infelicity here that's hard to work around: what we
-    # need to write to disk is the final state of the job (i.e. did it succeed
-    # or fail and how long did it take). But the job won't transition into its
-    # final state until after we've finished writing all the outputs and return
-    # to the main run loop. (And it's important that only the main run loop
-    # gets to set the job's state.) So there's a little bit of duplication of
-    # the logic in `jobrunner.run` here to anticpate what the final state will
-    # be.
-    final_job = copy.copy(job)
-    if error:
-        final_job.status = State.FAILED
-        final_job.status_message = f"{type(error).__name__}: {error}"
-    else:
-        final_job.status = State.SUCCEEDED
-        final_job.status_message = "Completed successfully"
     # This won't exactly match the final `completed_at` time which doesn't get
-    # set until the entire job has finished processing
-    final_job.completed_at = int(time.time())
-    job_metadata = final_job.asdict()
-    job_request = find_where(SavedJobRequest, id=final_job.job_request_id)[0]
+    # set until the entire job has finished processing, but we want _some_ kind
+    # of time to put in the metadata
+    job.completed_at = int(time.time())
+    job_metadata = job.asdict()
+    job_request = find_where(SavedJobRequest, id=job.job_request_id)[0]
     # The original job_request, exactly as received from the job-server
     job_metadata["job_request"] = job_request.original
     job_metadata["job_id"] = job_metadata["id"]

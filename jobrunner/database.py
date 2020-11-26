@@ -27,11 +27,14 @@ def insert(item):
     get_connection().execute(sql, encode_field_values(fields, item))
 
 
-def update(item, update_fields):
+def update(item, update_fields=None):
     assert item.id
     table = item.__tablename__
-    fields = [f for f in dataclasses.fields(item) if f.name in update_fields]
-    assert fields
+    if update_fields is not None:
+        fields = [f for f in dataclasses.fields(item) if f.name in update_fields]
+        assert fields
+    else:
+        fields = dataclasses.fields(item)
     updates = ", ".join(f"{escape(field.name)} = ?" for field in fields)
     update_params = encode_field_values(fields, item)
     where, where_params = query_params_to_sql({"id": item.id})
