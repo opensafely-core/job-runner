@@ -6,7 +6,7 @@ def test_basic_roundtrip(tmp_work_dir):
     job = Job(
         id="foo123",
         job_request_id="bar123",
-        status=State.RUNNING,
+        state=State.RUNNING,
         output_spec={"hello": [1, 2, 3]},
     )
     insert(job)
@@ -25,10 +25,10 @@ def test_update(tmp_work_dir):
 
 
 def test_select_values(tmp_work_dir):
-    insert(Job(id="foo123", status=State.PENDING))
-    insert(Job(id="foo124", status=State.RUNNING))
-    insert(Job(id="foo125", status=State.FAILED))
-    values = select_values(Job, "id", status__in=[State.PENDING, State.FAILED])
+    insert(Job(id="foo123", state=State.PENDING))
+    insert(Job(id="foo124", state=State.RUNNING))
+    insert(Job(id="foo125", state=State.FAILED))
+    values = select_values(Job, "id", state__in=[State.PENDING, State.FAILED])
     assert sorted(values) == ["foo123", "foo125"]
-    values = select_values(Job, "status", id="foo124")
+    values = select_values(Job, "state", id="foo124")
     assert values == [State.RUNNING]

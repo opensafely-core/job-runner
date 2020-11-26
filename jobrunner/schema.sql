@@ -12,7 +12,7 @@ CREATE TABLE job_request (
 CREATE TABLE job (
     id TEXT,
     job_request_id TEXT,
-    status TEXT,
+    state TEXT,
     repo_url TEXT,
     "commit" TEXT,
     workspace TEXT,
@@ -43,4 +43,4 @@ CREATE INDEX idx_job__job_request_id ON job (job_request_id);
 -- to query them. By creating an index only on non-terminal states we ensure
 -- that it always stays relatively small even as the set of historical jobs
 -- grows.
-CREATE INDEX idx_job__status ON job (status) WHERE status NOT IN ('failed', 'succeeded');
+CREATE INDEX idx_job__state ON job (state) WHERE state NOT IN ('failed', 'succeeded');

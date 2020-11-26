@@ -56,7 +56,7 @@ class Job:
 
     id: str
     job_request_id: str = None
-    status: State = None
+    state: State = None
     repo_url: str = None
     commit: str = None
     workspace: str = None
