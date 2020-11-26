@@ -73,7 +73,10 @@ def handle_running_job(job):
     else:
         try:
             set_message(job, "Finished, checking status and extracting outputs")
-            finalise_job(job)
+            job = finalise_job(job)
+            # We expect the job to be transitioned into its final state at this
+            # point
+            assert job.status in [State.SUCCEEDED, State.FAILED]
         except JobError as exception:
             mark_job_as_failed(job, exception)
             # Question: do we want to clean up failed jobs? Given that we now
@@ -114,7 +117,12 @@ def mark_job_as_running(job):
 
 
 def mark_job_as_completed(job):
-    set_state(job, State.SUCCEEDED, "Completed successfully")
+    # Completed means either SUCCEEDED or FAILED. We just save the job to the
+    # database exactly as is with the exception of setting the completed at
+    # timestamp
+    assert job.status in [State.SUCCEEDED, State.FAILED]
+    job.completed_at = int(time.time())
+    update(job)
 
 
 def set_state(job, status, message):
