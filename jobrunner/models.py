@@ -23,6 +23,17 @@ class State(Enum):
     SUCCEEDED = "succeeded"
 
 
+# In contrast to State, these play no role in the state machine controlling
+# what happens with a job. They are simply machine readable versions of the
+# human readable status_message which allow us to provide certain UX
+# affordances in the web and command line interfaces. These get added as we
+# have a direct need for them, hence the minimal list below.
+class StatusCode(Enum):
+    WAITING_ON_DEPENDENCIES = "waiting_on_dependencies"
+    DEPENDENCY_FAILED = "dependency_failed"
+    WAITING_ON_WORKERS = "waiting_on_workers"
+
+
 # This is our internal representation of a JobRequest which we pass around but
 # never save to the database (hence no __tablename__ attribute)
 @dataclasses.dataclass
@@ -88,6 +99,8 @@ class Job:
     # Human readable string giving details about what's currently happening
     # with this job
     status_message: str = None
+    # Machine readable code representing the status_message above
+    status_code: StatusCode = None
     # Times (stored as integer UNIX timestamps)
     created_at: int = None
     updated_at: int = None

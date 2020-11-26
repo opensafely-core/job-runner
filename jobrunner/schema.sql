@@ -22,6 +22,7 @@ CREATE TABLE job (
     output_spec TEXT,
     outputs TEXT,
     status_message TEXT,
+    status_code TEXT,
     created_at INT,
     updated_at INT,
     started_at INT,

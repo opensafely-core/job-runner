@@ -104,12 +104,12 @@ def get_states_of_awaited_jobs(job):
     return select_values(Job, "state", id__in=job_ids)
 
 
-def mark_job_as_failed(job, error):
+def mark_job_as_failed(job, error, code=None):
     if isinstance(error, str):
         message = error
     else:
         message = f"{type(error).__name__}: {error}"
-    set_state(job, State.FAILED, message)
+    set_state(job, State.FAILED, message, code=code)
 
 
 def mark_job_as_running(job):
@@ -123,9 +123,10 @@ def mark_job_as_completed(job):
     assert job.state in [State.SUCCEEDED, State.FAILED]
     job.completed_at = int(time.time())
     update(job)
+    log.info(job.status_message, extra={"status_code": job.status_code})
 
 
-def set_state(job, state, message):
+def set_state(job, state, message, code=None):
     timestamp = int(time.time())
     if state == State.RUNNING:
         job.started_at = timestamp
@@ -133,28 +134,31 @@ def set_state(job, state, message):
         job.completed_at = timestamp
     job.state = state
     job.status_message = message
+    job.status_code = code
     job.updated_at = timestamp
     update(
         job,
         update_fields=[
             "state",
             "status_message",
+            "status_code",
             "updated_at",
             "started_at",
             "completed_at",
         ],
     )
-    log.info(job.status_message)
+    log.info(job.status_message, extra={"status_code": job.status_code})
 
 
-def set_message(job, message):
+def set_message(job, message, code=None):
     timestamp = int(time.time())
     # If message has changed then update and log
     if job.status_message != message:
         job.status_message = message
+        job.status_code = code
         job.updated_at = timestamp
-        update(job, update_fields=["status_message", "updated_at"])
-        log.info(job.status_message)
+        update(job, update_fields=["status_message", "status_code", "updated_at"])
+        log.info(job.status_message, extra={"status_code": job.status_code})
     # If the status message hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
     # active without writing to the database every single time we poll
@@ -166,7 +170,7 @@ def set_message(job, message):
         # confirmations in the logs that it is still running. The below will
         # log approximately once every 10 minutes.
         if datetime.datetime.fromtimestamp(timestamp).minute % 10:
-            log.info(job.status_message)
+            log.info(job.status_message, extra={"status_code": job.status_code})
 
 
 def job_running_capacity_available():
