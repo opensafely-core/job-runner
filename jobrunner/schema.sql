@@ -26,6 +26,7 @@ CREATE TABLE job (
     requires_outputs_from TEXT,
     run_command TEXT,
     output_spec TEXT,
+    outputs TEXT,
     status_message TEXT,
     created_at INT,
     updated_at INT,
