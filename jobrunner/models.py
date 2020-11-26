@@ -84,6 +84,22 @@ class Job:
                 data[key] = timestamp_to_isoformat(value)
         return data
 
+    @property
+    def created_at_isoformat(self):
+        return timestamp_to_isoformat(self.created_at)
+
+    @property
+    def updated_at_isoformat(self):
+        return timestamp_to_isoformat(self.updated_at)
+
+    @property
+    def started_at_isoformat(self):
+        return timestamp_to_isoformat(self.updated_at)
+
+    @property
+    def completed_at_isoformat(self):
+        return timestamp_to_isoformat(self.completed_at)
+
     # On Python 3.8 we could use `functools.cached_property` here and avoid
     # recomputing this every time
     @property
@@ -109,4 +125,6 @@ class Job:
 
 
 def timestamp_to_isoformat(ts):
+    if ts is None:
+        return None
     return datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"

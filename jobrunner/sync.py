@@ -87,28 +87,17 @@ def job_to_remote_format(job):
     Convert our internal representation of a Job into whatever format the
     job-server expects
     """
-    data = {
-        key: value
-        for (key, value) in job.asdict().items()
-        if key
-        in [
-            "job_request_id",
-            "action",
-            "state",
-            "status_message",
-            "created_at",
-            "updated_at",
-            "started_at",
-            "completed_at",
-        ]
+    return {
+        "identifier": job.id,
+        "job_request_id": job.job_request_id,
+        "action": job.action,
+        "status": job.state.value,
+        "status_message": job.status_message,
+        "created_at": job.created_at_isoformat,
+        "updated_at": job.updated_at_isoformat,
+        "started_at": job.started_at_isoformat,
+        "completed_at": job.completed_at_isoformat,
     }
-
-    # convert cross-system identifier key
-    data["identifier"] = job.id
-    # Rename field
-    data["status"] = data.pop("state")
-
-    return data
 
 
 if __name__ == "__main__":
