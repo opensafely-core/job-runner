@@ -130,7 +130,7 @@ def create_and_run_jobs(
     try:
         create_jobs(job_request)
     except NothingToDoError:
-        print("=> All actions already completed")
+        print("=> All actions already completed successfully")
         print("   Use -f option to force everything to re-run")
         return True
     except (ProjectValidationError, JobRequestError) as e:
@@ -172,11 +172,16 @@ def create_and_run_jobs(
     )
 
     # Run everything
-    jobrunner.run.main(exit_when_done=True)
-    final_jobs = find_where(Job)
+    try:
+        jobrunner.run.main(exit_when_done=True, raise_on_failure=True)
+    except (jobrunner.run.JobError, KeyboardInterrupt):
+        pass
+    final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED])
 
     # Pretty print details of each action
     print()
+    if not final_jobs:
+        print("=> No jobs completed")
     for job in final_jobs:
         # If a job fails we don't want to clutter the output with its failed
         # dependants.

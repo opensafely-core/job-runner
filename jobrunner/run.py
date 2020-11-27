@@ -23,15 +23,15 @@ from .manage_jobs import (
 log = logging.getLogger(__name__)
 
 
-def main(exit_when_done=False):
+def main(exit_when_done=False, raise_on_failure=False):
     while True:
-        active_job_count = handle_jobs()
-        if exit_when_done and active_job_count == 0:
+        active_jobs = handle_jobs(raise_on_failure=raise_on_failure)
+        if exit_when_done and len(active_jobs) == 0:
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs():
+def handle_jobs(raise_on_failure=False):
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
@@ -41,7 +41,9 @@ def handle_jobs():
                 handle_pending_job(job)
             elif job.state == State.RUNNING:
                 handle_running_job(job)
-    return len(active_jobs)
+        if raise_on_failure and job.state == State.FAILED:
+            raise JobError("Job failed")
+    return active_jobs
 
 
 def handle_pending_job(job):
