@@ -192,6 +192,11 @@ def create_and_run_jobs(
             continue
         print(f"=> {job.action}")
         print(textwrap.indent(job.status_message, "   "))
+        if job.unmatched_outputs:
+            print(
+                "\n   Did you mean to match one of these files instead?\n    - ", end=""
+            )
+            print("\n    - ".join(job.unmatched_outputs))
         print()
         print(f"   log file: {METADATA_DIR}/{job.action}.log")
         print("   outputs:")
