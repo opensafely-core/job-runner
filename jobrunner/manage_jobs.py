@@ -101,23 +101,24 @@ def start_job(job):
 
 def create_and_populate_volume(job):
     workspace_dir = get_high_privacy_workspace(job.workspace)
-    input_files = []
+    input_files = {}
     for action in job.requires_outputs_from:
-        input_files.extend(list_outputs_from_action(job.workspace, action))
+        for filename in list_outputs_from_action(job.workspace, action):
+            input_files[filename] = action
 
     volume = volume_name(job)
     docker.create_volume(volume)
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
-    extra_dirs = set(Path(filename).parent for filename in input_files)
+    extra_dirs = set(Path(filename).parent for filename in input_files.keys())
     if config.LOCAL_RUN_MODE:
         copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
     else:
         copy_git_commit_to_volume(volume, job.repo_url, job.commit, extra_dirs)
 
-    for filename in input_files:
-        log.info(f"Copying input file: {filename}")
+    for filename, action in input_files.items():
+        log.info(f"Copying input file {action}: {filename}")
         docker.copy_to_volume(volume, workspace_dir / filename, filename)
     return volume
 
