@@ -9,7 +9,7 @@ still end up in a consistent state when it's restarted.
 import datetime
 import json
 import logging
-from pathlib import PurePosixPath, Path
+from pathlib import Path
 import shlex
 import shutil
 import tempfile
@@ -100,9 +100,7 @@ def start_job(job):
 
 
 def create_and_populate_volume(job):
-    if config.LOCAL_RUN_MODE:
-        return create_and_populate_volume_from_local_workspace(job)
-
+    workspace_dir = get_high_privacy_workspace(job.workspace)
     input_files = []
     for action in job.requires_outputs_from:
         input_files.extend(list_outputs_from_action(job.workspace, action))
@@ -110,33 +108,38 @@ def create_and_populate_volume(job):
     volume = volume_name(job)
     docker.create_volume(volume)
 
-    log.info(f"Copying in code from {job.repo_url}@{job.commit}")
-    # git-archive will create a tarball on stdout and docker cp will accept a
-    # tarball on stdin, so if we wanted to we could do this all without a
-    # temporary directory, but not worth it at this stage
-    config.TMP_DIR.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as tmpdir:
-        tmpdir = Path(tmpdir)
-        checkout_commit(job.repo_url, job.commit, tmpdir)
-        # Because `docker cp` can't create parent directories automatically, we
-        # make sure parent directories exist for all the files we're going to
-        # copy in
-        directories = set(PurePosixPath(filename).parent for filename in input_files)
-        for directory in directories:
-            tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
-        docker.copy_to_volume(volume, tmpdir, ".")
+    # `docker cp` can't create parent directories for us so we make sure all
+    # these directories get created when we copy in the code
+    extra_dirs = set(Path(filename).parent for filename in input_files)
+    if config.LOCAL_RUN_MODE:
+        copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
+    else:
+        copy_git_commit_to_volume(volume, job.repo_url, job.commit, extra_dirs)
 
-    workspace_dir = get_high_privacy_workspace(job.workspace)
     for filename in input_files:
         log.info(f"Copying input file: {filename}")
         docker.copy_to_volume(volume, workspace_dir / filename, filename)
     return volume
 
 
-def create_and_populate_volume_from_local_workspace(job):
-    assert config.LOCAL_RUN_MODE
-    workspace_dir = get_high_privacy_workspace(job.workspace)
+def copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs):
+    log.info(f"Copying in code from {repo_url}@{commit}")
+    # git-archive will create a tarball on stdout and docker cp will accept a
+    # tarball on stdin, so if we wanted to we could do this all without a
+    # temporary directory, but not worth it at this stage
+    config.TMP_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as tmpdir:
+        tmpdir = Path(tmpdir)
+        checkout_commit(repo_url, commit, tmpdir)
+        # Because `docker cp` can't create parent directories automatically, we
+        # make sure parent directories exist for all the files we're going to
+        # copy in later
+        for directory in extra_dirs:
+            tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
+        docker.copy_to_volume(volume, tmpdir, ".")
 
+
+def copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs):
     # To mimic a production run, we only want output files to appear in the
     # volume if they were produced by an explicitly listed dependency. So
     # before copying in the code we get a list of all output patterns in the
@@ -146,20 +149,14 @@ def create_and_populate_volume_from_local_workspace(job):
     ignore_patterns.extend([".git", METADATA_DIR])
     code_files = list_dir_with_ignore_patterns(workspace_dir, ignore_patterns)
 
-    input_files = []
-    for action in job.requires_outputs_from:
-        input_files.extend(list_outputs_from_action(job.workspace, action))
-
-    volume = volume_name(job)
-    docker.create_volume(volume)
-
     # Because `docker cp` can't create parent directories automatically, we
     # need to make sure empty parent directories exist for all the files we're
     # going to copy in. For now we do this by actually creating a bunch of
     # empty dirs in a temp directory. It should be possible to do this using
     # the `tarfile` module to talk directly to `docker cp` stdin if we care
     # enough.
-    directories = set(Path(filename).parent for filename in input_files + code_files)
+    directories = set(Path(filename).parent for filename in code_files)
+    directories.update(extra_dirs)
     directories.discard(Path("."))
     if directories:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -171,10 +168,6 @@ def create_and_populate_volume_from_local_workspace(job):
     log.info(f"Copying in code from {workspace_dir}")
     for filename in code_files:
         docker.copy_to_volume(volume, workspace_dir / filename, filename)
-    for filename in input_files:
-        log.info(f"Copying input file: {filename}")
-        docker.copy_to_volume(volume, workspace_dir / filename, filename)
-    return volume
 
 
 def job_still_running(job):
