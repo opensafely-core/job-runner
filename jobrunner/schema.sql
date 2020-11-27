@@ -21,6 +21,7 @@ CREATE TABLE job (
     run_command TEXT,
     output_spec TEXT,
     outputs TEXT,
+    unmatched_outputs TEXT,
     status_message TEXT,
     status_code TEXT,
     created_at INT,

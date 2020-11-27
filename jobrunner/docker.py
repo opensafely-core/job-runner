@@ -190,6 +190,32 @@ def _glob_pattern_to_regex(glob_pattern):
     return "[^/]*".join(map(re.escape, literals))
 
 
+def find_newer_files(volume_name, reference_file):
+    """
+    Return all files in volume newer than the reference file
+    """
+    args = ["find", VOLUME_MOUNT_POINT, "-type", "f", "-newer", reference_file]
+    # We can't use `exec` unless the container is running, even though it won't
+    # actually do anything other than sit waiting for input. This will get
+    # stopped when we `--force rm` the container while removing the volume.
+    subprocess_run(
+        ["docker", "container", "start", manager_name(volume_name)],
+        check=True,
+        capture_output=True,
+    )
+    response = subprocess_run(
+        ["docker", "container", "exec", manager_name(volume_name)] + args,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    # Remove the volume path prefix from the results
+    chars_to_strip = len(VOLUME_MOUNT_POINT) + 1
+    files = [f[chars_to_strip:] for f in response.stdout.splitlines()]
+    return sorted(files)
+
+
 def manager_name(volume_name):
     return f"{volume_name}-manager"
 

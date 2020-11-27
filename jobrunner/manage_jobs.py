@@ -42,6 +42,10 @@ MANIFEST_FILE = "manifest.json"
 # helpful for building tooling for inspecting live processes.
 JOB_LABEL = "jobrunner-job"
 
+# This is part of a hack we use to track which files in a volume are newly
+# created
+TIMESTAMP_REFERENCE_FILE = ".opensafely-timestamp"
+
 
 class JobError(Exception):
     pass
@@ -120,6 +124,10 @@ def create_and_populate_volume(job):
     for filename, action in input_files.items():
         log.info(f"Copying input file {action}: {filename}")
         docker.copy_to_volume(volume, workspace_dir / filename, filename)
+    # Hack: see `get_unmatched_outputs`. For some reason this requires a
+    # non-empty file so copying `os.devnull` didn't work.
+    some_non_empty_file = Path(__file__)
+    docker.copy_to_volume(volume, some_non_empty_file, TIMESTAMP_REFERENCE_FILE)
     return volume
 
 
@@ -203,6 +211,10 @@ def finalise_job(job):
         job.status_message = "No outputs found matching patterns:\n - {}".format(
             "\n - ".join(unmatched_patterns)
         )
+        # If the job fails because an output was missing its very useful to
+        # show the user what files were created as often the issue is just a
+        # typo
+        job.unmatched_outputs = get_unmatched_outputs(job)
     else:
         job.state = State.SUCCEEDED
         job.status_message = "Completed successfully"
@@ -297,6 +309,24 @@ def find_matching_outputs(job):
     return outputs, unmatched_patterns
 
 
+def get_unmatched_outputs(job):
+    """
+    Returns all the files created by the job which were *not* matched by any of
+    the output patterns.
+
+    This is very useful in debugging because it's easy for users to get their
+    output patterns wrong (often just in the wrong directory) and it becomes
+    immediately obvious what the problem is if, as well as an error, they can
+    see a list of the files the job *did* produce.
+
+    The way we do this is bit hacky, but given that it's only used for
+    debugging info and not for Serious Business Purposes, it should be
+    sufficient.
+    """
+    all_outputs = docker.find_newer_files(volume_name(job), TIMESTAMP_REFERENCE_FILE)
+    return [filename for filename in all_outputs if filename not in job.outputs]
+
+
 def get_job_metadata(job, container_metadata):
     """
     Returns a JSON-serializable dict including everything we know about a job
@@ -328,7 +358,6 @@ def write_log_file(job, job_metadata, filename):
         f.write("\n\n")
         for key in [
             "state",
-            "status_message",
             "commit",
             "docker_image_id",
             "job_id",
@@ -338,6 +367,11 @@ def write_log_file(job, job_metadata, filename):
             "completed_at",
         ]:
             f.write(f"{key}: {job_metadata[key]}\n")
+        f.write(f"\n{job_metadata['status_message']}\n")
+        if job.unmatched_outputs:
+            f.write("\nDid you mean to match one of these files instead?\n - ")
+            f.write("\n - ".join(job.unmatched_outputs))
+            f.write("\n")
         f.write("\noutputs:\n")
         f.write(tabulate(outputs, separator="  - ", indent=2, empty="(no outputs)"))
 
