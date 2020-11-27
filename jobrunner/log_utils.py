@@ -17,11 +17,7 @@ def configure_logging(show_action_name_only=False, status_codes_to_ignore=None):
     handler = logging.StreamHandler()
     handler.addFilter(set_log_context)
     handler.setFormatter(
-        JobRunnerFormatter(
-            "{context}{message}",
-            style="{",
-            show_action_name_only=show_action_name_only,
-        )
+        JobRunnerFormatter(show_action_name_only=show_action_name_only)
     )
     if status_codes_to_ignore:
         handler.addFilter(IgnoreStatusCodes(status_codes_to_ignore))
@@ -30,15 +26,12 @@ def configure_logging(show_action_name_only=False, status_codes_to_ignore=None):
 
 
 class JobRunnerFormatter(logging.Formatter):
-    def __init__(
-        self, *args, show_action_name_only=False, ignore_status_codes=None, **kwargs
-    ):
+    def __init__(self, *args, show_action_name_only=False, **kwargs):
         super().__init__(*args, **kwargs)
         # This gives us the option to show just a job's action name, rather
         # than its full slug in the log output, which is useful when running
         # locally to avoid clutter in the output
         self.show_action_name_only = show_action_name_only
-        self.ignore_status_codes = set(ignore_status_codes or [])
 
     def format(self, record):
         """
@@ -54,8 +47,10 @@ class JobRunnerFormatter(logging.Formatter):
             context = f"job_request#{record.job_request.id}: "
         else:
             context = ""
-        record.context = context
-        return super().format(record)
+        output = super().format(record)
+        if context:
+            output = context + f"\n{context}".join(output.splitlines())
+        return output
 
     def formatException(self, exc_info):
         """
