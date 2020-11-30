@@ -35,7 +35,7 @@ def test_job_to_project_nodeps(job_spec_maker):
         "DATABASE_URL=sqlite:///test.db",
         "-e",
         "TEMP_DATABASE_NAME=temp",
-        "docker.opensafely.org/opensafely/cohortextractor:0.5.2",
+        "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
         f"--output-dir={utils.get_workdir()}",
     ]
@@ -69,7 +69,7 @@ def test_valid_run_in_project(job_spec_maker):
         "DATABASE_URL=sqlite:///test.db",
         "-e",
         "TEMP_DATABASE_NAME=temp",
-        "docker.opensafely.org/opensafely/cohortextractor:0.5.2",
+        "docker.opensafely.org/cohortextractor:0.5.2",
         "generate_cohort",
         f"--output-dir={utils.get_workdir()}",
     ]
@@ -245,13 +245,13 @@ def test_old_versions_supply_default_popuation():
 @pytest.mark.parametrize(
     "url,expected",
     [
-        ("docker.opensafely.org/opensafely", "docker.opensafely.org/opensafely/python"),
+        ("docker.opensafely.org", "docker.opensafely.org/python"),
         ("ghcr.io/opensafely", "ghcr.io/opensafely/python"),
         (
             "docker-proxy.opensafely.org/opensafely",
             "docker-proxy.opensafely.org/opensafely/python",
         ),
-        ("docker.opensafely.org", "docker.opensafely.org/python"),
+        ("docker.opensafely.org/opensafely", "docker.opensafely.org/opensafely/python"),
     ],
 )
 def test_docker_valid_urls(url, expected):
