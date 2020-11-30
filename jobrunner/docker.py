@@ -10,17 +10,13 @@ from .subprocess_utils import subprocess_run
 
 
 # Docker requires a container in order to interact with volumes, but it doesn't
-# much matter what it is for our purposes as long as it has `sh` and `find`.
-# We're using the cohortextractor image here because that's one which ought to
-# be present in any environment in which the job-runner is running.  But it's a
-# bit heavyweight for this purpose. Something like "busybox" would be ideal
-# really, if we could push a copy of that to our own registry.
-MANAGEMENT_CONTAINER_IMAGE = f"{config.DOCKER_REGISTRY}/cohortextractor"
+# much matter what it is for our purposes as long as it has `sh` and `find`
+MANAGEMENT_CONTAINER_IMAGE = f"{config.DOCKER_REGISTRY}/busybox"
 
 # This path is pretty arbitrary: it sets where we mount volumes inside their
 # management containers (which are used for copying files in and out), but this
 # is independent of where the volumes get mounted inside other containers to
-# which they may get attached.
+# which they may get attached
 VOLUME_MOUNT_POINT = "/workspace"
 
 # Apply this label (Docker-speak for "tag") to all containers and volumes we
