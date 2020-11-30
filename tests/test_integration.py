@@ -37,7 +37,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
                     "workspace": {
                         "name": "testing",
                         "repo": str(repo_path),
-                        "branch": "master",
+                        "branch": "HEAD",
                         "db": "dummy",
                     },
                 }
