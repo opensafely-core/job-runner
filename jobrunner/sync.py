@@ -92,7 +92,7 @@ def job_to_remote_format(job):
         "job_request_id": job.job_request_id,
         "action": job.action,
         "status": job.state.value,
-        "status_message": job.status_message,
+        "status_message": job.status_message or "",
         "created_at": job.created_at_isoformat,
         "updated_at": job.updated_at_isoformat,
         "started_at": job.started_at_isoformat,
