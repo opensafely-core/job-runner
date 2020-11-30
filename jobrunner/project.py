@@ -21,10 +21,10 @@ PRIVACY_LEVEL_MEDIUM = 4
 
 # Valid docker source urls
 DOCKER_URLS_LIST = [
+    "docker.opensafely.org",  # legacy
     "docker.opensafely.org/opensafely",  # default
     "ghcr.io/opensafely",  # GH actions
-    "docker-proxy.opensafely.org/opensafely",  # testing
-    "docker.opensafely.org",  # migration
+    "docker-proxy.opensafely.org/opensafely", # testing
 ]
 # Valid actions mapped to docker run commands. Can be used to switch images or
 # add cli flags to the base action invocation
