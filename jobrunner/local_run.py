@@ -28,7 +28,7 @@ import string
 import sys
 import textwrap
 
-import jobrunner.run
+from .run import main as run_main, JobError
 from . import config
 from . import docker
 from .database import find_where
@@ -173,8 +173,8 @@ def create_and_run_jobs(
 
     # Run everything
     try:
-        jobrunner.run.main(exit_when_done=True, raise_on_failure=True)
-    except (jobrunner.run.JobError, KeyboardInterrupt):
+        run_main(exit_when_done=True, raise_on_failure=True)
+    except (JobError, KeyboardInterrupt):
         pass
 
     final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED])

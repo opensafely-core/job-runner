@@ -19,20 +19,24 @@ log = logging.getLogger(__name__)
 
 
 def main():
+    log.info(
+        f"Polling for JobRequests at: "
+        f"{config.JOB_SERVER_ENDPOINT.rstrip('/')}/job-requests/"
+    )
     while True:
         sync()
         time.sleep(config.POLL_INTERVAL)
 
 
 def sync():
-    results = api_get(
+    response = api_get(
         "job-requests",
         # We're deliberately not paginating here on the assumption that the set
         # of active jobs is always going to be small enough that we can fetch
         # them in a single request and we don't need the extra complexity
         params={"backend": config.BACKEND},
-    )["results"]
-    job_requests = [job_request_from_remote_format(i) for i in results]
+    )
+    job_requests = [job_request_from_remote_format(i) for i in response["results"]]
     job_request_ids = [i.id for i in job_requests]
     for job_request in job_requests:
         with set_log_context(job_request=job_request):
