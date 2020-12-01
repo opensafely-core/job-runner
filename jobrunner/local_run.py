@@ -39,17 +39,19 @@ from .create_or_update_jobs import (
     ProjectValidationError,
     JobRequestError,
     NothingToDoError,
+    RUN_ALL_COMMAND,
 )
 from .log_utils import configure_logging
 from .subprocess_utils import subprocess_run
 from .string_utils import tabulate
 
 
-HELP = __doc__.partition("\n\n")[0]
+# First paragraph of docstring
+DESCRIPTION = __doc__.partition("\n\n")[0]
 
 
 def add_arguments(parser):
-    parser.add_argument("actions", nargs="+", help="Name of project action to run")
+    parser.add_argument("actions", nargs="*", help="Name of project action to run")
     parser.add_argument(
         "-f",
         "--force-run-dependencies",
@@ -136,6 +138,13 @@ def create_and_run_jobs(
     except (ProjectValidationError, JobRequestError) as e:
         print(f"=> {type(e).__name__}")
         print(textwrap.indent(str(e), "   "))
+        if hasattr(e, "valid_actions"):
+            print("\n   Valid action names are:")
+            for action in e.valid_actions:
+                if action != RUN_ALL_COMMAND:
+                    print(f"     {action}")
+                else:
+                    print(f"     {action} (runs all actions in project)")
         return False
 
     jobs = find_where(Job)
@@ -247,7 +256,7 @@ def get_missing_docker_images(jobs):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=HELP)
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser = add_arguments(parser)
     args = parser.parse_args()
     success = main(**vars(args))

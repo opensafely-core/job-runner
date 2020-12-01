@@ -17,6 +17,7 @@ from .project import (
     parse_and_validate_project_file,
     get_action_specification,
     get_all_actions,
+    assert_valid_actions,
     ProjectValidationError,
     RUN_ALL_COMMAND,
 )
@@ -93,6 +94,7 @@ def create_jobs(job_request):
 
 def create_jobs_with_project_file(job_request, project_file):
     project = parse_and_validate_project_file(project_file)
+    assert_valid_actions(project, job_request.requested_actions)
     # By default just the actions which have been explicitly requested are
     # forced to re-run, but if `force_run_dependencies` is set then any action
     # whose outputs we need will be forced to re-run

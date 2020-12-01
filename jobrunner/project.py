@@ -32,7 +32,14 @@ class ProjectYAMLError(ProjectValidationError):
 
 
 class UnknownActionError(ProjectValidationError):
-    pass
+    """
+    Exception which carries with it the list of valid action names for display
+    to the user
+    """
+
+    def __init__(self, message, project):
+        super().__init__(message)
+        self.valid_actions = [RUN_ALL_COMMAND] + get_all_actions(project)
 
 
 class InvalidPatternError(ProjectValidationError):
@@ -180,7 +187,9 @@ def get_action_specification(project, action_id):
     try:
         action_spec = project["actions"][action_id]
     except KeyError:
-        raise UnknownActionError(f"Action '{action_id}' not found in project.yaml")
+        raise UnknownActionError(
+            f"Action '{action_id}' not found in project.yaml", project
+        )
     run_command = action_spec["run"]
     # Specical case handling for the `cohortextractor generate_cohort` command
     if is_generate_cohort_command(shlex.split(run_command)):
@@ -228,8 +237,9 @@ def is_generate_cohort_command(args):
 
 def get_all_actions(project):
     # We ignore any manually defined run_all action (in later project versions
-    # this will be an error)
-    return list(project["actions"].keys() - {RUN_ALL_COMMAND})
+    # this will be an error). We use a list comprehension rather than set
+    # operators as previously so we preserve the original order.
+    return [action for action in project["actions"].keys() if action != RUN_ALL_COMMAND]
 
 
 def get_all_output_patterns_from_project_file(project_file):
@@ -305,3 +315,13 @@ def assert_valid_glob_pattern(pattern):
     # for both platforms
     if PurePosixPath(pattern).is_absolute() or PureWindowsPath(pattern).is_absolute():
         raise InvalidPatternError("is an absolute path")
+
+
+def assert_valid_actions(project, actions):
+    if not actions:
+        raise UnknownActionError("At least one action must be supplied", project)
+    for action in actions:
+        if action != RUN_ALL_COMMAND and action not in project["actions"]:
+            raise UnknownActionError(
+                f"Action '{action}' not found in project.yaml", project
+            )
