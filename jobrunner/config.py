@@ -42,7 +42,7 @@ USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
 ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter", "python"}
 
-DOCKER_REGISTRY = "docker.opensafely.org"
+DOCKER_REGISTRY = "ghcr.io/opensafely"
 
 DATABASE_URLS = {
     "full": os.environ.get("FULL_DATABASE_URL"),
