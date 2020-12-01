@@ -156,9 +156,16 @@ def create_and_run_jobs(
             print(f"\nRunning: docker pull {image}")
             try:
                 docker.pull(image)
+            except docker.DockerAuthError as e:
+                print("Failed with authorisation error:")
+                print(e)
+                print(
+                    "\n"
+                    "The requested Docker image contains private licensing details,\n"
+                    "please contact the OpenSAFELY team to request access."
+                )
+                return False
             except docker.DockerPullError as e:
-                # TODO: Detect authentication errors and supply specific
-                # instructions about how to obtain credentials
                 print("Failed with error:")
                 print(e)
                 return False

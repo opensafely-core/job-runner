@@ -28,6 +28,10 @@ class DockerPullError(Exception):
     pass
 
 
+class DockerAuthError(DockerPullError):
+    pass
+
+
 def create_volume(volume_name):
     """
     Creates the named volume and also creates (but does not start) a "manager"
@@ -314,4 +318,8 @@ def pull(image):
             stderr=subprocess.PIPE,
         )
     except subprocess.CalledProcessError as e:
-        raise DockerPullError(e.stderr)
+        message = e.stderr.strip()
+        if message.endswith(": unauthorized"):
+            raise DockerAuthError(message)
+        else:
+            raise DockerPullError(message)
