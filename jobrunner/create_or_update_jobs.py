@@ -5,12 +5,13 @@ It handles all logic connected with creating or updating Jobs in response to
 JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
+import logging
 from pathlib import Path
 import re
 import time
 
 from . import config
-from .database import transaction, insert, exists_where, find_where
+from .database import transaction, insert, exists_where, find_where, count_where
 from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
 from .project import (
     parse_and_validate_project_file,
@@ -21,6 +22,9 @@ from .project import (
 )
 from .models import Job, SavedJobRequest, State
 from .manage_jobs import action_has_successful_outputs
+
+
+log = logging.getLogger(__name__)
 
 
 class JobRequestError(Exception):
@@ -42,8 +46,11 @@ def create_or_update_jobs(job_request):
     """
     if not related_jobs_exist(job_request):
         try:
-            create_jobs(job_request)
+            log.info(f"Handling new JobRequest:\n{job_request}")
+            new_job_count = create_jobs(job_request)
+            log.info(f"Created {new_job_count} new jobs")
         except (GitError, ProjectValidationError, JobRequestError) as e:
+            log.info(f"JobRequest failed:\n{e}")
             create_failed_job(job_request, e)
     else:
         # TODO: think about what sort of updates we want to support
@@ -58,7 +65,7 @@ def create_or_update_jobs(job_request):
         # checks the state of the job and if it's set it would either call
         # `docker kill` on it (if it's running) or move it immediately to the
         # FAILED state (if it's still pending).
-        pass
+        log.debug("Ignoring already processed JobRequest")
 
 
 def related_jobs_exist(job_request):
@@ -81,7 +88,7 @@ def create_jobs(job_request):
         project_file = Path(job_request.repo_url).joinpath("project.yaml").read_bytes()
     # Do most of the work in a separate function which never needs to talk to
     # git, for easier testing
-    create_jobs_with_project_file(job_request, project_file)
+    return create_jobs_with_project_file(job_request, project_file)
 
 
 def create_jobs_with_project_file(job_request, project_file):
@@ -118,6 +125,8 @@ def create_jobs_with_project_file(job_request, project_file):
                 )
         else:
             raise NothingToDoError()
+
+    return count_where(Job, job_request_id=job_request.id)
 
 
 def recursively_add_jobs(job_request, project, action, force_run_actions):
