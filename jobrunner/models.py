@@ -32,6 +32,7 @@ class StatusCode(Enum):
     WAITING_ON_DEPENDENCIES = "waiting_on_dependencies"
     DEPENDENCY_FAILED = "dependency_failed"
     WAITING_ON_WORKERS = "waiting_on_workers"
+    NONZERO_EXIT = "nonzero_exit"
 
 
 # This is our internal representation of a JobRequest which we pass around but

@@ -19,7 +19,7 @@ from . import config
 from . import docker
 from .database import find_where
 from .git import checkout_commit
-from .models import SavedJobRequest, State
+from .models import SavedJobRequest, State, StatusCode
 from .project import (
     is_generate_cohort_command,
     get_all_output_patterns_from_project_file,
@@ -206,6 +206,7 @@ def finalise_job(job):
     if container_metadata["State"]["ExitCode"] != 0:
         job.state = State.FAILED
         job.status_message = "Job exited with an error code"
+        job.status_code = StatusCode.NONZERO_EXIT
     elif unmatched_patterns:
         job.state = State.FAILED
         job.status_message = "No outputs found matching patterns:\n - {}".format(
