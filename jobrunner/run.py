@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 
 def main(exit_when_done=False, raise_on_failure=False):
+    log.info("jobrunner.run loop started")
     while True:
         active_jobs = handle_jobs(raise_on_failure=raise_on_failure)
         if exit_when_done and len(active_jobs) == 0:
