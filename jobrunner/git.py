@@ -20,6 +20,10 @@ class GitError(Exception):
     pass
 
 
+class GitFileNotFoundError(GitError):
+    pass
+
+
 def read_file_from_repo(repo_url, commit_sha, path):
     """
     Return the contents of the file at `path` in `repo_url` as of `commit_sha`
@@ -33,9 +37,12 @@ def read_file_from_repo(repo_url, commit_sha, path):
             check=True,
             cwd=repo_dir,
         )
-    except subprocess.SubprocessError:
-        log.exception(f"Error reading {path} from {repo_url}@{commit_sha}")
-        raise GitError(f"Error reading file: {path}")
+    except subprocess.SubprocessError as e:
+        if e.stderr.startswith(b"fatal: path ") and b"does not exist" in e.stderr:
+            raise GitFileNotFoundError(f"File '{path}' not found in repository")
+        else:
+            log.exception(f"Error reading from {repo_url} @ {commit_sha}")
+            raise GitError(f"Error reading from {repo_url} @ {commit_sha}")
     # Note the response here is bytes not text as git doesn't know what
     # encoding the file is supposed to have
     return response.stdout

@@ -12,7 +12,12 @@ import time
 
 from . import config
 from .database import transaction, insert, exists_where, find_where, count_where
-from .git import read_file_from_repo, get_sha_from_remote_ref, GitError
+from .git import (
+    read_file_from_repo,
+    get_sha_from_remote_ref,
+    GitError,
+    GitFileNotFoundError,
+)
 from .project import (
     parse_and_validate_project_file,
     get_action_specification,
@@ -81,12 +86,15 @@ def create_jobs(job_request):
         job_request.commit = get_sha_from_remote_ref(
             job_request.repo_url, job_request.branch
         )
-    if not config.LOCAL_RUN_MODE:
-        project_file = read_file_from_repo(
-            job_request.repo_url, job_request.commit, "project.yaml"
-        )
-    else:
-        project_file = Path(job_request.repo_url).joinpath("project.yaml").read_bytes()
+    try:
+        if not config.LOCAL_RUN_MODE:
+            project_file = read_file_from_repo(
+                job_request.repo_url, job_request.commit, "project.yaml"
+            )
+        else:
+            project_file = (Path(job_request.repo_url) / "project.yaml").read_bytes()
+    except (GitFileNotFoundError, FileNotFoundError):
+        raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
     # Do most of the work in a separate function which never needs to talk to
     # git, for easier testing
     return create_jobs_with_project_file(job_request, project_file)
