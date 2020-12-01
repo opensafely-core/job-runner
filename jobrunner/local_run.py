@@ -63,10 +63,18 @@ def add_arguments(parser):
         help="Project directory (default: current directory)",
         default=".",
     )
+    # This only really intended for use in CI. When running locally users
+    # generally want to know about failures as soon as they happen whereas in
+    # CI you want to run as many actions as possible.
+    parser.add_argument(
+        "--continue-on-error",
+        help="Don't stop on first failed action",
+        action="store_true",
+    )
     return parser
 
 
-def main(project_dir, actions, force_run_dependencies=False):
+def main(project_dir, actions, force_run_dependencies=False, continue_on_error=False):
     project_dir = Path(project_dir).resolve()
     temp_log_dir = project_dir / METADATA_DIR / ".logs"
     # Generate unique docker label to use for all volumes and containers we
@@ -80,6 +88,7 @@ def main(project_dir, actions, force_run_dependencies=False):
             project_dir,
             actions,
             force_run_dependencies=force_run_dependencies,
+            continue_on_error=continue_on_error,
             temp_log_dir=temp_log_dir,
             docker_label=docker_label,
         )
@@ -95,7 +104,12 @@ def main(project_dir, actions, force_run_dependencies=False):
 
 
 def create_and_run_jobs(
-    project_dir, actions, force_run_dependencies, temp_log_dir, docker_label
+    project_dir,
+    actions,
+    force_run_dependencies,
+    continue_on_error,
+    temp_log_dir,
+    docker_label,
 ):
     # Configure
     docker.LABEL = docker_label
@@ -189,7 +203,7 @@ def create_and_run_jobs(
 
     # Run everything
     try:
-        run_main(exit_when_done=True, raise_on_failure=True)
+        run_main(exit_when_done=True, raise_on_failure=not continue_on_error)
     except (JobError, KeyboardInterrupt):
         pass
 
