@@ -34,6 +34,7 @@ ACTION_TYPE_TO_CMD = {
     "python": "python",
     "r": "r",
     "stata-mp": "stata-mp",
+    "volume-maker": "job-runner",
 }
 
 # The version of `project.yaml` where each feature was introduced

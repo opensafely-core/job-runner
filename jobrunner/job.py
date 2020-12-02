@@ -17,7 +17,7 @@ from jobrunner.exceptions import (
     ProjectValidationError,
     RepoNotFound,
 )
-from jobrunner.project import parse_project_yaml
+from jobrunner.project import get_run_command, parse_project_yaml
 from jobrunner.server_interaction import start_dependent_job_or_raise_if_unfinished
 
 logger = utils.getlogger(__name__)
@@ -96,8 +96,8 @@ def volume_from_filespec(input_file_spec):
         volume_container_name,
         "-v",
         f"{volume_name}:{utils.get_workdir()}",
-        "docker.opensafely.org/job-runner",
     ]
+    cmd.extend(get_run_command('volume-maker')['docker_invocation'])
     subprocess.check_call(cmd, encoding="utf8")
 
     # Copy data to the root of the volume, creating directory structures as we
