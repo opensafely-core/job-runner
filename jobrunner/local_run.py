@@ -19,6 +19,7 @@ temporary database and log directory is created for each run and then thrown
 away afterwards.
 """
 import argparse
+import json
 import os
 from pathlib import Path
 import random
@@ -164,6 +165,7 @@ def create_and_run_jobs(
     jobs = find_where(Job)
 
     missing_docker_images = get_missing_docker_images(jobs)
+    missing_docker_images = temporary_docker_auth_workaround(missing_docker_images)
     if missing_docker_images:
         print("Fetching missing docker images")
         for image in missing_docker_images:
@@ -303,6 +305,44 @@ def get_log_file_snippet(log_file, max_lines):
     else:
         truncated = False
     return "\n".join(log_lines).strip(), truncated
+
+
+def temporary_docker_auth_workaround(missing_docker_images):
+    """
+    This is a temporary workaround for the fact that the current crop of Github
+    Actions have credentials for the old docker.opensafely.org registry but not
+    for ghcr.io. These are only needed for the one private image we have
+    (Stata) so we detect when we are in this situation and pull from the old
+    registry instead.
+
+    We'll shortly be updating the Github Actions to use an entirely new set of
+    commands in any case, so this will hopefully be a short-lived hack.
+    """
+    if not os.environ.get("GITHUB_WORKFLOW"):
+        return missing_docker_images
+    stata_images = [
+        image
+        for image in missing_docker_images
+        if image.startswith("ghcr.io/opensafely/stata-mp:")
+    ]
+    if not stata_images:
+        return missing_docker_images
+    docker_config = os.environ.get("DOCKER_CONFIG", "~/.docker")
+    config_path = Path(docker_config) / "config.json"
+    try:
+        config = json.loads(config_path.read_text())
+        auths = config["auths"]
+    except Exception:
+        return missing_docker_images
+    if "ghcr.io" in auths or "docker.opensafely.org" not in auths:
+        return missing_docker_images
+    print("Applying Docker authentication workaround...")
+    for image in stata_images:
+        alt_image = image.replace("ghcr.io/opensafely/", "docker.opensafely.org/")
+        docker.pull(alt_image)
+        print(f"Retagging '{alt_image}' as '{image}'")
+        subprocess_run(["docker", "tag", alt_image, image])
+    return [image for image in missing_docker_images if image not in stata_images]
 
 
 if __name__ == "__main__":
