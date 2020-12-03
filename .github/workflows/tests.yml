@@ -59,12 +59,18 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: 3.8
-    - name: Install wheel package
-      run: |
-        pip install wheel
     - name: Build package
       run: |
+        pip install wheel
         python setup.py sdist bdist_wheel
+    - name: Check that wheel installs
+      run: |
+        python -m venv test-wheel
+        test-wheel/bin/pip install dist/*.whl
+    - name: Check that sdist installs
+      run: |
+        python -m venv test-sdist
+        test-sdist/bin/pip install dist/*.tar.gz
 
   test-docker-build:
     runs-on: ubuntu-latest
