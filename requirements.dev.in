@@ -1,0 +1,16 @@
+# This contains the requirements for developing the job-runner, separate from
+# those required to run it in production
+
+# Install the production requirements, exactly as specified
+-r requirements.txt
+
+# Testing
+pytest
+pytest-cov
+requests_mock
+
+# Dev tools
+pip-tools
+black
+flake8
+isort

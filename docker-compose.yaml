@@ -1,11 +1,13 @@
 version: "3.7"
 services:
-  job-runner:
+
+  jobrunner-run:
     build: .
-    image: docker.opensafely.org/opensafely/job-runner:latest
+    image: ghcr.io/opensafely/job-runner:latest
     init: true
     restart: unless-stopped
     environment:
+      &jobrunner_environment
       # The job server endpoint
       - JOB_SERVER_ENDPOINT=${OPENSAFELY_JOB_SERVER_ENDPOINT}
       # The backend requests which we should monitor
@@ -13,6 +15,8 @@ services:
       # Credentials for acessing the job server
       - QUEUE_USER=${OPENSAFELY_QUEUE_USER}
       - QUEUE_PASS=${OPENSAFELY_QUEUE_PASS}
+      # Working directory (see the volume mounts below)
+      - WORK_DIR=/work_dir
       # A location where outputs should be stored
       - HIGH_PRIVACY_STORAGE_BASE=${OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE}
       - MEDIUM_PRIVACY_STORAGE_BASE=${OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE}
@@ -25,9 +29,11 @@ services:
       - TEMP_DATABASE_NAME=${OPENSAFELY_TEMP_DATABASE_NAME}
       # Polling
       - POLL_INTERVAL=${OPENSAFELY_POLL_INTERVAL}
+      - JOB_LOOP_INTERVAL=${OPENSAFELY_JOB_LOOP_INTERVAL}
       # Parallelism
       - MAX_WORKERS=${OPENSAFELY_MAX_WORKERS}
     volumes:
+      &jobrunner_volumes
       - type: bind
         source: ${OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE}
         target: ${OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE}
@@ -37,6 +43,19 @@ services:
       - type: bind
         source: //var/run/docker.sock
         target: /var/run/docker.sock
-    command:
-      - "watch"
-      - ${OPENSAFELY_JOB_SERVER_ENDPOINT}
+      - type: volume
+        source: job_runner_work_dir
+        target: /work_dir
+    command: python -m jobrunner.run
+
+  jobrunner-sync:
+    image: ghcr.io/opensafely/job-runner:latest
+    init: true
+    restart: unless-stopped
+    # Re-use environment and volume config from above
+    environment: *jobrunner_environment
+    volumes: *jobrunner_volumes
+    command: python -m jobrunner.sync
+
+volumes:
+  job_runner_work_dir:

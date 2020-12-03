@@ -1,69 +1,66 @@
-import os
-import tempfile
+import subprocess
 
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def set_environ(monkeypatch):
-    monkeypatch.setenv("QUEUE_USER", "")
-    monkeypatch.setenv("QUEUE_PASS", "")
-    monkeypatch.setenv("OPENSAFELY_RUNNER_STORAGE_BASE", "")
-    monkeypatch.setenv("FULL_DATABASE_URL", "sqlite:///test.db")
-    monkeypatch.setenv("TEMP_DATABASE_NAME", "temp")
-    monkeypatch.setenv("BACKEND", "tpp")
-    monkeypatch.setenv("JOB_SERVER_ENDPOINT", "http://test.com/jobs/")
-    storage_root = tempfile.TemporaryDirectory().name
-    high_privacy_storage_base = os.path.join(storage_root, "highsecurity")
-    medium_privacy_storage_base = os.path.join(storage_root, "mediumsecurity")
-    monkeypatch.setenv("HIGH_PRIVACY_STORAGE_BASE", high_privacy_storage_base)
-    monkeypatch.setenv("MEDIUM_PRIVACY_STORAGE_BASE", medium_privacy_storage_base)
-    os.makedirs(high_privacy_storage_base, exist_ok=True)
-    os.makedirs(medium_privacy_storage_base, exist_ok=True)
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow_test: mark test as being slow running")
+    config.addinivalue_line(
+        "markers", "needs_docker: mark test as needing Docker daemon"
+    )
 
 
-@pytest.fixture(scope="function")
-def workspace():
-    return {
-        "repo": "https://github.com/repo",
-        "db": "full",
-        "owner": "me",
-        "name": "tofu",
-        "branch": "master",
-        "id": 1,
-    }
-
-
-@pytest.fixture(scope="function")
-def job_spec_maker(workspace):
-    def _job_spec(**kw):
-        default = {
-            "action_id": "",
-            "force_run": False,
-            "pk": 0,
-            "force_run_dependencies": False,
-            "backend": "tpp",
-            "workspace": workspace,
-            "workspace_id": workspace["id"],
-        }
-        default.update(kw)
-        return default
-
-    return _job_spec
-
-
-@pytest.fixture(scope="function")
-def prepared_job_maker(job_spec_maker):
-    def _prepared_job(**kw):
-        job_spec = job_spec_maker()
-        job_spec.update(
-            {
-                "container_name": "docker-container",
-                "action_id": "run_model",
-                "docker_invocation": ["docker-invocation"],
-            }
+@pytest.fixture
+def tmp_work_dir(monkeypatch, tmp_path):
+    monkeypatch.setattr("jobrunner.config.WORK_DIR", tmp_path)
+    monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
+    config_vars = [
+        "TMP_DIR",
+        "GIT_REPO_DIR",
+        "HIGH_PRIVACY_STORAGE_BASE",
+        "MEDIUM_PRIVACY_STORAGE_BASE",
+        "HIGH_PRIVACY_WORKSPACES_DIR",
+        "MEDIUM_PRIVACY_WORKSPACES_DIR",
+        "JOB_LOG_DIR",
+    ]
+    for config_var in config_vars:
+        monkeypatch.setattr(
+            f"jobrunner.config.{config_var}", tmp_path / config_var.lower()
         )
-        job_spec.update(kw)
-        return job_spec
+    return tmp_path
 
-    return _prepared_job
+
+@pytest.fixture(scope="module")
+def docker_cleanup():
+    # Workaround for the fact that `monkeypatch` is only function-scoped.
+    # Hopefully will be unnecessary soon. See:
+    # https://github.com/pytest-dev/pytest/issues/363
+    from _pytest.monkeypatch import MonkeyPatch
+
+    label_for_tests = "jobrunner-test-R5o1iLu"
+    monkeypatch = MonkeyPatch()
+    monkeypatch.setattr("jobrunner.docker.LABEL", label_for_tests)
+    yield
+    delete_docker_entities("container", label_for_tests)
+    delete_docker_entities("volume", label_for_tests)
+    monkeypatch.undo()
+
+
+def delete_docker_entities(entity, label, ignore_errors=False):
+    ls_args = [
+        "docker",
+        entity,
+        "ls",
+        "--all" if entity == "container" else None,
+        "--filter",
+        f"label={label}",
+        "--quiet",
+    ]
+    ls_args = list(filter(None, ls_args))
+    response = subprocess.run(
+        ls_args, capture_output=True, encoding="ascii", check=not ignore_errors
+    )
+    ids = response.stdout.split()
+    if ids and response.returncode == 0:
+        rm_args = ["docker", entity, "rm", "--force"] + ids
+        subprocess.run(rm_args, capture_output=True, check=not ignore_errors)

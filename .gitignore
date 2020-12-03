@@ -11,3 +11,4 @@ app.log
 .coverage
 *.egg-info/
 pip-wheel-metadata/*
+/workdir

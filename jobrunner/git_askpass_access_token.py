@@ -9,4 +9,4 @@ import os, sys
 
 if __name__ == "__main__":
     if sys.argv[1].startswith("Username"):
-        print(os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", ""))
+        print(os.environ.get("GIT_ACCESS_TOKEN", ""))

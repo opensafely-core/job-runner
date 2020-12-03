@@ -23,4 +23,4 @@ line_length = 88
 multi_line_output = 3
 use_parentheses = true
 skip_glob = []
-known_third_party = ["networkx", "pebble", "pytest", "requests", "requests_mock", "setuptools", "yaml"]
+known_third_party = ["pytest", "requests", "requests_mock", "setuptools", "ruamel.yaml"]

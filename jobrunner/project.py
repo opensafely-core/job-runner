@@ -1,137 +1,110 @@
-import copy
-import logging
-import os
-import re
+import dataclasses
+from pathlib import PureWindowsPath, PurePosixPath
+import posixpath
 import shlex
 from types import SimpleNamespace
 
-import networkx as nx
-import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
 
-from jobrunner import utils
-from jobrunner.exceptions import ProjectValidationError
+from . import config
 
-logger = utils.getlogger(__name__)
-baselogger = logging.LoggerAdapter(logger, {"job_id": "-"})
 
-# These numbers correspond to "levels" as described in our security
-# documentation
-PRIVACY_LEVEL_HIGH = 3
-PRIVACY_LEVEL_MEDIUM = 4
-
-# Valid docker source urls
-DOCKER_URLS_LIST = [
-    "docker.opensafely.org",  # legacy
-    "docker.opensafely.org/opensafely",  # default
-    "ghcr.io/opensafely",  # GH actions
-    "docker-proxy.opensafely.org/opensafely", # testing
-]
-# Valid actions mapped to docker run commands. Can be used to switch images or
-# add cli flags to the base action invocation
-ACTION_TYPE_TO_CMD = {
-    "cohortextractor": "cohortextractor",
-    "jupyter": "jupyter",
-    "python": "python",
-    "r": "r",
-    "stata-mp": "stata-mp",
-    "volume-maker": "job-runner",
-}
+# The magic action name which means "run every action"
+RUN_ALL_COMMAND = "run_all"
 
 # The version of `project.yaml` where each feature was introduced
 FEATURE_FLAGS_BY_VERSION = {"UNIQUE_OUTPUT_PATH": 2, "EXPECTATIONS_POPULATION": 3}
 
+# Build a config dict in the same format the old code expects
+RUN_COMMANDS_CONFIG = {
+    image: {"docker_invocation": [f"{config.DOCKER_REGISTRY}/{image}"]}
+    for image in config.ALLOWED_IMAGES
+}
 
-def validate_action_name(name):
-    """Validate the base image name is trusted."""
-    return name in ACTION_TYPE_TO_CMD
+
+class ProjectValidationError(Exception):
+    pass
 
 
-def get_run_command(name, env=os.environ):
-    """Returns the docker image for action type.
+class ProjectYAMLError(ProjectValidationError):
+    pass
 
-    Validates against an allowed list of sites/images.
+
+class UnknownActionError(ProjectValidationError):
+    """
+    Exception which carries with it the list of valid action names for display
+    to the user
     """
 
-    assert validate_action_name(name)
-    cmd = ACTION_TYPE_TO_CMD[name]
-    # We could cache the load/validation of the base docker url, but it makes
-    # testing easy and is not expensive.
-    docker_url = env.get("DOCKER_URL", DOCKER_URLS_LIST[0])
-    if docker_url not in DOCKER_URLS_LIST:
-        raise RuntimeError(
-            "Invalid DOCKER_URL environment variable: %s. Valid options are: %s",
-            docker_url,
-            DOCKER_URLS_LIST,
-        )
-
-    return {
-        "docker_invocation": [docker_url + "/" + cmd],
-    }
+    def __init__(self, message, project):
+        super().__init__(message)
+        self.valid_actions = [RUN_ALL_COMMAND] + get_all_actions(project)
 
 
-def escape_braces(unescaped_string):
-    """Escape braces so that they will be preserved through a string
-    `format()` operation
+class InvalidPatternError(ProjectValidationError):
+    pass
 
+
+# Tiny dataclass to capture the specification of a project action
+@dataclasses.dataclass
+class ActionSpecifiction:
+    run: str
+    needs: list
+    outputs: dict
+
+
+def parse_and_validate_project_file(project_file):
+    try:
+        # We're using the pure-Python version here as we don't care about speed
+        # and this gives better error messages (and consistent behaviour
+        # cross-platform)
+        project = YAML(typ="safe", pure=True).load(project_file)
+        # ruamel doesn't have a nice exception hierarchy so we have to catch
+        # these four separate base classes
+    except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
+        e = make_yaml_error_more_helpful(e)
+        raise ProjectYAMLError(f"{type(e).__name__} {e}")
+    project = validate_project_and_set_defaults(project)
+    return project
+
+
+def make_yaml_error_more_helpful(exc):
     """
-    return unescaped_string.replace("{", "{{").replace("}", "}}")
-
-
-def variables_in_string(string_with_variables, variable_name_only=False):
-    """Return a list of variables of the form `${{ var }}` (or `${{var}}`)
-    in the given string.
-
-    Setting the `variable_name_only` flag will a list of variables of
-    the form `var`
-
+    ruamel produces quite helpful error messages but they refer to the file as
+    `<byte_string>` (which will be confusing for users) and they also include
+    notes and warnings to developers about API changes. This function attempts
+    to fix these issues, but just returns the exception unchanged if anything
+    goes wrong.
     """
-    matches = re.findall(
-        r"(\$\{\{ ?([A-Za-z][A-Za-z0-9.-_]+) ?\}\})", string_with_variables
-    )
-    if variable_name_only:
-        return [x[1] for x in matches]
-    else:
-        return [x[0] for x in matches]
+    try:
+        exc.context_mark.name = "project.yaml"
+        exc.problem_mark.name = "project.yaml"
+        exc.note = ""
+        exc.warn = ""
+    except Exception:
+        pass
+    return exc
 
 
-def get_feature_flags_for_version(version):
-    feat = SimpleNamespace()
-    matched_any = False
-    for k, v in FEATURE_FLAGS_BY_VERSION.items():
-        if v <= version:
-            setattr(feat, k, True)
-            matched_any = True
-        else:
-            setattr(feat, k, False)
-    if version > 1 and not matched_any:
-        raise ProjectValidationError(
-            "Project file must specify a valid version (currently only <= 2)",
-            report_args=True,
-        )
-    return feat
-
-
-def validate_project(workdir, project):
+# Copied almost verbatim from the original job-runner
+def validate_project_and_set_defaults(project):
     """Check that a dictionary of project actions is valid, and set any defaults"""
-    feat = get_feature_flags_for_version(float(project["version"]))
+    feat = get_feature_flags_for_version(project.get("version"))
     seen_runs = []
     seen_output_files = []
     if feat.EXPECTATIONS_POPULATION:
         if "expectations" not in project:
-            raise ProjectValidationError(
-                "Project must include `expectations` section", report_args=True
-            )
+            raise ProjectValidationError("Project must include `expectations` section")
         if "population_size" not in project["expectations"]:
             raise ProjectValidationError(
                 "Project `expectations` section must include `population` section",
-                report_args=True,
             )
         try:
             int(project["expectations"]["population_size"])
         except TypeError:
             raise ProjectValidationError(
                 "Project expectations population size must be a number",
-                report_args=True,
             )
     else:
         project["expectations"] = {}
@@ -140,14 +113,11 @@ def validate_project(workdir, project):
     project_actions = project["actions"]
 
     for action_id, action_config in project_actions.items():
-        parts = shlex.split(action_config["run"])
-        if parts[0].startswith("cohortextractor"):
-            if len(parts) > 1 and parts[1] == "generate_cohort":
-                if len(action_config["outputs"]) != 1:
-                    raise ProjectValidationError(
-                        f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}",
-                        report_args=True,
-                    )
+        if is_generate_cohort_command(shlex.split(action_config["run"])):
+            if len(action_config["outputs"]) != 1:
+                raise ProjectValidationError(
+                    f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}",
+                )
 
         # Check a `generate_cohort` command only generates a single output
         # Check outputs are permitted
@@ -160,299 +130,209 @@ def validate_project(workdir, project):
             if privacy_level not in permitted_privacy_levels:
                 raise ProjectValidationError(
                     f"{privacy_level} is not valid (must be one of {', '.join(permitted_privacy_levels)})",
-                    report_args=True,
                 )
 
             for output_id, filename in output.items():
                 try:
-                    utils.safe_join(workdir, filename)
-                except AssertionError:
+                    assert_valid_glob_pattern(filename)
+                except InvalidPatternError as e:
                     raise ProjectValidationError(
-                        f"Output path {filename} is not permitted", report_args=True
+                        f"Output path {filename} is not permitted: {e}"
                     )
 
                 if feat.UNIQUE_OUTPUT_PATH and filename in seen_output_files:
                     raise ProjectValidationError(
-                        f"Output path {filename} is not unique", report_args=True
+                        f"Output path {filename} is not unique"
                     )
                 seen_output_files.append(filename)
         # Check it's a permitted run command
-        name, version, args = split_and_format_run_command(action_config["run"])
-        if not validate_action_name(name):
-            raise ProjectValidationError(
-                f"{name} is not a supported command", report_args=True
-            )
+
+        command, *args = shlex.split(action_config["run"])
+        name, _, version = command.partition(":")
+        if name not in RUN_COMMANDS_CONFIG:
+            raise ProjectValidationError(f"{name} is not a supported command")
         if not version:
             raise ProjectValidationError(
                 f"{name} must have a version specified (e.g. {name}:0.5.2)",
-                report_args=True,
             )
         # Check the run command + args signature appears only once in
         # a project
         run_signature = f"{name}_{args}"
         if run_signature in seen_runs:
             raise ProjectValidationError(
-                f"{name} {' '.join(args)} appears more than once", report_args=True
+                f"{name} {' '.join(args)} appears more than once"
             )
         seen_runs.append(run_signature)
 
-        # Check any variables are supported
-        for v in variables_in_string(action_config["run"]):
-            if not v.replace(" ", "").startswith("${{needs"):
-                raise ProjectValidationError(
-                    f"Unsupported variable {v}", report_args=True
-                )
-            try:
-                _, action_id, outputs_key, privacy_level, output_id = v.split(".")
-                if outputs_key != "outputs":
+        for dependency in action_config.get("needs", []):
+            if dependency not in project_actions:
+                if " " in dependency:
                     raise ProjectValidationError(
-                        f"Unable to find variable {v}", report_args=True
+                        f"`needs` actions in '{action_id}' should be separated"
+                        f" with commas:\n{', '.join(dependency.split())}"
                     )
-            except ValueError:
                 raise ProjectValidationError(
-                    f"Unable to find variable {v}", report_args=True
+                    f"Action '{action_id}' lists unknown action '{dependency}'"
+                    f" in its `needs` config"
                 )
+
     return project
 
 
-def interpolate_variables(args, dependency_actions):
-    """Given a list of arguments, each a single string token, replace any
-    that are variables using a dotted lookup against the supplied
-    dependencies dictionary
-
+def get_action_specification(project, action_id):
     """
-    interpolated_args = []
-    for arg in args:
-        variables = variables_in_string(arg, variable_name_only=True)
-        if variables:
-            try:
-                # at this point, the command string has been
-                # shell-split into separate tokens, so there is only
-                # ever a single variable to interpolate
-                _, action_id, variable_kind, privacy_level, variable_id = variables[
-                    0
-                ].split(".")
-                dependency_action = dependency_actions[action_id]
-                dependency_outputs = dependency_action[variable_kind]
-                privacy_level = dependency_outputs[privacy_level]
-                filename = privacy_level[variable_id]
-                if variable_kind == "outputs":
-                    # When copying outputs into the workspace, we
-                    # namespace them by action_id, to avoid filename
-                    # clashes
-                    arg = os.path.join(action_id, variable_id, filename)
-                else:
-                    raise ProjectValidationError(
-                        "Only variables of kind `outputs` are currently supported",
-                        report_args=True,
-                    )
-            except (KeyError, ValueError):
-                raise ProjectValidationError(
-                    f"No output corresponding to {arg} was found", report_args=True
-                )
-        interpolated_args.append(arg)
-    return interpolated_args
-
-
-def split_and_format_run_command(run_command):
-    """A `run` command is in the form of `run_token:optional_version [args]`.
-
-    Shell-split this into its constituent parts, with any substitution
-    tokens normalized and escaped for later parsing and formatting.
-
+    Given a project and action, return an ActionSpecification which contains
+    everything the job-runner needs to run this action
     """
-    for v in variables_in_string(run_command):
-        # Remove spaces to prevent shell escaping from thinking these
-        # are different tokens
-        run_command = run_command.replace(v, v.replace(" ", ""))
-        # Escape braces to prevent python `format()` from coverting
-        # doubled braces in single ones
-        run_command = escape_braces(run_command)
-
-    parts = shlex.split(run_command)
-    # Commands are in the form command:version
-    if ":" in parts[0]:
-        run_token, version = parts[0].split(":")
-    else:
-        run_token = parts[0]
-        version = None
-
-    return run_token, version, parts[1:]
-
-
-def add_runtime_metadata(
-    action_from_project,
-    requested_action_id=None,
-    workspace=None,
-    callback_url=None,
-    expectations_population=None,
-    **kwargs,
-):
-    """Given a run command specified in project.yaml, validate that it is
-    permitted, and return how it should be invoked for `docker run`
-
-    Adds docker_invocation, privacy_level, database_url, and
-    container_name to the `action` dict.
-
-    """
-    job_config = copy.deepcopy(kwargs)
-    action_from_project = copy.deepcopy(action_from_project)
-    job_config.update(action_from_project)
-    job_config["action_id"] = requested_action_id
-
-    command = job_config["run"]
-    name, version, user_args = split_and_format_run_command(command)
-
-    # Convert human-readable database name into DATABASE_URL
-    if job_config["backend"] != "expectations":
-        job_config["database_url"] = os.environ[
-            f"{workspace['db'].upper()}_DATABASE_URL"
-        ]
-        job_config["temp_database_name"] = os.environ["TEMP_DATABASE_NAME"]
-    info = get_run_command(name)
-
-    # Other metadata required to run and/or debug containers
-    job_config["callback_url"] = callback_url
-    job_config["workspace"] = workspace
-    job_config["container_name"] = make_container_name(
-        utils.make_volume_name(job_config) + "-" + job_config["action_id"]
-    )
-    job_config["output_locations"] = utils.all_output_paths_for_action(job_config)
-    job_config["needs_run"] = utils.needs_run(job_config)
-
-    # Convert the command name into a full set of arguments that can
-    # be passed to `docker run`, but preserving user-defined variables
-    # in the form `${{ variable }}` for interpolation later (after the
-    # dependences have been walked)
-    docker_image_name, *docker_args = info["docker_invocation"]
-    if version:
-        docker_image_name = f"{docker_image_name}:{version}"
-
-    if user_args[0] == "generate_cohort":
-        # Substitute database_url for expecations_population
-        if job_config["backend"] == "expectations":
-            user_args.append(f"--expectations-population={expectations_population}")
-        else:
-            docker_args.extend(["-e", "DATABASE_URL={database_url}"])
-            docker_args.extend(["-e", "TEMP_DATABASE_NAME={temp_database_name}"])
-        cohort_output_location = job_config["output_locations"][0]["relative_path"]
-        output_dir = utils.safe_join(
-            utils.get_workdir(), os.path.dirname(cohort_output_location)
+    try:
+        action_spec = project["actions"][action_id]
+    except KeyError:
+        raise UnknownActionError(
+            f"Action '{action_id}' not found in project.yaml", project
         )
-        user_args.append(f"--output-dir={output_dir}")
+    run_command = action_spec["run"]
+    # Specical case handling for the `cohortextractor generate_cohort` command
+    if is_generate_cohort_command(shlex.split(run_command)):
+        # Set the size of the dummy data population, if that's what were
+        # generating.  Possibly this should be moved to the study definition
+        # anyway, which would make this unnecessary.
+        if config.USING_DUMMY_DATA_BACKEND:
+            size = int(project["expectations"]["population_size"])
+            run_command += f" --expectations-population={size}"
+        # Automatically configure the cohortextractor to produce output in the
+        # directory the `outputs` spec is expecting. Longer term I'd like to
+        # just make it an error if the directories don't match, rather than
+        # silently fixing it. (We can use the project versioning system to
+        # ensure this doesn't break existing studies.)
+        output_dirs = get_output_dirs(action_spec["outputs"])
+        if len(output_dirs) != 1:
+            raise ProjectValidationError(
+                f"generate_cohort command should produce output in only one "
+                f"directory, found {len(output_dirs)}:\n"
+                + "\n".join([f" - {d}/" for d in output_dirs])
+            )
+        run_command += f" --output-dir={output_dirs[0]}"
+    return ActionSpecifiction(
+        run=run_command,
+        needs=action_spec.get("needs", []),
+        outputs=action_spec["outputs"],
+    )
 
-    # Interpolate variables from the job_config into user-supplied
-    # arguments. Currently, only `database_url` is useful.
-    all_args = docker_args + [docker_image_name] + user_args
-    all_args = [arg.format(**job_config) for arg in all_args]
 
-    job_config["docker_invocation"] = all_args
-    return job_config
-
-
-def parse_project_yaml(workdir, job_spec):
-    """Given a checkout of an OpenSAFELY repo containing a `project.yml`,
-    check the provided job can run, and if so, update it with
-    information about how to run it in a docker container.
-
-    If the job has unfinished dependencies, a DependencyNotFinished
-    exception is raised.
-
+def is_generate_cohort_command(args):
     """
-    with open(os.path.join(workdir, "project.yaml"), "r") as f:
-        project = yaml.safe_load(f)
+    The `cohortextractor generate_cohort` command gets special treatment in
+    various places (e.g. it's the only command which gets access to the
+    database) so it's helpful to have a single function for identifying it
+    """
+    assert not isinstance(args, str)
+    if (
+        len(args) > 1
+        and args[0].startswith("cohortextractor:")
+        and args[1] == "generate_cohort"
+    ):
+        return True
+    return False
 
-    project = validate_project(workdir, project)
 
-    project_actions = project["actions"]
-    requested_action_id = job_spec["action_id"]
-    if requested_action_id not in project_actions:
+def get_all_actions(project):
+    # We ignore any manually defined run_all action (in later project versions
+    # this will be an error). We use a list comprehension rather than set
+    # operators as previously so we preserve the original order.
+    return [action for action in project["actions"].keys() if action != RUN_ALL_COMMAND]
+
+
+def get_all_output_patterns_from_project_file(project_file):
+    project = parse_and_validate_project_file(project_file)
+    all_patterns = set()
+    for action in project["actions"].values():
+        for patterns in action["outputs"].values():
+            all_patterns.update(patterns.values())
+    return list(all_patterns)
+
+
+def get_output_dirs(output_spec):
+    """
+    Given the set of output files specified by an action, return a list of the
+    unique directory names of those outputs
+    """
+    filenames = []
+    for group in output_spec.values():
+        filenames.extend(group.values())
+    dirs = set(PurePosixPath(filename).parent for filename in filenames)
+    return list(dirs)
+
+
+def get_feature_flags_for_version(version):
+    latest_version = max(FEATURE_FLAGS_BY_VERSION.values())
+    if version is None:
         raise ProjectValidationError(
-            f"Requested action {requested_action_id} not found in project.yaml",
-            report_args=True,
+            f"Project file must have a `version` attribute specifying which "
+            f"version of the project configuration format it uses (current "
+            f"latest version is {latest_version})"
         )
-    expectations_population = int(project["expectations"]["population_size"])
-    job_config = job_spec.copy()
-    job_config["workdir"] = workdir
-    # Build dependency graph
-    graph = nx.DiGraph()
-    for action_id, action_config in project_actions.items():
-        project_actions[action_id]["action_id"] = action_id
-        graph.add_node(action_id)
-        for dependency_id in action_config.get("needs", []):
-            graph.add_node(dependency_id)
-            graph.add_edge(dependency_id, action_id)
-    sorted_graph = nx.algorithms.dag.topological_sort(graph)
-    dependencies = nx.algorithms.dag.ancestors(graph, source=requested_action_id)
-    sorted_dependencies = [x for x in sorted_graph if x in dependencies]
-
-    # Compute runtime metadata for the job we're interested
-    job_action = add_runtime_metadata(
-        project_actions[requested_action_id],
-        requested_action_id=requested_action_id,
-        expectations_population=expectations_population,
-        **job_config,
-    )
-
-    # Do the same thing for dependencies, and also assert that they've
-    # completed by checking their expected output exists
-    dependency_actions = {}
-    any_needs_run = False
-    if not job_config["force_run_dependencies"]:
-        job_config["force_run"] = False
-
-    for dependency_action_id in sorted_dependencies:
-        # Adds docker_invocation and output files locations to the
-        # config
-        action = add_runtime_metadata(
-            project_actions[dependency_action_id],
-            requested_action_id=dependency_action_id,
-            expectations_population=expectations_population,
-            **job_config,
+    try:
+        version = float(version)
+    except (TypeError, ValueError):
+        raise ProjectValidationError(
+            f"`version` must be a number between 1 and {latest_version}"
         )
-
-        action["docker_invocation"] = interpolate_variables(
-            action["docker_invocation"], dependency_actions
+    feat = SimpleNamespace()
+    matched_any = False
+    for k, v in FEATURE_FLAGS_BY_VERSION.items():
+        if v <= version:
+            setattr(feat, k, True)
+            matched_any = True
+        else:
+            setattr(feat, k, False)
+    if version > 1 and not matched_any:
+        raise ProjectValidationError(
+            f"`version` must be a number between 1 and {latest_version}"
         )
-        action["needed_by_id"] = job_spec["pk"]
-        if any_needs_run or action["needs_run"]:
-            any_needs_run = True
-            action["needs_run"] = True
-        dependency_actions[dependency_action_id] = action
-
-    # Add the inputs accrued from the previous dependencies
-    for dependency_action_id in sorted_dependencies:
-        inputs = []
-        for predecessor in graph.predecessors(dependency_action_id):
-            inputs.extend(dependency_actions[predecessor]["output_locations"])
-        dependency_actions[dependency_action_id]["inputs"] = inputs
-
-    # And do the same for the requested job
-    inputs = []
-    for predecessor in graph.predecessors(requested_action_id):
-        inputs.extend(dependency_actions[predecessor]["output_locations"])
-    job_action["inputs"] = inputs
-
-    if any_needs_run:
-        job_action["needs_run"] = True
-    job_action["inputs"] = inputs
-    # Now interpolate user-provided variables into docker
-    # invocation. This must happen after metadata has been added to
-    # the dependencies, as variables can reference the ouputs of other
-    # actions
-    job_action["docker_invocation"] = interpolate_variables(
-        job_action["docker_invocation"], dependency_actions
-    )
-
-    job_config.update(job_action)
-    job_config["dependencies"] = dependency_actions
-    return job_config
+    return feat
 
 
-def make_container_name(input_string):
-    """Convert `input_string` to a valid docker container name"""
-    container_name = re.sub(r"[^a-zA-Z0-9]", "-", input_string)
-    # Remove any leading dashes, as docker requires images begin with [:alnum:]
-    if container_name.startswith("-"):
-        container_name = container_name[1:]
-    return container_name
+def assert_valid_glob_pattern(pattern):
+    """
+    These patterns get converted into regular expressions and matched
+    with a `find` command so there shouldn't be any possibility of a path
+    traversal attack anyway. But it's still good to ensure that they are
+    well-formed.
+    """
+    # Only POSIX slashes please
+    if "\\" in pattern:
+        raise InvalidPatternError("contains back slashes (use forward slashes only)")
+    # These aren't unsafe, but they won't behave as expected so we shouldn't let
+    # people use them
+    for expr in ("**", "?", "["):
+        if expr in pattern:
+            raise InvalidPatternError(
+                f"contains '{expr}' (only the * wildcard character is supported)"
+            )
+    if pattern.endswith("/"):
+        raise InvalidPatternError(
+            "looks like a directory (only files should be specified)"
+        )
+    # Check that the path is in normal form
+    if posixpath.normpath(pattern) != pattern:
+        raise InvalidPatternError(
+            "is not in standard form (contains double slashes or '..' elements)"
+        )
+    # This is the directory we use for storing metadata about action runs and
+    # we don't want outputs getting mixed up in it.
+    if pattern == "metadata" or pattern.startswith("metadata/"):
+        raise InvalidPatternError("should not include the metadata directory")
+    # Windows has a different notion of absolute paths (e.g c:/foo) so we check
+    # for both platforms
+    if PurePosixPath(pattern).is_absolute() or PureWindowsPath(pattern).is_absolute():
+        raise InvalidPatternError("is an absolute path")
+
+
+def assert_valid_actions(project, actions):
+    if not actions:
+        raise UnknownActionError("At least one action must be supplied", project)
+    for action in actions:
+        if action != RUN_ALL_COMMAND and action not in project["actions"]:
+            raise UnknownActionError(
+                f"Action '{action}' not found in project.yaml", project
+            )
