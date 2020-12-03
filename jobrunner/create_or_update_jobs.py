@@ -58,6 +58,9 @@ def create_or_update_jobs(job_request):
         except (GitError, ProjectValidationError, JobRequestError) as e:
             log.info(f"JobRequest failed:\n{e}")
             create_failed_job(job_request, e)
+        except Exception:
+            log.exception("Uncaught error while creating jobs")
+            create_failed_job(job_request, JobRequestError("Internal error"))
     else:
         # TODO: think about what sort of updates we want to support
         # I think these are probably limited to:
