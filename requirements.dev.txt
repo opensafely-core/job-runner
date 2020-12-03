@@ -30,14 +30,14 @@ pytest-cov==2.10.1        # via -r requirements.dev.in
 pytest==6.1.2             # via -r requirements.dev.in, pytest-cov
 regex==2020.10.28         # via black
 requests-mock==1.8.0      # via -r requirements.dev.in
-requests==2.24.0          # via -r requirements.txt, requests-mock
+requests==2.25.0          # via -r requirements.txt, requests-mock
 ruamel.yaml.clib==0.2.2   # via -r requirements.txt, ruamel.yaml
 ruamel.yaml==0.16.12      # via -r requirements.txt
 six==1.15.0               # via packaging, pip-tools, requests-mock
 toml==0.10.2              # via black, pytest
 typed-ast==1.4.1          # via black
 typing-extensions==3.7.4.3  # via black
-urllib3==1.25.11          # via -r requirements.txt, requests
+urllib3==1.26.2           # via -r requirements.txt, requests
 zipp==3.4.0               # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
