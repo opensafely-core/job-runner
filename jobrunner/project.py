@@ -90,7 +90,7 @@ def make_yaml_error_more_helpful(exc):
 # Copied almost verbatim from the original job-runner
 def validate_project_and_set_defaults(project):
     """Check that a dictionary of project actions is valid, and set any defaults"""
-    feat = get_feature_flags_for_version(float(project["version"]))
+    feat = get_feature_flags_for_version(project.get("version"))
     seen_runs = []
     seen_output_files = []
     if feat.EXPECTATIONS_POPULATION:
@@ -263,8 +263,20 @@ def get_output_dirs(output_spec):
     return list(dirs)
 
 
-# Copied almost verbatim from the original job-runner
 def get_feature_flags_for_version(version):
+    latest_version = max(FEATURE_FLAGS_BY_VERSION.values())
+    if version is None:
+        raise ProjectValidationError(
+            f"Project file must have a `version` attribute specifying which "
+            f"version of the project configuration format it uses (current "
+            f"latest version is {latest_version})"
+        )
+    try:
+        version = float(version)
+    except (TypeError, ValueError):
+        raise ProjectValidationError(
+            f"`version` must be a number between 1 and {latest_version}"
+        )
     feat = SimpleNamespace()
     matched_any = False
     for k, v in FEATURE_FLAGS_BY_VERSION.items():
@@ -275,8 +287,7 @@ def get_feature_flags_for_version(version):
             setattr(feat, k, False)
     if version > 1 and not matched_any:
         raise ProjectValidationError(
-            f"Project file must specify a valid version (currently only "
-            f"<= {max(FEATURE_FLAGS_BY_VERSION.values())})",
+            f"`version` must be a number between 1 and {latest_version}"
         )
     return feat
 
