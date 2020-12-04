@@ -2,7 +2,7 @@ FROM ghcr.io/opensafely/base-docker
 
 RUN apt-get update --fix-missing
 
-RUN apt-get install -y python3.8 python3-pip git docker.io
+RUN apt-get install -y python3.8 python3-pip git docker.io sqlite3
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
 
 # Install pip requirements
