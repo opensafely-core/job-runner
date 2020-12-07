@@ -19,13 +19,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.dev.txt
     - name: Docker Login
-      uses: azure/docker-login@v1
-      with:
-        # It seems we can't do this with the standard GITHUB_TOKEN, but
-        # have to use a personal token with the correct permissions instead
-        login-server: docker.opensafely.org
-        username: docker
-        password: ${{ secrets.OPENSAFELY_DOCKER_PASSWORD }}
+      run: docker login ghcr.io -u docker -p ${{ secrets.DOCKER_RO_TOKEN }}
     - name: Run actual tests
       run: python -m pytest
 

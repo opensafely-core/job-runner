@@ -59,3 +59,10 @@ LOCAL_RUN_MODE = False
 
 # See `manage_jobs.ensure_overwritable` for more detail
 ENABLE_PERMISSIONS_WORKAROUND = bool(os.environ.get("ENABLE_PERMISSIONS_WORKAROUND"))
+
+STATA_LICENSE = os.environ.get("STATA_LICENCE")
+# note: git+ssh url as we want to use the user's git auth when using local_run
+STATA_LICENSE_REPO = os.environ.get(
+    "STATA_LICENCE_REPO",
+    "git+ssh://git@github.com/opensafely/server-instructions.git",
+)

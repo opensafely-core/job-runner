@@ -22,12 +22,14 @@ import argparse
 import json
 import os
 from pathlib import Path
+import platform
 import random
 import shlex
 import shutil
 import string
 import subprocess
 import sys
+import tempfile
 import textwrap
 
 from .run import main as run_main, JobError
@@ -171,26 +173,26 @@ def create_and_run_jobs(
 
     jobs = find_where(Job)
 
-    missing_docker_images = get_missing_docker_images(jobs)
-    missing_docker_images = temporary_docker_auth_workaround(missing_docker_images)
-    if missing_docker_images:
-        print("Fetching missing docker images")
-        for image in missing_docker_images:
+    for image in get_docker_images(jobs):
+        if 'stata-mp' in image and config.STATA_LICENSE is None:
+            try:
+                config.STATA_LICENSE = get_stata_license()
+            except Exception as e:
+                print('You need to configure a stata licence to use stata '
+                      'actions in your project.\n'
+                      'Set the STATA_LICENCE environment variable to the '
+                      'contents of your stata.lic file.'
+                )
+                return False
+                
+        if not docker.image_exists_locally(image):
+            print(f"Fetching missing docker image {image}")
             print(f"\nRunning: docker pull {image}")
             try:
                 # We want to be chatty when running in the console so users can
                 # see progress and quiet in CI so we don't spam the logs with
                 # layer download noise
                 docker.pull(image, quiet=not sys.stdout.isatty())
-            except docker.DockerAuthError as e:
-                print("Failed with authorisation error:")
-                print(e)
-                print(
-                    "\n"
-                    "The requested Docker image contains private licensing details,\n"
-                    "please contact the OpenSAFELY team to request access."
-                )
-                return False
             except docker.DockerPullError as e:
                 print("Failed with error:")
                 print(e)
@@ -293,16 +295,14 @@ def delete_docker_entities(entity, label, ignore_errors=False):
         subprocess_run(rm_args, capture_output=True, check=not ignore_errors)
 
 
-def get_missing_docker_images(jobs):
+def get_docker_images(jobs):
     docker_images = {shlex.split(job.run_command)[0] for job in jobs}
     full_docker_images = {
         f"{config.DOCKER_REGISTRY}/{image}" for image in docker_images
     }
     # We always need this image to work with volumes
     full_docker_images.add(docker.MANAGEMENT_CONTAINER_IMAGE)
-    return [
-        image for image in full_docker_images if not docker.image_exists_locally(image)
-    ]
+    return full_docker_images
 
 
 def get_log_file_snippet(log_file, max_lines):
@@ -359,6 +359,25 @@ def temporary_docker_auth_workaround(missing_docker_images):
         print(f"Retagging '{alt_image}' as '{image}'")
         subprocess_run(["docker", "tag", alt_image, image])
     return [image for image in missing_docker_images if image not in stata_images]
+
+
+def get_stata_license(repo=config.STATA_LICENSE_REPO):
+    """Load a stata license from local cache or remote repo."""
+    cached = Path(f'{tempfile.gettempdir()}/opensafely-stata.lic')
+
+    if not cached.exists():
+        try:
+            tmp = tempfile.TemporaryDirectory(suffix='opensafely')
+            cmd = ['git', 'clone', '--depth=1', repo, 'repo']
+            subprocess_run(cmd, cwd=tmp.name)
+            shutil.copyfile(f'{tmp.name}/repo/stata.lic', cached)
+        finally:
+            # py3.7 on windows can't clean up TemporaryDirectory with git's read only
+            # file in them, so just don't bother.
+            if platform.system() != "Windows" or sys.version_info[:2] > (3, 7):
+                tmp.cleanup()
+
+    return cached.read_text()
 
 
 def docker_preflight_check():
