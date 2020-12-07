@@ -194,7 +194,14 @@ def find_newer_files(volume_name, reference_file):
     """
     Return all files in volume newer than the reference file
     """
-    args = ["find", VOLUME_MOUNT_POINT, "-type", "f", "-newer", reference_file]
+    args = [
+        "find",
+        VOLUME_MOUNT_POINT,
+        "-type",
+        "f",
+        "-newer",
+        f"{VOLUME_MOUNT_POINT}/{reference_file}",
+    ]
     # We can't use `exec` unless the container is running, even though it won't
     # actually do anything other than sit waiting for input. This will get
     # stopped when we `--force rm` the container while removing the volume.
