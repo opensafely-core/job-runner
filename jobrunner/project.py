@@ -78,8 +78,14 @@ def make_yaml_error_more_helpful(exc):
     goes wrong.
     """
     try:
-        exc.context_mark.name = "project.yaml"
-        exc.problem_mark.name = "project.yaml"
+        try:
+            exc.context_mark.name = "project.yaml"
+        except AttributeError:
+            pass
+        try:
+            exc.problem_mark.name = "project.yaml"
+        except AttributeError:
+            pass
         exc.note = ""
         exc.warn = ""
     except Exception:
