@@ -2,6 +2,8 @@
 NOTE: This module exists purely as a temporary shim to fake enough of the old
 job-runner API to keep the cohortextractor integration working unchanged.
 """
+import sys
+
 from . import local_run
 
 
@@ -20,14 +22,12 @@ class Job:
         self.workdir = workdir
 
     def main(self):
-        local_run.main(
+        success = local_run.main(
             project_dir=self.workdir,
             actions=[self.action_id],
             force_run_dependencies=self.force_run_dependencies,
         )
-        # Returning an empty list results in a "Nothing to do" message, which
-        # is a bit confusing but not too terrible
-        return []
+        sys.exit(0 if success else 1)
 
     # We need to support `job.logger.setLevel()` and this is the easiest way to
     # do this
