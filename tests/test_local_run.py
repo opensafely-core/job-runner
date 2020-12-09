@@ -68,7 +68,4 @@ def test_get_stata_license_repo_fetch(systmpdir, tmp_path):
 
 
 def test_get_stata_license_repo_error(systmpdir):
-    # GH auth errors are exposed as not found errors, so this is close-ish to a
-    # real git auth failure condition.
-    with pytest.raises(Exception) as e:
-        local_run.get_stata_license('/invalid/repo')
+    assert local_run.get_stata_license('/invalid/repo') is None

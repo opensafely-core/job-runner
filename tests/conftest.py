@@ -66,8 +66,3 @@ def delete_docker_entities(entity, label, ignore_errors=False):
     if ids and response.returncode == 0:
         rm_args = ["docker", entity, "rm", "--force"] + ids
         subprocess.run(rm_args, capture_output=True, check=not ignore_errors)
-
-
-@pytest.fixture(autouse=True)
-def cleanup():
-    get_connection_from_file.cache_clear()

@@ -19,7 +19,6 @@ test-verbose: $(VENV)
 run: $(VENV)
 	$(PYTHON) -m jobrunner.add_job $(REPO) $(ACTION)
 
-
 lib:
 	git clone git@github.com:opensafely/job-runner-dependencies.git lib
     
@@ -32,4 +31,9 @@ update-wheels: $(VENV) requirements.txt | lib
 	rm lib/_ruamel_yaml.*.so
         
 
-
+# test the license shenanigins work when run from a console
+test-stata: $(VENV)
+	rm -f tests/fixtures/stata_project/output/env.txt
+	$(PYTHON) -c 'from jobrunner.local_run import main; main("tests/fixtures/stata_project", ["stata"])'
+	cat tests/fixtures/stata_project/output/env.txt
+	echo
