@@ -487,14 +487,20 @@ def read_manifest_file(workspace_dir):
 
 def update_manifest(manifest, job_metadata):
     action = job_metadata["action"]
-    # Remove all files created by previous runs of this action
+    new_outputs = job_metadata["outputs"]
+    # Remove all files created by previous runs of this action, and any files
+    # created by other actions which are being overwritten by this action. This
+    # latter case should never occur during a "clean" run of a project because
+    # each output file should be unique across the project. However when
+    # iterating during development it's possible to move outputs between
+    # actions and hit this condition.
     files = [
         (name, details)
         for (name, details) in manifest["files"].items()
-        if details["created_by_action"] != action
+        if details["created_by_action"] != action and name not in new_outputs
     ]
     # Add newly created files
-    for filename, privacy_level in job_metadata["outputs"].items():
+    for filename, privacy_level in new_outputs.items():
         files.append(
             (filename, {"created_by_action": action, "privacy_level": privacy_level},)
         )
