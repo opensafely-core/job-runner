@@ -171,7 +171,10 @@ def create_and_run_jobs(
         for image in missing_docker_images:
             print(f"\nRunning: docker pull {image}")
             try:
-                docker.pull(image)
+                # We want to be chatty when running in the console so users can
+                # see progress and quiet in CI so we don't spam the logs with
+                # layer download noise
+                docker.pull(image, quiet=not sys.stdout.isatty())
             except docker.DockerAuthError as e:
                 print("Failed with authorisation error:")
                 print(e)
@@ -339,7 +342,7 @@ def temporary_docker_auth_workaround(missing_docker_images):
     print("Applying Docker authentication workaround...")
     for image in stata_images:
         alt_image = image.replace("ghcr.io/opensafely/", "docker.opensafely.org/")
-        docker.pull(alt_image)
+        docker.pull(alt_image, quiet=True)
         print(f"Retagging '{alt_image}' as '{image}'")
         subprocess_run(["docker", "tag", alt_image, image])
     return [image for image in missing_docker_images if image not in stata_images]
