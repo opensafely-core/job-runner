@@ -204,6 +204,9 @@ def create_and_run_jobs(
             StatusCode.DEPENDENCY_FAILED,
             StatusCode.WAITING_ON_WORKERS,
         ],
+        # All the other output we produce goes to stdout and it's a bit
+        # confusing if the log messages end up on a separate stream
+        log_to_stdout=True,
     )
 
     # Run everything
