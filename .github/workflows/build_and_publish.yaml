@@ -73,12 +73,3 @@ jobs:
         IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
         docker tag $IMAGE_NAME $IMAGE_ID:latest
         docker push $IMAGE_ID:latest
-    - name: Build and publish to old registry (soon to be removed)
-      uses: whoan/docker-build-with-cache-action@v5
-      with:
-        username: docker
-        password: "${{ secrets.OPENSAFELY_DOCKER_PASSWORD }}"
-        registry: docker.opensafely.org
-        image_name: job-runner
-        image_tag: latest,${{ needs.tag-new-version.outputs.tag }}
-        build_extra_args: "--build-arg=pythonversion=3.8.3"
