@@ -26,6 +26,7 @@ import random
 import shlex
 import shutil
 import string
+import subprocess
 import sys
 import textwrap
 
@@ -76,6 +77,9 @@ def add_arguments(parser):
 
 
 def main(project_dir, actions, force_run_dependencies=False, continue_on_error=False):
+    if not docker_preflight_check():
+        return False
+
     project_dir = Path(project_dir).resolve()
     temp_log_dir = project_dir / METADATA_DIR / ".logs"
     # Generate unique docker label to use for all volumes and containers we
@@ -139,7 +143,7 @@ def create_and_run_jobs(
         database_name="dummy",
         force_run_dependencies=force_run_dependencies,
         # The default behaviour of refusing to run if a dependency has failed
-        # makes for an awkward workflow when interating in development
+        # makes for an awkward workflow when iterating in development
         force_run_failed=True,
         branch="",
         original={"created_by": os.environ.get("USERNAME")},
@@ -349,6 +353,21 @@ def temporary_docker_auth_workaround(missing_docker_images):
         print(f"Retagging '{alt_image}' as '{image}'")
         subprocess_run(["docker", "tag", alt_image, image])
     return [image for image in missing_docker_images if image not in stata_images]
+
+
+def docker_preflight_check():
+    try:
+        subprocess_run(["docker", "info"], check=True, capture_output=True)
+    except FileNotFoundError:
+        print("Could not find command: docker")
+        print("\nTo use the `run` command you must have Docker installed, see:")
+        print("https://docs.docker.com/get-docker/")
+        return False
+    except subprocess.CalledProcessError:
+        print("There was an error running: docker info")
+        print("\nIt looks like you have Docker installed but have not started it.")
+        return False
+    return True
 
 
 if __name__ == "__main__":
