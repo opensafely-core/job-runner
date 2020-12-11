@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import time
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from . import config
 from .string_utils import project_name_from_url
@@ -84,21 +84,20 @@ def get_sha_from_remote_ref(repo_url, ref):
         response = subprocess_run(
             [
                 "git",
-                *auth_arguments(),
                 "ls-remote",
                 "--quiet",
                 "--exit-code",
-                repo_url,
+                add_access_token(repo_url),
                 ref,
             ],
             check=True,
             capture_output=True,
-            env=supply_access_token(repo_url),
             text=True,
             encoding="utf-8",
         )
         output = response.stdout
-    except subprocess.SubprocessError:
+    except subprocess.SubprocessError as exc:
+        redact_token_from_exception(exc)
         log.exception(f"Error resolving {ref} from {repo_url}")
         output = ""
     results = _parse_ls_remote_output(output)
@@ -172,21 +171,20 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
             subprocess_run(
                 [
                     "git",
-                    *auth_arguments(),
                     "fetch",
                     "--depth",
                     "1",
                     "--force",
-                    repo_url,
+                    add_access_token(repo_url),
                     commit_sha,
                 ],
                 check=True,
                 capture_output=True,
                 cwd=repo_dir,
-                env=supply_access_token(repo_url),
             )
             break
         except subprocess.SubprocessError as e:
+            redact_token_from_exception(e)
             log.exception(
                 f"Error fetching commit {commit_sha} from {repo_url}"
                 f" (attempt {attempt}/{max_retries})"
@@ -206,28 +204,50 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
                 raise GitError(f"Error fetching commit {commit_sha} from {repo_url}")
 
 
-def auth_arguments():
-    """
-    Adds authentication related arguments to git invocations
-    """
-    # This script will supply as the username the access token from the
-    # environment variable GIT_ACCESS_TOKEN
-    askpath_exec = Path(__file__).parent / "git_askpass_access_token.py"
-    return [
-        # Disable the default credentials helper so git never tries to pop up a
-        # modal dialog or anyting awful like that
-        "-c",
-        "credential.helper=''",
-        # Use our askpath executable
-        "-c",
-        f"core.askpass={askpath_exec}",
-    ]
-
-
-def supply_access_token(repo_url):
+def add_access_token(repo_url):
+    # We previously did a complicated thing involving the GIT_ASKPASS
+    # executable which worked OK on Linux but not on Windows or macOS, so we're
+    # doing the more reliable thing of just sticking the token in the URL
     token = config.PRIVATE_REPO_ACCESS_TOKEN
+    if not token:
+        return repo_url
     # Ensure we only ever send our token to github.com over https
     parsed = urlparse(repo_url)
     if parsed.hostname != "github.com" or parsed.scheme != "https":
-        token = ""
-    return dict(os.environ, GIT_ACCESS_TOKEN=token)
+        return repo_url
+    # Don't overwrite existing auth details (not sure why they'd be there but
+    # seems polite)
+    if parsed.username or parsed.password:
+        return repo_url
+    # Add the token to the URL
+    return urlunparse(parsed._replace(netloc=f"{token}@{parsed.netloc}"))
+
+
+def redact_token_from_exception(exception):
+    # The disadvantage of the above approach is it we have to do some work to
+    # avoid leaking the token into the logs. However, even if it does leak it's
+    # not the end of the world: the developers who have access to the logs have
+    # access to the token in any case; and all it provides is read-only access
+    # to some private git repos which will eventually become public in any
+    # case.
+    token = config.PRIVATE_REPO_ACCESS_TOKEN
+    if not token:
+        return
+    if isinstance(exception.cmd, list):
+        exception.cmd = [redact(arg, token) for arg in exception.cmd]
+    else:
+        exception.cmd = redact(exception.cmd, token)
+    if exception.output is not None:
+        exception.output = redact(exception.output, token)
+    if exception.stderr is not None:
+        exception.stderr = redact(exception.stderr, token)
+
+
+def redact(value, secret):
+    mask = "********"
+    if isinstance(value, str):
+        return value.replace(secret, mask)
+    elif isinstance(value, bytes):
+        return value.replace(secret.encode("ascii"), mask.encode("ascii"))
+    else:
+        raise ValueError(f"Got {type(value)} expected str or bytes")
