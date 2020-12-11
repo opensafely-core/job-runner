@@ -9,6 +9,7 @@ still end up in a consistent state when it's restarted.
 import datetime
 import json
 import logging
+import os.path
 from pathlib import Path
 import shlex
 import shutil
@@ -26,6 +27,7 @@ from .project import (
 )
 from .path_utils import list_dir_with_ignore_patterns
 from .string_utils import tabulate
+from .subprocess_utils import subprocess_run
 
 
 log = logging.getLogger(__name__)
@@ -226,6 +228,7 @@ def finalise_job(job):
 
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
+    ensure_overwritable(log_dir / "logs.txt", log_dir / "metadata.json")
     write_log_file(job, job_metadata, log_dir / "logs.txt")
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
@@ -237,6 +240,7 @@ def finalise_job(job):
     log.info(f"Logs written to: {metadata_log_file}")
 
     # Extract outputs to workspace
+    ensure_overwritable(*[workspace_dir / f for f in job.outputs.keys()])
     volume = volume_name(job)
     for filename in job.outputs.keys():
         log.info(f"Extracting output file: {filename}")
@@ -412,6 +416,7 @@ def get_log_dir(job):
 
 def copy_file(source, dest):
     dest.parent.mkdir(parents=True, exist_ok=True)
+    ensure_overwritable(dest)
     # shutil.copy() should be reasonably efficient in Python 3.8+, but if we
     # need to stick with 3.7 for some reason we could replace this with a
     # shellout to `cp`. See:
@@ -420,6 +425,7 @@ def copy_file(source, dest):
 
 
 def delete_files(directory, filenames):
+    ensure_overwritable(*[directory.joinpath(f) for f in filenames])
     for filename in filenames:
         try:
             directory.joinpath(filename).unlink()
@@ -526,6 +532,7 @@ def update_manifest(manifest, job_metadata):
 def write_manifest_file(workspace_dir, manifest):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
+    ensure_overwritable(manifest_file, manifest_file_tmp)
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)
 
@@ -539,3 +546,52 @@ def get_medium_privacy_workspace(workspace):
         return config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace
     else:
         return None
+
+
+def ensure_overwritable(*paths):
+    """
+    This is a (nasty) workaround for the permissions issues we hit when
+    switching between running the job-runner inside Docker and running it
+    natively on Windows. The issue is that the Docker process creates files
+    which the Windows native process then doesn't have permission to delete or
+    replace. We work around this here by using Docker to delete the offending
+    files for us.
+
+    Note for the potentially confused: Windows permissions work nothing like
+    POSIX permissions. We can create new files in directories created by
+    Docker, we just can't modify or delete existing files.
+    """
+    if not config.ENABLE_PERMISSIONS_WORKAROUND:
+        return
+    non_writable = []
+    for path in paths:
+        path = Path(path)
+        if path.exists():
+            # It would be nice to have a read-only way of determining if we
+            # have write access but I can't seem to find one that works on
+            # Windows
+            try:
+                path.touch()
+            except PermissionError:
+                non_writable.append(path.resolve())
+    if not non_writable:
+        return
+    root = os.path.commonpath([f.parent for f in non_writable])
+    rel_paths = [f.relative_to(root) for f in non_writable]
+    rel_posix_paths = [str(f).replace(os.path.sep, "/") for f in rel_paths]
+    subprocess_run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--volume",
+            f"{root}:/workspace",
+            "--workdir",
+            "/workspace",
+            docker.MANAGEMENT_CONTAINER_IMAGE,
+            "rm",
+            *rel_posix_paths,
+        ],
+        check=True,
+        capture_output=True,
+    )

@@ -56,3 +56,6 @@ MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 
 # See `local_run.py` for more detail
 LOCAL_RUN_MODE = False
+
+# See `manage_jobs.ensure_overwritable` for more detail
+ENABLE_PERMISSIONS_WORKAROUND = bool(os.environ.get("ENABLE_PERMISSIONS_WORKAROUND"))
