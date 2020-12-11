@@ -120,7 +120,7 @@ def query_params_to_sql(params):
     """
     Turn a dict of query parameters into a pair of (SQL string, SQL values).
     All parameters are implicitly ANDed together, and there's a bit of magic to
-    handle `field__in=list_of_values` queries and to handle Enum classes.
+    handle `field__in=list_of_values` queries, LIKE queries and Enum classes.
     """
     parts = []
     values = []
@@ -130,6 +130,10 @@ def query_params_to_sql(params):
             placeholders = ", ".join(["?"] * len(value))
             parts.append(f"{escape(field)} IN ({placeholders})")
             values.extend(value)
+        elif key.endswith("__like"):
+            field = key[:-6]
+            parts.append(f"{escape(field)} LIKE ?")
+            values.append(value)
         else:
             parts.append(f"{escape(key)} = ?")
             values.append(value)
