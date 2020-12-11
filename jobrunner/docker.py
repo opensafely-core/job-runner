@@ -314,14 +314,15 @@ def write_logs_to_file(container_name, filename):
         )
 
 
-def pull(image):
-    # We're deliberately not capturing stdout here as this is only used in
-    # local run mode were we want to show progress in the terminal
+def pull(image, quiet=False):
     try:
         subprocess_run(
-            ["docker", "pull", image],
+            ["docker", "pull", image, *(["--quiet"] if quiet else [])],
             check=True,
             encoding="utf-8",
+            # When not running "quiet" we don't capture stdout so that progress
+            # gets shown in the terminal
+            stdout=subprocess.PIPE if quiet else None,
             stderr=subprocess.PIPE,
         )
     except subprocess.CalledProcessError as e:

@@ -13,8 +13,10 @@ import sys
 import threading
 
 
-def configure_logging(show_action_name_only=False, status_codes_to_ignore=None):
-    handler = logging.StreamHandler()
+def configure_logging(
+    show_action_name_only=False, status_codes_to_ignore=None, log_to_stdout=False
+):
+    handler = logging.StreamHandler(stream=sys.stdout if log_to_stdout else None)
     handler.addFilter(set_log_context)
     handler.setFormatter(
         JobRunnerFormatter(show_action_name_only=show_action_name_only)
