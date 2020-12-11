@@ -6,6 +6,7 @@ output. It also includes the stderr output from any failed attempts to shell
 out to external processes.
 """
 import contextlib
+import datetime
 import logging
 import os
 import subprocess
@@ -19,7 +20,12 @@ def configure_logging(
     handler = logging.StreamHandler(stream=sys.stdout if log_to_stdout else None)
     handler.addFilter(set_log_context)
     handler.setFormatter(
-        JobRunnerFormatter(show_action_name_only=show_action_name_only)
+        JobRunnerFormatter(
+            show_action_name_only=show_action_name_only,
+            # In general we expect the service running framework to handle
+            # timestamps for us, but that's not always possible
+            include_timestamps=bool(os.environ.get("LOG_TIMESTAMPS")),
+        )
     )
     if status_codes_to_ignore:
         handler.addFilter(IgnoreStatusCodes(status_codes_to_ignore))
@@ -28,12 +34,15 @@ def configure_logging(
 
 
 class JobRunnerFormatter(logging.Formatter):
-    def __init__(self, *args, show_action_name_only=False, **kwargs):
+    def __init__(
+        self, *args, show_action_name_only=False, include_timestamps=False, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         # This gives us the option to show just a job's action name, rather
         # than its full slug in the log output, which is useful when running
         # locally to avoid clutter in the output
         self.show_action_name_only = show_action_name_only
+        self.include_timestamps = include_timestamps
 
     def format(self, record):
         """
@@ -49,6 +58,9 @@ class JobRunnerFormatter(logging.Formatter):
             context = f"job_request#{record.job_request.id}: "
         else:
             context = ""
+        if self.include_timestamps:
+            now = datetime.datetime.utcnow()
+            context = f"{now.isoformat()}Z {context}"
         output = super().format(record)
         if context:
             output = context + f"\n{context}".join(output.splitlines())
