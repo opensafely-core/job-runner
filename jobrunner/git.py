@@ -3,7 +3,7 @@ Utility functions for interacting with git
 """
 import logging
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 import subprocess
 import time
 from urllib.parse import urlparse, urlunparse
@@ -249,5 +249,10 @@ def redact(value, secret):
         return value.replace(secret, mask)
     elif isinstance(value, bytes):
         return value.replace(secret.encode("ascii"), mask.encode("ascii"))
+    # subprocess arguments can also be pathlib.Path instances (PurePath is the
+    # base class for all platform-specific Path classes). We never put the
+    # token in a path so there's nothing to do here
+    elif isinstance(value, PurePath):
+        return value
     else:
-        raise ValueError(f"Got {type(value)} expected str or bytes")
+        raise ValueError(f"Got {type(value)} expected str, bytes or Path")
