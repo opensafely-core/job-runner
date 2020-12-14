@@ -178,7 +178,7 @@ def set_message(job, message, code=None):
         # is still running" messages, but it is useful to have semi-regular
         # confirmations in the logs that it is still running. The below will
         # log approximately once every 10 minutes.
-        if datetime.datetime.fromtimestamp(timestamp).minute % 10:
+        if datetime.datetime.fromtimestamp(timestamp).minute % 10 == 0:
             log.info(job.status_message, extra={"status_code": job.status_code})
 
 
