@@ -10,12 +10,15 @@ shouldn't be too large a job.
 """
 import dataclasses
 from enum import Enum
-import functools
 import json
 from pathlib import Path
 import sqlite3
+import threading
 
 from . import config
+
+
+CONNECTION_CACHE = threading.local()
 
 
 def insert(item):
@@ -90,16 +93,26 @@ def transaction():
 
 
 def get_connection():
-    return get_connection_from_file(config.DATABASE_FILE)
+    # The caching below means we get the same connection to the database every
+    # time which is done not so much for efficiency as so that we can easily
+    # implement transaction support without having to explicitly pass round a
+    # connection object. This is done on a per-thread basis to avoid potential
+    # threading issues.
+    filename = config.DATABASE_FILE
+    # Looks icky but is documented `threading.local` usage
+    cache = CONNECTION_CACHE.__dict__
+    if filename in cache:
+        return cache[filename]
+    else:
+        connection = get_connection_from_file(filename)
+        cache[filename] = connection
+        return connection
 
 
-# LRU cache means we get the same connection to the database every time which
-# is done not so much for efficiency as so that we can easily implement
-# transaction support without having to explicitly pass round a connection
-# object.
-@functools.lru_cache()
 def get_connection_from_file(filename):
-    if filename != ":memory:":
+    if str(filename).startswith(":memory:"):
+        filename = ":memory:"
+    else:
         filename.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(filename)
     # Enable autocommit so changes made outside of a transaction still get
