@@ -61,6 +61,10 @@ class JobRunnerFormatter(logging.Formatter):
         if self.include_timestamps:
             now = datetime.datetime.utcnow()
             context = f"{now.isoformat()}Z {context}"
+
+        if hasattr(record, "prefix"):
+            context = f"{record.prefix}: {context}"
+
         output = super().format(record)
         if context:
             output = context + f"\n{context}".join(output.splitlines())
