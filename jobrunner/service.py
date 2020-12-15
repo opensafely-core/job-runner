@@ -33,11 +33,17 @@ def main():
         log.info("jobrunner.service started")
         # daemon=True means this thread will be automatically join()ed when the
         # process exits
-        thread = threading.Thread(target=sync.main, daemon=True)
+        thread = threading.Thread(target=sync_wrapper, daemon=True)
         thread.start()
         run.main()
     except KeyboardInterrupt:
         log.info("jobrunner.service stopped")
+
+
+def sync_wrapper():
+    with set_log_context(prefix='sync'):
+    	sync.main()
+
 
 
 def parse_env(contents):

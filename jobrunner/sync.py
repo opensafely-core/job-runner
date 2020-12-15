@@ -19,14 +19,13 @@ log = logging.getLogger(__name__)
 
 
 def main():
-    with set_log_context(prefix='sync'):
-        log.info(
-            f"Polling for JobRequests at: "
-            f"{config.JOB_SERVER_ENDPOINT.rstrip('/')}/job-requests/"
-        )
-        while True:
-            sync()
-            time.sleep(config.POLL_INTERVAL)
+    log.info(
+        f"Polling for JobRequests at: "
+        f"{config.JOB_SERVER_ENDPOINT.rstrip('/')}/job-requests/"
+    )
+    while True:
+        sync()
+        time.sleep(config.POLL_INTERVAL)
 
 
 def sync():
