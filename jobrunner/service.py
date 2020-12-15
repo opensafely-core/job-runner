@@ -3,6 +3,8 @@ Script runs both jobrunner flows in a single process.
 """
 import datetime
 import logging
+from pathlib import Path
+import os
 import time
 import threading
 
@@ -33,7 +35,7 @@ def main():
         # process exits
         thread = threading.Thread(target=sync.main, daemon=True)
         thread.start()
-        run_main()
+        run.main()
     except KeyboardInterrupt:
         log.info("jobrunner.service stopped")
 
