@@ -110,7 +110,9 @@ def get_connection():
 
 
 def get_connection_from_file(filename):
-    if filename != ":memory:":
+    if str(filename).startswith(":memory:"):
+        filename = ":memory:"
+    else:
         filename.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(filename)
     # Enable autocommit so changes made outside of a transaction still get

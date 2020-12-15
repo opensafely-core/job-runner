@@ -120,7 +120,10 @@ def create_and_run_jobs(
     docker.LABEL = docker_label
     config.LOCAL_RUN_MODE = True
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
-    config.DATABASE_FILE = ":memory:"
+    # Append a random value so that multiple runs in the same process will each
+    # get their own unique in-memory database. This is only really relevant
+    # during testing.
+    config.DATABASE_FILE = f":memory:{random.randrange(sys.maxsize)}"
     config.JOB_LOG_DIR = temp_log_dir
     config.BACKEND = "expectations"
     config.USING_DUMMY_DATA_BACKEND = True
