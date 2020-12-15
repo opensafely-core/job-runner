@@ -12,3 +12,4 @@ app.log
 *.egg-info/
 pip-wheel-metadata/*
 /workdir
+lib
