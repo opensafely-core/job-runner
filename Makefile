@@ -1,0 +1,35 @@
+VENV_DIR ?= .venv
+VENV ?= $(VENV_DIR)/done
+PYTHON ?= $(VENV_DIR)/bin/python
+
+$(VENV): requirements.dev.txt requirements.txt
+	virtualenv .venv -p python3.8
+	$(VENV_DIR)/bin/pip install -r requirements.dev.txt
+	touch $@
+
+test: $(VENV)
+	$(PYTHON) -m pytest
+
+test-fast: $(VENV)
+	$(PYTHON) -m pytest -m "not slow_test"
+
+test-verbose: $(VENV)
+	$(PYTHON) -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
+
+run: $(VENV)
+	$(PYTHON) -m jobrunner.add_job $(REPO) $(ACTION)
+
+
+lib:
+	git clone git@github.com:opensafely/job-runner-dependencies.git lib
+    
+
+update-wheels: $(VENV) requirements.txt | lib
+	#git -C lib pull
+	$(VENV_DIR)/bin/pip install -r requirements.txt --target lib
+	cp requirements.txt lib/
+	rm -rf lib/bin lib/*.dist-info
+	rm lib/_ruamel_yaml.*.so
+        
+
+
