@@ -62,8 +62,16 @@ def api_request(method, path, *args, **kwargs):
     session.auth = (config.QUEUE_USER, config.QUEUE_PASS)
     response = session.request(method, url, *args, **kwargs)
 
-    if response.status_code == 400:
-        log.info("job-server returned 400: %s" % response.text)
+    log.debug(
+        "%s %s %s post_data=%s %s"
+        % (
+            method.upper(),
+            response.status_code,
+            url,
+            kwargs.get("json", '""'),
+            response.text,
+        )
+    )
 
     response.raise_for_status()
     return response.json()
