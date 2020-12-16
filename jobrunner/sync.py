@@ -37,6 +37,11 @@ def sync():
         params={"backend": config.BACKEND},
     )
     job_requests = [job_request_from_remote_format(i) for i in response["results"]]
+
+    # Bail early if there's nothing to do
+    if not job_requests:
+        return
+
     job_request_ids = [i.id for i in job_requests]
     for job_request in job_requests:
         with set_log_context(job_request=job_request):
