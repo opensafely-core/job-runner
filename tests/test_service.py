@@ -12,7 +12,8 @@ def test_service_main():
     p = subprocess.Popen([sys.executable, "-m", "jobrunner.service"])
     assert p.returncode is None
     time.sleep(3)
-    p.send_signal(signal.SIGINT)
+    # windows needs a different signal
+    p.send_signal(getattr(signal, 'CTRL_C_EVENT', signal.SIGINT))
     p.wait()
     assert p.returncode == 0
 
