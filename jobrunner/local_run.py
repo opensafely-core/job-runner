@@ -225,7 +225,10 @@ def create_and_run_jobs(
     final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED])
     # Always show failed jobs last, otherwise show in order run
     final_jobs.sort(
-        key=lambda job: (1 if job.state == State.FAILED else 0, job.started_at or 0,)
+        key=lambda job: (
+            1 if job.state == State.FAILED else 0,
+            job.started_at or 0,
+        )
     )
 
     # Pretty print details of each action
