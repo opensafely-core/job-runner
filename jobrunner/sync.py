@@ -37,6 +37,11 @@ def sync():
         params={"backend": config.BACKEND},
     )
     job_requests = [job_request_from_remote_format(i) for i in response["results"]]
+
+    # Bail early if there's nothing to do
+    if not job_requests:
+        return
+
     job_request_ids = [i.id for i in job_requests]
     for job_request in job_requests:
         with set_log_context(job_request=job_request):
@@ -62,8 +67,16 @@ def api_request(method, path, *args, **kwargs):
     session.auth = (config.QUEUE_USER, config.QUEUE_PASS)
     response = session.request(method, url, *args, **kwargs)
 
-    if response.status_code == 400:
-        log.info("job-server returned 400: %s" % response.text)
+    log.debug(
+        "%s %s %s post_data=%s %s"
+        % (
+            method.upper(),
+            response.status_code,
+            url,
+            kwargs.get("json", '""'),
+            response.text,
+        )
+    )
 
     response.raise_for_status()
     return response.json()
