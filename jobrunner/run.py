@@ -5,6 +5,7 @@ updates its state as appropriate.
 """
 import datetime
 import logging
+import sys
 import time
 
 from .log_utils import configure_logging, set_log_context
@@ -189,4 +190,8 @@ def job_running_capacity_available():
 
 if __name__ == "__main__":
     configure_logging()
-    main()
+
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)

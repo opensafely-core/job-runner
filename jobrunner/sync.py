@@ -3,6 +3,7 @@ Script which polls the job-server endpoint for active JobRequests and POSTs
 back any associated Jobs.
 """
 import logging
+import sys
 import time
 
 import requests
@@ -120,4 +121,8 @@ def job_to_remote_format(job):
 
 if __name__ == "__main__":
     configure_logging()
-    main()
+
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)
