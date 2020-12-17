@@ -22,9 +22,9 @@ def main():
     """Run the main run loop after starting the sync loop in a thread."""
 
     # load any env file
-    path = Path(os.environ.get('ENVPATH', '.env'))
+    path = Path(os.environ.get("ENVPATH", ".env"))
     if path.exists():
-        log.info(f'Loading environment variables from {path}')
+        log.info(f"Loading environment variables from {path}")
         env = parse_env(path.read_text())
         if env:
             os.environ.update(env)
@@ -41,19 +41,18 @@ def main():
 
 
 def sync_wrapper():
-    with set_log_context(prefix='sync'):
-    	sync.main()
-
+    with set_log_context(prefix="sync"):
+        sync.main()
 
 
 def parse_env(contents):
     """Parse a simple environment file."""
     env = {}
-    for line in contents.split('\n'):
+    for line in contents.split("\n"):
         line = line.strip()
-        if not line or line[0] == '#':
+        if not line or line[0] == "#":
             continue
-        k, _, v = line.partition('=')
+        k, _, v = line.partition("=")
         env[k.strip()] = v.strip().strip('"').strip("'")
     return env
 

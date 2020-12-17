@@ -508,7 +508,10 @@ def update_manifest(manifest, job_metadata):
     # Add newly created files
     for filename, privacy_level in new_outputs.items():
         files.append(
-            (filename, {"created_by_action": action, "privacy_level": privacy_level},)
+            (
+                filename,
+                {"created_by_action": action, "privacy_level": privacy_level},
+            )
         )
     files.sort()
     manifest["files"] = dict(files)

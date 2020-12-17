@@ -60,7 +60,9 @@ def test_read_file_from_private_repo(tmp_work_dir):
 
 def test_read_file_from_repo_local(tmp_work_dir):
     output = read_file_from_repo(
-        REPO_FIXTURE, "d1e88b31cbe8f67c58f938adb5ee500d54a69764", "project.yaml",
+        REPO_FIXTURE,
+        "d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        "project.yaml",
     )
     assert output.startswith(b"version: '1.0'")
 
@@ -68,7 +70,9 @@ def test_read_file_from_repo_local(tmp_work_dir):
 def test_checkout_commit_local(tmp_work_dir, tmp_path):
     target_dir = tmp_path / "files"
     checkout_commit(
-        REPO_FIXTURE, "d1e88b31cbe8f67c58f938adb5ee500d54a69764", target_dir,
+        REPO_FIXTURE,
+        "d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        target_dir,
     )
     assert [f.name for f in target_dir.iterdir()] == ["project.yaml"]
 

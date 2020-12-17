@@ -7,8 +7,9 @@ import time
 from jobrunner import service
 from jobrunner.subprocess_utils import subprocess_run
 
+
 def test_service_main():
-    p = subprocess.Popen([sys.executable, '-m', 'jobrunner.service'])
+    p = subprocess.Popen([sys.executable, "-m", "jobrunner.service"])
     assert p.returncode is None
     time.sleep(3)
     p.send_signal(signal.SIGINT)
@@ -17,14 +18,18 @@ def test_service_main():
 
 
 def test_parse_env():
-    env = service.parse_env(dedent("""\
+    env = service.parse_env(
+        dedent(
+            """\
         key=value
         spaces_value=val ue
         spaces key = value
            whitespace\t  =  value  
         single='val ue'
         double="val ue"
-    """))
+    """
+        )
+    )
     assert env == {
         "key": "value",
         "spaces_value": "val ue",
@@ -33,5 +38,3 @@ def test_parse_env():
         "single": "val ue",
         "double": "val ue",
     }
-
-

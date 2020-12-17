@@ -89,7 +89,14 @@ def delete_volume(volume_name):
             raise
     try:
         subprocess_run(
-            ["docker", "volume", "rm", volume_name,], check=True, capture_output=True,
+            [
+                "docker",
+                "volume",
+                "rm",
+                volume_name,
+            ],
+            check=True,
+            capture_output=True,
         )
     except subprocess.CalledProcessError as e:
         # Ignore error if container has already been removed
