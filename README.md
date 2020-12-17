@@ -4,11 +4,18 @@ A job runner is a service that encapsulates:
    requested via a jobs queue; and
  * storing its results in a particular locations.
 
+
+Quickrefs:
+ - [Playbooks](playbooks)
+
+
 # Overview
 
 This documentation is aimed at developers looking for an overview of how the
 system works.  It also has some parts relevant for end users, particularly the
 `project.yaml` documentation.
+
+
 
 # Operating principles
 
