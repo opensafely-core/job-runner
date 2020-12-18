@@ -179,17 +179,12 @@ def create_and_run_jobs(
         if is_stata and config.STATA_LICENSE is None:
             config.STATA_LICENSE = get_stata_license()
             if config.STATA_LICENSE is None:
-                print('You need to configure a stata licence to use stata '
-                      'actions in your project.\n'
-                      'Set the STATA_LICENCE environment variable to the '
-                      'contents of your stata.lic file.'
-                )
-                return False
+                # TODO switch this to failing when the stata image requires it
+                print('WARNING: no STATA_LICENSE found')
                 
         if not docker.image_exists_locally(image):
             print(f"Fetching missing docker image {image}")
             print(f"\nRunning: docker pull {image}")
-            import pdb; pdb.set_trace()
             try:
                 # We want to be chatty when running in the console so users can
                 # see progress and quiet in CI so we don't spam the logs with
