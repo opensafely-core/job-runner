@@ -5,8 +5,12 @@ import datetime
 import logging
 from pathlib import Path
 import os
+import sys
 import time
 import threading
+
+# temp workaround for not having PYTHONPATH in the service config
+sys.path.insert(0, "./lib")
 
 from .log_utils import configure_logging, set_log_context
 from . import config
