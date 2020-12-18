@@ -6,27 +6,54 @@ Service location: /e/job-runner
 
 ## Operations
 
-### Starting/stopping the service
+Note: as of 2020-12-18, we are using the docker based method. Come early
+January, we expect to switch to windows service.
+
+### Docker compose (current)
+
+#### Starting/stopping the service
 
     docker-compose up -d
 
     docker-compose stop
 
-### Viewing logs
+#### Viewing logs
 
     docker-compose logs -t | less -R
 
-### Update docker image
+### Windows Service (future)
+
+
+#### Starting/stopping the service
+
+    /c/nssm-2.4/win64/nssm stop opensafely
+    /c/nssm-2.4/win64/nssm start opensafely
+    /c/nssm-2.4/win64/nssm status opensafely
+
+Note: start command gives spurious warning, ignore.
+
+#### Viewing logs
+
+stdout is in /e/job-runner/service.log
+stderr is in /e/job-runner/service.err.log
+
+These files are rotated by nssm.
+
+TODO: combine these into one log?
+
+### Generic operations
+
+#### Update docker image
 
     ./scripts/update-docker-image.sh image[:tag]
 
-### Update the job-runner itself
+#### Update the job-runner itself
 
     ./scripts/update-docker-image.sh job-runner
-    docker-compose down
-    docker-compose up -d
 
-### View specific job logs
+And restart.
+
+#### View specific job logs
 
     /e/bin/watch-job-logs.sh
 
