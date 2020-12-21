@@ -24,6 +24,9 @@ log = logging.getLogger(__name__)
 
 def main():
     """Run the main run loop after starting the sync loop in a thread."""
+    threading.current_thread().name = "run "
+    fmt = "{asctime} {threadName} {message} {tags}"
+    configure_logging(fmt)
 
     # load any env file
     path = Path(os.environ.get("ENVPATH", ".env"))
@@ -38,6 +41,7 @@ def main():
         # daemon=True means this thread will be automatically join()ed when the
         # process exits
         thread = threading.Thread(target=sync_wrapper, daemon=True)
+        thread.name = 'sync'
         thread.start()
         run.main()
     except KeyboardInterrupt:
@@ -62,5 +66,4 @@ def parse_env(contents):
 
 
 if __name__ == "__main__":
-    configure_logging()
     main()

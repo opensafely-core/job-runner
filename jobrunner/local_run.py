@@ -50,7 +50,8 @@ from .string_utils import tabulate
 
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]
-
+# local run logging format
+LOCAL_RUN_FORMAT = "{action}{message}"
 
 def add_arguments(parser):
     parser.add_argument("actions", nargs="*", help="Name of project action to run")
@@ -200,9 +201,7 @@ def create_and_run_jobs(
     print(f"\nRunning actions: {', '.join(action_names)}\n")
 
     configure_logging(
-        # We don't need the full job ID in the log output here, it only clutters
-        # things
-        show_action_name_only=True,
+        fmt=LOCAL_RUN_FORMAT,
         # None of these status messages are particularly useful in local run
         # mode, and they can generate a lot of clutter in large dependency
         # trees
@@ -213,7 +212,7 @@ def create_and_run_jobs(
         ],
         # All the other output we produce goes to stdout and it's a bit
         # confusing if the log messages end up on a separate stream
-        log_to_stdout=True,
+        stream=sys.stdout,
     )
 
     # Run everything
