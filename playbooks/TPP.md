@@ -32,7 +32,12 @@ January, we expect to switch to windows service.
 
 Note: start command gives spurious warning, ignore.
 
-#### Viewing logs
+To view issues with starting/stopping the windows service, the following will
+launch Windows Event Viewer directly pointing at the nssm events.
+
+    /e/bin/events.sh
+
+#### Viewing job-runner logs
 
 stdout is in /e/job-runner/service.log
 stderr is in /e/job-runner/service.err.log
