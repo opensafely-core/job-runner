@@ -22,12 +22,14 @@ import argparse
 import json
 import os
 from pathlib import Path
+import platform
 import random
 import shlex
 import shutil
 import string
 import subprocess
 import sys
+import tempfile
 import textwrap
 
 from .run import main as run_main, JobError
@@ -172,30 +174,31 @@ def create_and_run_jobs(
 
     jobs = find_where(Job)
 
-    missing_docker_images = get_missing_docker_images(jobs)
-    missing_docker_images = temporary_docker_auth_workaround(missing_docker_images)
-    if missing_docker_images:
-        print("Fetching missing docker images")
-        for image in missing_docker_images:
-            print(f"\nRunning: docker pull {image}")
+    for image in get_docker_images(jobs):
+        is_stata = 'stata-mp' in image
+
+        if is_stata and config.STATA_LICENSE is None:
+            config.STATA_LICENSE = get_stata_license()
+            if config.STATA_LICENSE is None:
+                # TODO switch this to failing when the stata image requires it
+                print('WARNING: no STATA_LICENSE found')
+                
+        if not docker.image_exists_locally(image):
+            print(f"Fetching missing docker image: docker pull {image}")
             try:
                 # We want to be chatty when running in the console so users can
                 # see progress and quiet in CI so we don't spam the logs with
                 # layer download noise
                 docker.pull(image, quiet=not sys.stdout.isatty())
-            except docker.DockerAuthError as e:
-                print("Failed with authorisation error:")
-                print(e)
-                print(
-                    "\n"
-                    "The requested Docker image contains private licensing details,\n"
-                    "please contact the OpenSAFELY team to request access."
-                )
-                return False
             except docker.DockerPullError as e:
-                print("Failed with error:")
-                print(e)
-                return False
+                success = False
+                if is_stata:
+                    # best effort retry hack
+                    success = temporary_stata_workaround(image)
+                if not success:
+                    print("Failed with error:")
+                    print(e)
+                    return False
 
     action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
@@ -292,16 +295,14 @@ def delete_docker_entities(entity, label, ignore_errors=False):
         subprocess_run(rm_args, capture_output=True, check=not ignore_errors)
 
 
-def get_missing_docker_images(jobs):
+def get_docker_images(jobs):
     docker_images = {shlex.split(job.run_command)[0] for job in jobs}
     full_docker_images = {
         f"{config.DOCKER_REGISTRY}/{image}" for image in docker_images
     }
     # We always need this image to work with volumes
     full_docker_images.add(docker.MANAGEMENT_CONTAINER_IMAGE)
-    return [
-        image for image in full_docker_images if not docker.image_exists_locally(image)
-    ]
+    return full_docker_images
 
 
 def get_log_file_snippet(log_file, max_lines):
@@ -322,7 +323,7 @@ def get_log_file_snippet(log_file, max_lines):
     return "\n".join(log_lines).strip(), truncated
 
 
-def temporary_docker_auth_workaround(missing_docker_images):
+def temporary_stata_workaround(image):
     """
     This is a temporary workaround for the fact that the current crop of Github
     Actions have credentials for the old docker.opensafely.org registry but not
@@ -334,30 +335,68 @@ def temporary_docker_auth_workaround(missing_docker_images):
     commands in any case, so this will hopefully be a short-lived hack.
     """
     if not os.environ.get("GITHUB_WORKFLOW"):
-        return missing_docker_images
-    stata_images = [
-        image
-        for image in missing_docker_images
-        if image.startswith("ghcr.io/opensafely/stata-mp:")
-    ]
-    if not stata_images:
-        return missing_docker_images
-    docker_config = os.environ.get("DOCKER_CONFIG", "~/.docker")
+        return False
+
+    docker_config = os.environ.get(
+        "DOCKER_CONFIG", os.path.expanduser("~/.docker")
+    )
     config_path = Path(docker_config) / "config.json"
     try:
         config = json.loads(config_path.read_text())
         auths = config["auths"]
     except Exception:
-        return missing_docker_images
+        return False
+
     if "ghcr.io" in auths or "docker.opensafely.org" not in auths:
-        return missing_docker_images
+        return False
+
     print("Applying Docker authentication workaround...")
-    for image in stata_images:
-        alt_image = image.replace("ghcr.io/opensafely/", "docker.opensafely.org/")
+    alt_image = image.replace("ghcr.io/opensafely/", "docker.opensafely.org/")
+
+    try:
         docker.pull(alt_image, quiet=True)
         print(f"Retagging '{alt_image}' as '{image}'")
         subprocess_run(["docker", "tag", alt_image, image])
-    return [image for image in missing_docker_images if image not in stata_images]
+    except Exception:
+        return False
+
+    return True
+
+
+def get_stata_license(repo=config.STATA_LICENSE_REPO):
+    """Load a stata license from local cache or remote repo."""
+    cached = Path(f'{tempfile.gettempdir()}/opensafely-stata.lic')
+
+    def git_clone(repo_url, cwd):
+        cmd = ['git', 'clone', '--depth=1', repo_url, 'repo']
+        # GIT_TERMINAL_PROMPT=0 means it will fail if it requires auth. This
+        # alows us to retry with an ssh url on linux/mac, as they would
+        # generally prompt given an https url.
+        result = subprocess_run(
+    	    cmd, cwd=cwd, capture_output=True, env={'GIT_TERMINAL_PROMPT': '0'},
+        )
+        return result.returncode == 0
+
+    if not cached.exists():
+        try:
+            tmp = tempfile.TemporaryDirectory(suffix='opensafely')
+            success = git_clone(repo, tmp.name)
+            # http urls usually won't work for linux/mac clients, so try ssh
+            if not success and repo.startswith('https://'):
+                git_clone(
+                    repo.replace('https://', 'git+ssh://git@'), 
+                    tmp.name,
+                )
+            shutil.copyfile(f'{tmp.name}/repo/stata.lic', cached)
+        except Exception:
+            return None
+        finally:
+            # py3.7 on windows can't clean up TemporaryDirectory with git's read only
+            # files in them, so just don't bother.
+            if platform.system() != "Windows" or sys.version_info[:2] > (3, 7):
+                tmp.cleanup()
+
+    return cached.read_text()
 
 
 def docker_preflight_check():
