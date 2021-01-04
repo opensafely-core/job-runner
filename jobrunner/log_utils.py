@@ -12,63 +12,56 @@ import os
 import subprocess
 import sys
 import threading
+import time
 
 
-def configure_logging(
-    show_action_name_only=False, status_codes_to_ignore=None, log_to_stdout=False
-):
-    handler = logging.StreamHandler(stream=sys.stdout if log_to_stdout else None)
-    handler.addFilter(set_log_context)
-    handler.setFormatter(
-        JobRunnerFormatter(
-            show_action_name_only=show_action_name_only,
-            # In general we expect the service running framework to handle
-            # timestamps for us, but that's not always possible
-            include_timestamps=bool(os.environ.get("LOG_TIMESTAMPS")),
-        )
-    )
+DEFAULT_FORMAT="{asctime} {message} {tags}"
+
+
+def formatting_filter(record):
+    """Ensure various record attribute are always available for formatting."""
+
+    # ensure these are always available for static formatting
+    record.action = ""
+    record.status = ""
+
+    tags = {}
+
+    if hasattr(record, "status_code"):
+        record.status = record.status_code
+        tags['status'] = record.status_code
+
+    if hasattr(record, "job"):
+        # preserve short action for local run formatting
+        record.action = record.job.action + ': '
+        tags["project"] = record.job.project
+        tags["action"] = record.job.action
+        tags["id"] = record.job.id
+
+    if hasattr(record, "job_request"):
+        tags['req'] = record.job_request.id
+
+    record.tags = " ".join(f"{k}={v}" for k, v in tags.items())
+
+    return True
+
+
+def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=None):
+    formatter = JobRunnerFormatter(fmt, style='{')
+    handler = logging.StreamHandler(stream=stream)
+    handler.setFormatter(formatter)
     if status_codes_to_ignore:
         handler.addFilter(IgnoreStatusCodes(status_codes_to_ignore))
+    handler.addFilter(set_log_context)
+    handler.addFilter(formatting_filter)
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
     sys.excepthook = show_subprocess_stderr
 
 
 class JobRunnerFormatter(logging.Formatter):
-    def __init__(
-        self, *args, show_action_name_only=False, include_timestamps=False, **kwargs
-    ):
-        super().__init__(*args, **kwargs)
-        # This gives us the option to show just a job's action name, rather
-        # than its full slug in the log output, which is useful when running
-        # locally to avoid clutter in the output
-        self.show_action_name_only = show_action_name_only
-        self.include_timestamps = include_timestamps
 
-    def format(self, record):
-        """
-        Set the `context` record attribute to a string giving the current job
-        or job request we're processing
-        """
-        if hasattr(record, "job"):
-            if self.show_action_name_only:
-                context = f"{record.job.action}: "
-            else:
-                context = f"job#{record.job.slug}: "
-        elif hasattr(record, "job_request"):
-            context = f"job_request#{record.job_request.id}: "
-        else:
-            context = ""
-        if self.include_timestamps:
-            now = datetime.datetime.utcnow()
-            context = f"{now.isoformat()}Z {context}"
-
-        if hasattr(record, "prefix"):
-            context = f"{record.prefix}: {context}"
-
-        output = super().format(record)
-        if context:
-            output = context + f"\n{context}".join(output.splitlines())
-        return output
+    converter = time.gmtime             # utc rather than local
+    default_msec_format = '%s.%03dZ'    # s/,/. and append Z
 
     def formatException(self, exc_info):
         """
@@ -110,9 +103,7 @@ class IgnoreStatusCodes:
         self.status_codes_to_ignore = set(status_codes_to_ignore)
 
     def filter(self, record):
-        if hasattr(record, "status_code"):
-            return record.status_code not in self.status_codes_to_ignore
-        return True
+        return record.status_code not in self.status_codes_to_ignore
 
 
 class SetLogContext(threading.local):
@@ -148,13 +139,10 @@ class SetLogContext(threading.local):
         finally:
             self.current_context = self.context_stack.pop()
 
+
     def filter(self, record):
-        """
-        Apply the current context to a LogRecord
-        """
-        for key, value in self.current_context.items():
-            if not hasattr(record, key):
-                setattr(record, key, value)
+        if hasattr(record, "status_code"):
+            return record.status_code not in self.status_codes_to_ignore
         return True
 
 

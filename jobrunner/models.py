@@ -142,13 +142,20 @@ class Job:
     # On Python 3.8 we could use `functools.cached_property` here and avoid
     # recomputing this every time
     @property
+    def project(self):
+        """Project name based on github url."""
+        return project_name_from_url(self.repo_url)
+
+    # On Python 3.8 we could use `functools.cached_property` here and avoid
+    # recomputing this every time
+    @property
     def slug(self):
         """
         Use a human-readable slug rather than just an opaque ID to identify jobs in
         order to make debugging easier
         """
         return slugify(
-            f"{project_name_from_url(self.repo_url)}-{self.action}-{self.id}"
+            f"{self.project}-{self.action}-{self.id}"
         )
 
     @staticmethod
