@@ -183,8 +183,7 @@ def create_and_run_jobs(
                 print('WARNING: no STATA_LICENSE found')
                 
         if not docker.image_exists_locally(image):
-            print(f"Fetching missing docker image {image}")
-            print(f"\nRunning: docker pull {image}")
+            print(f"Fetching missing docker image: docker pull {image}")
             try:
                 # We want to be chatty when running in the console so users can
                 # see progress and quiet in CI so we don't spam the logs with
@@ -368,12 +367,15 @@ def temporary_stata_workaround(image):
 def get_stata_license(repo=config.STATA_LICENSE_REPO):
     """Load a stata license from local cache or remote repo."""
     cached = Path(f'{tempfile.gettempdir()}/opensafely-stata.lic')
-    repos = [repo, repo.replace('https://', 'git+ssh://git@')]
-    env = {'GIT_TERMINAL_PROMPT': '0'} 
 
     def git_clone(repo_url, cwd):
         cmd = ['git', 'clone', '--depth=1', repo_url, 'repo']
-        result = subprocess_run(cmd, cwd=cwd, env={'GIT_TERMINAL_PROMPT': '0'})
+        # GIT_TERMINAL_PROMPT=0 means it will fail if it requires auth. This
+        # alows us to retry with an ssh url on linux/mac, as they would
+        # generally prompt given an https url.
+        result = subprocess_run(
+    	    cmd, cwd=cwd, capture_output=True, env={'GIT_TERMINAL_PROMPT': '0'},
+        )
         return result.returncode == 0
 
     if not cached.exists():
@@ -391,7 +393,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
             return None
         finally:
             # py3.7 on windows can't clean up TemporaryDirectory with git's read only
-            # file in them, so just don't bother.
+            # files in them, so just don't bother.
             if platform.system() != "Windows" or sys.version_info[:2] > (3, 7):
                 tmp.cleanup()
 

@@ -2,8 +2,6 @@ import subprocess
 
 import pytest
 
-from jobrunner.database import get_connection_from_file
-
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "slow_test: mark test as being slow running")

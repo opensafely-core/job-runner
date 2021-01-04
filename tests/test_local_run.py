@@ -30,7 +30,7 @@ def test_local_run_stata(tmp_path, monkeypatch):
     project_dir = tmp_path / "project"
     shutil.copytree(project_fixture, project_dir)
     monkeypatch.setattr("jobrunner.config.STATA_LICENSE", 'env-license')
-    assert local_run.main(project_dir=project_dir, actions=["stata"])
+    local_run.main(project_dir=project_dir, actions=["stata"])
     env_file = (project_dir / "output/env.txt")
     assert env_file.read_text() == 'env-license'
 
