@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 def main():
     """Run the main run loop after starting the sync loop in a thread."""
+    # extra space to align with other thread's "sync" label.
     threading.current_thread().name = "run "
     fmt = "{asctime} {threadName} {message} {tags}"
     configure_logging(fmt)
