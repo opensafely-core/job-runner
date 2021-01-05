@@ -26,20 +26,23 @@ def formatting_filter(record):
     record.status = ""
 
     tags = {}
-
+    ctx = set_log_context.current_context
+    job = getattr(record, "job", None) or ctx.get("job")
+    req = getattr(record, "job_request", None) or ctx.get("job_request")
+    
     if hasattr(record, "status_code"):
         record.status = record.status_code
         tags['status'] = record.status_code
 
-    if hasattr(record, "job"):
+    if job:
         # preserve short action for local run formatting
-        record.action = record.job.action + ': '
-        tags["project"] = record.job.project
-        tags["action"] = record.job.action
-        tags["id"] = record.job.id
+        record.action = job.action + ': '
+        tags["project"] = job.project
+        tags["action"] = job.action
+        tags["id"] = job.id
 
-    if hasattr(record, "job_request"):
-        tags['req'] = record.job_request.id
+    if req:
+        tags['req'] = req.id
 
     record.tags = " ".join(f"{k}={v}" for k, v in tags.items())
 
@@ -52,7 +55,6 @@ def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=No
     handler.setFormatter(formatter)
     if status_codes_to_ignore:
         handler.addFilter(IgnoreStatusCodes(status_codes_to_ignore))
-    handler.addFilter(set_log_context)
     handler.addFilter(formatting_filter)
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
     sys.excepthook = show_subprocess_stderr
@@ -103,7 +105,8 @@ class IgnoreStatusCodes:
         self.status_codes_to_ignore = set(status_codes_to_ignore)
 
     def filter(self, record):
-        return record.status_code not in self.status_codes_to_ignore
+        status = getattr(record, "status", None)
+        return status not in self.status_codes_to_ignore
 
 
 class SetLogContext(threading.local):

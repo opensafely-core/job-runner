@@ -42,6 +42,36 @@ def test_formatting_filter():
     assert record.tags == "project=project action=action id=id req=request"
 
 
+def test_formatting_filter_with_context():
+    record = logging.makeLogRecord({})
+    with log_utils.set_log_context(job=test_job):
+        assert log_utils.formatting_filter(record)
+    assert record.action == "action: "
+    assert record.tags == "project=project action=action id=id"
+
+    record = logging.makeLogRecord({"status_code": "code"})
+    with log_utils.set_log_context(job=test_job):
+        assert log_utils.formatting_filter(record)
+    assert record.tags == "status=code project=project action=action id=id"
+
+    record = logging.makeLogRecord({})
+    with log_utils.set_log_context(job=test_job, job_request=test_request):
+        assert log_utils.formatting_filter(record)
+    assert record.tags == "project=project action=action id=id req=request"
+
+
+def test_ignore_status_code_filter():
+    ignore_filter = log_utils.IgnoreStatusCodes(["ignore"])
+     
+    record = logging.makeLogRecord({"status_code": "code"})
+    assert log_utils.formatting_filter(record)
+    assert ignore_filter.filter(record)
+
+    record = logging.makeLogRecord({"status_code": "ignore"})
+    assert log_utils.formatting_filter(record)
+    assert ignore_filter.filter(record) is False
+
+
 def test_jobrunner_formatter_default(monkeypatch):
     monkeypatch.setattr(time, 'time', lambda: FROZEN_TIMESTAMP)
     record = logging.makeLogRecord({
@@ -69,3 +99,6 @@ def test_jobrunner_formatter_local_run(monkeypatch):
     log_utils.formatting_filter(record)
     formatter = log_utils.JobRunnerFormatter(local_run.LOCAL_RUN_FORMAT, style='{')
     assert formatter.format(record) == "action: message"
+
+
+

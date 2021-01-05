@@ -37,7 +37,7 @@ if path.exists():
         os.environ.update(env)
 
 from . import config
-from .log_utils import configure_logging, set_log_context
+from .log_utils import configure_logging
 from . import run
 from . import sync
 
@@ -63,14 +63,13 @@ def main():
 
 def sync_wrapper():
     """Wrap the sync call with logging context and an exception handler."""
-    with set_log_context(prefix="sync"):
-        while True:
-            try:
-                sync.main()
-            except Exception:
-                log.exception("Exception in sync thread")
-                # avoid busy retries on hard failure
-                time.sleep(config.POLL_INTERVAL)
+    while True:
+        try:
+            sync.main()
+        except Exception:
+            log.exception("Exception in sync thread")
+            # avoid busy retries on hard failure
+            time.sleep(config.POLL_INTERVAL)
 
 
 if __name__ == "__main__":
