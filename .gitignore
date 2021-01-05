@@ -17,3 +17,4 @@ pip-wheel-metadata/*
 /lib
 /tests/fixtures/*/output/*
 /tests/fixtures/*/metadata
+service*.log
