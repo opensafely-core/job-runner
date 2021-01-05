@@ -15,31 +15,32 @@ import threading
 import time
 
 
-DEFAULT_FORMAT="{asctime} {message} {tags}"
+DEFAULT_FORMAT = "{asctime} {message} {tags}"
 
 
 def formatting_filter(record):
     """Ensure various record attribute are always available for formatting."""
 
-    # ensure these are always available for static formatting
+    # ensure this are always available for static formatting
     record.action = ""
-    record.status = ""
 
     tags = {}
+    ctx = set_log_context.current_context
+    job = getattr(record, "job", None) or ctx.get("job")
+    req = getattr(record, "job_request", None) or ctx.get("job_request")
 
     if hasattr(record, "status_code"):
-        record.status = record.status_code
-        tags['status'] = record.status_code
+        tags["status"] = record.status_code
 
-    if hasattr(record, "job"):
+    if job:
         # preserve short action for local run formatting
-        record.action = record.job.action + ': '
-        tags["project"] = record.job.project
-        tags["action"] = record.job.action
-        tags["id"] = record.job.id
+        record.action = job.action + ": "
+        tags["project"] = job.project
+        tags["action"] = job.action
+        tags["id"] = job.id
 
-    if hasattr(record, "job_request"):
-        tags['req'] = record.job_request.id
+    if req:
+        tags["req"] = req.id
 
     record.tags = " ".join(f"{k}={v}" for k, v in tags.items())
 
@@ -47,12 +48,11 @@ def formatting_filter(record):
 
 
 def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=None):
-    formatter = JobRunnerFormatter(fmt, style='{')
+    formatter = JobRunnerFormatter(fmt, style="{")
     handler = logging.StreamHandler(stream=stream)
     handler.setFormatter(formatter)
     if status_codes_to_ignore:
         handler.addFilter(IgnoreStatusCodes(status_codes_to_ignore))
-    handler.addFilter(set_log_context)
     handler.addFilter(formatting_filter)
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
     sys.excepthook = show_subprocess_stderr
@@ -60,8 +60,8 @@ def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=No
 
 class JobRunnerFormatter(logging.Formatter):
 
-    converter = time.gmtime             # utc rather than local
-    default_msec_format = '%s.%03dZ'    # s/,/. and append Z
+    converter = time.gmtime  # utc rather than local
+    default_msec_format = "%s.%03dZ"  # s/,/. and append Z
 
     def formatException(self, exc_info):
         """
@@ -103,7 +103,8 @@ class IgnoreStatusCodes:
         self.status_codes_to_ignore = set(status_codes_to_ignore)
 
     def filter(self, record):
-        return record.status_code not in self.status_codes_to_ignore
+        status_code = getattr(record, "status_code", None)
+        return status_code not in self.status_codes_to_ignore
 
 
 class SetLogContext(threading.local):
@@ -138,7 +139,6 @@ class SetLogContext(threading.local):
             yield
         finally:
             self.current_context = self.context_stack.pop()
-
 
     def filter(self, record):
         if hasattr(record, "status_code"):

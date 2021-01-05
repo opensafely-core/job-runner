@@ -154,9 +154,7 @@ class Job:
         Use a human-readable slug rather than just an opaque ID to identify jobs in
         order to make debugging easier
         """
-        return slugify(
-            f"{self.project}-{self.action}-{self.id}"
-        )
+        return slugify(f"{self.project}-{self.action}-{self.id}")
 
     @staticmethod
     def new_id():

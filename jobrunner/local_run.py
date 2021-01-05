@@ -55,6 +55,7 @@ DESCRIPTION = __doc__.partition("\n\n")[0]
 # local run logging format
 LOCAL_RUN_FORMAT = "{action}{message}"
 
+
 def add_arguments(parser):
     parser.add_argument("actions", nargs="*", help="Name of project action to run")
     parser.add_argument(
@@ -175,14 +176,14 @@ def create_and_run_jobs(
     jobs = find_where(Job)
 
     for image in get_docker_images(jobs):
-        is_stata = 'stata-mp' in image
+        is_stata = "stata-mp" in image
 
         if is_stata and config.STATA_LICENSE is None:
             config.STATA_LICENSE = get_stata_license()
             if config.STATA_LICENSE is None:
                 # TODO switch this to failing when the stata image requires it
-                print('WARNING: no STATA_LICENSE found')
-                
+                print("WARNING: no STATA_LICENSE found")
+
         if not docker.image_exists_locally(image):
             print(f"Fetching missing docker image: docker pull {image}")
             try:
@@ -337,9 +338,7 @@ def temporary_stata_workaround(image):
     if not os.environ.get("GITHUB_WORKFLOW"):
         return False
 
-    docker_config = os.environ.get(
-        "DOCKER_CONFIG", os.path.expanduser("~/.docker")
-    )
+    docker_config = os.environ.get("DOCKER_CONFIG", os.path.expanduser("~/.docker"))
     config_path = Path(docker_config) / "config.json"
     try:
         config = json.loads(config_path.read_text())
@@ -365,29 +364,32 @@ def temporary_stata_workaround(image):
 
 def get_stata_license(repo=config.STATA_LICENSE_REPO):
     """Load a stata license from local cache or remote repo."""
-    cached = Path(f'{tempfile.gettempdir()}/opensafely-stata.lic')
+    cached = Path(f"{tempfile.gettempdir()}/opensafely-stata.lic")
 
     def git_clone(repo_url, cwd):
-        cmd = ['git', 'clone', '--depth=1', repo_url, 'repo']
+        cmd = ["git", "clone", "--depth=1", repo_url, "repo"]
         # GIT_TERMINAL_PROMPT=0 means it will fail if it requires auth. This
         # alows us to retry with an ssh url on linux/mac, as they would
         # generally prompt given an https url.
         result = subprocess_run(
-    	    cmd, cwd=cwd, capture_output=True, env={'GIT_TERMINAL_PROMPT': '0'},
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            env={"GIT_TERMINAL_PROMPT": "0"},
         )
         return result.returncode == 0
 
     if not cached.exists():
         try:
-            tmp = tempfile.TemporaryDirectory(suffix='opensafely')
+            tmp = tempfile.TemporaryDirectory(suffix="opensafely")
             success = git_clone(repo, tmp.name)
             # http urls usually won't work for linux/mac clients, so try ssh
-            if not success and repo.startswith('https://'):
+            if not success and repo.startswith("https://"):
                 git_clone(
-                    repo.replace('https://', 'git+ssh://git@'), 
+                    repo.replace("https://", "git+ssh://git@"),
                     tmp.name,
                 )
-            shutil.copyfile(f'{tmp.name}/repo/stata.lic', cached)
+            shutil.copyfile(f"{tmp.name}/repo/stata.lic", cached)
         except Exception:
             return None
         finally:
