@@ -29,10 +29,10 @@ def test_local_run_stata(tmp_path, monkeypatch):
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/stata_project")
     project_dir = tmp_path / "project"
     shutil.copytree(project_fixture, project_dir)
-    monkeypatch.setattr("jobrunner.config.STATA_LICENSE", 'env-license')
+    monkeypatch.setattr("jobrunner.config.STATA_LICENSE", "env-license")
     local_run.main(project_dir=project_dir, actions=["stata"])
-    env_file = (project_dir / "output/env.txt")
-    assert env_file.read_text() == 'env-license'
+    env_file = project_dir / "output/env.txt"
+    assert env_file.read_text() == "env-license"
 
 
 @pytest.fixture
@@ -42,7 +42,6 @@ def systmpdir(monkeypatch, tmp_path):
 
 
 def test_get_stata_license_cache_exists(systmpdir, monkeypatch, tmp_path):
-
     def fail(*a, **kwargs):
         assert False, "should not have been called"
 
@@ -58,14 +57,14 @@ def test_get_stata_license_repo_fetch(systmpdir, tmp_path):
     repo.mkdir()
     license = repo / "stata.lic"
     license.write_text("repo-license")
-    git = ['git', '-c', 'user.name=test', '-c', 'user.email=test@example.com']
+    git = ["git", "-c", "user.name=test", "-c", "user.email=test@example.com"]
     cwd = str(repo)
-    subprocess_run(git + ["init"], cwd=cwd) 
+    subprocess_run(git + ["init"], cwd=cwd)
     subprocess_run(git + ["add", "stata.lic"], cwd=cwd)
     subprocess_run(git + ["commit", "-m", "test"], cwd=cwd)
     assert local_run.get_stata_license(cwd) == "repo-license"
-    assert (tmp_path / 'opensafely-stata.lic').read_text() == "repo-license"
+    assert (tmp_path / "opensafely-stata.lic").read_text() == "repo-license"
 
 
 def test_get_stata_license_repo_error(systmpdir):
-    assert local_run.get_stata_license('/invalid/repo') is None
+    assert local_run.get_stata_license("/invalid/repo") is None

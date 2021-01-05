@@ -84,8 +84,8 @@ def start_job(job):
     # Prepend registry name
     image = action_args[0]
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
-    if image.startswith('stata-mp'):
-        env['STATA_LICENSE'] = str(config.STATA_LICENSE)
+    if image.startswith("stata-mp"):
+        env["STATA_LICENSE"] = str(config.STATA_LICENSE)
     # Check the image exists locally and error if not. Newer versions of
     # docker-cli support `--pull=never` as an argument to `docker run` which
     # would make this simpler, but it looks like it will be a while before this

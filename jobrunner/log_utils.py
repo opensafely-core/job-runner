@@ -15,7 +15,7 @@ import threading
 import time
 
 
-DEFAULT_FORMAT="{asctime} {message} {tags}"
+DEFAULT_FORMAT = "{asctime} {message} {tags}"
 
 
 def formatting_filter(record):
@@ -29,20 +29,20 @@ def formatting_filter(record):
     ctx = set_log_context.current_context
     job = getattr(record, "job", None) or ctx.get("job")
     req = getattr(record, "job_request", None) or ctx.get("job_request")
-    
+
     if hasattr(record, "status_code"):
         record.status = record.status_code
-        tags['status'] = record.status_code
+        tags["status"] = record.status_code
 
     if job:
         # preserve short action for local run formatting
-        record.action = job.action + ': '
+        record.action = job.action + ": "
         tags["project"] = job.project
         tags["action"] = job.action
         tags["id"] = job.id
 
     if req:
-        tags['req'] = req.id
+        tags["req"] = req.id
 
     record.tags = " ".join(f"{k}={v}" for k, v in tags.items())
 
@@ -50,7 +50,7 @@ def formatting_filter(record):
 
 
 def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=None):
-    formatter = JobRunnerFormatter(fmt, style='{')
+    formatter = JobRunnerFormatter(fmt, style="{")
     handler = logging.StreamHandler(stream=stream)
     handler.setFormatter(formatter)
     if status_codes_to_ignore:
@@ -62,8 +62,8 @@ def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=No
 
 class JobRunnerFormatter(logging.Formatter):
 
-    converter = time.gmtime             # utc rather than local
-    default_msec_format = '%s.%03dZ'    # s/,/. and append Z
+    converter = time.gmtime  # utc rather than local
+    default_msec_format = "%s.%03dZ"  # s/,/. and append Z
 
     def formatException(self, exc_info):
         """
@@ -141,7 +141,6 @@ class SetLogContext(threading.local):
             yield
         finally:
             self.current_context = self.context_stack.pop()
-
 
     def filter(self, record):
         if hasattr(record, "status_code"):

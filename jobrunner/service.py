@@ -54,7 +54,7 @@ def main():
         # daemon=True means this thread will be automatically join()ed when the
         # process exits
         thread = threading.Thread(target=sync_wrapper, daemon=True)
-        thread.name = 'sync'
+        thread.name = "sync"
         thread.start()
         run.main()
     except KeyboardInterrupt:
