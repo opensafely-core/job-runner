@@ -5,6 +5,7 @@ htmlcov
 model.log
 */input.csv
 __pycache__
+*.pyc
 .python-version
 app.log
 .env
@@ -13,6 +14,6 @@ app.log
 *.egg-info/
 pip-wheel-metadata/*
 /workdir
-lib
-tests/fixtures/*/output/*
-tests/fixtures/*/metadata
+/lib
+/tests/fixtures/*/output/*
+/tests/fixtures/*/metadata
