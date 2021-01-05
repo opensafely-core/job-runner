@@ -2,6 +2,14 @@ import subprocess
 
 import pytest
 
+import jobrunner.config
+
+
+# set up default test config to ensure test run expectations
+# otherwise the current .env values are used
+jobrunner.config.BACKEND = "expectations"
+jobrunner.config.USING_DUMMY_DATA_BACKEND = True
+
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "slow_test: mark test as being slow running")

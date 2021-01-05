@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 
+import jobrunner
 
 DEFAULT_FORMAT = "{asctime} {message} {tags}"
 
@@ -56,6 +57,9 @@ def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=No
     handler.addFilter(formatting_filter)
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
     sys.excepthook = show_subprocess_stderr
+    log = logging.getLogger()
+    for args in jobrunner.EARLY_LOGS:
+        log.log(*args)
 
 
 class JobRunnerFormatter(logging.Formatter):
