@@ -65,7 +65,7 @@ def api_request(method, path, *args, **kwargs):
     url = "{}/{}/".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.strip("/"))
     # We could do this just once on import, but it makes changing the config in
     # tests more fiddly
-    session.auth = (config.QUEUE_USER, config.QUEUE_PASS)
+    session.headers = {"Authorization": config.JOB_SERVER_TOKEN}
     response = session.request(method, url, *args, **kwargs)
 
     log.debug(

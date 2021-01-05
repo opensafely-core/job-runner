@@ -1,12 +1,11 @@
 # The name of this backend
 OPENSAFELY_BACKEND=tpp
 
-# Credentials for logging into the job server
-OPENSAFELY_QUEUE_USER=user
-OPENSAFELY_QUEUE_PASS=pass
-
 # The endpoint to poll for jobs
 OPENSAFELY_JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/
+
+# Credentials for logging into the job server
+OPENSAFELY_JOB_SERVER_TOKEN=pass
 
 # A location where cohort CSVs (one row per patient) should be
 # stored. This folder must exist.

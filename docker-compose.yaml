@@ -13,8 +13,7 @@ services:
       # The backend requests which we should monitor
       - BACKEND=${OPENSAFELY_BACKEND}
       # Credentials for acessing the job server
-      - QUEUE_USER=${OPENSAFELY_QUEUE_USER}
-      - QUEUE_PASS=${OPENSAFELY_QUEUE_PASS}
+      - JOB_SERVER_TOKEN=${OPENSAFELY_JOB_SERVER_TOKEN}
       # Working directory (see the volume mounts below)
       - WORK_DIR=/work_dir
       # A location where outputs should be stored
