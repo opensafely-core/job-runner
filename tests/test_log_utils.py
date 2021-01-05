@@ -63,6 +63,10 @@ def test_formatting_filter_with_context():
 def test_ignore_status_code_filter():
     ignore_filter = log_utils.IgnoreStatusCodes(["ignore"])
 
+    record = logging.makeLogRecord({})
+    assert log_utils.formatting_filter(record)
+    assert ignore_filter.filter(record)
+
     record = logging.makeLogRecord({"status_code": "code"})
     assert log_utils.formatting_filter(record)
     assert ignore_filter.filter(record)

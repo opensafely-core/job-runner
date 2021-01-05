@@ -21,9 +21,8 @@ DEFAULT_FORMAT = "{asctime} {message} {tags}"
 def formatting_filter(record):
     """Ensure various record attribute are always available for formatting."""
 
-    # ensure these are always available for static formatting
+    # ensure this are always available for static formatting
     record.action = ""
-    record.status = ""
 
     tags = {}
     ctx = set_log_context.current_context
@@ -31,7 +30,6 @@ def formatting_filter(record):
     req = getattr(record, "job_request", None) or ctx.get("job_request")
 
     if hasattr(record, "status_code"):
-        record.status = record.status_code
         tags["status"] = record.status_code
 
     if job:
@@ -105,8 +103,8 @@ class IgnoreStatusCodes:
         self.status_codes_to_ignore = set(status_codes_to_ignore)
 
     def filter(self, record):
-        status = getattr(record, "status", None)
-        return status not in self.status_codes_to_ignore
+        status_code = getattr(record, "status_code", None)
+        return status_code not in self.status_codes_to_ignore
 
 
 class SetLogContext(threading.local):
