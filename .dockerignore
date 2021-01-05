@@ -10,10 +10,15 @@
 **/model.log
 **/*/input.csv
 **/__pycache__
+**/*.pyc
 **/.python-version
 **/app.log
 **/.env
+**/.venv
 **/.coverage
 **/*.egg-info/
 **/pip-wheel-metadata/*
 workdir
+lib
+tests/fixtures/*/output/*
+tests/fixtures/*/metadata
