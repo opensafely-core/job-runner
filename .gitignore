@@ -5,6 +5,7 @@ htmlcov
 model.log
 */input.csv
 __pycache__
+*.pyc
 .python-version
 app.log
 .env
