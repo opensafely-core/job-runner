@@ -16,6 +16,10 @@ def project_name_from_url(url):
     significant about a repository's name but it can make debugging easier to
     include it in various places)
     """
+    # "URL" here can in fact be a local path and it may be a Windows path, in
+    # which case we need to convert the slash type so that it gets handled
+    # correctly
+    url = url.replace("\\", "/")
     name = urlparse(url).path.strip("/").split("/")[-1]
     if name.endswith(".git"):
         name = name[:-4]
