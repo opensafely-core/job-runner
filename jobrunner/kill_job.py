@@ -36,7 +36,7 @@ def get_jobs(partial_job_ids):
                 print(f"  {i}: {job.slug}")
             print()
             index = int(input("Enter number: "))
-            assert 0 < index < len(matches)
+            assert 0 < index <= len(matches)
             jobs.append(matches[index - 1])
         else:
             need_confirmation = True
