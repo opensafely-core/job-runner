@@ -59,7 +59,7 @@ def get_job(partial_job_id):
             print(f"  {i}: {job.slug}")
         print()
         index = int(input("Enter number: "))
-        assert 0 < index < len(matches)
+        assert 0 < index <= len(matches)
         job = matches[index - 1]
     else:
         job = matches[0]
