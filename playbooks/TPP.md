@@ -87,3 +87,23 @@ having to start from scratch. You can run this with:
 The `job_id` actually only has to be a sub-string of the job ID (full
 ones are a bit awkward to type) and you wil be able to select the
 correct job if there are multiple matches.
+
+
+### Killing a job
+
+To kill a running job (or prevent it starting if it hasn't yet) use the
+`kill_job` command:
+
+    docker-compose run --rm jobrunner-run python -m jobrunner.kill_job <job_id>
+
+The `job_id` actually only has to be a sub-string of the job ID (full
+ones are a bit awkward to type) and you wil be able to select the
+correct job if there are multiple matches.
+
+Multiple job IDs can be supplied to kill multiple jobs simultaneously.
+
+Add the `--cleanup` flag to also delete any associated containers and
+volumes.
+
+This command is idempotent so you can use it to clean up jobs which have
+already been killed.

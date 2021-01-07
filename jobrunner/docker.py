@@ -311,6 +311,21 @@ def delete_container(name):
             raise
 
 
+def kill(name):
+    try:
+        subprocess_run(
+            ["docker", "container", "kill", name],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        # Ignore error if container has already been killed or removed
+        if e.returncode != 1 or (
+            b"No such container" not in e.stderr and b"is not running" not in e.stderr
+        ):
+            raise
+
+
 def write_logs_to_file(container_name, filename):
     with open(filename, "wb") as f:
         subprocess_run(
