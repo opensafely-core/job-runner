@@ -6,14 +6,19 @@ services:
     image: ghcr.io/opensafely/job-runner:latest
     init: true
     restart: unless-stopped
+    env_file: .env
+    environment:
+      &jobrunner_environment
+      # Working directory (see the volume mounts below)
+      - WORK_DIR=/work_dir
     volumes:
       &jobrunner_volumes
       - type: bind
-        source: ${OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE}
-        target: ${OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE}
+        source: ${MEDIUM_PRIVACY_STORAGE_BASE}
+        target: ${MEDIUM_PRIVACY_STORAGE_BASE}
       - type: bind
-        source: ${OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE}
-        target: ${OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE}
+        source: ${HIGH_PRIVACY_STORAGE_BASE}
+        target: ${HIGH_PRIVACY_STORAGE_BASE}
       - type: bind
         source: //var/run/docker.sock
         target: /var/run/docker.sock
@@ -27,6 +32,8 @@ services:
     init: true
     restart: unless-stopped
     # Re-use environment and volume config from above
+    env_file: .env
+    environment: *jobrunner_environment
     volumes: *jobrunner_volumes
     command: python -m jobrunner.sync
 
