@@ -8,3 +8,4 @@ fi
 set -x
 docker pull docker-proxy.opensafely.org/opensafely/$1
 docker tag docker-proxy.opensafely.org/opensafely/$1 ghcr.io/opensafely/$1
+docker image prune --force
