@@ -375,7 +375,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
             cmd,
             cwd=cwd,
             capture_output=True,
-            env={"GIT_TERMINAL_PROMPT": "0"},
+            env=dict(os.environ, GIT_TERMINAL_PROMPT="0"),
         )
         return result.returncode == 0
 
