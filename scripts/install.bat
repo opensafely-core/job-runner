@@ -21,7 +21,7 @@ if %ERRORLEVEL% NEQ 0 (
 REM now we know the service definitely exists, configure it
 
 %nssm% set opensafely Application "C:\Program Files\Git\usr\bin\bash"
-%nssm% set opensafely AppParameters "%directory%\scripts\run.sh"
+%nssm% set opensafely AppParameters "%directory%\scripts\run.sh -m jobrunner.service"
 %nssm% set opensafely AppDirectory %directory%
 %nssm% set opensafely DisplayName "OpenSAFELY job runner"
 %nssm% set opensafely Start SERVICE_AUTO_START
