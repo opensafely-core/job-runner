@@ -6,4 +6,5 @@ set -a
 source .env
 set +a
 export PYTHONPATH="lib"
-exec "C:\Program Files\Python39\python" -m jobrunner.service
+export ENABLE_PERMISSIONS_WORKAROUND=1
+exec "C:\\Program Files\\Python39\\python" -m jobrunner.service

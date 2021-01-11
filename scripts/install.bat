@@ -2,12 +2,15 @@
 REM This scripts installs/configures the opensafely service, designed to be
 REM installed on the opensafely TPP backend
 
+REM We make some assumtions about paths for the TPP backend
 set directory=E:\job-runner
 set nssm=C:\nssm-2.24\win64\nssm.exe
 
+REM we require both user name and a password to run, so check
 if "%1" == "" GOTO :usage
 if "%2" == "" GOTO :usage
 
+REM check the service is installed, and either stop it or install it.
 sc query opensafely | find "does not exist" >nul
 if %ERRORLEVEL% NEQ 0 ( 
   %nssm% stop opensafely
@@ -23,7 +26,7 @@ REM now we know the service definitely exists, configure it
 %nssm% set opensafely DisplayName "OpenSAFELY job runner"
 %nssm% set opensafely Start SERVICE_AUTO_START
 
-REM check docker exists, because $REASONS
+REM check docker service exists, because $REASONS
 sc query com.docker.service | find "does not exist" >nul
 if %ERRORLEVEL% NEQ 0 ( %nssm% set opensafely DependOnService com.docker.service )
 
