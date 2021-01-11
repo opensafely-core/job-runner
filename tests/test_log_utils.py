@@ -37,9 +37,18 @@ def test_formatting_filter():
     assert log_utils.formatting_filter(record)
     assert record.tags == "status=code project=project action=action id=id"
 
+    test_job2 = Job(id="id", action="action", repo_url=repo_url, status_code="code")
+    record = logging.makeLogRecord({"job": test_job2})
+    assert log_utils.formatting_filter(record)
+    assert record.tags == "status=code project=project action=action id=id"
+
     record = logging.makeLogRecord({"job": test_job, "job_request": test_request})
     assert log_utils.formatting_filter(record)
     assert record.tags == "project=project action=action id=id req=request"
+
+    record = logging.makeLogRecord({"status_code": ""})
+    assert log_utils.formatting_filter(record)
+    assert record.tags == ""
 
 
 def test_formatting_filter_with_context():
