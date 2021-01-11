@@ -29,12 +29,15 @@ def formatting_filter(record):
     job = getattr(record, "job", None) or ctx.get("job")
     req = getattr(record, "job_request", None) or ctx.get("job_request")
 
-    if hasattr(record, "status_code"):
+    status_code = getattr(record, "status_code", None)
+    if status_code:
         tags["status"] = record.status_code
 
     if job:
         # preserve short action for local run formatting
         record.action = job.action + ": "
+        if "status" not in tags and job.status_code:
+            tags["status"] = job.status_code
         tags["project"] = job.project
         tags["action"] = job.action
         tags["id"] = job.id
