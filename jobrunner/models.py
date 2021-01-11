@@ -11,7 +11,7 @@ import base64
 import dataclasses
 import datetime
 from enum import Enum
-import secrets
+import hashlib
 
 from .string_utils import slugify, project_name_from_url
 
@@ -67,7 +67,7 @@ class SavedJobRequest:
 class Job:
     __tablename__ = "job"
 
-    id: str
+    id: str = None
     job_request_id: str = None
     state: State = None
     # Git repository URL (may be a local path in LOCAL_RUN_MODE)
@@ -112,6 +112,22 @@ class Job:
     started_at: int = None
     completed_at: int = None
 
+    def __post_init__(self):
+        # Generate a Job ID based on the Job Request ID and action. This means
+        # we will always generate the same set of job IDs from a given Job
+        # Request and so we won't create "orphan" jobs if we have to recreate
+        # the job-runner database mid-job.
+        #
+        # Actions must be unique within a Job Request so this pair is
+        # sufficient to give us global uniqueness. In fact we could do away
+        # with Job IDs altogether and just use the action name directly, but
+        # doing things this way is a less invasive change.
+        if not self.id and self.job_request_id and self.action:
+            hash_input = f"{self.job_request_id}\n{self.action}"
+            hash_bytes = hashlib.sha1(hash_input.encode("utf-8")).digest()
+            hash_token = base64.b32encode(hash_bytes[:10]).decode("ascii").lower()
+            self.id = hash_token
+
     def asdict(self):
         data = dataclasses.asdict(self)
         for key, value in data.items():
@@ -155,17 +171,6 @@ class Job:
         order to make debugging easier
         """
         return slugify(f"{self.project}-{self.action}-{self.id}")
-
-    @staticmethod
-    def new_id():
-        """
-        Return a random 16 character lowercase alphanumeric string
-
-        We used to use UUID4's but they are unnecessarily long for our purposes
-        (particularly the hex representation) and shorter IDs make debugging
-        and inspecting the job-runner a bit more ergonomic.
-        """
-        return base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
 
 def timestamp_to_isoformat(ts):

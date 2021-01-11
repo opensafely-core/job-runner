@@ -180,7 +180,6 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
             wait_for_job_ids.append(required_job.id)
 
     job = Job(
-        id=Job.new_id(),
         job_request_id=job_request.id,
         state=State.PENDING,
         repo_url=job_request.repo_url,
@@ -251,7 +250,6 @@ def create_failed_job(job_request, exception):
         now = int(time.time())
         insert(
             Job(
-                id=Job.new_id(),
                 job_request_id=job_request.id,
                 state=state,
                 repo_url=job_request.repo_url,
