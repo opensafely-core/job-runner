@@ -3,6 +3,7 @@ Utility functions for interacting with Docker
 """
 import json
 import re
+import os
 import subprocess
 
 from . import config
@@ -278,10 +279,15 @@ def run(name, args, volume=None, env=None, allow_network_access=False, label=Non
     # This is in addition to the default LABEL which is always applied
     if label is not None:
         run_args.extend(["--label", label])
-    if env:
-        for key, value in env.items():
-            run_args.extend(["--env", f"{key}={value}"])
-    subprocess_run(run_args + args, check=True, capture_output=True)
+    # To avoid leaking the values into the command line arguments we set them
+    # in the evnironment and tell Docker to fetch them from there
+    if env is None:
+        env = {}
+    for key, value in env.items():
+        run_args.extend(["--env", key])
+    subprocess_run(
+        run_args + args, check=True, capture_output=True, env=dict(os.environ, **env)
+    )
 
 
 def image_exists_locally(image_name_and_version):
