@@ -6,23 +6,7 @@ Service location: /e/job-runner
 
 ## Operations
 
-Note: as of 2020-12-18, we are using the docker based method. Come early
-January, we expect to switch to windows service.
-
-### Docker compose (current)
-
-#### Starting/stopping the service
-
-    docker-compose up -d
-
-    docker-compose stop
-
-#### Viewing logs
-
-    docker-compose logs -t | less -R
-
-### Windows Service (future)
-
+### Windows Service
 
 #### Starting/stopping the service
 
@@ -82,7 +66,7 @@ When this happens the job's container and volume are not
 automatically cleaned up and so it's possible to retry the job without
 having to start from scratch. You can run this with:
 
-    docker-compose run --rm jobrunner-run python -m jobrunner.retry_job <job_id>
+    bash scripts/run.sh -m jobrunner.retry_job <job_id>
 
 The `job_id` actually only has to be a sub-string of the job ID (full
 ones are a bit awkward to type) and you wil be able to select the
@@ -94,7 +78,7 @@ correct job if there are multiple matches.
 To kill a running job (or prevent it starting if it hasn't yet) use the
 `kill_job` command:
 
-    docker-compose run --rm jobrunner-run python -m jobrunner.kill_job <job_id>
+    bash scripts/run.sh -m jobrunner.kill_job <job_id>
 
 The `job_id` actually only has to be a sub-string of the job ID (full
 ones are a bit awkward to type) and you wil be able to select the
