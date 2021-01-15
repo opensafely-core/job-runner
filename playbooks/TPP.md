@@ -58,9 +58,8 @@ job.
 When a job fails with the message "Internal error" this means that
 something unexpected happened and an exception other than JobError was
 raised. This can be a bug in our code, or something unexpected in the
-environment. For instance, Windows sometimes gives us an "I/O Error" on
-perfectly normal file operations (we suspect this is due to the
-docker-in-docker setup).
+environment. (Windows has sometimes given us an "I/O Error" on
+perfectly normal file operations.)
 
 When this happens the job's container and volume are not
 automatically cleaned up and so it's possible to retry the job without
@@ -69,7 +68,7 @@ having to start from scratch. You can run this with:
     bash scripts/run.sh -m jobrunner.retry_job <job_id>
 
 The `job_id` actually only has to be a sub-string of the job ID (full
-ones are a bit awkward to type) and you wil be able to select the
+ones are a bit awkward to type) and you will be able to select the
 correct job if there are multiple matches.
 
 
@@ -78,7 +77,7 @@ correct job if there are multiple matches.
 To kill a running job (or prevent it starting if it hasn't yet) use the
 `kill_job` command:
 
-    bash scripts/run.sh -m jobrunner.kill_job <job_id>
+    bash scripts/run.sh -m jobrunner.kill_job --cleanup <job_id> [... <job_id>]
 
 The `job_id` actually only has to be a sub-string of the job ID (full
 ones are a bit awkward to type) and you wil be able to select the
@@ -86,8 +85,11 @@ correct job if there are multiple matches.
 
 Multiple job IDs can be supplied to kill multiple jobs simultaneously.
 
-Add the `--cleanup` flag to also delete any associated containers and
-volumes.
+The `--cleanup` flag deletes any associated containers and volumes,
+which is generally what you want.
 
-This command is idempotent so you can use it to clean up jobs which have
-already been killed.
+If you want to kill a job but leave the container and volume in place
+for debugging then omit this flag.
+
+The command is idempotent so you can always run it again later with the
+`--cleanup` flag.
