@@ -53,6 +53,21 @@ string. If there is only one match it will automatically select that
 job.
 
 
+#### stracing a running job
+
+Start a privileged container which can see other containers processes:
+
+    docker run --rm -it --privileged --pid=host ghcr.io/opensafely/tools
+
+Find the pid of the relevent process inside the job in question:
+
+    ps faux | less
+
+Strace it:
+
+    strace -fyp <pid>
+
+
 ### Retrying a job which failed with "Internal error"
 
 When a job fails with the message "Internal error" this means that
