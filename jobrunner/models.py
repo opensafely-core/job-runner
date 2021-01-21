@@ -149,7 +149,7 @@ class Job:
 
     @property
     def started_at_isoformat(self):
-        return timestamp_to_isoformat(self.updated_at)
+        return timestamp_to_isoformat(self.started_at)
 
     @property
     def completed_at_isoformat(self):
