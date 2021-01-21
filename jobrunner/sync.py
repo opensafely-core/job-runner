@@ -50,6 +50,10 @@ def sync():
     jobs = find_where(Job, job_request_id__in=job_request_ids)
     jobs_data = [job_to_remote_format(i) for i in jobs]
     log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
+
+    # log what we're trying to send to job-server
+    log.info(f"Sending jobs to server: {jobs_data}")
+
     api_post("jobs", json=jobs_data)
 
 
