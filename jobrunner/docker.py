@@ -33,6 +33,10 @@ class DockerAuthError(DockerPullError):
     pass
 
 
+class DockerTimeoutError(Exception):
+    pass
+
+
 def create_volume(volume_name):
     """
     Creates the named volume and also creates (but does not start) a "manager"
@@ -105,7 +109,7 @@ def delete_volume(volume_name):
             raise
 
 
-def copy_to_volume(volume_name, source, dest):
+def copy_to_volume(volume_name, source, dest, timeout=None):
     """
     Copy the contents of `directory` to the root of the named volume
     """
@@ -114,16 +118,20 @@ def copy_to_volume(volume_name, source, dest):
         # directory itself. See:
         # https://docs.docker.com/engine/reference/commandline/cp/#extended-description
         source = str(source).rstrip("/") + "/."
-    subprocess_run(
-        [
-            "docker",
-            "cp",
-            source,
-            f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{dest}",
-        ],
-        check=True,
-        capture_output=True,
-    )
+    try:
+        subprocess_run(
+            [
+                "docker",
+                "cp",
+                source,
+                f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{dest}",
+            ],
+            check=True,
+            capture_output=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as e:
+        raise DockerTimeoutError from e
 
 
 def copy_from_volume(volume_name, source, dest):
