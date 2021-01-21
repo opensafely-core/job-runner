@@ -21,12 +21,16 @@ run: $(VENV)
 
 lib:
 	git clone git@github.com:opensafely/job-runner-dependencies.git lib
+
+
+requirements%.txt: requirements%.in
+	$(VENV_DIR)/bin/pip-compile $<
     
 
-update-wheels: $(VENV) requirements.txt | lib
+update-wheels: $(VENV) requirements.txt requirements.tools.txt | lib
 	#git -C lib pull
-	$(VENV_DIR)/bin/pip install -r requirements.txt --target lib
-	cp requirements.txt lib/
+	$(VENV_DIR)/bin/pip install -r requirements.txt -r requirements.tools.txt --target lib
+	cp requirements.txt requirements.tools.txt lib/
 	rm -rf lib/bin lib/*.dist-info
 	rm lib/_ruamel_yaml.*.so
         
