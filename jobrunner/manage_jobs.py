@@ -149,7 +149,25 @@ def copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs):
         # copy in later
         for directory in extra_dirs:
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
-        docker.copy_to_volume(volume, tmpdir, ".")
+        try:
+            docker.copy_to_volume(volume, tmpdir, ".", timeout=60)
+        except docker.DockerTimeoutError:
+            # Aborting a `docker cp` into a container at the wrong time can
+            # leave the container in a completely broken state where any
+            # attempt to interact with or even remove it will just hang, see:
+            # https://github.com/docker/for-mac/issues/4491
+            #
+            # This means we can end up with jobs where any attempt to start
+            # them (by copying in code from git) causes the job-runner to
+            # completely lock up.  To avoid this we use a timeout (60 seconds,
+            # which should be more than enough to copy in a few megabytes of
+            # code). The exception this triggers will cause the job to fail
+            # with an "internal error" message, which will then stop it
+            # blocking other jobs. It's important that we don't use a subclass
+            # of JobError here because such errors are regarded as "clean"
+            # exits and cause the runner to try to remove the container, which
+            # would also hang.
+            raise RuntimeError("Timed out copying code to volume, see issue #154")
 
 
 def copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs):
