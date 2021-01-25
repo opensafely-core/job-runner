@@ -30,6 +30,17 @@ These files are rotated by nssm.
 
 TODO: combine these into one log?
 
+
+#### Update job-runner
+
+In `/e/job-runner` run:
+
+    git pull
+
+
+Then restart the service
+
+
 ### Generic operations
 
 #### Update docker image
