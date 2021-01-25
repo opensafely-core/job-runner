@@ -10,9 +10,9 @@ Service location: /e/job-runner
 
 #### Starting/stopping the service
 
-    /c/nssm-2.4/win64/nssm stop opensafely
-    /c/nssm-2.4/win64/nssm start opensafely
-    /c/nssm-2.4/win64/nssm status opensafely
+    /c/nssm-2.24/win64/nssm stop opensafely
+    /c/nssm-2.24/win64/nssm start opensafely
+    /c/nssm-2.24/win64/nssm status opensafely
 
 Note: start command gives spurious warning, ignore.
 
