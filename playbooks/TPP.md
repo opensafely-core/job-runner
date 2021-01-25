@@ -36,12 +36,6 @@ TODO: combine these into one log?
 
     ./scripts/update-docker-image.sh image[:tag]
 
-#### Update the job-runner itself
-
-    ./scripts/update-docker-image.sh job-runner
-
-And restart.
-
 #### View specific job logs
 
     /e/bin/watch-job-logs.sh
