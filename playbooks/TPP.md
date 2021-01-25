@@ -10,9 +10,9 @@ Service location: /e/job-runner
 
 #### Starting/stopping the service
 
-    /c/nssm-2.4/win64/nssm stop opensafely
-    /c/nssm-2.4/win64/nssm start opensafely
-    /c/nssm-2.4/win64/nssm status opensafely
+    /c/nssm-2.24/win64/nssm stop opensafely
+    /c/nssm-2.24/win64/nssm start opensafely
+    /c/nssm-2.24/win64/nssm status opensafely
 
 Note: start command gives spurious warning, ignore.
 
@@ -30,17 +30,22 @@ These files are rotated by nssm.
 
 TODO: combine these into one log?
 
+
+#### Update job-runner
+
+In `/e/job-runner` run:
+
+    git pull
+
+
+Then restart the service
+
+
 ### Generic operations
 
 #### Update docker image
 
     ./scripts/update-docker-image.sh image[:tag]
-
-#### Update the job-runner itself
-
-    ./scripts/update-docker-image.sh job-runner
-
-And restart.
 
 #### View specific job logs
 
