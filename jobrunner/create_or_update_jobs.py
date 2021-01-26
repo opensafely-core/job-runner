@@ -192,6 +192,7 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
         run_command=action_spec.run,
         output_spec=action_spec.outputs,
         created_at=int(time.time()),
+        updated_at=int(time.time()),
     )
     insert(job)
     return job
