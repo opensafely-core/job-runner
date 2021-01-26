@@ -534,6 +534,8 @@ def update_manifest(manifest, job_metadata):
             )
         )
     files.sort()
+    manifest["workspace"] = job_metadata["workspace"]
+    manifest["repo"] = job_metadata["repo_url"]
     manifest["files"] = dict(files)
     # Popping and re-adding means the action gets moved to the end of the dict
     # so actions end up in the order they were run

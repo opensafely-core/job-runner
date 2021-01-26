@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 
@@ -71,6 +72,35 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     assert jobs["analyse_data"]["status_message"].startswith("Waiting on dependencies")
     # Run the main loop to completion and then sync
     jobrunner.run.main(exit_when_done=True)
+
+    manifest_file = (
+        tmp_work_dir
+        / "medium_privacy_workspaces_dir"
+        / "testing"
+        / "metadata"
+        / "manifest.json"
+    )
+    manifest = json.load(manifest_file.open())
+    assert manifest["workspace"] == "testing"
+    assert manifest["repo"] == str(repo_path)
+    assert set(manifest["actions"]) == set(
+        [
+            "generate_cohort",
+            "prepare_data_f",
+            "prepare_data_m",
+            "analyse_data",
+        ]
+    )
+
+    assert set(manifest["files"]) == set(
+        [
+            "counts.txt",
+            "male.csv",
+            "female.csv",
+            "output/input.csv",
+        ]
+    )
+
     jobrunner.sync.sync()
     # All jobs should now have succeeded
     jobs = get_posted_jobs(requests_mock)
