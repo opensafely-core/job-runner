@@ -1,14 +1,9 @@
 """
 Script runs both jobrunner flows in a single process.
 """
-import datetime
 import logging
-from pathlib import Path
-import os
-import sys
 import time
 import threading
-
 
 from . import config
 from .log_utils import configure_logging
