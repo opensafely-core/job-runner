@@ -28,7 +28,20 @@ stderr is in /e/job-runner/service.err.log
 
 These files are rotated by nssm.
 
-TODO: combine these into one log?
+TODO: combine these into one log? (Note stdout is almost always empty)
+
+
+#### Configuring the job-runner
+
+All configuration is via environment variables set in the `.env`
+file.
+
+For instance, to enable DEBUG level logging add the following like to
+the `.env` file:
+
+    LOGLEVEL=DEBUG
+
+And then restart the job-runner.
 
 
 #### Update job-runner
