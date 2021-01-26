@@ -19,6 +19,10 @@ session = requests.Session()
 log = logging.getLogger(__name__)
 
 
+class SyncAPIError(Exception):
+    pass
+
+
 def main():
     log.info(
         f"Polling for JobRequests at: "
@@ -80,7 +84,11 @@ def api_request(method, path, *args, **kwargs):
         )
     )
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except Exception as e:
+        raise SyncAPIError(e) from e
+
     return response.json()
 
 

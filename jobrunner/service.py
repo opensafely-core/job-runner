@@ -35,13 +35,19 @@ def main():
 
 def sync_wrapper():
     """Wrap the sync call with logging context and an exception handler."""
+    # avoid busy retries on hard failure
+    sleep_after_error = config.POLL_INTERVAL * 5
     while True:
         try:
             sync.main()
+        except sync.SyncAPIError as e:
+            # Handle these separately as we don't want the full traceback here,
+            # just the text of the error response
+            log.error(e)
+            time.sleep(sleep_after_error)
         except Exception:
             log.exception("Exception in sync thread")
-            # avoid busy retries on hard failure
-            time.sleep(config.POLL_INTERVAL)
+            time.sleep(sleep_after_error)
 
 
 if __name__ == "__main__":
