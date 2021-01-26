@@ -19,6 +19,10 @@ session = requests.Session()
 log = logging.getLogger(__name__)
 
 
+class SyncAPIError(Exception):
+    pass
+
+
 def main():
     log.info(
         f"Polling for JobRequests at: "
@@ -51,9 +55,6 @@ def sync():
     jobs_data = [job_to_remote_format(i) for i in jobs]
     log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
 
-    # log what we're trying to send to job-server
-    log.info(f"Sending jobs to server: {jobs_data}")
-
     api_post("jobs", json=jobs_data)
 
 
@@ -83,7 +84,11 @@ def api_request(method, path, *args, **kwargs):
         )
     )
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except Exception as e:
+        raise SyncAPIError(e) from e
+
     return response.json()
 
 
