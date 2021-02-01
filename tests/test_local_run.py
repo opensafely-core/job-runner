@@ -25,14 +25,15 @@ def test_local_run(tmp_path):
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
+@pytest.mark.skipif(not os.environ.get('STATA_LICENSE'), reason="No STATA_LICENSE env var")
 def test_local_run_stata(tmp_path, monkeypatch):
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/stata_project")
     project_dir = tmp_path / "project"
     shutil.copytree(project_fixture, project_dir)
-    monkeypatch.setattr("jobrunner.config.STATA_LICENSE", "env-license")
+    monkeypatch.setattr("jobrunner.config.STATA_LICENSE", os.environ['STATA_LICENSE'])
     local_run.main(project_dir=project_dir, actions=["stata"])
     env_file = project_dir / "output/env.txt"
-    assert env_file.read_text() == "env-license"
+    assert "University of Oxford" in env_file.read_text()
 
 
 @pytest.fixture
