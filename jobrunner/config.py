@@ -59,8 +59,8 @@ LOCAL_RUN_MODE = False
 # See `manage_jobs.ensure_overwritable` for more detail
 ENABLE_PERMISSIONS_WORKAROUND = bool(os.environ.get("ENABLE_PERMISSIONS_WORKAROUND"))
 
-STATA_LICENSE = os.environ.get("STATA_LICENCE")
+STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
-    "STATA_LICENCE_REPO",
+    "STATA_LICENSE_REPO",
     "https://github.com/opensafely/server-instructions.git",
 )
