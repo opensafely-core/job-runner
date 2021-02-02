@@ -350,7 +350,7 @@ def temporary_stata_workaround(image):
         return False
 
     print("Applying Docker authentication workaround...")
-    alt_image = image.replace("ghcr.io/opensafely/", "docker.opensafely.org/")
+    alt_image = image.replace("ghcr.io/opensafely-core/", "docker.opensafely.org/")
 
     try:
         docker.pull(alt_image, quiet=True)

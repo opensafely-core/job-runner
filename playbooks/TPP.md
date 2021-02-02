@@ -75,7 +75,7 @@ job.
 
 Start a privileged container which can see other containers processes:
 
-    docker run --rm -it --privileged --pid=host ghcr.io/opensafely/tools
+    docker run --rm -it --privileged --pid=host ghcr.io/opensafely-core/tools
 
 Find the pid of the relevent process inside the job in question:
 

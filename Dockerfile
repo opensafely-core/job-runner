@@ -1,4 +1,4 @@
-FROM ghcr.io/opensafely/base-docker
+FROM ghcr.io/opensafely-core/base-docker
 
 RUN apt-get update --fix-missing
 
