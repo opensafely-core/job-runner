@@ -41,7 +41,7 @@ USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
 ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter", "python"}
 
-DOCKER_REGISTRY = "ghcr.io/opensafely"
+DOCKER_REGISTRY = "ghcr.io/opensafely-core"
 
 DATABASE_URLS = {
     "full": os.environ.get("FULL_DATABASE_URL"),

@@ -10,7 +10,7 @@ setup(
     version=version,
     packages=find_packages(),
     include_package_data=True,
-    url="https://github.com/opensafely/job-runner",
+    url="https://github.com/opensafely-core/job-runner",
     author="OpenSAFELY",
     author_email="tech@opensafely.org",
     python_requires=">=3.7",

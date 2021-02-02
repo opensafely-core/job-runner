@@ -3,7 +3,7 @@ services:
 
   jobrunner-run:
     build: .
-    image: ghcr.io/opensafely/job-runner:latest
+    image: ghcr.io/opensafely-core/job-runner:latest
     init: true
     restart: unless-stopped
     env_file: .env
@@ -28,7 +28,7 @@ services:
     command: python -m jobrunner.run
 
   jobrunner-sync:
-    image: ghcr.io/opensafely/job-runner:latest
+    image: ghcr.io/opensafely-core/job-runner:latest
     init: true
     restart: unless-stopped
     # Re-use environment and volume config from above
