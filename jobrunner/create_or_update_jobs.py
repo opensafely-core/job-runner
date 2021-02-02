@@ -236,16 +236,21 @@ def create_failed_job(job_request, exception):
     Sometimes we want to say to the job-server (and the user): your JobRequest
     was broken so we weren't able to create any jobs for it. But the only way
     for the job-runner to communicate back to the job-server is by creating a
-    job. So this function creates a single job, which starts in the FAILED
-    state and whose status_message contains the error we wish to communicate.
+    job. So this function creates a single job with the special action name
+    "__error__", which starts in the FAILED state and whose status_message
+    contains the error we wish to communicate.
+
+    This is a bit of a hack, but it keeps the sync protocol simple.
     """
     # Special case for the NothingToDoError which we treat as a success
     if isinstance(exception, NothingToDoError):
         state = State.SUCCEEDED
         status_message = "All actions have already run"
+        action = job_request.requested_actions[0]
     else:
         state = State.FAILED
         status_message = f"{type(exception).__name__}: {exception}"
+        action = "__error__"
     with transaction():
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))
         now = int(time.time())
@@ -256,7 +261,7 @@ def create_failed_job(job_request, exception):
                 repo_url=job_request.repo_url,
                 commit=job_request.commit,
                 workspace=job_request.workspace,
-                action=job_request.requested_actions[0],
+                action=action,
                 status_message=status_message,
                 created_at=now,
                 started_at=now,
