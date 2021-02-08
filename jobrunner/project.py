@@ -197,8 +197,9 @@ def get_action_specification(project, action_id):
             f"Action '{action_id}' not found in project.yaml", project
         )
     run_command = action_spec["run"]
+    run_args = shlex.split(run_command)
     # Specical case handling for the `cohortextractor generate_cohort` command
-    if is_generate_cohort_command(shlex.split(run_command)):
+    if is_generate_cohort_command(run_args):
         # Set the size of the dummy data population, if that's what were
         # generating.  Possibly this should be moved to the study definition
         # anyway, which would make this unnecessary.
@@ -212,12 +213,18 @@ def get_action_specification(project, action_id):
         # ensure this doesn't break existing studies.)
         output_dirs = get_output_dirs(action_spec["outputs"])
         if len(output_dirs) != 1:
-            raise ProjectValidationError(
-                f"generate_cohort command should produce output in only one "
-                f"directory, found {len(output_dirs)}:\n"
-                + "\n".join([f" - {d}/" for d in output_dirs])
-            )
-        run_command += f" --output-dir={output_dirs[0]}"
+            # If we detect multiple output directories but the command
+            # explicitly specifies an output directory then we assume the user
+            # knows what they're doing and don't attempt to modify the output
+            # directory or throw an error
+            if not args_include(run_args, "--output-dir"):
+                raise ProjectValidationError(
+                    f"generate_cohort command should produce output in only one "
+                    f"directory, found {len(output_dirs)}:\n"
+                    + "\n".join([f" - {d}/" for d in output_dirs])
+                )
+        else:
+            run_command += f" --output-dir={output_dirs[0]}"
     return ActionSpecifiction(
         run=run_command,
         needs=action_spec.get("needs", []),
@@ -239,6 +246,10 @@ def is_generate_cohort_command(args):
     ):
         return True
     return False
+
+
+def args_include(args, target_arg):
+    return any(arg == target_arg or arg.startswith(f"{target_arg}=") for arg in args)
 
 
 def get_all_actions(project):
