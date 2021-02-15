@@ -1,0 +1,12 @@
+name: evil
+
+on: [pull_request]
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  SECRETS: blah
+jobs:
+  test_job:
+    runs-on: ubuntu-latest
+    name: Run test suite
+     - name: bad
+     - run: echo "$blah"
