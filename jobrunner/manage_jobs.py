@@ -74,7 +74,7 @@ def start_job(job):
     volume = create_and_populate_volume(job)
     action_args = shlex.split(job.run_command)
     allow_network_access = False
-    env = {}
+    env = {"OPENSAFELY_BACKEND": config.BACKEND}
     if is_generate_cohort_command(action_args):
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_network_access = True
