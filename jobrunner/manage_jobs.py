@@ -81,6 +81,9 @@ def start_job(job):
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
             if config.TEMP_DATABASE_NAME:
                 env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
+            if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
+                env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
+                env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
     # Prepend registry name
     image = action_args[0]
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
