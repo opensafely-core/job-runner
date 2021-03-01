@@ -302,9 +302,12 @@ def finalise_job(job):
 
 
 def cleanup_job(job):
-    log.info("Cleaning up container and volume")
-    docker.delete_container(container_name(job))
-    docker.delete_volume(volume_name(job))
+    if config.CLEAN_UP_DOCKER_OBJECTS:
+        log.info("Cleaning up container and volume")
+        docker.delete_container(container_name(job))
+        docker.delete_volume(volume_name(job))
+    else:
+        log.info("Leaving container and volume in place for debugging")
 
 
 def get_container_metadata(job):
