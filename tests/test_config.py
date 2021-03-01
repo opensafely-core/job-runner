@@ -1,4 +1,5 @@
 import ast
+import os
 import subprocess
 import sys
 
@@ -10,6 +11,15 @@ print(repr(cfg))
 
 
 def import_cfg(env, raises=None):
+    # Required for Python to start correctly on Windows, otherwise we get:
+    #
+    #   Fatal Python error: _Py_HashRandomization_Init: failed to get random
+    #   numbers to initialize Python
+    #
+    # See https://stackoverflow.com/a/64706392
+    if "SYSTEMROOT" in os.environ:
+        env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+
     ps = subprocess.run(
         [sys.executable, "-c", script],
         env=env,
