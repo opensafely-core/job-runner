@@ -77,20 +77,38 @@ def add_arguments(parser):
         help="Don't stop on first failed action",
         action="store_true",
     )
+    parser.add_argument(
+        "--debug",
+        help="Leave docker containers and volumes in place for debugging",
+        action="store_true",
+    )
     return parser
 
 
-def main(project_dir, actions, force_run_dependencies=False, continue_on_error=False):
+def main(
+    project_dir,
+    actions,
+    force_run_dependencies=False,
+    continue_on_error=False,
+    debug=False,
+):
     if not docker_preflight_check():
         return False
 
     project_dir = Path(project_dir).resolve()
     temp_log_dir = project_dir / METADATA_DIR / ".logs"
-    # Generate unique docker label to use for all volumes and containers we
-    # create during this run in order to make cleanup easy
-    docker_label = "job-runner-local-{}".format(
-        "".join(random.choices(string.ascii_uppercase, k=8))
-    )
+    if not debug:
+        # Generate unique docker label to use for all volumes and containers we
+        # create during this run in order to make cleanup easy. We're using a
+        # random string to prevent mutliple parallel runs from interferring by
+        # trying to clean up each others jobs.
+        docker_label = "job-runner-local-{}".format(
+            "".join(random.choices(string.ascii_uppercase, k=8))
+        )
+    else:
+        # In debug mode (where we don't automatically delete containers and
+        # volumes) we use a consistent label to make manual clean up easier
+        docker_label = "job-runner-debug"
 
     try:
         success_flag = create_and_run_jobs(
@@ -100,15 +118,30 @@ def main(project_dir, actions, force_run_dependencies=False, continue_on_error=F
             continue_on_error=continue_on_error,
             temp_log_dir=temp_log_dir,
             docker_label=docker_label,
+            clean_up_docker_objects=(not debug),
         )
     except KeyboardInterrupt:
         print("\nKilled by user")
         print("Cleaning up Docker containers and volumes ...")
         success_flag = False
     finally:
-        delete_docker_entities("container", docker_label, ignore_errors=True)
-        delete_docker_entities("volume", docker_label, ignore_errors=True)
-        shutil.rmtree(temp_log_dir, ignore_errors=True)
+        if not debug:
+            delete_docker_entities("container", docker_label, ignore_errors=True)
+            delete_docker_entities("volume", docker_label, ignore_errors=True)
+            shutil.rmtree(temp_log_dir, ignore_errors=True)
+        else:
+            containers = find_docker_entities("container", docker_label)
+            volumes = find_docker_entities("volume", docker_label)
+            if containers or volumes:
+                print(f"\n{'-' * 48}")
+                print(
+                    "\nRunning in --debug mode so not cleaning up."
+                    " To clean up run:\n"
+                )
+                for container in containers:
+                    print(f"  docker container rm --force {container}")
+                for volume in volumes:
+                    print(f"  docker volume rm --force {volume}")
     return success_flag
 
 
@@ -119,6 +152,7 @@ def create_and_run_jobs(
     continue_on_error,
     temp_log_dir,
     docker_label,
+    clean_up_docker_objects=True,
 ):
     # Configure
     docker.LABEL = docker_label
@@ -131,6 +165,7 @@ def create_and_run_jobs(
     config.JOB_LOG_DIR = temp_log_dir
     config.BACKEND = "expectations"
     config.USING_DUMMY_DATA_BACKEND = True
+    config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
 
     # None of the below should be used when running locally
     config.WORK_DIR = None
@@ -294,6 +329,29 @@ def delete_docker_entities(entity, label, ignore_errors=False):
     if ids and response.returncode == 0:
         rm_args = ["docker", entity, "rm", "--force"] + ids
         subprocess_run(rm_args, capture_output=True, check=not ignore_errors)
+
+
+def find_docker_entities(entity, label):
+    """
+    Return list of names of all docker entities (of specified type) matching
+    `label`
+    """
+    response = subprocess_run(
+        [
+            "docker",
+            entity,
+            "ls",
+            *(["--all"] if entity == "container" else []),
+            "--filter",
+            f"label={label}",
+            "--format",
+            "{{ .Names }}" if entity == "container" else "{{ .Name }}",
+            "--quiet",
+        ],
+        capture_output=True,
+        encoding="ascii",
+    )
+    return response.stdout.split()
 
 
 def get_docker_images(jobs):

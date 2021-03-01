@@ -61,7 +61,7 @@ PRESTO_TLS_KEY_PATH = os.environ.get("PRESTO_TLS_KEY_PATH")
 
 if bool(PRESTO_TLS_KEY_PATH) != bool(PRESTO_TLS_CERT_PATH):
     raise ConfigException(
-            "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined if either are"
+        "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined if either are"
     )
 
 if PRESTO_TLS_KEY_PATH:
@@ -83,11 +83,13 @@ if PRESTO_TLS_CERT_PATH:
         )
 
 
-
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 
 # See `local_run.py` for more detail
 LOCAL_RUN_MODE = False
+
+# Automatically delete containers and volumes after they have been used
+CLEAN_UP_DOCKER_OBJECTS = True
 
 # See `manage_jobs.ensure_overwritable` for more detail
 ENABLE_PERMISSIONS_WORKAROUND = bool(os.environ.get("ENABLE_PERMISSIONS_WORKAROUND"))
