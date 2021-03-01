@@ -59,25 +59,30 @@ PRESTO_TLS_KEY = PRESTO_TLS_CERT = None
 PRESTO_TLS_CERT_PATH = os.environ.get("PRESTO_TLS_CERT_PATH")
 PRESTO_TLS_KEY_PATH = os.environ.get("PRESTO_TLS_KEY_PATH")
 
-if PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH:
-    key_path = Path(PRESTO_TLS_KEY_PATH)
-    cert_path = Path(PRESTO_TLS_CERT_PATH)
+if bool(PRESTO_TLS_KEY_PATH) != bool(PRESTO_TLS_CERT_PATH):
+    raise ConfigException(
+            "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined if either are"
+    )
 
-    if key_path.exists() and cert_path.exists():
+if PRESTO_TLS_KEY_PATH:
+    key_path = Path(PRESTO_TLS_KEY_PATH)
+    if key_path.exists():
         PRESTO_TLS_KEY = key_path.read_text()
-        PRESTO_TLS_CERT = cert_path.read_text()
-    elif key_path.exists():
-        raise ConfigException(
-            f"PRESTO_TLS_CERT_PATH={cert_path}, but file does not exist"
-        )
-    elif cert_path.exists():
+    else:
         raise ConfigException(
             f"PRESTO_TLS_KEY_PATH={key_path}, but file does not exist"
         )
+
+if PRESTO_TLS_CERT_PATH:
+    cert_path = Path(PRESTO_TLS_CERT_PATH)
+    if cert_path.exists():
+        PRESTO_TLS_CERT = cert_path.read_text()
     else:
         raise ConfigException(
-            f"PRESTO_TLS_KEY_PATH={key_path} and PRESTO_TLS_CERT_PATH={cert_path} but the files does not exist"
+            f"PRESTO_TLS_CERT_PATH={cert_path}, but file does not exist"
         )
+
+
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 

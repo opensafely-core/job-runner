@@ -41,33 +41,31 @@ def test_config_presto_paths(tmp_path):
 
 
 def test_config_presto_paths_not_exist(tmp_path):
-    _, err = import_cfg(
-        {
-            "PRESTO_TLS_KEY_PATH": "key.notexists",
-            "PRESTO_TLS_CERT_PATH": "cert.notexists",
-        }
-    )
-    assert "PRESTO_TLS_KEY_PATH=key.notexists" in err
-    assert "PRESTO_TLS_CERT_PATH=cert.notexists" in err
 
     key = tmp_path / "key"
     key.write_text("key")
-    _, err = import_cfg(
-        {
-            "PRESTO_TLS_KEY_PATH": str(key),
-            "PRESTO_TLS_CERT_PATH": "cert.notexists",
-        }
-    )
-    assert "PRESTO_TLS_KEY_PATH=key.notexists" not in err
-    assert "PRESTO_TLS_CERT_PATH=cert.notexists" in err
-
     cert = tmp_path / "cert"
     cert.write_text("cert")
-    _, err = import_cfg(
-        {
-            "PRESTO_TLS_KEY_PATH": "key.notexists",
-            "PRESTO_TLS_CERT_PATH": str(cert),
-        }
-    )
+
+    cfg, err = import_cfg({
+        "PRESTO_TLS_KEY_PATH": str(key),
+        "PRESTO_TLS_CERT_PATH": str(cert),
+    })
+    assert cfg['PRESTO_TLS_KEY'] == "key"
+    assert cfg['PRESTO_TLS_CERT'] == "cert"
+
+    # only one
+    _, err = import_cfg({ "PRESTO_TLS_KEY_PATH": "foo"})
+    assert "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined" in err
+ 
+    cfg, err = import_cfg({
+        "PRESTO_TLS_KEY_PATH": "key.notexists",
+        "PRESTO_TLS_CERT_PATH": str(cert),
+    })
     assert "PRESTO_TLS_KEY_PATH=key.notexists" in err
-    assert "PRESTO_TLS_CERT_PATH=cert.notexists" not in err
+
+    cfg, err = import_cfg({
+        "PRESTO_TLS_KEY_PATH": str(key),
+        "PRESTO_TLS_CERT_PATH": "cert.notexists",
+    })
+    assert "PRESTO_TLS_CERT_PATH=cert.notexists" in err
