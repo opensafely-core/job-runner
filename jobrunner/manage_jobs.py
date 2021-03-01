@@ -84,6 +84,8 @@ def start_job(job):
             if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
                 env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
                 env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
+            if config.EMIS_ORGANISATION_HASH:
+                env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
     # Prepend registry name
     image = action_args[0]
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
