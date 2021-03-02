@@ -21,7 +21,7 @@ system works.  It also has some parts relevant for end users, particularly the
 
 In production, this software runs as a loop on a secure server within the
 infrastructure of the primary data provider.  It polls an [OpenSAFELY job
-server](https://github.com/opensafely/job-server), looking for requests to run
+server](https://github.com/opensafely-core/job-server), looking for requests to run
 jobs.
 
 Jobs belong to a `workspace`. This describes the git repo containing the
@@ -44,8 +44,10 @@ re-running a dependency whose previous run produced output that still exists in
 the production environment.  The runner also reports status back to the job
 server, redacting possibly-sensitive information.
 
-The runner is also imported by the `cohortextractor` tool, so users can test
-their actions locally.
+The runner is bundled as part of the [opensafely-cli][cli] tool so users
+can test their actions locally.
+
+[cli]: https://github.com/opensafely-core/opensafely-cli
 
 ## Job structure
 
