@@ -375,6 +375,7 @@ def get_job_metadata(job, container_metadata):
     job_metadata["job_id"] = job_metadata["id"]
     job_metadata["run_by_user"] = job_metadata["job_request"].get("created_by")
     job_metadata["docker_image_id"] = container_metadata["Image"]
+    job_metadata["exit_code"] = container_metadata["State"]["ExitCode"]
     job_metadata["container_metadata"] = container_metadata
     return job_metadata
 
@@ -393,6 +394,7 @@ def write_log_file(job, job_metadata, filename):
             "state",
             "commit",
             "docker_image_id",
+            "exit_code",
             "job_id",
             "run_by_user",
             "created_at",
