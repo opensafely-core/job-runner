@@ -410,13 +410,12 @@ def write_log_file(job, job_metadata, filename):
 
 
 # Environment variables whose values do not need to be hidden from the debug
-# logs. At present the only sensitive value is DATABASE_URL, but its better to
-# have an explicit safelist here. We might end up including things like license
-# keys in the environment.
+# logs
 SAFE_ENVIRONMENT_VARIABLES = set(
     """
-    PATH PYTHON_VERSION DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN UBUNTU_VERSION
-    PYENV_SHELL PYENV_VERSION PYTHONUNBUFFERED
+    PATH PYTHON_VERSION DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
+    UBUNTU_VERSION PYENV_SHELL PYENV_VERSION PYTHONUNBUFFERED
+    OPENSAFELY_BACKEND TZ TEMP_DATABASE_NAME
     """.split()
 )
 
