@@ -256,7 +256,11 @@ def create_and_run_jobs(
 
     # Run everything
     try:
-        run_main(exit_when_done=True, raise_on_failure=not continue_on_error)
+        run_main(
+            exit_when_done=True,
+            shuffle_jobs=False,
+            raise_on_failure=not continue_on_error,
+        )
     except (JobError, KeyboardInterrupt):
         pass
 

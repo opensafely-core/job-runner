@@ -5,6 +5,7 @@ updates its state as appropriate.
 """
 import datetime
 import logging
+import random
 import sys
 import time
 
@@ -24,17 +25,25 @@ from .manage_jobs import (
 log = logging.getLogger(__name__)
 
 
-def main(exit_when_done=False, raise_on_failure=False):
+def main(exit_when_done=False, raise_on_failure=False, shuffle_jobs=True):
     log.info("jobrunner.run loop started")
     while True:
-        active_jobs = handle_jobs(raise_on_failure=raise_on_failure)
+        active_jobs = handle_jobs(
+            raise_on_failure=raise_on_failure, shuffle_jobs=shuffle_jobs
+        )
         if exit_when_done and len(active_jobs) == 0:
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(raise_on_failure=False):
+def handle_jobs(raise_on_failure=False, shuffle_jobs=True):
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
+    # Randomising the job order is a crude but effective way to ensure that a
+    # single large job request doesn't hog all the workers. We make this
+    # optional as, when running locally, having jobs run in a predictable order
+    # is preferable
+    if shuffle_jobs:
+        random.shuffle(active_jobs)
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
