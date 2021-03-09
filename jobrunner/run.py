@@ -11,7 +11,7 @@ import time
 
 from .log_utils import configure_logging, set_log_context
 from . import config
-from .database import find_where, count_where, update, select_values
+from .database import find_where, update, select_values
 from .models import Job, State, StatusCode
 from .manage_jobs import (
     JobError,
@@ -68,10 +68,9 @@ def handle_pending_job(job):
             job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
         )
     else:
-        if not job_running_capacity_available():
-            set_message(
-                job, "Waiting for available workers", code=StatusCode.WAITING_ON_WORKERS
-            )
+        not_started_reason = get_reason_job_not_started(job)
+        if not_started_reason:
+            set_message(job, not_started_reason, code=StatusCode.WAITING_ON_WORKERS)
         else:
             try:
                 set_message(job, "Preparing")
@@ -192,9 +191,22 @@ def set_message(job, message, code=None):
             log.info(job.status_message, extra={"status_code": job.status_code})
 
 
-def job_running_capacity_available():
-    running_jobs = count_where(Job, state=State.RUNNING)
-    return running_jobs < config.MAX_WORKERS
+def get_reason_job_not_started(job):
+    running_jobs = find_where(Job, state=State.RUNNING)
+    used_resources = sum(
+        get_job_resource_weight(running_job) for running_job in running_jobs
+    )
+    required_resources = get_job_resource_weight(job)
+    if used_resources + required_resources > config.MAX_WORKERS:
+        if required_resources > 1:
+            return "Waiting on available workers for resource intensive job"
+        else:
+            return "Waiting on available workers"
+
+
+def get_job_resource_weight(job):
+    # Hardcoded for now until we support a config file
+    return 1
 
 
 if __name__ == "__main__":
