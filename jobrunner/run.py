@@ -204,8 +204,16 @@ def get_reason_job_not_started(job):
             return "Waiting on available workers"
 
 
-def get_job_resource_weight(job):
-    # Hardcoded for now until we support a config file
+def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):
+    """
+    Get the job's resource weight by checking its workspace and action against
+    the config file, default to 1 otherwise
+    """
+    action_patterns = weights.get(job.workspace)
+    if action_patterns:
+        for pattern, weight in action_patterns.items():
+            if pattern.fullmatch(job.action):
+                return weight
     return 1
 
 

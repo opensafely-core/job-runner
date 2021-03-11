@@ -1,5 +1,7 @@
+import configparser
 import os
 from pathlib import Path
+import re
 from multiprocessing import cpu_count
 
 
@@ -100,3 +102,35 @@ STATA_LICENSE_REPO = os.environ.get(
     "STATA_LICENSE_REPO",
     "https://github.com/opensafely/server-instructions.git",
 )
+
+
+def parse_job_resource_weights(config_file):
+    """
+    Parse a simple ini file which looks like this:
+
+        [some-workspace-name]
+        my-ram-hungry-action = 4
+        other-actions.* = 1.5
+
+        [other-workspace-name]
+        ...
+
+    Any jobs in the specified workspace will have their action names matched
+    against the regex patterns specified in the config file and will be
+    assigned the weight of the first matching pattern. All other jobs are
+    assigned a weight of 1.
+    """
+    config_file = Path(config_file)
+    weights = {}
+    if config_file.exists():
+        config = configparser.ConfigParser()
+        config.read_string(config_file.read_text(), source=str(config_file))
+        for workspace in config.sections():
+            weights[workspace] = {
+                re.compile(pattern): float(weight)
+                for (pattern, weight) in config.items(workspace)
+            }
+    return weights
+
+
+JOB_RESOURCE_WEIGHTS = parse_job_resource_weights("job-resource-weights.ini")
