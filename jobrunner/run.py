@@ -5,12 +5,13 @@ updates its state as appropriate.
 """
 import datetime
 import logging
+import random
 import sys
 import time
 
 from .log_utils import configure_logging, set_log_context
 from . import config
-from .database import find_where, count_where, update, select_values
+from .database import find_where, update, select_values
 from .models import Job, State, StatusCode
 from .manage_jobs import (
     JobError,
@@ -24,17 +25,25 @@ from .manage_jobs import (
 log = logging.getLogger(__name__)
 
 
-def main(exit_when_done=False, raise_on_failure=False):
+def main(exit_when_done=False, raise_on_failure=False, shuffle_jobs=True):
     log.info("jobrunner.run loop started")
     while True:
-        active_jobs = handle_jobs(raise_on_failure=raise_on_failure)
+        active_jobs = handle_jobs(
+            raise_on_failure=raise_on_failure, shuffle_jobs=shuffle_jobs
+        )
         if exit_when_done and len(active_jobs) == 0:
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(raise_on_failure=False):
+def handle_jobs(raise_on_failure=False, shuffle_jobs=True):
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
+    # Randomising the job order is a crude but effective way to ensure that a
+    # single large job request doesn't hog all the workers. We make this
+    # optional as, when running locally, having jobs run in a predictable order
+    # is preferable
+    if shuffle_jobs:
+        random.shuffle(active_jobs)
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
@@ -59,10 +68,9 @@ def handle_pending_job(job):
             job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
         )
     else:
-        if not job_running_capacity_available():
-            set_message(
-                job, "Waiting for available workers", code=StatusCode.WAITING_ON_WORKERS
-            )
+        not_started_reason = get_reason_job_not_started(job)
+        if not_started_reason:
+            set_message(job, not_started_reason, code=StatusCode.WAITING_ON_WORKERS)
         else:
             try:
                 set_message(job, "Preparing")
@@ -183,9 +191,30 @@ def set_message(job, message, code=None):
             log.info(job.status_message, extra={"status_code": job.status_code})
 
 
-def job_running_capacity_available():
-    running_jobs = count_where(Job, state=State.RUNNING)
-    return running_jobs < config.MAX_WORKERS
+def get_reason_job_not_started(job):
+    running_jobs = find_where(Job, state=State.RUNNING)
+    used_resources = sum(
+        get_job_resource_weight(running_job) for running_job in running_jobs
+    )
+    required_resources = get_job_resource_weight(job)
+    if used_resources + required_resources > config.MAX_WORKERS:
+        if required_resources > 1:
+            return "Waiting on available workers for resource intensive job"
+        else:
+            return "Waiting on available workers"
+
+
+def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):
+    """
+    Get the job's resource weight by checking its workspace and action against
+    the config file, default to 1 otherwise
+    """
+    action_patterns = weights.get(job.workspace)
+    if action_patterns:
+        for pattern, weight in action_patterns.items():
+            if pattern.fullmatch(job.action):
+                return weight
+    return 1
 
 
 if __name__ == "__main__":
