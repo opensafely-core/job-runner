@@ -134,3 +134,10 @@ def parse_job_resource_weights(config_file):
 
 
 JOB_RESOURCE_WEIGHTS = parse_job_resource_weights("job-resource-weights.ini")
+
+
+STATS_DATABASE_FILE = os.environ.get("STATS_DATABASE_FILE")
+if STATS_DATABASE_FILE:
+    STATS_DATABASE_FILE = Path(STATS_DATABASE_FILE)
+
+STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
