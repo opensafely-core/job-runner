@@ -11,4 +11,4 @@ def test_get_system_stats():
         "available_disk_space",
         "total_memory",
         "available_memory",
-    } <= stats.keys()
+    }.issubset(stats.keys())

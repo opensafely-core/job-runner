@@ -60,6 +60,9 @@ def record_stats_wrapper():
     while True:
         try:
             record_stats.main()
+            # `main()` should loop forever, if it exits cleanly that means it
+            # wasn't configured to run so we should exit the thread rather than
+            # looping
             return
         except Exception:
             log.exception("Exception in record_stats thread")
