@@ -9,6 +9,7 @@ from . import config
 from .log_utils import configure_logging
 from . import run
 from . import sync
+from . import record_stats
 
 
 log = logging.getLogger(__name__)
@@ -27,6 +28,10 @@ def main():
         # process exits
         thread = threading.Thread(target=sync_wrapper, daemon=True)
         thread.name = "sync"
+        thread.start()
+        # Stat the `record_stats` thread
+        thread = threading.Thread(target=record_stats_wrapper, daemon=True)
+        thread.name = "stat"
         thread.start()
         run.main()
     except KeyboardInterrupt:
@@ -48,6 +53,20 @@ def sync_wrapper():
         except Exception:
             log.exception("Exception in sync thread")
             time.sleep(sleep_after_error)
+
+
+def record_stats_wrapper():
+    """Wrap the record_stats call with logging context and an exception handler."""
+    while True:
+        try:
+            record_stats.main()
+            # `main()` should loop forever, if it exits cleanly that means it
+            # wasn't configured to run so we should exit the thread rather than
+            # looping
+            return
+        except Exception:
+            log.exception("Exception in record_stats thread")
+            time.sleep(config.STATS_POLL_INTERVAL)
 
 
 if __name__ == "__main__":
