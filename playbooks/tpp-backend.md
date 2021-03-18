@@ -62,13 +62,28 @@ Then restart the service
 
 #### View specific job logs
 
-    /e/bin/watch-job-logs.sh
+    ./scripts/watch-job-logs.sh
 
 This will let you choose a job's output to tail.
 
 Supply a string argument to filter to just job names matching that
 string. If there is only one match it will automatically select that
 job.
+
+
+#### Mount the volume of a running job
+
+    ./scripts/mount-job-volume.sh
+
+Starts a container with the volume associated with a given job mounted
+at `/workspace`.
+
+Supply a string argument to filter to just job names matching that
+string. If there is only one match it will automatically select that
+job.
+
+Note that the container will be a privileged "tools" container suitable
+for stracing (see below).
 
 
 #### stracing a running job
