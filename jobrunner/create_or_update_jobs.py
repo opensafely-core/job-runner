@@ -11,7 +11,14 @@ import re
 import time
 
 from . import config
-from .database import transaction, insert, exists_where, find_where, count_where
+from .database import (
+    transaction,
+    insert,
+    exists_where,
+    find_where,
+    count_where,
+    update_where,
+)
 from .git import (
     read_file_from_repo,
     get_sha_from_remote_ref,
@@ -62,19 +69,16 @@ def create_or_update_jobs(job_request):
             log.exception("Uncaught error while creating jobs")
             create_failed_job(job_request, JobRequestError("Internal error"))
     else:
-        # TODO: think about what sort of updates we want to support
-        # I think these are probably limited to:
-        #  * cancel any pending jobs
-        #  * cancel any pending jobs and kill any running ones
-        #  * update the target commit SHA for any pending jobs (although cancel and
-        #    resubmit would also work for this and would probably be simpler)
-        #
-        # This could be implemented by adding a boolean `cancel` column to the
-        # job table. The run loop would check the value of this each time it
-        # checks the state of the job and if it's set it would either call
-        # `docker kill` on it (if it's running) or move it immediately to the
-        # FAILED state (if it's still pending).
-        log.debug("Ignoring already processed JobRequest")
+        if job_request.cancelled_actions:
+            log.debug("Cancelling actions: %s", job_request.cancelled_actions)
+            update_where(
+                Job,
+                {"cancelled": True},
+                job_request_id=job_request.id,
+                action__in=job_request.cancelled_actions,
+            )
+        else:
+            log.debug("Ignoring already processed JobRequest")
 
 
 def related_jobs_exist(job_request):

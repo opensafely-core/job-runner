@@ -181,6 +181,7 @@ def create_and_run_jobs(
         repo_url=str(project_dir),
         commit="none",
         requested_actions=actions,
+        cancelled_actions=[],
         workspace=project_dir.name,
         database_name="dummy",
         force_run_dependencies=force_run_dependencies,

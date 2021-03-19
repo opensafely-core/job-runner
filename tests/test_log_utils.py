@@ -2,8 +2,6 @@ from datetime import datetime
 import logging
 import time
 
-import pytest
-
 from jobrunner.models import Job, JobRequest
 from jobrunner import log_utils, local_run
 
@@ -19,6 +17,7 @@ test_request = JobRequest(
     workspace="workspace",
     commit="commit",
     requested_actions=["action"],
+    cancelled_actions=[],
     database_name="dummy",
 )
 

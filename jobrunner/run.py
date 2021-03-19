@@ -19,6 +19,7 @@ from .manage_jobs import (
     job_still_running,
     finalise_job,
     cleanup_job,
+    kill_job,
 )
 
 
@@ -58,6 +59,15 @@ def handle_jobs(raise_on_failure=False, shuffle_jobs=True):
 
 
 def handle_pending_job(job):
+    if job.cancelled:
+        # Mark the job as running and let `handle_running_job` deal with
+        # cancelling it on the next loop iteration. This allows us to keep all
+        # the kill/cleanup code together and it means that there aren't edge
+        # cases where we could lose track of jobs completely after losing
+        # database state
+        mark_job_as_running(job)
+        return
+
     awaited_states = get_states_of_awaited_jobs(job)
     if State.FAILED in awaited_states:
         mark_job_as_failed(
@@ -86,6 +96,9 @@ def handle_pending_job(job):
 
 
 def handle_running_job(job):
+    if job.cancelled:
+        kill_job(job)
+
     if job_still_running(job):
         set_message(job, "Running")
     else:
@@ -127,6 +140,9 @@ def mark_job_as_failed(job, error, code=None):
         message = error
     else:
         message = f"{type(error).__name__}: {error}"
+    if job.cancelled:
+        message = "Cancelled by user"
+        code = StatusCode.CANCELLED_BY_USER
     set_state(job, State.FAILED, message, code=code)
 
 

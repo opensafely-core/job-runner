@@ -18,6 +18,7 @@ def test_create_or_update_jobs(tmp_work_dir):
         commit=None,
         branch="v1",
         requested_actions=["generate_cohort"],
+        cancelled_actions=[],
         workspace="1",
         database_name="dummy",
         original={},
@@ -55,6 +56,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
         commit=None,
         branch="no-such-branch",
         requested_actions=["generate_cohort"],
+        cancelled_actions=[],
         workspace="1",
         database_name="dummy",
         original={},
@@ -146,6 +148,7 @@ def make_job_request(action="generate_cohort", **kwargs):
         workspace="1",
         database_name="full",
         requested_actions=[action],
+        cancelled_actions=[],
         original={},
     )
     for key, value in kwargs.items():

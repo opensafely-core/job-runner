@@ -34,6 +34,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
                 {
                     "identifier": 1,
                     "requested_actions": ["analyse_data"],
+                    "cancelled_actions": [],
                     "force_run_dependencies": False,
                     "workspace": {
                         "name": "testing",

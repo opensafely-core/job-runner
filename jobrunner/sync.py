@@ -103,6 +103,7 @@ def job_request_from_remote_format(job_request):
         commit=job_request.get("sha"),
         branch=job_request["workspace"]["branch"],
         requested_actions=job_request["requested_actions"],
+        cancelled_actions=job_request["cancelled_actions"],
         workspace=job_request["workspace"]["name"],
         database_name=job_request["workspace"]["db"],
         force_run_dependencies=job_request["force_run_dependencies"],

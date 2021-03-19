@@ -33,6 +33,7 @@ class StatusCode(Enum):
     DEPENDENCY_FAILED = "dependency_failed"
     WAITING_ON_WORKERS = "waiting_on_workers"
     NONZERO_EXIT = "nonzero_exit"
+    CANCELLED_BY_USER = "cancelled_by_user"
 
 
 # This is our internal representation of a JobRequest which we pass around but
@@ -43,6 +44,7 @@ class JobRequest:
     repo_url: str
     commit: str
     requested_actions: list
+    cancelled_actions: list
     workspace: str
     database_name: str
     force_run_dependencies: bool = False
@@ -106,6 +108,8 @@ class Job:
     status_message: str = None
     # Machine readable code representing the status_message above
     status_code: StatusCode = None
+    # Flag indicating that the user has cancelled this job
+    cancelled: bool = False
     # Times (stored as integer UNIX timestamps)
     created_at: int = None
     updated_at: int = None
