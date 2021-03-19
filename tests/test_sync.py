@@ -12,6 +12,7 @@ def test_job_request_from_remote_format():
             "db": "full",
         },
         "requested_actions": ["generate_cohort"],
+        "cancelled_actions": ["analyse"],
         "force_run_dependencies": True,
     }
     expected = JobRequest(
@@ -22,6 +23,7 @@ def test_job_request_from_remote_format():
         workspace="testing",
         database_name="full",
         requested_actions=["generate_cohort"],
+        cancelled_actions=["analyse"],
         force_run_dependencies=True,
         original=remote_job_request,
     )

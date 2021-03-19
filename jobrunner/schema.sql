@@ -24,6 +24,7 @@ CREATE TABLE job (
     unmatched_outputs TEXT,
     status_message TEXT,
     status_code TEXT,
+    cancelled BOOLEAN,
     created_at INT,
     updated_at INT,
     started_at INT,

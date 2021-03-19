@@ -18,6 +18,7 @@ def test_create_or_update_jobs(tmp_work_dir):
         commit=None,
         branch="v1",
         requested_actions=["generate_cohort"],
+        cancelled_actions=[],
         workspace="1",
         database_name="dummy",
         original={},
@@ -55,6 +56,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
         commit=None,
         branch="no-such-branch",
         requested_actions=["generate_cohort"],
+        cancelled_actions=[],
         workspace="1",
         database_name="dummy",
         original={},
@@ -138,6 +140,21 @@ def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_
     assert prepare_2_job.wait_for_job_ids == [generate_job.id]
 
 
+def test_cancelled_jobs_are_flagged(tmp_work_dir):
+    job_request = make_job_request(action="analyse_data")
+    create_jobs_with_project_file(job_request, TEST_PROJECT)
+    job_request.cancelled_actions = ["prepare_data_1", "prepare_data_2"]
+    create_or_update_jobs(job_request)
+    analyse_job = find_where(Job, action="analyse_data")[0]
+    prepare_1_job = find_where(Job, action="prepare_data_1")[0]
+    prepare_2_job = find_where(Job, action="prepare_data_2")[0]
+    generate_job = find_where(Job, action="generate_cohort")[0]
+    assert analyse_job.cancelled == False
+    assert prepare_1_job.cancelled == True
+    assert prepare_2_job.cancelled == True
+    assert generate_job.cancelled == False
+
+
 def make_job_request(action="generate_cohort", **kwargs):
     job_request = JobRequest(
         id=str(uuid.uuid4()),
@@ -146,6 +163,7 @@ def make_job_request(action="generate_cohort", **kwargs):
         workspace="1",
         database_name="full",
         requested_actions=[action],
+        cancelled_actions=[],
         original={},
     )
     for key, value in kwargs.items():

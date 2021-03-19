@@ -312,6 +312,10 @@ def cleanup_job(job):
         log.info("Leaving container and volume in place for debugging")
 
 
+def kill_job(job):
+    docker.kill(container_name(job))
+
+
 def get_container_metadata(job):
     metadata = docker.container_inspect(container_name(job), none_if_not_exists=True)
     if not metadata:

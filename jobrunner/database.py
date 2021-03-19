@@ -32,15 +32,19 @@ def insert(item):
 
 def update(item, update_fields=None):
     assert item.id
-    table = item.__tablename__
-    if update_fields is not None:
-        fields = [f for f in dataclasses.fields(item) if f.name in update_fields]
-        assert fields
-    else:
-        fields = dataclasses.fields(item)
+    if update_fields is None:
+        update_fields = [f.name for f in dataclasses.fields(item)]
+    update_dict = {f: getattr(item, f) for f in update_fields}
+    update_where(item.__class__, update_dict, id=item.id)
+
+
+def update_where(itemclass, update_dict, **query_params):
+    table = itemclass.__tablename__
+    fields = [f for f in dataclasses.fields(itemclass) if f.name in update_dict]
+    assert len(fields) == len(update_dict)
     updates = ", ".join(f"{escape(field.name)} = ?" for field in fields)
-    update_params = encode_field_values(fields, item)
-    where, where_params = query_params_to_sql({"id": item.id})
+    update_params = encode_field_values(fields, update_dict)
+    where, where_params = query_params_to_sql(query_params)
     get_connection().execute(
         f"UPDATE {escape(table)} SET {updates} WHERE {where}",
         update_params + where_params,
@@ -168,12 +172,13 @@ def escape(s):
 
 def encode_field_values(fields, item):
     """
-    Takes a list of dataclass fields and a dataclass instance and returns the
-    field values as a list with the appropriate conversions applied
+    Takes a list of dataclass fields and a dataclass instance or dict and
+    returns the field values as a list with the appropriate conversions applied
     """
     values = []
+    get_value = getattr if not isinstance(item, dict) else dict.__getitem__
     for field in fields:
-        value = getattr(item, field.name)
+        value = get_value(item, field.name)
         # Dicts and lists get encoded as JSON
         if field.type in (list, dict) and value is not None:
             value = json.dumps(value)

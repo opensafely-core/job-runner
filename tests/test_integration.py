@@ -27,31 +27,32 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")
     repo_path = tmp_work_dir / "test-repo"
     commit_directory_contents(repo_path, project_fixture)
+    job_request = {
+        "identifier": 1,
+        "requested_actions": ["analyse_data", "test_cancellation"],
+        "cancelled_actions": [],
+        "force_run_dependencies": False,
+        "workspace": {
+            "name": "testing",
+            "repo": str(repo_path),
+            "branch": "HEAD",
+            "db": "dummy",
+        },
+    }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
         json={
-            "results": [
-                {
-                    "identifier": 1,
-                    "requested_actions": ["analyse_data"],
-                    "force_run_dependencies": False,
-                    "workspace": {
-                        "name": "testing",
-                        "repo": str(repo_path),
-                        "branch": "HEAD",
-                        "db": "dummy",
-                    },
-                }
-            ],
+            "results": [job_request],
         },
     )
     requests_mock.post("http://testserver/api/v2/jobs/", json={})
 
     # Run sync to grab the JobRequest from the mocked job-server
     jobrunner.sync.sync()
-    # Check that three pending jobs are created
+    # Check that five pending jobs are created
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == [
+        "pending",
         "pending",
         "pending",
         "pending",
@@ -70,6 +71,17 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
         "Waiting on dependencies"
     )
     assert jobs["analyse_data"]["status_message"].startswith("Waiting on dependencies")
+
+    # Request a job to be cancelled and then sync
+    job_request["cancelled_actions"] = ["test_cancellation"]
+    requests_mock.get(
+        "http://testserver/api/v2/job-requests/?backend=expectations",
+        json={
+            "results": [job_request],
+        },
+    )
+    jobrunner.sync.sync()
+
     # Run the main loop to completion and then sync
     jobrunner.run.main(exit_when_done=True)
 
@@ -102,12 +114,13 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     )
 
     jobrunner.sync.sync()
-    # All jobs should now have succeeded
+    # All jobs should now have succeeded apart from the cancelled one
     jobs = get_posted_jobs(requests_mock)
     assert jobs["generate_cohort"]["status"] == "succeeded"
     assert jobs["prepare_data_m"]["status"] == "succeeded"
     assert jobs["prepare_data_f"]["status"] == "succeeded"
     assert jobs["analyse_data"]["status"] == "succeeded"
+    assert jobs["test_cancellation"]["status"] == "failed"
 
 
 def commit_directory_contents(repo_path, directory):
