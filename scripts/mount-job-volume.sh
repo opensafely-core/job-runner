@@ -63,6 +63,8 @@ else
 
 fi
 
-exec docker run --rm -it --privileged --pid=host \
+exec docker run --rm -it \
+  --privileged --pid=host \
+  --workdir //workspace \
   -v "$selected_volume:/workspace" \
   ghcr.io/opensafely-core/tools
