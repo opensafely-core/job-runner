@@ -30,3 +30,10 @@ actions:
     outputs:
       moderately_sensitive:
         counts: counts.txt
+
+  test_cancellation:
+    run: python:latest python analysis/filter_by_sex.py F output/input.csv somefile.csv
+    needs: [generate_cohort]
+    outputs:
+      highly_sensitive:
+        somefile: somefile.csv
