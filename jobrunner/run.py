@@ -97,6 +97,7 @@ def handle_pending_job(job):
 
 def handle_running_job(job):
     if job.cancelled:
+        log.info("Cancellation requested, killing job")
         kill_job(job)
 
     if job_still_running(job):
@@ -155,6 +156,9 @@ def mark_job_as_completed(job):
     # database exactly as is with the exception of setting the completed at
     # timestamp
     assert job.state in [State.SUCCEEDED, State.FAILED]
+    if job.state == State.FAILED and job.cancelled:
+        job.status_message = "Cancelled by user"
+        job.status_code = StatusCode.CANCELLED_BY_USER
     job.completed_at = int(time.time())
     update(job)
     log.info(job.status_message, extra={"status_code": job.status_code})
