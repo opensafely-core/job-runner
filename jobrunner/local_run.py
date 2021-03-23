@@ -81,7 +81,7 @@ def add_arguments(parser):
     parser.add_argument(
         "--timestamps",
         help="Include timestamps in output",
-        action=store_true,
+        action="store_true",
     )
     parser.add_argument(
         "--debug",
