@@ -9,7 +9,7 @@ __pycache__
 .python-version
 app.log
 .env
-.venv
+venv
 .coverage
 *.egg-info/
 pip-wheel-metadata/*
