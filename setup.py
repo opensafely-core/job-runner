@@ -16,4 +16,12 @@ setup(
     python_requires=">=3.7",
     install_requires=["ruamel.yaml", "requests"],
     classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],
+    entry_points=dict(
+        console_scripts=[
+            "local_run=jobrunner.local_run:run",
+            "add_job=jobrunner.add_job:run",
+            "kill_job=jobrunner.kill_job:run",
+            "retry_job=jobrunner.retry_job:run",
+        ],
+    )
 )

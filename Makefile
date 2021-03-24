@@ -16,7 +16,7 @@ test-verbose: venv/ready
 	$(PYTHON) -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
 
 run: venv/ready
-	$(PYTHON) -m jobrunner.add_job $(REPO) $(ACTION)
+	venv/bin/add_job $(REPO) $(ACTION)
 
 lib:
 	git clone git@github.com:opensafely/job-runner-dependencies.git lib

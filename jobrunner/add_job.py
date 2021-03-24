@@ -66,7 +66,7 @@ def random_id():
     return base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
 
-if __name__ == "__main__":
+def run():
     configure_logging()
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument("repo_url", help="URL (or local path) of git repository")
@@ -93,3 +93,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(**vars(args))
+
+
+if __name__ == "__main__":
+    run()

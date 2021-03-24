@@ -50,7 +50,7 @@ def get_jobs(partial_job_ids):
     return jobs
 
 
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument(
         "--cleanup",
@@ -62,3 +62,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     main(**vars(args))
+
+
+if __name__ == "__main__":
+    run()

@@ -492,9 +492,13 @@ def docker_preflight_check():
     return True
 
 
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser = add_arguments(parser)
     args = parser.parse_args()
     success = main(**vars(args))
     sys.exit(0 if success else 1)
+
+
+if __name__ == "__main__":
+    run()
