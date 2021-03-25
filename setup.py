@@ -23,5 +23,5 @@ setup(
             "kill_job=jobrunner.kill_job:run",
             "retry_job=jobrunner.retry_job:run",
         ],
-    )
+    ),
 )
