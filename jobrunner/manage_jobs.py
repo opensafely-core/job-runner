@@ -271,12 +271,14 @@ def finalise_job(job):
         log.info(f"Extracting output file: {filename}")
         docker.copy_from_volume(volume, filename, workspace_dir / filename)
 
-    # Delete outputs from previous run of action
+    # Delete outputs from previous run of action. It would be simpler to delete
+    # all existing outputs and then copy over the new ones, but this way we
+    # don't delete anything until after we've copied the new outputs which is
+    # safer in case anything goes wrong.
     existing_files = list_outputs_from_action(
         job.workspace, job.action, ignore_errors=True
     )
-    files_to_remove = set(existing_files) - set(job.outputs)
-    delete_files(workspace_dir, files_to_remove)
+    delete_files(workspace_dir, existing_files, files_to_keep=job.outputs.keys())
 
     # Update manifest
     manifest = read_manifest_file(workspace_dir)
@@ -289,10 +291,12 @@ def finalise_job(job):
             workspace_dir / METADATA_DIR / f"{job.action}.log",
             medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
         )
+        new_files = []
         for filename, privacy_level in job.outputs.items():
             if privacy_level == "moderately_sensitive":
                 copy_file(workspace_dir / filename, medium_privacy_dir / filename)
-        delete_files(medium_privacy_dir, files_to_remove)
+                new_files.append(filename)
+        delete_files(medium_privacy_dir, existing_files, files_to_keep=new_files)
         write_manifest_file(medium_privacy_dir, manifest)
 
     # Don't update the primary manifest until after we've deleted old files
@@ -457,14 +461,26 @@ def copy_file(source, dest):
     shutil.copy(source, dest)
 
 
-def delete_files(directory, filenames):
+def delete_files(directory, filenames, files_to_keep=()):
     ensure_overwritable(*[directory.joinpath(f) for f in filenames])
-    for filename in filenames:
+    # We implement the "files to keep" logic using inodes rather than names so
+    # we can safely handle case-insenstiive filesystems
+    inodes_to_keep = set()
+    for filename in files_to_keep:
         try:
-            directory.joinpath(filename).unlink()
-        # On py3.8 we can use the `missing_ok=True` argument to unlink()
+            stat = directory.joinpath(filename).stat()
+            inodes_to_keep.add((stat.st_dev, stat.st_ino))
         except FileNotFoundError:
             pass
+    for filename in filenames:
+        path = directory / filename
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            continue
+        inode = (stat.st_dev, stat.st_ino)
+        if inode not in inodes_to_keep:
+            path.unlink()
 
 
 def action_has_successful_outputs(workspace, action):

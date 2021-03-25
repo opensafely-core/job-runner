@@ -77,21 +77,19 @@ def test_get_stata_license_repo_error(systmpdir):
 def test_add_arguments():
     parser = argparse.ArgumentParser(description="test")
     parser = local_run.add_arguments(parser)
-    args = parser.parse_args([
-        "action",
-        "--force-run-dependencies",
-        "--project-dir=dir",
-        "--continue-on-error",
-        "--timestamps",
-        "--debug"
-    ])
+    args = parser.parse_args(
+        [
+            "action",
+            "--force-run-dependencies",
+            "--project-dir=dir",
+            "--continue-on-error",
+            "--timestamps",
+            "--debug",
+        ]
+    )
 
     assert args.actions == ["action"]
-    assert args.force_run_dependencies 
+    assert args.force_run_dependencies
     assert args.project_dir == "dir"
     assert args.timestamps
     assert args.debug
-
-
-
-
