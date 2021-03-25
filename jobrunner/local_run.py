@@ -481,8 +481,8 @@ def docker_preflight_check():
     try:
         subprocess_run(["docker", "info"], check=True, capture_output=True)
     except FileNotFoundError:
-        print("Could not find command: docker")
-        print("\nTo use the `run` command you must have Docker installed, see:")
+        print("Could not find application: docker")
+        print("\nYou must have Docker installed to run this command, see:")
         print("https://docs.docker.com/get-docker/")
         return False
     except subprocess.CalledProcessError:
