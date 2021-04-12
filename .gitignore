@@ -18,3 +18,4 @@ pip-wheel-metadata/*
 /tests/fixtures/*/output/*
 /tests/fixtures/*/metadata
 service*.log
+tags
