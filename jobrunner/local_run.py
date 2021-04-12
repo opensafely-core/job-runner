@@ -61,7 +61,7 @@ def add_arguments(parser):
     parser.add_argument(
         "-f",
         "--force-run-dependencies",
-        help="Re-run from scratch without using existing outputs",
+        help="Force the dependencies of the action to run, whether or not their outputs exist",
         action="store_true",
     )
     parser.add_argument(
