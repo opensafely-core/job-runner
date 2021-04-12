@@ -7,13 +7,13 @@ venv/ready: requirements.dev.txt requirements.txt
 	touch $@
 
 test: venv/ready
-	$(PYTHON) -m pytest
+	venv/bin/python -m pytest
 
 test-fast: venv/ready
-	$(PYTHON) -m pytest -m "not slow_test"
+	venv/bin/python -m pytest -m "not slow_test"
 
 test-verbose: venv/ready
-	$(PYTHON) -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
+	venv/bin/python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
 
 run: venv/ready
 	venv/bin/add_job $(REPO) $(ACTION)
