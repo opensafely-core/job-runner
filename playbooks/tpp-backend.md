@@ -141,3 +141,23 @@ for debugging then omit this flag.
 
 The command is idempotent so you can always run it again later with the
 `--cleanup` flag.
+
+
+### Clearing up diskspace
+
+To view current disk usage:
+
+
+    docker system df -v
+
+Generally, only running containers are doing anything useful. Stopped
+containers are usually safe to delete.  To clean up stopped containers:
+
+    docker containers prune
+
+Typically, it will be orphaned volumes that will be taking up space. To delete
+orphaned volumes that have no associated container:
+
+    docker volume prune
+
+
