@@ -22,6 +22,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     monkeypatch.setattr(
         "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
+    monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
 
     ensure_docker_images_present("cohortextractor", "python")
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")

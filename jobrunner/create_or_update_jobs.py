@@ -8,6 +8,7 @@ and doing the necessary dependency resolution.
 import logging
 from pathlib import Path
 import re
+from urllib.parse import urlparse
 import time
 
 from . import config
@@ -22,6 +23,7 @@ from .database import (
 from .git import (
     read_file_from_repo,
     get_sha_from_remote_ref,
+    commit_reachable_from_ref,
     GitError,
     GitFileNotFoundError,
 )
@@ -203,10 +205,8 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
 
 
 def validate_job_request(job_request):
-    # TODO: Think about whether to validate the repo_url here. The job-server
-    # should enforce that it's a repo from an allowed source, but we may want
-    # to double check that here.  This should be a configurable check though,
-    # so we can run against local repos in test/development.
+    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
+        validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
     if not job_request.workspace:
         raise JobRequestError("Workspace name cannot be blank")
     # In local run mode the workspace name is whatever the user's working
@@ -233,6 +233,61 @@ def validate_job_request(job_request):
             f"Database name '{database_name}' is not currently defined "
             f"for backend '{config.BACKEND}'"
         )
+    # If we're not restricting to specific Github organisations then there's no
+    # point in checking the provenance of the supplied commit
+    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
+        # As this involves talking to the remote git server we only do it at
+        # the end once all other checks have passed
+        validate_branch_and_commit(
+            job_request.repo_url, job_request.commit, job_request.branch
+        )
+
+
+def validate_repo_url(repo_url, allowed_gitub_orgs):
+    parsed_url = urlparse(repo_url)
+    if parsed_url.scheme != "https" or parsed_url.netloc != "github.com":
+        raise JobRequestError("Repository URLs must start https://github.com")
+    path = parsed_url.path.strip("/").split("/")
+    if not path or path[0] not in allowed_gitub_orgs:
+        raise JobRequestError(
+            f"Repositories must belong to one of the following Github "
+            f"organisations: {' '.join(allowed_gitub_orgs)}"
+        )
+    expected_url = f"https://github.com/{'/'.join(path[:2])}"
+    if repo_url.rstrip("/") != expected_url or len(path) != 2:
+        raise JobRequestError(
+            "Repository URL was not of the expected format: "
+            "https://github.com/[organisation]/[project-name]"
+        )
+
+
+def validate_branch_and_commit(repo_url, commit, branch):
+    """
+    Due to the way Github works, anyone who can open a pull request against a
+    repository can make a commit appear to be "in" that repository, even if
+    they do not have write access to it.
+
+    For example, someone created this PR against the Linux kernel:
+    https://github.com/torvalds/linux/pull/437
+
+    And even though this will never be merged, it still appears as a commit in
+    that repo:
+    https://github.com/torvalds/linux/commit/2793ae1df012c7c3f13ea5c0f0adb99017999c3b
+
+    If we are enforcing that only code from certain organisations can be run
+    then we need to check that any commits supplied have been made by someone
+    with write access to the repository, which means we need to check they
+    belong to a branch or tag in the repository.
+    """
+    if not branch:
+        raise JobRequestError("A branch name must be supplied")
+    # A further wrinkle is that each PR gets an associated ref within the repo
+    # of the form `pull/PR_NUMBER/head`. So we enforce that the branch name
+    # must be a "plain vanilla" branch name with no slashes.
+    if "/" in branch:
+        raise JobRequestError(f"Branch name must not contain slashes: {branch}")
+    if not commit_reachable_from_ref(repo_url, commit, branch):
+        raise JobRequestError(f"Could not find commit on branch '{branch}': {commit}")
 
 
 def create_failed_job(job_request, exception):

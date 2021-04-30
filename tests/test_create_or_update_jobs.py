@@ -1,12 +1,19 @@
 from pathlib import Path
 import uuid
 
+import pytest
+
 from jobrunner.database import find_where
 from jobrunner.models import JobRequest, Job, State
 from jobrunner.create_or_update_jobs import (
     create_or_update_jobs,
     create_jobs_with_project_file,
 )
+
+
+@pytest.fixture(autouse=True)
+def disable_github_org_checking(monkeypatch):
+    monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
 
 
 # Basic smoketest to test the full execution path
