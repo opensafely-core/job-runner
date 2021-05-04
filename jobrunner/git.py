@@ -71,6 +71,32 @@ def checkout_commit(repo_url, commit_sha, target_dir):
     )
 
 
+def commit_reachable_from_ref(repo_url, commit_sha, ref):
+    """
+    Given a `ref` (branch name, tag, etc) on a remote repo, check whether the
+    supplied commit is reachable from that ref.
+    """
+    ref_sha = get_sha_from_remote_ref(repo_url, ref)
+    # The easy case and the case I expect to be hit almost every time as the UI
+    # currently only supports running against the branch head
+    if commit_sha == ref_sha:
+        return True
+    # However a well (or badly) timed push could cause the target sha and the
+    # branch head to diverge, so we need to handle that. In order to do so we
+    # need to fetch the history of the branch. We first fetch just the last 10
+    # commits on the assumption that it's probably one of those. If that fails
+    # we fetch the entire branch history.
+    repo_dir = get_local_repo_dir(repo_url)
+    ensure_git_init(repo_dir)
+    fetch_commit(repo_dir, repo_url, ref_sha, depth=10)
+    if commit_is_ancestor(repo_dir, commit_sha, ref_sha):
+        return True
+    # The below is a git magic number meaning "infinite depth". See:
+    # https://git-scm.com/docs/shallow
+    fetch_commit(repo_dir, repo_url, ref_sha, depth=2147483647)
+    return commit_is_ancestor(repo_dir, commit_sha, ref_sha)
+
+
 def get_sha_from_remote_ref(repo_url, ref):
     """
     Given a `ref` (branch name, tag, etc) on a remote repo, turn it into a
@@ -133,15 +159,17 @@ def get_local_repo_dir(repo_url):
 
 
 def ensure_commit_fetched(repo_dir, repo_url, commit_sha):
+    ensure_git_init(repo_dir)
+    # It's safe to keep re-fetching the same commit, but it requires
+    # talking to the remote repo every time so it's better to avoid it if
+    # we can
+    if not commit_already_fetched(repo_dir, commit_sha):
+        fetch_commit(repo_dir, repo_url, commit_sha)
+
+
+def ensure_git_init(repo_dir):
     if not os.path.exists(repo_dir / "config"):
         subprocess_run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
-        fetched = False
-    # It's safe to keep re-fetching the same commit, but it requires talking to
-    # the remote repo every time so it's better to avoid it if we can
-    else:
-        fetched = commit_already_fetched(repo_dir, commit_sha)
-    if not fetched:
-        fetch_commit(repo_dir, repo_url, commit_sha)
 
 
 def commit_already_fetched(repo_dir, commit_sha):
@@ -153,7 +181,7 @@ def commit_already_fetched(repo_dir, commit_sha):
     return response.returncode == 0
 
 
-def fetch_commit(repo_dir, repo_url, commit_sha):
+def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
     # The unfortunate retry complexity here is due to mysterious errors we
     # sometimes get when fetching commits in the live environment:
     #
@@ -172,9 +200,9 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
                 [
                     "git",
                     "fetch",
-                    "--depth",
-                    "1",
                     "--force",
+                    "--depth",
+                    str(depth),
                     add_access_token(repo_url),
                     commit_sha,
                 ],
@@ -202,6 +230,15 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
                     sleep *= 2
             else:
                 raise GitError(f"Error fetching commit {commit_sha} from {repo_url}")
+
+
+def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
+    response = subprocess_run(
+        ["git", "merge-base", "--is-ancestor", ancestor_sha, descendant_sha],
+        cwd=repo_dir,
+        capture_output=True,
+    )
+    return response.returncode == 0
 
 
 def add_access_token(repo_url):
