@@ -18,7 +18,7 @@ FEATURE_FLAGS_BY_VERSION = {"UNIQUE_OUTPUT_PATH": 2, "EXPECTATIONS_POPULATION": 
 
 # Build a config dict in the same format the old code expects
 RUN_COMMANDS_CONFIG = {
-    image: {"docker_invocation": [f"{config.DOCKER_REGISTRY}/{image}"]}
+    image: {"docker_invocation": [f"{config.DOCKER_REGISTRY}{image}"]}
     for image in config.ALLOWED_IMAGES
 }
 

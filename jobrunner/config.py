@@ -41,13 +41,16 @@ PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
 JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 
+DEBUG = os.environ.get("DEBUG", "0")
+
 BACKEND = os.environ.get("BACKEND", "expectations")
 
 USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
 ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter", "python"}
 
-DOCKER_REGISTRY = "ghcr.io/opensafely-core"
+# DOCKER_REGISTRY = "ghcr.io/opensafely-core"
+DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "")
 
 DATABASE_URLS = {
     "full": os.environ.get("FULL_DATABASE_URL"),

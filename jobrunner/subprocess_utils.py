@@ -16,6 +16,8 @@ def subprocess_run(cmd_args, **kwargs):
         kwargs["cwd"] = to_str(kwargs["cwd"])
     if "env" in kwargs:
         kwargs["env"] = {key: to_str(value) for (key, value) in kwargs["env"].items()}
+    print(" ".join(cmd_args))
+    print(kwargs)
     return subprocess.run(cmd_args, **kwargs)
 
 

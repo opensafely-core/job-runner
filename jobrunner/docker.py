@@ -12,7 +12,7 @@ from .subprocess_utils import subprocess_run
 
 # Docker requires a container in order to interact with volumes, but it doesn't
 # much matter what it is for our purposes as long as it has `sh` and `find`
-MANAGEMENT_CONTAINER_IMAGE = f"{config.DOCKER_REGISTRY}/busybox"
+MANAGEMENT_CONTAINER_IMAGE = f"{config.DOCKER_REGISTRY}busybox"
 
 # This path is pretty arbitrary: it sets where we mount volumes inside their
 # management containers (which are used for copying files in and out), but this
@@ -279,7 +279,12 @@ def container_inspect(name, key="", none_if_not_exists=False):
 
 
 def run(name, args, volume=None, env=None, allow_network_access=False, label=None):
-    run_args = ["docker", "run", "--init", "--detach", "--label", LABEL, "--name", name]
+    # added debug mode to test docker run
+    if config.DEBUG == "1":
+        run_args = ["docker", "run", "--init", "--label", LABEL, "--name", name]
+    else:
+        run_args = ["docker", "run", "--init", "--detach", "--label", LABEL, "--name", name]
+        
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
@@ -294,7 +299,8 @@ def run(name, args, volume=None, env=None, allow_network_access=False, label=Non
     for key, value in env.items():
         run_args.extend(["--env", key])
     subprocess_run(
-        run_args + args, check=True, capture_output=True, env=dict(os.environ, **env)
+        # run_args + args, check=True, capture_output=True, env=dict(os.environ, **env)
+        run_args + args, check=True, env=dict(os.environ, **env)
     )
 
 

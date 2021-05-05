@@ -19,3 +19,4 @@ pip-wheel-metadata/*
 /tests/fixtures/*/metadata
 service*.log
 tags
+private-*
