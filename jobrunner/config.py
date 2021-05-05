@@ -100,7 +100,7 @@ ENABLE_PERMISSIONS_WORKAROUND = bool(os.environ.get("ENABLE_PERMISSIONS_WORKAROU
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
     "STATA_LICENSE_REPO",
-    "https://github.com/opensafely/server-instructions.git",
+    "https://github-proxy.opensafely.org/opensafely/server-instructions.git",
 )
 
 
