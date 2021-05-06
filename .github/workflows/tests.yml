@@ -51,6 +51,10 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: 3.8
+    # We need to set this to a valid version string in order to keep pip happy,
+    # but it doesn't really matter what version we use
+    - name: Set version
+      run: echo '1.0' > VERSION
     - name: Build package
       run: |
         pip install wheel
