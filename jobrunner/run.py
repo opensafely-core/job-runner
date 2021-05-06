@@ -90,6 +90,7 @@ def handle_pending_job(job):
                 cleanup_job(job)
             except Exception:
                 mark_job_as_failed(job, "Internal error when starting job")
+                cleanup_job(job)
                 raise
             else:
                 mark_job_as_running(job)
