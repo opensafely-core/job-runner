@@ -100,13 +100,17 @@ ENABLE_PERMISSIONS_WORKAROUND = bool(os.environ.get("ENABLE_PERMISSIONS_WORKAROU
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
     "STATA_LICENSE_REPO",
-    "https://github-proxy.opensafely.org/opensafely/server-instructions.git",
+    "https://github.com/opensafely/server-instructions.git",
 )
 
 
 ALLOWED_GITHUB_ORGS = (
     os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely").strip().split(",")
 )
+
+# we hardcode this for now, as from a security perspective, we do not want it
+# to be run time configurable.
+GIT_PROXY_URL = "https://github-proxy.opensafely.org/"
 
 
 def parse_job_resource_weights(config_file):

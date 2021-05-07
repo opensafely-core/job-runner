@@ -16,6 +16,7 @@ from .subprocess_utils import subprocess_run
 log = logging.getLogger(__name__)
 
 
+
 class GitError(Exception):
     pass
 
@@ -195,7 +196,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
     sleep = 4
     attempt = 1
     # we've already validated that the repo url starts with https://github.com
-    proxied_url = repo_url.replace('https://github.com/', 'https://github-proxy.opensafely.org/')
+    proxied_url = repo_url.replace('https://github.com/', config.GIT_PROXY_URL)
     authenticated_url = add_access_token(proxied_url)
     while True:
         try:
