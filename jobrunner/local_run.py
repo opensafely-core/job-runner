@@ -19,6 +19,7 @@ temporary database and log directory is created for each run and then thrown
 away afterwards.
 """
 import argparse
+from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
@@ -441,6 +442,7 @@ def temporary_stata_workaround(image):
 def get_stata_license(repo=config.STATA_LICENSE_REPO):
     """Load a stata license from local cache or remote repo."""
     cached = Path(f"{tempfile.gettempdir()}/opensafely-stata.lic")
+    license_timeout = timedelta(hours=2)
 
     def git_clone(repo_url, cwd):
         cmd = ["git", "clone", "--depth=1", repo_url, "repo"]
@@ -455,7 +457,15 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
         )
         return result.returncode == 0
 
-    if not cached.exists():
+    fetch = False
+    if cached.exists():
+        mtime = datetime.fromtimestamp(cached.stat().st_mtime)
+        if datetime.utcnow() - mtime > license_timeout:
+            fetch=True
+    else:
+        fetch = True
+
+    if fetch:
         try:
             tmp = tempfile.TemporaryDirectory(suffix="opensafely")
             success = git_clone(repo, tmp.name)

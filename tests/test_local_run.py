@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime, timedelta
 from pathlib import Path
 import os
 import shutil
@@ -45,7 +46,22 @@ def systmpdir(monkeypatch, tmp_path):
     monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
 
 
-def test_get_stata_license_cache_exists(systmpdir, monkeypatch, tmp_path):
+@pytest.fixture
+def license_repo(tmp_path):
+    # create a repo to clone the license from
+    repo = tmp_path / "test-repo"
+    repo.mkdir()
+    license = repo / "stata.lic"
+    license.write_text("repo-license")
+    git = ["git", "-c", "user.name=test", "-c", "user.email=test@example.com"]
+    repo_path = str(repo)
+    subprocess_run(git + ["init"], cwd=repo_path)
+    subprocess_run(git + ["add", "stata.lic"], cwd=repo_path)
+    subprocess_run(git + ["commit", "-m", "test"], cwd=repo_path)
+    return repo_path
+ 
+
+def test_get_stata_license_cache_recent(systmpdir, monkeypatch, tmp_path):
     def fail(*a, **kwargs):
         assert False, "should not have been called"
 
@@ -55,18 +71,18 @@ def test_get_stata_license_cache_exists(systmpdir, monkeypatch, tmp_path):
     assert local_run.get_stata_license() == "cached-license"
 
 
-def test_get_stata_license_repo_fetch(systmpdir, tmp_path):
-    # create a repo to clone the license from
-    repo = tmp_path / "test-repo"
-    repo.mkdir()
-    license = repo / "stata.lic"
-    license.write_text("repo-license")
-    git = ["git", "-c", "user.name=test", "-c", "user.email=test@example.com"]
-    cwd = str(repo)
-    subprocess_run(git + ["init"], cwd=cwd)
-    subprocess_run(git + ["add", "stata.lic"], cwd=cwd)
-    subprocess_run(git + ["commit", "-m", "test"], cwd=cwd)
-    assert local_run.get_stata_license(cwd) == "repo-license"
+def test_get_stata_license_cache_expired(systmpdir, tmp_path, license_repo):
+    cache = tmp_path / "opensafely-stata.lic"
+    cache.write_text("cached-license")
+    utime = (datetime.utcnow() - timedelta(hours=12)).timestamp()
+    os.utime(cache, (utime, utime))
+
+    assert local_run.get_stata_license(license_repo) == "repo-license"
+    assert (tmp_path / "opensafely-stata.lic").read_text() == "repo-license"
+
+
+def test_get_stata_license_repo_fetch(systmpdir, tmp_path, license_repo):
+    assert local_run.get_stata_license(license_repo) == "repo-license"
     assert (tmp_path / "opensafely-stata.lic").read_text() == "repo-license"
 
 
