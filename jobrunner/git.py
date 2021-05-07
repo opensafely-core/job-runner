@@ -16,6 +16,7 @@ from .subprocess_utils import subprocess_run
 log = logging.getLogger(__name__)
 
 
+
 class GitError(Exception):
     pass
 
@@ -194,6 +195,9 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
     max_retries = 5
     sleep = 4
     attempt = 1
+    # we've already validated that the repo url starts with https://github.com
+    proxied_url = repo_url.replace('github.com', config.GIT_PROXY_DOMAIN)
+    authenticated_url = add_access_token(proxied_url)
     while True:
         try:
             subprocess_run(
@@ -203,7 +207,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
                     "--force",
                     "--depth",
                     str(depth),
-                    add_access_token(repo_url),
+                    authenticated_url,
                     commit_sha,
                 ],
                 check=True,
@@ -214,7 +218,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
         except subprocess.SubprocessError as e:
             redact_token_from_exception(e)
             log.exception(
-                f"Error fetching commit {commit_sha} from {repo_url}"
+                f"Error fetching commit {commit_sha} from {proxied_url}"
                 f" (attempt {attempt}/{max_retries})"
             )
             if b"GnuTLS recv error" in e.stderr:
@@ -229,7 +233,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
                     time.sleep(sleep)
                     sleep *= 2
             else:
-                raise GitError(f"Error fetching commit {commit_sha} from {repo_url}")
+                raise GitError(f"Error fetching commit {commit_sha} from {proxied_url}")
 
 
 def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
@@ -250,7 +254,7 @@ def add_access_token(repo_url):
         return repo_url
     # Ensure we only ever send our token to github.com over https
     parsed = urlparse(repo_url)
-    if parsed.hostname != "github.com" or parsed.scheme != "https":
+    if parsed.hostname != config.GIT_PROXY_DOMAIN or parsed.scheme != "https":
         return repo_url
     # Don't overwrite existing auth details (not sure why they'd be there but
     # seems polite)

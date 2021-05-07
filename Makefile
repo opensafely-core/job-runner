@@ -7,13 +7,13 @@ venv/ready: requirements.dev.txt requirements.txt
 	touch $@
 
 test: venv/ready
-	$(PYTHON) -m pytest
+	venv/bin/python -m pytest tests
 
 test-fast: venv/ready
-	$(PYTHON) -m pytest -m "not slow_test"
+	venv/bin/python -m pytest tests -m "not slow_test"
 
 test-verbose: venv/ready
-	$(PYTHON) -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
+	venv/bin/python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
 
 run: venv/ready
 	venv/bin/add_job $(REPO) $(ACTION)
@@ -37,6 +37,6 @@ update-wheels: venv/ready requirements.txt requirements.tools.txt | lib
 # test the license shenanigins work when run from a console
 test-stata: venv/ready
 	rm -f tests/fixtures/stata_project/output/env.txt
-	$(PYTHON) -c 'from jobrunner.local_run import main; main("tests/fixtures/stata_project", ["stata"])'
+	venv/bin/python -c 'from jobrunner.local_run import main; main("tests/fixtures/stata_project", ["stata"])'
 	cat tests/fixtures/stata_project/output/env.txt
 	echo
