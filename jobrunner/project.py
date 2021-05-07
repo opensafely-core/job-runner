@@ -1,5 +1,5 @@
 import dataclasses
-from pathlib import PureWindowsPath, PurePosixPath
+from pathlib import PureWindowsPath, PurePosixPath, Path
 import posixpath
 import shlex
 from types import SimpleNamespace
@@ -99,6 +99,7 @@ def validate_project_and_set_defaults(project):
     feat = get_feature_flags_for_version(project.get("version"))
     seen_runs = []
     seen_output_files = []
+    moderate_outputs = set()
     if feat.EXPECTATIONS_POPULATION:
         if "expectations" not in project:
             raise ProjectValidationError("Project must include `expectations` section")
@@ -151,6 +152,10 @@ def validate_project_and_set_defaults(project):
                         f"Output path {filename} is not unique"
                     )
                 seen_output_files.append(filename)
+
+            if privacy_level == "moderately_sensitive":
+                moderate_outputs.add(filename)
+
         # Check it's a permitted run command
 
         command, *args = shlex.split(action_config["run"])
@@ -181,6 +186,10 @@ def validate_project_and_set_defaults(project):
                     f"Action '{action_id}' lists unknown action '{dependency}'"
                     f" in its `needs` config"
                 )
+
+    if "outputs_for_publishing" in project:
+        for name, info in project["outputs_for_publishing"].items():
+            assert_valid_published_output(name, info, moderate_outputs)
 
     return project
 
@@ -352,4 +361,44 @@ def assert_valid_actions(project, actions):
         if action != RUN_ALL_COMMAND and action not in project["actions"]:
             raise UnknownActionError(
                 f"Action '{action}' not found in project.yaml", project
+            )
+
+
+VALID_OUTPUT_TYPES = {
+    "table": [".csv", "csv.gz"],
+    "image": [".png", ".svg", "svg.gz"],
+    "pdf": [".pdf"],
+    "notebook": [".html"],
+}
+
+
+def assert_valid_published_output(name, info, moderate_outputs):
+    try:
+        output_type = info["type"]
+        output_files = info["files"]
+        info["description"]
+    except KeyError as exc:
+        raise ProjectValidationError(
+            f"outputs_for_publication {name}: missing field '{exc.args[0]}'."
+        )
+
+    if output_type not in VALID_OUTPUT_TYPES:
+        raise ProjectValidationError(
+            f"outputs_for_publication {name}: invalid type of '{output_type}'. "
+            "Only output types {VALID_OUTPUT_TYPES} are supported."
+        )
+
+    for filepath in output_files:
+        assert_valid_glob_pattern(filepath)
+
+        if filepath not in moderate_outputs:
+            raise ProjectValidationError(
+                f"outputs_for_publication {name}: file '{filepath}' does not match a moderately_sensitive action output."
+            )
+
+        extension = Path(filepath).suffix
+        # ensure there is an extention and it is valid
+        if extension not in VALID_OUTPUT_TYPES[output_type]:
+            raise ProjectValidationError(
+                f"outputs_for_publication {name}: file '{filepath}' has invalid extension for output type '{output_type}'",
             )
