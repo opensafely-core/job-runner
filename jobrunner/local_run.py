@@ -477,14 +477,21 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
                 )
             shutil.copyfile(f"{tmp.name}/repo/stata.lic", cached)
         except Exception:
-            return None
+            pass
         finally:
             # py3.7 on windows can't clean up TemporaryDirectory with git's read only
             # files in them, so just don't bother.
             if platform.system() != "Windows" or sys.version_info[:2] > (3, 7):
                 tmp.cleanup()
 
-    return cached.read_text()
+    if cached.exists():
+        # if the refresh failed for some reason, update the last time it was
+        # used to now to avoid spamming github on every subsequent run
+        t = datetime.utcnow().timestamp()
+        os.utime(cached, (t, t))
+        return cached.read_text()
+    else:
+        return None
 
 
 def docker_preflight_check():
