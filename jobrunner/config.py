@@ -110,7 +110,7 @@ ALLOWED_GITHUB_ORGS = (
 
 # we hardcode this for now, as from a security perspective, we do not want it
 # to be run time configurable.
-GIT_PROXY_URL = "https://github-proxy.opensafely.org/"
+GIT_PROXY_DOMAIN = "github-proxy.opensafely.org"
 
 
 def parse_job_resource_weights(config_file):

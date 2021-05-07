@@ -196,7 +196,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
     sleep = 4
     attempt = 1
     # we've already validated that the repo url starts with https://github.com
-    proxied_url = repo_url.replace('https://github.com/', config.GIT_PROXY_URL)
+    proxied_url = repo_url.replace('github.com', config.GIT_PROXY_DOMAIN)
     authenticated_url = add_access_token(proxied_url)
     while True:
         try:
@@ -254,7 +254,7 @@ def add_access_token(repo_url):
         return repo_url
     # Ensure we only ever send our token to github.com over https
     parsed = urlparse(repo_url)
-    if parsed.hostname != "github-proxy.opensafely.org" or parsed.scheme != "https":
+    if parsed.hostname != config.GIT_PROXY_DOMAIN or parsed.scheme != "https":
         return repo_url
     # Don't overwrite existing auth details (not sure why they'd be there but
     # seems polite)
