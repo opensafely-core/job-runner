@@ -461,7 +461,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
     if cached.exists():
         mtime = datetime.fromtimestamp(cached.stat().st_mtime)
         if datetime.utcnow() - mtime > license_timeout:
-            fetch=True
+            fetch = True
     else:
         fetch = True
 

@@ -59,7 +59,7 @@ def license_repo(tmp_path):
     subprocess_run(git + ["add", "stata.lic"], cwd=repo_path)
     subprocess_run(git + ["commit", "-m", "test"], cwd=repo_path)
     return repo_path
- 
+
 
 def test_get_stata_license_cache_recent(systmpdir, monkeypatch, tmp_path):
     def fail(*a, **kwargs):

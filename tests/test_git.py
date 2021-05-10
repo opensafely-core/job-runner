@@ -8,6 +8,9 @@ from jobrunner.git import (
     checkout_commit,
     get_sha_from_remote_ref,
     commit_reachable_from_ref,
+    ensure_git_init,
+    fetch_commit,
+    commit_already_fetched,
 )
 
 
@@ -101,3 +104,12 @@ def test_checkout_commit_local(tmp_work_dir, tmp_path):
 def test_get_sha_from_remote_ref_local(tmp_work_dir):
     sha = get_sha_from_remote_ref(REPO_FIXTURE, "v1")
     assert sha == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+
+
+def test_commit_already_fetched(tmp_path):
+    commit_sha = "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+    repo_dir = tmp_path / "repo"
+    ensure_git_init(repo_dir)
+    assert not commit_already_fetched(repo_dir, commit_sha)
+    fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
+    assert commit_already_fetched(repo_dir, commit_sha)
