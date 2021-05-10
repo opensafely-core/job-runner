@@ -16,6 +16,9 @@ from .subprocess_utils import subprocess_run
 log = logging.getLogger(__name__)
 
 
+# See `commit_already_fetched`
+SENTINEL_TAG_PREFIX = "fetched/"
+
 
 class GitError(Exception):
     pass
@@ -174,12 +177,54 @@ def ensure_git_init(repo_dir):
 
 
 def commit_already_fetched(repo_dir, commit_sha):
+    """
+    Return whether a given commit exists in a repo directory
+
+    We used to do this with:
+
+        git cat-file -e 'COMMIT_SHA^{commit}'
+
+    However it's possible that an interrupted fetch leaves the commit object in
+    place without all of its associated blobs, meaning that the above check
+    passes but attempting to check out the commit will fail. To work around
+    this we create a special "sentinel" tag for each commit to indicate that
+    the entire fetch process has completed successfully.
+    """
     response = subprocess_run(
-        ["git", "cat-file", "-e", f"{commit_sha}^{{commit}}"],
+        [
+            "git",
+            "tag",
+            "--list",
+            SENTINEL_TAG_PREFIX + commit_sha,
+            "--points-at",
+            commit_sha,
+            "--format",
+            "exists",
+        ],
+        check=True,
         capture_output=True,
         cwd=repo_dir,
     )
-    return response.returncode == 0
+    return response.stdout.strip() == b"exists"
+
+
+def mark_commmit_as_fetched(repo_dir, commit_sha):
+    """
+    Create a special "sentinel" tag to indicate that the supplied commit has
+    been fully fetched (see `commit_already_fetched` above)
+    """
+    subprocess_run(
+        [
+            "git",
+            "tag",
+            "--force",
+            SENTINEL_TAG_PREFIX + commit_sha,
+            commit_sha,
+        ],
+        check=True,
+        capture_output=True,
+        cwd=repo_dir,
+    )
 
 
 def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
@@ -214,6 +259,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
                 capture_output=True,
                 cwd=repo_dir,
             )
+            mark_commmit_as_fetched(repo_dir, commit_sha)
             break
         except subprocess.SubprocessError as e:
             redact_token_from_exception(e)
