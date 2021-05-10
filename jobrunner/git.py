@@ -267,7 +267,10 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
                 f"Error fetching commit {commit_sha} from {proxied_url}"
                 f" (attempt {attempt}/{max_retries})"
             )
-            if b"GnuTLS recv error" in e.stderr:
+            if (
+                b"GnuTLS recv error" in e.stderr
+                or b"SSL_read: Connection was reset" in e.stderr
+            ):
                 attempt += 1
                 if attempt > max_retries:
                     raise GitError(
