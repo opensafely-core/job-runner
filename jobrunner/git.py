@@ -117,7 +117,7 @@ def get_sha_from_remote_ref(repo_url, ref):
                 "ls-remote",
                 "--quiet",
                 "--exit-code",
-                add_access_token(repo_url),
+                add_access_token_and_proxy(repo_url),
                 ref,
             ],
             check=True,
@@ -240,9 +240,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
     max_retries = 5
     sleep = 4
     attempt = 1
-    # we've already validated that the repo url starts with https://github.com
-    proxied_url = repo_url.replace("github.com", config.GIT_PROXY_DOMAIN)
-    authenticated_url = add_access_token(proxied_url)
+    authenticated_url = add_access_token_and_proxy(repo_url)
     while True:
         try:
             subprocess_run(
@@ -264,7 +262,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
         except subprocess.SubprocessError as e:
             redact_token_from_exception(e)
             log.exception(
-                f"Error fetching commit {commit_sha} from {proxied_url}"
+                f"Error fetching commit {commit_sha} from {repo_url}"
                 f" (attempt {attempt}/{max_retries})"
             )
             if (
@@ -282,7 +280,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
                     time.sleep(sleep)
                     sleep *= 2
             else:
-                raise GitError(f"Error fetching commit {commit_sha} from {proxied_url}")
+                raise GitError(f"Error fetching commit {commit_sha} from {repo_url}")
 
 
 def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
@@ -294,7 +292,9 @@ def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
     return response.returncode == 0
 
 
-def add_access_token(repo_url):
+def add_access_token_and_proxy(repo_url):
+    # We've already validated that the repo url starts with https://github.com
+    repo_url = repo_url.replace("github.com", config.GIT_PROXY_DOMAIN)
     # We previously did a complicated thing involving the GIT_ASKPASS
     # executable which worked OK on Linux but not on Windows or macOS, so we're
     # doing the more reliable thing of just sticking the token in the URL
