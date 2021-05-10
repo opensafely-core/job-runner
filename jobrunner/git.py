@@ -196,7 +196,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
     sleep = 4
     attempt = 1
     # we've already validated that the repo url starts with https://github.com
-    proxied_url = repo_url.replace('github.com', config.GIT_PROXY_DOMAIN)
+    proxied_url = repo_url.replace("github.com", config.GIT_PROXY_DOMAIN)
     authenticated_url = add_access_token(proxied_url)
     while True:
         try:
