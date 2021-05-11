@@ -128,7 +128,7 @@ def get_sha_from_remote_ref(repo_url, ref):
         output = response.stdout
     except subprocess.SubprocessError as exc:
         redact_token_from_exception(exc)
-        log.exception(f"Error resolving {ref} from {repo_url}")
+        log.exception("Error resolving remote git ref")
         output = ""
     results = _parse_ls_remote_output(output)
     if len(results) == 1:
@@ -261,10 +261,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
             break
         except subprocess.SubprocessError as e:
             redact_token_from_exception(e)
-            log.exception(
-                f"Error fetching commit {commit_sha} from {repo_url}"
-                f" (attempt {attempt}/{max_retries})"
-            )
+            log.exception(f"Error fetching commit (attempt {attempt}/{max_retries})")
             if (
                 b"GnuTLS recv error" in e.stderr
                 or b"SSL_read: Connection was reset" in e.stderr
