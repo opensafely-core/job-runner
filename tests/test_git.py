@@ -46,22 +46,6 @@ def test_get_sha_from_remote_ref(tmp_work_dir):
     assert sha == "d78522cce38e6f431353e9e96de62d49b7ee86ea"
 
 
-# This test makes a request to an actual private GitHub repo and so will only
-# work if there's an appropriate access token in the environment
-@pytest.mark.skipif(
-    not os.environ.get("PRIVATE_REPO_ACCESS_TOKEN"),
-    reason="No access token in environment",
-)
-@pytest.mark.slow_test
-def test_read_file_from_private_repo(tmp_work_dir):
-    output = read_file_from_repo(
-        "https://github.com/opensafely/test-repository.git",
-        "d7fe87ab5d6dc97222c4a9dbf7c0fe40fc108c8f",
-        "README.md",
-    )
-    assert output == b"# test-repository\nTesting GH permssions model\n"
-
-
 @pytest.mark.slow_test
 def test_commit_reachable_from_ref(tmp_work_dir):
     is_reachable_good = commit_reachable_from_ref(
@@ -76,6 +60,36 @@ def test_commit_reachable_from_ref(tmp_work_dir):
         "1.6.0",
     )
     assert not is_reachable_bad
+
+
+# These tests makes request to an actual private GitHub repo and so will only
+# work if there's an appropriate access token in the environment
+
+
+@pytest.mark.skipif(
+    not os.environ.get("PRIVATE_REPO_ACCESS_TOKEN"),
+    reason="No access token in environment",
+)
+@pytest.mark.slow_test
+def test_read_file_from_private_repo(tmp_work_dir):
+    output = read_file_from_repo(
+        "https://github.com/opensafely/test-repository.git",
+        "d7fe87ab5d6dc97222c4a9dbf7c0fe40fc108c8f",
+        "README.md",
+    )
+    assert output == b"# test-repository\nTesting GH permssions model\n"
+
+
+@pytest.mark.skipif(
+    not os.environ.get("PRIVATE_REPO_ACCESS_TOKEN"),
+    reason="No access token in environment",
+)
+@pytest.mark.slow_test
+def test_get_sha_from_remote_ref_private(tmp_work_dir):
+    sha = get_sha_from_remote_ref(
+        "https://github.com/opensafely/test-repository", "v1.0"
+    )
+    assert sha == "981ac62ec5620df90556bc18784f06b6e7db7e4d"
 
 
 # The below tests use a local git repo fixture rather than accessing GitHub
