@@ -1,0 +1,41 @@
+version: "3.7"
+services:
+
+  jobrunner-run:
+    build: .
+    image: job-runner
+    init: true
+    restart: unless-stopped
+    env_file: .env.graphnet
+    volumes:
+      &jobrunner_volumes
+      - type: bind
+        source: ${MEDIUM_PRIVACY_HOST_DIR}
+        target: ${MEDIUM_PRIVACY_STORAGE_BASE}
+      - type: bind
+        source: ${HIGH_PRIVACY_HOST_DIR}
+        target: ${HIGH_PRIVACY_STORAGE_BASE}
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: volume
+        source: job_runner_work_dir
+        target: ${WORK_DIR}
+    command: python -m jobrunner.run
+    depends_on:
+      - jobrunner-sync
+
+  jobrunner-sync:
+    build: .
+    image: job-runner
+    init: true
+    restart: unless-stopped
+    # Re-use environment and volume config from above
+    env_file: .env.graphnet
+    volumes: *jobrunner_volumes
+    command: python -m jobrunner.sync
+
+volumes:
+  job_runner_work_dir:
+
+# docker-compose -f docker-compose.graphnet.yaml --env-file .env.graphnet up --build

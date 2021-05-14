@@ -282,6 +282,8 @@ def run(name, args, volume=None, env=None, allow_network_access=False, label=Non
     # added debug mode to test docker run
     if config.DEBUG == "1":
         run_args = ["docker", "run", "--init", "--label", LABEL, "--name", name]
+        if 'generate_cohort' in args and not "--expectations-population=1" in args:
+            args.append("--expectations-population=1")
     else:
         run_args = ["docker", "run", "--init", "--detach", "--label", LABEL, "--name", name]
         

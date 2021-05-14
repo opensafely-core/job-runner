@@ -51,6 +51,7 @@ ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter", "python"}
 
 # DOCKER_REGISTRY = "ghcr.io/opensafely-core"
 DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "")
+DOCKER_REGISTRY = DOCKER_REGISTRY + "/" if len(DOCKER_REGISTRY) > 0 and not DOCKER_REGISTRY.endswith("/") else DOCKER_REGISTRY
 
 DATABASE_URLS = {
     "full": os.environ.get("FULL_DATABASE_URL"),
