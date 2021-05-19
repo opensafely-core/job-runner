@@ -185,13 +185,15 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
         if required_job:
             wait_for_job_ids.append(required_job.id)
 
+    database_name = 'dummy' if config.USING_DUMMY_DATA_BACKEND else job_request.database_name
+
     job = Job(
         job_request_id=job_request.id,
         state=State.PENDING,
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
-        database_name=job_request.database_name,
+        database_name=database_name,
         action=action,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=action_spec.needs,
@@ -218,21 +220,22 @@ def validate_job_request(job_request):
             raise JobRequestError(
                 "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
             )
-    database_name = job_request.database_name
-    if config.USING_DUMMY_DATA_BACKEND:
-        valid_names = ["dummy"]
-    else:
+
+    if not config.USING_DUMMY_DATA_BACKEND:
+        database_name = job_request.database_name
         valid_names = config.DATABASE_URLS.keys()
-    if database_name not in valid_names:
-        raise JobRequestError(
-            f"Invalid database name '{database_name}', allowed are: "
-            + ", ".join(valid_names)
-        )
-    if not config.USING_DUMMY_DATA_BACKEND and not config.DATABASE_URLS[database_name]:
-        raise JobRequestError(
-            f"Database name '{database_name}' is not currently defined "
-            f"for backend '{config.BACKEND}'"
-        )
+
+        if database_name not in valid_names:
+            raise JobRequestError(
+                f"Invalid database name '{database_name}', allowed are: "
+                + ", ".join(valid_names)
+            )
+
+        if not config.DATABASE_URLS[database_name]:
+            raise JobRequestError(
+                f"Database name '{database_name}' is not currently defined "
+                f"for backend '{config.BACKEND}'"
+            )
     # If we're not restricting to specific Github organisations then there's no
     # point in checking the provenance of the supplied commit
     if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:

@@ -43,7 +43,10 @@ JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 
 BACKEND = os.environ.get("BACKEND", "expectations")
 
-USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
+if "USING_DUMMY_DATA_BACKEND" in os.environ:
+    USING_DUMMY_DATA_BACKEND = True
+else:
+    USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
 ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter", "python"}
 
