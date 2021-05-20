@@ -57,6 +57,16 @@ DESCRIPTION = __doc__.partition("\n\n")[0]
 LOCAL_RUN_FORMAT = "{action}{message}"
 
 
+# Super-crude support for colourised/formatted output inside Github Actions. It
+# would be good to support formatted output in the CLI more generally, but we
+# should use a decent library for that to handle the various cross-platform
+# issues.
+class ANSI:
+    Reset = "\u001b[0m"
+    Bold = "\u001b[1m"
+    Grey = "\u001b[38;5;248m"
+
+
 def add_arguments(parser):
     parser.add_argument("actions", nargs="*", help="Name of project action to run")
     parser.add_argument(
@@ -283,7 +293,7 @@ def create_and_run_jobs(
     # Wrap all the log output inside an expandable block when running inside
     # Github Actions
     if format_output_for_github:
-        print("::group::Job Runner Logs (click to view)")
+        print(f"::group::Job Runner Logs {ANSI.Grey}(click to view){ANSI.Reset}")
     # Run everything
     try:
         run_main(
@@ -319,7 +329,10 @@ def create_and_run_jobs(
             and job.status_code == StatusCode.DEPENDENCY_FAILED
         ):
             continue
-        print(f"=> {job.action}")
+        if format_output_for_github:
+            print(f"{ANSI.Bold}=> {job.action}{ANSI.Reset}")
+        else:
+            print(f"=> {job.action}")
         print(textwrap.indent(job.status_message, "   "))
         # Where a job failed because expected outputs weren't found we show a
         # list of other outputs which were generated
@@ -332,8 +345,13 @@ def create_and_run_jobs(
         # Output the entire log file inside an expandable block when running
         # inside Github Actions
         if format_output_for_github:
-            print(f"::group:: log file: {log_file} (click to view)")
+            print(
+                f"::group:: log file: {log_file} {ANSI.Grey}(click to view){ANSI.Reset}"
+            )
+            long_grey_line = ANSI.Grey + ("\u2015" * 80) + ANSI.Reset
+            print(long_grey_line)
             print((project_dir / log_file).read_text())
+            print(long_grey_line)
             print("::endgroup::")
         else:
             print(f"   log file: {log_file}")
