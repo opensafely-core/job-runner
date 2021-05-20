@@ -185,15 +185,13 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
         if required_job:
             wait_for_job_ids.append(required_job.id)
 
-    database_name = 'dummy' if config.USING_DUMMY_DATA_BACKEND else job_request.database_name
-
     job = Job(
         job_request_id=job_request.id,
         state=State.PENDING,
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
-        database_name=database_name,
+        database_name=job_request.database_name,
         action=action,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=action_spec.needs,

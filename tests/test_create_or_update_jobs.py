@@ -164,27 +164,6 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     assert generate_job.cancelled == False
 
 
-def test_using_dummy_db_forces_dummy_db(tmp_work_dir, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.USING_DUMMY_DATA_BACKEND", True)
-    repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
-    job_request = JobRequest(
-        id="123",
-        repo_url=repo_url,
-        commit=None,
-        branch="v1",
-        requested_actions=["generate_cohort"],
-        cancelled_actions=[],
-        workspace="1",
-        database_name="full",  # note db from from job-server is 'full'
-        original={},
-    )
-    create_or_update_jobs(job_request)
-    jobs = find_where(Job)
-    assert len(jobs) == 1
-    j = jobs[0]
-    assert j.database_name == "dummy"
-
-
 @pytest.mark.parametrize('params,exc_msg', [
     ({"workspace": None}, "Workspace name cannot be blank"),
     ({"workspace": "$%#"}, "Invalid workspace"),
