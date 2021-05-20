@@ -218,21 +218,22 @@ def validate_job_request(job_request):
             raise JobRequestError(
                 "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
             )
-    database_name = job_request.database_name
-    if config.USING_DUMMY_DATA_BACKEND:
-        valid_names = ["dummy"]
-    else:
+
+    if not config.USING_DUMMY_DATA_BACKEND:
+        database_name = job_request.database_name
         valid_names = config.DATABASE_URLS.keys()
-    if database_name not in valid_names:
-        raise JobRequestError(
-            f"Invalid database name '{database_name}', allowed are: "
-            + ", ".join(valid_names)
-        )
-    if not config.USING_DUMMY_DATA_BACKEND and not config.DATABASE_URLS[database_name]:
-        raise JobRequestError(
-            f"Database name '{database_name}' is not currently defined "
-            f"for backend '{config.BACKEND}'"
-        )
+
+        if database_name not in valid_names:
+            raise JobRequestError(
+                f"Invalid database name '{database_name}', allowed are: "
+                + ", ".join(valid_names)
+            )
+
+        if not config.DATABASE_URLS[database_name]:
+            raise JobRequestError(
+                f"Database name '{database_name}' is not currently defined "
+                f"for backend '{config.BACKEND}'"
+            )
     # If we're not restricting to specific Github organisations then there's no
     # point in checking the provenance of the supplied commit
     if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:

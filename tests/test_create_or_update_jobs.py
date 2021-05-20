@@ -6,8 +6,10 @@ import pytest
 from jobrunner.database import find_where
 from jobrunner.models import JobRequest, Job, State
 from jobrunner.create_or_update_jobs import (
+    JobRequestError,
     create_or_update_jobs,
     create_jobs_with_project_file,
+    validate_job_request,
 )
 
 
@@ -160,6 +162,32 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     assert prepare_1_job.cancelled == True
     assert prepare_2_job.cancelled == True
     assert generate_job.cancelled == False
+
+
+@pytest.mark.parametrize('params,exc_msg', [
+    ({"workspace": None}, "Workspace name cannot be blank"),
+    ({"workspace": "$%#"}, "Invalid workspace"),
+    ({"database_name": "invalid"}, "Invalid database name"),
+])
+def test_validate_job_request(params, exc_msg, monkeypatch):
+    monkeypatch.setattr("jobrunner.config.USING_DUMMY_DATA_BACKEND", False)
+    repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+    kwargs = dict(
+        id="123",
+        repo_url=repo_url,
+        commit=None,
+        branch="v1",
+        requested_actions=["generate_cohort"],
+        cancelled_actions=[],
+        workspace="1",
+        database_name="full",  # note db from from job-server is 'full'
+        original={},
+    )
+    kwargs.update(params)
+    job_request = JobRequest(**kwargs)
+
+    with pytest.raises(JobRequestError, match=exc_msg) as exc:
+        validate_job_request(job_request)
 
 
 def make_job_request(action="generate_cohort", **kwargs):

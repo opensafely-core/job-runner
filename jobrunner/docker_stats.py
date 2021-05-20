@@ -47,6 +47,6 @@ CONVERSIONS = {
 
 
 def _parse_size(size):
-    units = size.lstrip("0123456789.")
+    units = size.lstrip("0123456789.-")
     value = float(size[: -len(units)])
     return int(value * CONVERSIONS[units])

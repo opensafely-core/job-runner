@@ -7,7 +7,7 @@ from jobrunner.docker_stats import get_container_stats, get_volume_and_container
 
 
 @pytest.mark.needs_docker
-# This runs file locally but fails in CI, despite the retry logic added below.
+# This runs fine locally but fails in CI, despite the retry logic added below.
 # Don't have time to diagnose this properly and this isn't core functionality
 # in any case
 @pytest.mark.xfail
@@ -24,6 +24,7 @@ def test_get_container_stats(docker_cleanup):
 
 
 @pytest.mark.needs_docker
+@pytest.mark.slow_test
 def test_get_volume_and_container_sizes(tmp_path, docker_cleanup):
     half_meg_file = tmp_path / "halfmeg"
     half_meg_file.write_bytes(b"0" * 500000)
