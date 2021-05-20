@@ -98,5 +98,5 @@ jobs:
       run: |
         python -m jobrunner.local_run run_all \
           --project-dir=tests/fixtures/full_project \
-          --continue-on-error --timestamps \
+          --continue-on-error --timestamps --format-output-for-github \
           || true

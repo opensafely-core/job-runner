@@ -89,6 +89,14 @@ def add_arguments(parser):
         help="Leave docker containers and volumes in place for debugging",
         action="store_true",
     )
+    parser.add_argument(
+        "--format-output-for-github",
+        help=(
+            "Produce output in a format suitable for display inside a "
+            "Github Actions Workflow"
+        ),
+        action="store_true",
+    )
     return parser
 
 
@@ -99,6 +107,7 @@ def main(
     continue_on_error=False,
     debug=False,
     timestamps=False,
+    format_output_for_github=False,
 ):
     if not docker_preflight_check():
         return False
@@ -132,6 +141,7 @@ def main(
             docker_label=docker_label,
             clean_up_docker_objects=(not debug),
             log_format=log_format,
+            format_output_for_github=format_output_for_github,
         )
     except KeyboardInterrupt:
         print("\nKilled by user")
@@ -167,6 +177,7 @@ def create_and_run_jobs(
     docker_label,
     clean_up_docker_objects=True,
     log_format=LOCAL_RUN_FORMAT,
+    format_output_for_github=False,
 ):
     # Configure
     docker.LABEL = docker_label
@@ -269,6 +280,10 @@ def create_and_run_jobs(
         stream=sys.stdout,
     )
 
+    # Wrap all the log output inside an expandable block when running inside
+    # Github Actions
+    if format_output_for_github:
+        print("::group::Job Runner Logs (click to view)")
     # Run everything
     try:
         run_main(
@@ -278,6 +293,9 @@ def create_and_run_jobs(
         )
     except (JobError, KeyboardInterrupt):
         pass
+    finally:
+        if format_output_for_github:
+            print("::endgroup::")
 
     final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED])
     # Always show failed jobs last, otherwise show in order run
@@ -311,7 +329,14 @@ def create_and_run_jobs(
             )
             print("\n    - ".join(job.unmatched_outputs))
         print()
-        print(f"   log file: {log_file}")
+        # Output the entire log file inside an expandable block when running
+        # inside Github Actions
+        if format_output_for_github:
+            print(f"::group:: log file: {log_file} (click to view)")
+            print((project_dir / log_file).read_text())
+            print("::endgroup::")
+        else:
+            print(f"   log file: {log_file}")
         # Display matched outputs
         print("   outputs:")
         outputs = sorted(job.outputs.items()) if job.outputs else []
