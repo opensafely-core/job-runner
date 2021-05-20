@@ -5,7 +5,7 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
 jobs:
-  test_job:
+  test-job:
     runs-on: ubuntu-latest
     name: Run test suite
     steps:
@@ -23,7 +23,7 @@ jobs:
       run: python -m pytest
 
   # A bit of inelegant copy/paste here, just to see if this works
-  test_job_windows:
+  test-job-windows:
     runs-on: windows-2019
     name: "Run test suite on Windows"
     steps:
