@@ -1,6 +1,8 @@
 #!/bin/bash
 
-source .env.graphnet
+set -a
+source .env.local
+set +a
 
 # run separately:
 python -m jobrunner.sync
