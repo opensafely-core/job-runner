@@ -1,3 +1,5 @@
+# OpenSAFELY job runner
+
 A job runner is a service that encapsulates:
  * the task of checking out an OpenSAFELY study repo;
  * executing actions defined in its `project.yaml` configuration file when
