@@ -14,9 +14,7 @@ Quickrefs:
 # Overview
 
 This documentation is aimed at developers looking for an overview of how the
-system works.  It also has some parts relevant for end users, particularly the
-`project.yaml` documentation.
-
+system works.  End users will find more information in the [OpenSAFELY documentation](https://docs.opensafely.org).
 
 
 # Operating principles
@@ -81,7 +79,7 @@ this:
 ## Consuming jobs
 
 A job runner is service installed on a machine that has access to a given
-backend. It consumes jobs from the server whose `backend` value matches the
+backend. It receives jobs from the server and consumes those whose `backend` value matches the
 value of the current `BACKEND` environment variable.
 
 It must also define three environment variables which are an RFC1838 connection
@@ -108,7 +106,7 @@ When a job is found, the following happens:
     executed
   * On completion, a status code and message are reported back to the job
     server. On success, a list of output file locations are also posted. On
-    failure, the message has any potentially-sensitve information redacted, and
+    failure, the message has any potentially-sensitive information redacted, and is associated with
     a unique string so that a user with requisite permissions can log into the
     production environment and examine the docker logs for the full error.
 
@@ -116,7 +114,7 @@ When a job is found, the following happens:
 
 Every action defines a list of `outputs` which are persisted to a permanent
 storage location.  The project author must categorise these outputs as either
-`highly_sensitive` or `moderately_sensitive`.  Any pseudonomised data which may
+`highly_sensitive` or `moderately_sensitive`.  Any pseudonymised data which may
 be highly disclosive (e.g. without low number redaction) should be classed as
 `highly_sensitive`; data which the author believes could be released following
 review should be classed as `moderately_sensitive`. This design allows tiered
@@ -138,52 +136,39 @@ OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
 # stored
 OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE=/tmp/outputs/medium_security
 ```
-## Project.yaml description
+## Project.yaml
 
 A valid project file looks like this:
 
 ```yaml
-version: '1.0'
+version: "3.0"
+
+expectations:
+  population_size: 1000
 
 actions:
 
-  generate_cohort:
-    run: cohortextractor:0.5.2 --output-dir=/workspace
+  generate_study_population:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition
     outputs:
       highly_sensitive:
-        cohort: input.csv
+        cohort: output/input.csv
 
   run_model:
-    run: stata-mp:latest analysis/model.do ${{ needs.generate_cohorts.outputs.highly_sensitive.cohort }}
-    needs: [generate_cohorts]
+    run: stata-mp:latest analysis/model.do
+    needs: [generate_study_population]
     outputs:
       moderately_sensitive:
-        log: model.log
+        model: models/cox-model.txt
+		figure: figures/survival-plot.png
 ```
-
-`version` refers to the version of the project.yaml syntax used in the file (currently supported are 1.0, 2.0, 3.0).
-
-`actions` is a list of actions required to run the entire project end-to-end. Each action must have a run command, which is of the format `<command>:<version> <arguments>`. The currently-supported commands are `cohortextractor`, `r` and `stata-mp`.
-
-The <version> must correspond to a published docker tag. Available tags for cohortextractor are [here](https://github.com/opensafely/cohort-extractor/tags), and correspond to the versions of the cohortextractor tool that you see if you run `cohortextractor --version` from the command line. For the scripting images (`r`, `stata-mp`, you should always specify `latest` - for the time being.
-
-Each action has a list of `outputs` which are copied to an appropriately secure location available to subsequent steps (and to users logged into the secure environment with the relevant permissions). These are of the form <action_id>: <filename>. The run command must produce files in the current directory that correspond with these filenames.
-
-Each action can also refer to other actions with the `needs` field. This is a list of actions that must complete successfully before the given action can run.
-
-An action that `needs` other actions can refer to the `outputs` of previous actions using the form `${{ needs.<action_id>.outputs.<output_id> }}`. This is substituted with a path to the file in question.
-
-As such, a script that reads an input file needs to refer to its location as a command line argument. In the example above, a `stata` do-file would open a CSV like this:
-
-```do
-args csv
-import delimited `csv'
-```
+See the [project pipeline documentation](https://docs.opensafely.org/actions-pipelines/) for a detailed
+description of the project.yaml setup.
 
 
 ## Local actions development
 
-The `[cohortextractor` command-line tool](https://github.com/opensafely/cohort-extractor/) imports this library, and implements the action-parsing-and-running functionality as a series of
+The [`cohortextractor` command-line tool](https://github.com/opensafely/cohort-extractor/) imports this library, and implements the action-parsing-and-running functionality as a series of
 synchronous docker commands, rather than asychronously via the job queue.
 
 
