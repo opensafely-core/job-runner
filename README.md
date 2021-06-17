@@ -155,7 +155,7 @@ actions:
     outputs:
       moderately_sensitive:
         model: models/cox-model.txt
-		figure: figures/survival-plot.png
+        figure: figures/survival-plot.png
 ```
 See the [project pipeline documentation](https://docs.opensafely.org/actions-pipelines/) for a detailed
 description of the project.yaml setup.
@@ -164,4 +164,4 @@ description of the project.yaml setup.
 ## Local actions development
 
 The [`cohortextractor` command-line tool](https://github.com/opensafely/cohort-extractor/) imports this library, and implements the action-parsing-and-running functionality as a series of
-synchronous docker commands, rather than asychronously via the job queue.
+synchronous docker commands, rather than asynchronously via the job queue.
