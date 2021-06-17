@@ -20,19 +20,19 @@ REPO_FIXTURE = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
 @pytest.mark.slow_test
 def test_read_file_from_repo(tmp_work_dir):
     output = read_file_from_repo(
-        "https://github.com/opensafely/documentation.git",
-        "e28665e3796841c6b42f995f9de28f7177ec5e91",
+        "https://github.com/opensafely-core/test-public-repository.git",
+        "c1ef0e676ec448b0a49e0073db364f36f6d6d078",
         "README.md",
     )
-    assert output == b"# documentation"
+    assert output == b"# test-public-repository"
 
 
 @pytest.mark.slow_test
 def test_checkout_commit(tmp_work_dir, tmp_path):
     target_dir = tmp_path / "files"
     checkout_commit(
-        "https://github.com/opensafely/documentation.git",
-        "e28665e3796841c6b42f995f9de28f7177ec5e91",
+        "https://github.com/opensafely-core/test-public-repository.git",
+        "c1ef0e676ec448b0a49e0073db364f36f6d6d078",
         target_dir,
     )
     assert [f.name for f in target_dir.iterdir()] == ["README.md"]
@@ -41,23 +41,24 @@ def test_checkout_commit(tmp_work_dir, tmp_path):
 @pytest.mark.slow_test
 def test_get_sha_from_remote_ref(tmp_work_dir):
     sha = get_sha_from_remote_ref(
-        "https://github.com/opensafely/cohort-extractor", "v1.0.0"
+        "https://github.com/opensafely-core/test-public-repository.git",
+        "test-tag-dont-delete",
     )
-    assert sha == "d78522cce38e6f431353e9e96de62d49b7ee86ea"
+    assert sha == "029a6ff81cb0ab878de24c12bc690969163c5c9e"
 
 
 @pytest.mark.slow_test
 def test_commit_reachable_from_ref(tmp_work_dir):
     is_reachable_good = commit_reachable_from_ref(
-        "https://github.com/opensafely/documentation",
-        "2170fadfeca7baf04f50376677253513e0a12bb1",
-        "1.6.0",
+        "https://github.com/opensafely-core/test-public-repository.git",
+        "029a6ff81cb0ab878de24c12bc690969163c5c9e",
+        "test-branch-dont-delete",
     )
     assert is_reachable_good
     is_reachable_bad = commit_reachable_from_ref(
-        "https://github.com/opensafely/documentation",
-        "afaee06237df52d78aa85920248572d5803379a3",
-        "1.6.0",
+        "https://github.com/opensafely-core/test-public-repository.git",
+        "029a6ff81cb0ab878de24c12bc690969163c5c9e",
+        "main",
     )
     assert not is_reachable_bad
 

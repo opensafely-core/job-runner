@@ -164,11 +164,14 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     assert generate_job.cancelled == False
 
 
-@pytest.mark.parametrize('params,exc_msg', [
-    ({"workspace": None}, "Workspace name cannot be blank"),
-    ({"workspace": "$%#"}, "Invalid workspace"),
-    ({"database_name": "invalid"}, "Invalid database name"),
-])
+@pytest.mark.parametrize(
+    "params,exc_msg",
+    [
+        ({"workspace": None}, "Workspace name cannot be blank"),
+        ({"workspace": "$%#"}, "Invalid workspace"),
+        ({"database_name": "invalid"}, "Invalid database name"),
+    ],
+)
 def test_validate_job_request(params, exc_msg, monkeypatch):
     monkeypatch.setattr("jobrunner.config.USING_DUMMY_DATA_BACKEND", False)
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
