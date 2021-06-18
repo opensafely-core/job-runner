@@ -24,11 +24,12 @@ OpenSAFELY-compliant project under execution; the git branch, and kind of
 database to use. The workspace also acts as a kind of namespace for
 partitioning outputs of its jobs.
 
-An OpenSAFELY-compliant project must provide a `project.yaml` file which
+An OpenSAFELY-compliant repo must provide a `project.yaml` file which
 describes how a requested job should be converted into a command (& arguments)
 that can be run in a subprocess on the secure server.  It incorporates the idea
 of dependencies, so an action that generates a chart might depend on an action
-that extracts data from the database *for* that chart.
+that extracts data from the database *for* that chart.  See the
+[Actions reference](https://docs.opensafely.org/actions-intro/) for more information.
 
 An action can define `outputs`; these are persisted on disk and made available
 to subsequent actions in the workspace, and users who have permission to log
@@ -55,9 +56,11 @@ belong to a workspace:
         "name": "my workspace",
         "repo": "https://github.com/opensafely/job-integration-tests",
         "branch": "master",
-        "db": "full"  # possible values: `full`, `slice`, and `dummy`
+        "db": "full"
     }
+}
 ```
+Possible values for `"db"` are "full", "slice", and "dummy".
 
 A workspace is a way of associating jobs related to a given combination of
 branch, repository and database. To enqueue a job, a client POSTs JSON like
@@ -67,7 +70,7 @@ this:
 {
     "backend": "tpp",
     "action_id": "do_thing",
-    "workspace_id": 1,
+    "workspace_id": 1
 }
 ```
 
@@ -92,7 +95,7 @@ When a job is found, the following happens:
     action might depend on three previous actions before it can be run
   * Each action in the graph is checked to see if it needs to be run
     * Actions that either: (a) already have output generated from a previous
-      run; (b) are currently running; (c) failed on their last run to do not
+      run; (b) are currently running; (c) failed on their last run do not
       need to be run
   * If a dependency has failed, then the requested action fails
   * If the dependency needs to be run, a new job is pushed to the queue, and the
@@ -165,3 +168,8 @@ description of the project.yaml setup.
 
 The [`cohortextractor` command-line tool](https://github.com/opensafely/cohort-extractor/) imports this library, and implements the action-parsing-and-running functionality as a series of
 synchronous docker commands, rather than asynchronously via the job queue.
+
+
+# For developers
+
+Please see [the additional information](DEVELOPERS.md).
