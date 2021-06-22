@@ -60,12 +60,14 @@ def handle_jobs(raise_on_failure=False, shuffle_jobs=True):
 
 def handle_pending_job(job):
     if job.cancelled:
-        # Mark the job as running and let `handle_running_job` deal with
-        # cancelling it on the next loop iteration. This allows us to keep all
-        # the kill/cleanup code together and it means that there aren't edge
-        # cases where we could lose track of jobs completely after losing
-        # database state
+        # Mark the job as running and then immediately invoke
+        # `handle_running_job` to deal with the cancellation. This slightly
+        # counterintuitive appraoch allows us to keep a simple, consistent set
+        # of state transitions and to consolidate all the kill/cleanup code
+        # together. It also means that there aren't edge cases where we could
+        # lose track of jobs completely after losing database state
         mark_job_as_running(job)
+        handle_running_job(job)
         return
 
     awaited_states = get_states_of_awaited_jobs(job)
