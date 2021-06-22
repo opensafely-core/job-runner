@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - main
   # this allows us to trigger manually
   workflow_dispatch:
 
