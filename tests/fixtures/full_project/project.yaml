@@ -24,9 +24,18 @@ actions:
       highly_sensitive:
         female_cohort: female.*
 
+  prepare_data_with_quote_in_filename:
+    run: python:latest python analysis/filter_by_sex.py F output/input.csv "qu'ote.csv"
+    needs: [generate_cohort]
+    outputs:
+      highly_sensitive:
+        quote_cohort: "qu'ote.*"
+
   analyse_data:
-    run: python:latest python analysis/count_lines.py counts.txt male.csv female.csv
-    needs: [prepare_data_m, prepare_data_f]
+    run: python:latest python analysis/count_lines.py counts.txt
+    config:
+      files: ["male.csv", "female.csv", "qu'ote.csv"]
+    needs: [prepare_data_m, prepare_data_f, prepare_data_with_quote_in_filename]
     outputs:
       moderately_sensitive:
         counts: counts.txt

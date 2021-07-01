@@ -1,4 +1,5 @@
 import dataclasses
+import json
 from pathlib import PureWindowsPath, PurePosixPath
 import posixpath
 import shlex
@@ -197,6 +198,8 @@ def get_action_specification(project, action_id):
             f"Action '{action_id}' not found in project.yaml", project
         )
     run_command = action_spec["run"]
+    if "config" in action_spec:
+        run_command = add_config_to_run_command(run_command, action_spec["config"])
     run_args = shlex.split(run_command)
     # Specical case handling for the `cohortextractor generate_cohort` command
     if is_generate_cohort_command(run_args):
@@ -230,6 +233,17 @@ def get_action_specification(project, action_id):
         needs=action_spec.get("needs", []),
         outputs=action_spec["outputs"],
     )
+
+
+def add_config_to_run_command(run_command, config):
+    """Add --config flag to command.
+
+    For commands that require complex config, users can supply a config key in
+    project.yaml.  We serialize this as JSON, and pass it to the command with the
+    --config flag.
+    """
+    config_as_json = json.dumps(config).replace("'", r"\u0027")
+    return f"{run_command} --config '{config_as_json}'"
 
 
 def is_generate_cohort_command(args):

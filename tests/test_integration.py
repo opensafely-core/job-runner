@@ -50,9 +50,10 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
 
     # Run sync to grab the JobRequest from the mocked job-server
     jobrunner.sync.sync()
-    # Check that five pending jobs are created
+    # Check that six pending jobs are created
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == [
+        "pending",
         "pending",
         "pending",
         "pending",
@@ -69,6 +70,9 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
         "Waiting on dependencies"
     )
     assert jobs["prepare_data_f"]["status_message"].startswith(
+        "Waiting on dependencies"
+    )
+    assert jobs["prepare_data_with_quote_in_filename"]["status_message"].startswith(
         "Waiting on dependencies"
     )
     assert jobs["analyse_data"]["status_message"].startswith("Waiting on dependencies")
@@ -101,6 +105,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
             "generate_cohort",
             "prepare_data_f",
             "prepare_data_m",
+            "prepare_data_with_quote_in_filename",
             "analyse_data",
         ]
     )
@@ -110,6 +115,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
             "counts.txt",
             "male.csv",
             "female.csv",
+            "qu'ote.csv",
             "output/input.csv",
         ]
     )
@@ -120,6 +126,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     assert jobs["generate_cohort"]["status"] == "succeeded"
     assert jobs["prepare_data_m"]["status"] == "succeeded"
     assert jobs["prepare_data_f"]["status"] == "succeeded"
+    assert jobs["prepare_data_with_quote_in_filename"]["status"] == "succeeded"
     assert jobs["analyse_data"]["status"] == "succeeded"
     assert jobs["test_cancellation"]["status"] == "failed"
 
