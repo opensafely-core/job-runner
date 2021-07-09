@@ -109,6 +109,9 @@ STATA_LICENSE_REPO = os.environ.get(
 )
 
 
+ACTIONS_GITHUB_ORG = "opensafely-actions"
+ACTIONS_GITHUB_ORG_URL = f"https://github.com/{ACTIONS_GITHUB_ORG}"
+
 ALLOWED_GITHUB_ORGS = (
     os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely").strip().split(",")
 )

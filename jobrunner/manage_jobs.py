@@ -125,7 +125,7 @@ def create_and_populate_volume(job):
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
     extra_dirs = set(Path(filename).parent for filename in input_files.keys())
-    if config.LOCAL_RUN_MODE:
+    if config.LOCAL_RUN_MODE and not job.commit:
         copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
     else:
         copy_git_commit_to_volume(volume, job.repo_url, job.commit, extra_dirs)

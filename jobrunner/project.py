@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
 
-from . import config
+from . import config, git
 
 
 # The magic action name which means "run every action"
@@ -47,6 +47,14 @@ class InvalidPatternError(ProjectValidationError):
     pass
 
 
+class ReusableActionError(Exception):
+    """Represents a study developer-friendly reusable action error.
+
+    We raise this in preference to other, lower-level, errors because there's only so
+    much a study developer can do when there's an error with a reusable action.
+    """
+
+
 # Tiny dataclass to capture the specification of a project action
 @dataclasses.dataclass
 class ActionSpecifiction:
@@ -55,19 +63,98 @@ class ActionSpecifiction:
     outputs: dict
 
 
-def parse_and_validate_project_file(project_file):
+def parse_yaml_file(yaml_file):
     try:
         # We're using the pure-Python version here as we don't care about speed
         # and this gives better error messages (and consistent behaviour
         # cross-platform)
-        project = YAML(typ="safe", pure=True).load(project_file)
+        return YAML(typ="safe", pure=True).load(yaml_file)
         # ruamel doesn't have a nice exception hierarchy so we have to catch
         # these four separate base classes
     except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
         e = make_yaml_error_more_helpful(e)
         raise ProjectYAMLError(f"{type(e).__name__} {e}")
+
+
+def parse_and_validate_project_file(project_file):
+    project = parse_yaml_file(project_file)
+    actions = project["actions"]
+    for action_id, action in actions.items():
+        actions[action_id] = handle_reusable_action(action_id, action)
     project = validate_project_and_set_defaults(project)
     return project
+
+
+def handle_reusable_action(action_id, action):
+    """If `action` is reusable, then handle it. If not, then return it unchanged.
+
+    Args:
+        action_id: The action's ID as a string. This is the action's key in
+            project.yaml. It is used to raise errors with more informative messages.
+        action: The action's representation as a dict. This is the action's value in
+            project.yaml.
+
+    Returns:
+        The action's representation as a dict. If `action` resolves to a reusable
+        action, then it is rewritten to point to the reusable action and a copy is
+        returned. If not, then `action` is returned unchanged.
+
+    Raises:
+        ReusableActionError: An error occurred when accessing the reusable action.
+    """
+    # This avoids a circular import and is much less invasive than either moving the
+    # imports or importing `project` within `create_or_update_jobs`.
+    from .create_or_update_jobs import (
+        JobRequestError,
+        validate_branch_and_commit,
+        validate_repo_url,
+    )
+
+    run_args = shlex.split(action["run"])
+    image, tag = run_args[0].split(":")
+
+    if image in config.ALLOWED_IMAGES:
+        # This isn't a reusable action.
+        return action
+
+    # This is a reusable action.
+    repo_url = f"{config.ACTIONS_GITHUB_ORG_URL}/{image}"
+    try:
+        validate_repo_url(repo_url, [config.ACTIONS_GITHUB_ORG])
+    except JobRequestError as e:
+        raise ReusableActionError(*e.args)  # This keeps the function signature clean
+
+    try:
+        # If there's a problem, then it relates to the repository. Maybe the study
+        # developer made an error; maybe the reusable action developer made an error.
+        commit_sha = git.get_sha_from_remote_ref(repo_url, tag)
+    except git.GitError:
+        raise ReusableActionError(
+            f"Cannot resolve '{action_id}' to a repository at '{repo_url}'"
+        )
+
+    try:
+        validate_branch_and_commit(repo_url, commit_sha, "main")
+    except JobRequestError as e:
+        raise ReusableActionError(*e.args)
+
+    try:
+        # If there's a problem, then it relates to the reusable action. The study
+        # developer didn't make an error; the reusable action developer did.
+        action_file = git.read_file_from_repo(repo_url, commit_sha, "action.yaml")
+        action_config = parse_yaml_file(action_file)
+        assert "run" in action_config
+    except (git.GitError, ProjectYAMLError, AssertionError):
+        raise ReusableActionError(
+            f"There is a problem with the reusable action required by '{action_id}'"
+        )
+
+    # ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
+    run_args[0] = action_config["run"]
+
+    new_action = action.copy()
+    new_action["run"] = " ".join(run_args)
+    return new_action
 
 
 def make_yaml_error_more_helpful(exc):
@@ -201,6 +288,7 @@ def get_action_specification(project, action_id):
     if "config" in action_spec:
         run_command = add_config_to_run_command(run_command, action_spec["config"])
     run_args = shlex.split(run_command)
+
     # Specical case handling for the `cohortextractor generate_cohort` command
     if is_generate_cohort_command(run_args):
         # Set the size of the dummy data population, if that's what were

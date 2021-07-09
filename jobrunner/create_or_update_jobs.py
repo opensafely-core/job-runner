@@ -91,7 +91,7 @@ def create_jobs(job_request):
     validate_job_request(job_request)
     # In future I expect the job-server to only ever supply commits and so this
     # branch resolution will be redundant
-    if not job_request.commit:
+    if not job_request.commit and not config.LOCAL_RUN_MODE:
         job_request.commit = get_sha_from_remote_ref(
             job_request.repo_url, job_request.branch
         )
