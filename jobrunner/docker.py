@@ -25,6 +25,13 @@ VOLUME_MOUNT_POINT = "/workspace"
 LABEL = "job-runner"
 
 
+# Shelling out to the Docker client on Windows sometimes hangs indefinitely
+# (for no obvious reason that we can determine). To prevent this locking up the
+# entire process we use a large-ish default timeout on almost all calls to
+# Docker. (Timeout value is in seconds.)
+DEFAULT_TIMEOUT = 5 * 60
+
+
 class DockerPullError(Exception):
     pass
 
@@ -37,6 +44,14 @@ class DockerTimeoutError(Exception):
     pass
 
 
+def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
+    args = ["docker"] + docker_args
+    try:
+        return subprocess_run(args, timeout=timeout, **kwargs)
+    except subprocess.TimeoutExpired as e:
+        raise DockerTimeoutError from e
+
+
 def create_volume(volume_name):
     """
     Creates the named volume and also creates (but does not start) a "manager"
@@ -44,15 +59,14 @@ def create_volume(volume_name):
     that in order to interact with the volume a container with that volume
     mounted must exist, but it doesn't need to be running.
     """
-    subprocess_run(
-        ["docker", "volume", "create", "--label", LABEL, "--name", volume_name],
+    docker(
+        ["volume", "create", "--label", LABEL, "--name", volume_name],
         check=True,
         capture_output=True,
     )
     try:
-        subprocess_run(
+        docker(
             [
-                "docker",
                 "container",
                 "create",
                 "--label",
@@ -83,8 +97,8 @@ def delete_volume(volume_name):
     Deletes the named volume and its manager container
     """
     try:
-        subprocess_run(
-            ["docker", "container", "rm", "--force", manager_name(volume_name)],
+        docker(
+            ["container", "rm", "--force", manager_name(volume_name)],
             check=True,
             capture_output=True,
         )
@@ -93,9 +107,8 @@ def delete_volume(volume_name):
         if e.returncode != 1 or b"No such container" not in e.stderr:
             raise
     try:
-        subprocess_run(
+        docker(
             [
-                "docker",
                 "volume",
                 "rm",
                 volume_name,
@@ -112,33 +125,31 @@ def delete_volume(volume_name):
 def copy_to_volume(volume_name, source, dest, timeout=None):
     """
     Copy the contents of `directory` to the root of the named volume
+
+    As this command can potentially take a long time with large files it does
+    not, by default, have any timeout.
     """
     if source.is_dir():
         # Ensure the *contents* of the directory are copied, rather than the
         # directory itself. See:
         # https://docs.docker.com/engine/reference/commandline/cp/#extended-description
         source = str(source).rstrip("/") + "/."
-    try:
-        subprocess_run(
-            [
-                "docker",
-                "cp",
-                source,
-                f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{dest}",
-            ],
-            check=True,
-            capture_output=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired as e:
-        raise DockerTimeoutError from e
+    docker(
+        [
+            "cp",
+            source,
+            f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{dest}",
+        ],
+        check=True,
+        capture_output=True,
+        timeout=timeout,
+    )
 
 
 def copy_from_volume(volume_name, source, dest):
     dest.parent.mkdir(parents=True, exist_ok=True)
-    subprocess_run(
+    docker(
         [
-            "docker",
             "cp",
             f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{source}",
             dest,
@@ -174,13 +185,13 @@ def glob_volume_files(volume_name, glob_patterns):
     # We can't use `exec` unless the container is running, even though it won't
     # actually do anything other than sit waiting for input. This will get
     # stopped when we `--force rm` the container while removing the volume.
-    subprocess_run(
-        ["docker", "container", "start", manager_name(volume_name)],
+    docker(
+        ["container", "start", manager_name(volume_name)],
         check=True,
         capture_output=True,
     )
-    response = subprocess_run(
-        ["docker", "container", "exec", manager_name(volume_name)] + args,
+    response = docker(
+        ["container", "exec", manager_name(volume_name)] + args,
         check=True,
         capture_output=True,
         text=True,
@@ -221,13 +232,13 @@ def find_newer_files(volume_name, reference_file):
     # We can't use `exec` unless the container is running, even though it won't
     # actually do anything other than sit waiting for input. This will get
     # stopped when we `--force rm` the container while removing the volume.
-    subprocess_run(
-        ["docker", "container", "start", manager_name(volume_name)],
+    docker(
+        ["container", "start", manager_name(volume_name)],
         check=True,
         capture_output=True,
     )
-    response = subprocess_run(
-        ["docker", "container", "exec", manager_name(volume_name)] + args,
+    response = docker(
+        ["container", "exec", manager_name(volume_name)] + args,
         check=True,
         capture_output=True,
         text=True,
@@ -261,8 +272,8 @@ def container_inspect(name, key="", none_if_not_exists=False):
     See: https://docs.docker.com/engine/reference/commandline/inspect/
     """
     try:
-        response = subprocess_run(
-            ["docker", "container", "inspect", "--format", "{{json .%s}}" % key, name],
+        response = docker(
+            ["container", "inspect", "--format", "{{json .%s}}" % key, name],
             check=True,
             capture_output=True,
         )
@@ -279,7 +290,7 @@ def container_inspect(name, key="", none_if_not_exists=False):
 
 
 def run(name, args, volume=None, env=None, allow_network_access=False, label=None):
-    run_args = ["docker", "run", "--init", "--detach", "--label", LABEL, "--name", name]
+    run_args = ["run", "--init", "--detach", "--label", LABEL, "--name", name]
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
@@ -293,15 +304,15 @@ def run(name, args, volume=None, env=None, allow_network_access=False, label=Non
         env = {}
     for key, value in env.items():
         run_args.extend(["--env", key])
-    subprocess_run(
+    docker(
         run_args + args, check=True, capture_output=True, env=dict(os.environ, **env)
     )
 
 
 def image_exists_locally(image_name_and_version):
     try:
-        subprocess_run(
-            ["docker", "image", "inspect", "--format", "ok", image_name_and_version],
+        docker(
+            ["image", "inspect", "--format", "ok", image_name_and_version],
             check=True,
             capture_output=True,
         )
@@ -314,8 +325,8 @@ def image_exists_locally(image_name_and_version):
 
 def delete_container(name):
     try:
-        subprocess_run(
-            ["docker", "container", "rm", "--force", name],
+        docker(
+            ["container", "rm", "--force", name],
             check=True,
             capture_output=True,
         )
@@ -327,8 +338,8 @@ def delete_container(name):
 
 def kill(name):
     try:
-        subprocess_run(
-            ["docker", "container", "kill", name],
+        docker(
+            ["container", "kill", name],
             check=True,
             capture_output=True,
         )
@@ -342,8 +353,8 @@ def kill(name):
 
 def write_logs_to_file(container_name, filename):
     with open(filename, "wb") as f:
-        subprocess_run(
-            ["docker", "container", "logs", "--timestamps", container_name],
+        docker(
+            ["container", "logs", "--timestamps", container_name],
             check=True,
             stdout=f,
             stderr=subprocess.STDOUT,
@@ -352,14 +363,15 @@ def write_logs_to_file(container_name, filename):
 
 def pull(image, quiet=False):
     try:
-        subprocess_run(
-            ["docker", "pull", image, *(["--quiet"] if quiet else [])],
+        docker(
+            ["pull", image, *(["--quiet"] if quiet else [])],
             check=True,
             encoding="utf-8",
             # When not running "quiet" we don't capture stdout so that progress
             # gets shown in the terminal
             stdout=subprocess.PIPE if quiet else None,
             stderr=subprocess.PIPE,
+            timeout=None,
         )
     except subprocess.CalledProcessError as e:
         message = e.stderr.strip()
