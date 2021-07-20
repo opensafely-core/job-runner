@@ -30,7 +30,11 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     commit_directory_contents(repo_path, project_fixture)
     job_request = {
         "identifier": 1,
-        "requested_actions": ["analyse_data", "test_cancellation"],
+        "requested_actions": [
+            "analyse_data",
+            "generate_cohort_with_dummy_data",
+            "test_cancellation",
+        ],
         "cancelled_actions": [],
         "force_run_dependencies": False,
         "workspace": {
@@ -50,16 +54,9 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
 
     # Run sync to grab the JobRequest from the mocked job-server
     jobrunner.sync.sync()
-    # Check that six pending jobs are created
+    # Check that seven pending jobs are created
     jobs = get_posted_jobs(requests_mock)
-    assert [job["status"] for job in jobs.values()] == [
-        "pending",
-        "pending",
-        "pending",
-        "pending",
-        "pending",
-        "pending",
-    ]
+    assert [job["status"] for job in jobs.values()] == ["pending"] * 7
     # Exectue one tick of the run loop and then sync
     jobrunner.run.handle_jobs()
     jobrunner.sync.sync()
@@ -103,6 +100,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     assert set(manifest["actions"]) == set(
         [
             "generate_cohort",
+            "generate_cohort_with_dummy_data",
             "prepare_data_f",
             "prepare_data_m",
             "prepare_data_with_quote_in_filename",
@@ -117,6 +115,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
             "female.csv",
             "qu'ote.csv",
             "output/input.csv",
+            "output/extra/input.csv",
         ]
     )
 
@@ -124,6 +123,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     # All jobs should now have succeeded apart from the cancelled one
     jobs = get_posted_jobs(requests_mock)
     assert jobs["generate_cohort"]["status"] == "succeeded"
+    assert jobs["generate_cohort_with_dummy_data"]["status"] == "succeeded"
     assert jobs["prepare_data_m"]["status"] == "succeeded"
     assert jobs["prepare_data_f"]["status"] == "succeeded"
     assert jobs["prepare_data_with_quote_in_filename"]["status"] == "succeeded"

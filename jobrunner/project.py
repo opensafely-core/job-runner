@@ -207,8 +207,11 @@ def get_action_specification(project, action_id):
         # generating.  Possibly this should be moved to the study definition
         # anyway, which would make this unnecessary.
         if config.USING_DUMMY_DATA_BACKEND:
-            size = int(project["expectations"]["population_size"])
-            run_command += f" --expectations-population={size}"
+            if "dummy_data_file" in action_spec:
+                run_command += f" --dummy-data-file={action_spec['dummy_data_file']}"
+            else:
+                size = int(project["expectations"]["population_size"])
+                run_command += f" --expectations-population={size}"
         # Automatically configure the cohortextractor to produce output in the
         # directory the `outputs` spec is expecting. Longer term I'd like to
         # just make it an error if the directories don't match, rather than
