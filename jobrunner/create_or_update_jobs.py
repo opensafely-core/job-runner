@@ -91,7 +91,13 @@ def create_jobs(job_request):
     validate_job_request(job_request)
     # In future I expect the job-server to only ever supply commits and so this
     # branch resolution will be redundant
-    if not job_request.commit:
+
+    # job_request.commit will be:
+    # 1. None when in local run mode
+    # 2. None when not in local run mode and job-server didn't supply a commit
+    # 3. A non-empty string when not in local run mode and job-server supplied a commit
+    # Are we 2?
+    if not job_request.commit and not config.LOCAL_RUN_MODE:
         job_request.commit = get_sha_from_remote_ref(
             job_request.repo_url, job_request.branch
         )
@@ -149,6 +155,14 @@ def create_jobs_with_project_file(job_request, project_file):
 
 
 def recursively_add_jobs(job_request, project, action, force_run_actions):
+    """Recursively add jobs to the database.
+
+    Args:
+        job_request: An instance of JobRequest representing the job request.
+        project: A dict representing the project.
+        action: The string ID of the action to be added as a job.
+        force_run_actions: A list of string IDs of actions that will be forced to run.
+    """
     # Is there already an equivalent job scheduled to run?
     already_active_jobs = find_where(
         Job,
@@ -185,11 +199,16 @@ def recursively_add_jobs(job_request, project, action, force_run_actions):
         if required_job:
             wait_for_job_ids.append(required_job.id)
 
+    # If action_spec (an instance of ActionSpecifiction) representa a reusable action,
+    # then it will have non-None values for the following attributes.
+    repo_url = action_spec.repo_url if action_spec.repo_url else job_request.repo_url
+    commit = action_spec.commit if action_spec.commit else job_request.commit
+
     job = Job(
         job_request_id=job_request.id,
         state=State.PENDING,
-        repo_url=job_request.repo_url,
-        commit=job_request.commit,
+        repo_url=repo_url,
+        commit=commit,
         workspace=job_request.workspace,
         database_name=job_request.database_name,
         action=action,

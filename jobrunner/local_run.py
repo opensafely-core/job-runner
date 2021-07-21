@@ -124,6 +124,7 @@ def main(
 
     project_dir = Path(project_dir).resolve()
     temp_log_dir = project_dir / METADATA_DIR / ".logs"
+    temp_git_repo_dir = project_dir / ".reusable_actions"
     if not debug:
         # Generate unique docker label to use for all volumes and containers we
         # create during this run in order to make cleanup easy. We're using a
@@ -149,6 +150,7 @@ def main(
             continue_on_error=continue_on_error,
             temp_log_dir=temp_log_dir,
             docker_label=docker_label,
+            temp_git_repo_dir=temp_git_repo_dir,
             clean_up_docker_objects=(not debug),
             log_format=log_format,
             format_output_for_github=format_output_for_github,
@@ -162,6 +164,7 @@ def main(
             delete_docker_entities("container", docker_label, ignore_errors=True)
             delete_docker_entities("volume", docker_label, ignore_errors=True)
             shutil.rmtree(temp_log_dir, ignore_errors=True)
+            shutil.rmtree(temp_git_repo_dir, ignore_errors=True)
         else:
             containers = find_docker_entities("container", docker_label)
             volumes = find_docker_entities("volume", docker_label)
@@ -185,6 +188,7 @@ def create_and_run_jobs(
     continue_on_error,
     temp_log_dir,
     docker_label,
+    temp_git_repo_dir,
     clean_up_docker_objects=True,
     log_format=LOCAL_RUN_FORMAT,
     format_output_for_github=False,
@@ -201,11 +205,11 @@ def create_and_run_jobs(
     config.BACKEND = "expectations"
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
+    config.GIT_REPO_DIR = temp_git_repo_dir
 
     # None of the below should be used when running locally
     config.WORK_DIR = None
     config.TMP_DIR = None
-    config.GIT_REPO_DIR = None
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
@@ -214,7 +218,7 @@ def create_and_run_jobs(
     job_request = JobRequest(
         id="local",
         repo_url=str(project_dir),
-        commit="none",
+        commit=None,
         requested_actions=actions,
         cancelled_actions=[],
         workspace=project_dir.name,

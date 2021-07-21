@@ -66,6 +66,11 @@ class MissingOutputError(JobError):
 
 
 def start_job(job):
+    """Start the given job.
+
+    Args:
+        job: An instance of Job.
+    """
     # If we already created the job but were killed before we updated the state
     # then there's nothing further to do
     if docker.container_exists(container_name(job)):
@@ -125,7 +130,9 @@ def create_and_populate_volume(job):
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
     extra_dirs = set(Path(filename).parent for filename in input_files.keys())
-    if config.LOCAL_RUN_MODE:
+    # If job represents a reusable action, then job.commit will be non-None and we need
+    # to copy it to the volume whether or not we're in local development mode.
+    if config.LOCAL_RUN_MODE and not job.commit:
         copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
     else:
         copy_git_commit_to_volume(volume, job.repo_url, job.commit, extra_dirs)
