@@ -10,6 +10,14 @@ actions:
       highly_sensitive:
         cohort: output/input.csv
 
+  generate_cohort_with_dummy_data:
+    # we provide --output-dir here to distinguish the action from the one above
+    run: cohortextractor:latest generate_cohort --output-dir output/extra
+    dummy_data_file: test-data/dummy-data.csv
+    outputs:
+      highly_sensitive:
+        cohort: output/extra/input.csv
+
   prepare_data_m:
     run: python:latest python analysis/filter_by_sex.py M output/input.csv male.csv
     needs: [generate_cohort]
