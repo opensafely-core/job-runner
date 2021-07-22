@@ -2,7 +2,8 @@
 
 Use git-bash as your terminal
 
-Service location: /e/job-runner
+All job-runner code, logs, files etc are in: `/e/job-runner`
+
 
 ## Operations
 
@@ -10,25 +11,64 @@ Service location: /e/job-runner
 
 #### Starting/stopping the service
 
-    /c/nssm-2.24/win64/nssm stop opensafely
-    /c/nssm-2.24/win64/nssm start opensafely
-    /c/nssm-2.24/win64/nssm status opensafely
+job-runner is designed to be safe to interrupt at any point, however due
+to a [bug][1] in Docker killing a copy command at the wrong point can
+put a container into a permanently hung state. This is not a disaster as
+we now detect this condition, mark the job as failed and ignore it. But
+it will require the researcher to re-run their job, and it leaves a
+frozen container hanging around until next time Docker is restarted, so
+it's best avoided if possible.
 
-Note: start command gives spurious warning, ignore.
+To do this tail the log file and look at the most recent `run` line:
+
+    tail service.err.log
+
+If the line looks like either of the below lines that means the
+job-runner is currently copying files into a container and is best not
+interrupted:
+
+    2021-07-21 18:54:58.792Z run  Copying in code from ...
+    2021-07-21 18:54:59.131Z run  Copying input file ...
+
+Anything else is safe to interrupt and the service can be stopped with:
+
+    /e/bin/nssm stop opensafely
+
+The service can be restarted with:
+
+    /e/bin/nssm start opensafely
+
+Note that nssm will warn about "Unexpected status SERVICE_START_PENDING"
+because we don't start fast enough. This can be ignored.
+
+You can check the service has started OK by following the logs for a
+bit:
+
+    tail -f service.err.log
+
+And you can check its running status with:
+
+    /e/bin/nssm status opensafely
 
 To view issues with starting/stopping the windows service, the following will
 launch Windows Event Viewer directly pointing at the nssm events.
 
     /e/bin/events.sh
 
+
+[1]: https://github.com/docker/for-mac/issues/4491
+
+
 #### Viewing job-runner logs
 
-stdout is in /e/job-runner/service.log
-stderr is in /e/job-runner/service.err.log
+The main log file is:
+
+    /e/job-runner/service.err.log
+
+We also log stdout to `/e/job-runner/service.log` but that is usually
+empty.
 
 These files are rotated by nssm.
-
-TODO: combine these into one log? (Note stdout is almost always empty)
 
 
 #### Configuring the job-runner
@@ -36,7 +76,7 @@ TODO: combine these into one log? (Note stdout is almost always empty)
 All configuration is via environment variables set in the `.env`
 file.
 
-For instance, to enable DEBUG level logging add the following like to
+For instance, to enable DEBUG level logging add the following line to
 the `.env` file:
 
     LOGLEVEL=DEBUG
@@ -147,7 +187,6 @@ The command is idempotent so you can always run it again later with the
 
 To view current disk usage:
 
-
     docker system df -v
 
 Generally, only running containers are doing anything useful. Stopped
@@ -159,5 +198,3 @@ Typically, it will be orphaned volumes that will be taking up space. To delete
 orphaned volumes that have no associated container:
 
     docker volume prune
-
-
