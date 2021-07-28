@@ -26,24 +26,22 @@ from .manage_jobs import (
 log = logging.getLogger(__name__)
 
 
-def main(exit_when_done=False, raise_on_failure=False, shuffle_jobs=True):
+def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
     while True:
-        active_jobs = handle_jobs(
-            raise_on_failure=raise_on_failure, shuffle_jobs=shuffle_jobs
-        )
-        if exit_when_done and len(active_jobs) == 0:
+        active_jobs = handle_jobs()
+        if exit_callback(active_jobs):
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(raise_on_failure=False, shuffle_jobs=True):
+def handle_jobs():
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     # Randomising the job order is a crude but effective way to ensure that a
     # single large job request doesn't hog all the workers. We make this
     # optional as, when running locally, having jobs run in a predictable order
     # is preferable
-    if shuffle_jobs:
+    if config.RANDOMISE_JOB_ORDER:
         random.shuffle(active_jobs)
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
@@ -53,8 +51,6 @@ def handle_jobs(raise_on_failure=False, shuffle_jobs=True):
                 handle_pending_job(job)
             elif job.state == State.RUNNING:
                 handle_running_job(job)
-        if raise_on_failure and job.state == State.FAILED:
-            raise JobError("Job failed")
     return active_jobs
 
 
