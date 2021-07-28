@@ -22,7 +22,10 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     monkeypatch.setattr(
         "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
+    # Disable repo URL checking so we can run using a local test repo
     monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
+    # Make job execution order deterministic
+    monkeypatch.setattr("jobrunner.config.RANDOMISE_JOB_ORDER", False)
     ensure_docker_images_present("cohortextractor", "python")
 
     # Take our test project fixture and commit it to a temporary git repo
@@ -60,7 +63,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == ["pending"] * 6
     # Exectue one tick of the run loop and then sync
-    jobrunner.run.handle_jobs(shuffle_jobs=False)
+    jobrunner.run.handle_jobs()
     jobrunner.sync.sync()
     # We should now have one running job and five waiting on dependencies
     jobs = get_posted_jobs(requests_mock)
@@ -100,7 +103,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     jobrunner.sync.sync()
 
     # Run the main loop to completion and then sync
-    jobrunner.run.main(exit_when_done=True, shuffle_jobs=False)
+    jobrunner.run.main(exit_when_done=True)
     jobrunner.sync.sync()
 
     # All jobs should now have succeeded apart from the cancelled one

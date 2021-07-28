@@ -196,6 +196,8 @@ def create_and_run_jobs(
     # Configure
     docker.LABEL = docker_label
     config.LOCAL_RUN_MODE = True
+    # It's more helpful in this context to have things consistent
+    config.RANDOMISE_JOB_ORDER = False
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
     # Append a random value so that multiple runs in the same process will each
     # get their own unique in-memory database. This is only really relevant
@@ -302,7 +304,6 @@ def create_and_run_jobs(
     try:
         run_main(
             exit_when_done=True,
-            shuffle_jobs=False,
             raise_on_failure=not continue_on_error,
         )
     except (JobError, KeyboardInterrupt):
