@@ -60,7 +60,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == ["pending"] * 6
     # Exectue one tick of the run loop and then sync
-    jobrunner.run.handle_jobs()
+    jobrunner.run.handle_jobs(shuffle_jobs=False)
     jobrunner.sync.sync()
     # We should now have one running job and five waiting on dependencies
     jobs = get_posted_jobs(requests_mock)
@@ -100,7 +100,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     jobrunner.sync.sync()
 
     # Run the main loop to completion and then sync
-    jobrunner.run.main(exit_when_done=True)
+    jobrunner.run.main(exit_when_done=True, shuffle_jobs=False)
     jobrunner.sync.sync()
 
     # All jobs should now have succeeded apart from the cancelled one
