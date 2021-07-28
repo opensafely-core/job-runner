@@ -33,7 +33,7 @@ import sys
 import tempfile
 import textwrap
 
-from .run import main as run_main, JobError
+from .run import main as run_main
 from . import config
 from . import docker
 from .database import find_where
@@ -300,13 +300,14 @@ def create_and_run_jobs(
     # Github Actions
     if format_output_for_github:
         print(f"::group::Job Runner Logs {ANSI.Grey}(click to view){ANSI.Reset}")
+
     # Run everything
+    exit_condition = (
+        no_jobs_remaining if continue_on_error else job_failed_or_none_remaining
+    )
     try:
-        run_main(
-            exit_when_done=True,
-            raise_on_failure=not continue_on_error,
-        )
-    except (JobError, KeyboardInterrupt):
+        run_main(exit_callback=exit_condition)
+    except KeyboardInterrupt:
         pass
     finally:
         if format_output_for_github:
@@ -375,6 +376,16 @@ def create_and_run_jobs(
 
     success_flag = all(job.state == State.SUCCEEDED for job in final_jobs)
     return success_flag
+
+
+def no_jobs_remaining(active_jobs):
+    return len(active_jobs) == 0
+
+
+def job_failed_or_none_remaining(active_jobs):
+    if any(job.state == State.FAILED for job in active_jobs):
+        return True
+    return len(active_jobs) == 0
 
 
 # Copied from test/conftest.py to avoid a more complex dependency tree

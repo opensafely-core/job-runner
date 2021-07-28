@@ -102,8 +102,8 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     )
     jobrunner.sync.sync()
 
-    # Run the main loop to completion and then sync
-    jobrunner.run.main(exit_when_done=True)
+    # Run the main loop until there are no jobs left and then sync
+    jobrunner.run.main(exit_callback=lambda active_jobs: len(active_jobs) == 0)
     jobrunner.sync.sync()
 
     # All jobs should now have succeeded apart from the cancelled one
