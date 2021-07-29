@@ -1,3 +1,5 @@
+import argparse
+import shlex
 from unittest import mock
 
 import pytest
@@ -177,6 +179,31 @@ class TestParseAndValidateProjectFile:
         """
         with pytest.raises(ProjectValidationError):
             parse_and_validate_project_file(project_file)
+
+
+class TestAddConfigToRunCommand:
+    def test_with_option(self):
+        run_command = "python:latest python analysis/my_action.py --option value"
+        config = {"option": "value"}
+        obs_run_command = project.add_config_to_run_command(run_command, config)
+        exp_run_command = """python:latest python analysis/my_action.py --option value --config '{"option": "value"}'"""
+        assert obs_run_command == exp_run_command
+
+    def test_with_argument(self):
+        run_command = "python:latest python action/__main__.py output/input.csv"
+        config = {"option": "value"}
+        obs_run_command = project.add_config_to_run_command(run_command, config)
+        exp_run_command = """python:latest python action/__main__.py output/input.csv --config '{"option": "value"}'"""
+        assert obs_run_command == exp_run_command
+
+        # Does argparse accept options after arguments?
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--config")  # option
+        parser.add_argument("input_files", nargs="*")  # argument
+        # If parser were in __main__.py, then parser.parse_args would receive sys.argv
+        # by default. sys.argv[0] is the script name (either with or without a path,
+        # depending on the OS) so we slice obs_run_command to mimic this.
+        parser.parse_args(shlex.split(obs_run_command)[2:])
 
 
 def test_assert_valid_glob_pattern():
