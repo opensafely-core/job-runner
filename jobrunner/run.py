@@ -36,7 +36,9 @@ def main(exit_callback=lambda _: False):
 
 
 def handle_jobs():
+    log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
+    log.debug("Done query")
     # Randomising the job order is a crude but effective way to ensure that a
     # single large job request doesn't hog all the workers. We make this
     # optional as, when running locally, having jobs run in a predictable order
@@ -99,7 +101,10 @@ def handle_running_job(job):
         log.info("Cancellation requested, killing job")
         kill_job(job)
 
-    if job_still_running(job):
+    log.debug("Checking job running state")
+    is_running = job_still_running(job)
+    log.debug("Check done")
+    if is_running:
         set_message(job, "Running")
     else:
         try:
@@ -132,7 +137,11 @@ def get_states_of_awaited_jobs(job):
     job_ids = job.wait_for_job_ids
     if not job_ids:
         return []
-    return select_values(Job, "state", id__in=job_ids)
+
+    log.debug("Querying database for state of dependencies")
+    states = select_values(Job, "state", id__in=job_ids)
+    log.debug("Done query")
+    return states
 
 
 def mark_job_as_failed(job, error, code=None):
@@ -159,7 +168,9 @@ def mark_job_as_completed(job):
         job.status_message = "Cancelled by user"
         job.status_code = StatusCode.CANCELLED_BY_USER
     job.completed_at = int(time.time())
+    log.debug("Updating full job record")
     update(job)
+    log.debug("Update done")
     log.info(job.status_message, extra={"status_code": job.status_code})
 
 
@@ -173,6 +184,7 @@ def set_state(job, state, message, code=None):
     job.status_message = message
     job.status_code = code
     job.updated_at = timestamp
+    log.debug("Updating job status and timestamps")
     update(
         job,
         update_fields=[
@@ -184,6 +196,7 @@ def set_state(job, state, message, code=None):
             "completed_at",
         ],
     )
+    log.debug("Update done")
     log.info(job.status_message, extra={"status_code": job.status_code})
 
 
@@ -201,7 +214,9 @@ def set_message(job, message, code=None):
     # active without writing to the database every single time we poll
     elif timestamp - job.updated_at >= 60:
         job.updated_at = timestamp
+        log.debug("Updating job timestamp")
         update(job, update_fields=["updated_at"])
+        log.debug("Update done")
         # For long running jobs we don't want to fill the logs up with "Job X
         # is still running" messages, but it is useful to have semi-regular
         # confirmations in the logs that it is still running. The below will
@@ -211,7 +226,9 @@ def set_message(job, message, code=None):
 
 
 def get_reason_job_not_started(job):
+    log.debug("Querying for running jobs")
     running_jobs = find_where(Job, state=State.RUNNING)
+    log.debug("Query done")
     used_resources = sum(
         get_job_resource_weight(running_job) for running_job in running_jobs
     )
