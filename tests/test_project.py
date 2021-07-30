@@ -1,3 +1,5 @@
+import argparse
+import shlex
 from unittest import mock
 
 import pytest
@@ -29,7 +31,7 @@ class TestHandleReusableAction:
         "jobrunner.project.parse_yaml_file",
         return_value={"run": "python:latest python reusable_action/main.py"},
     )
-    def test_when_a_reusable_action(self, *args, **kwargs):
+    def test_when_a_reusable_action_with_options(self, *args, **kwargs):
         # Happy path 2
         action_in = {"run": "reusable-action:latest --output-format=png"}
         action_out = project.handle_reusable_action("my_action", action_in)
@@ -37,6 +39,41 @@ class TestHandleReusableAction:
         assert (
             action_out["run"]
             == "python:latest python reusable_action/main.py --output-format=png"
+        )
+
+    @mock.patch(
+        "jobrunner.project.parse_yaml_file",
+        return_value={"run": "python:latest python reusable_action/main.py"},
+    )
+    def test_when_a_reusable_action_with_arguments(self, *args, **kwargs):
+        # Happy path 3
+        action_in = {"run": "reusable-action:latest output/input.csv"}
+        action_out = project.handle_reusable_action("my_action", action_in)
+        assert action_in is not action_out
+        assert (
+            action_out["run"]
+            == "python:latest python reusable_action/main.py output/input.csv"
+        )
+
+    @mock.patch(
+        "jobrunner.project.parse_yaml_file",
+        return_value={"run": "python:latest python reusable_action/main.py"},
+    )
+    def test_when_a_reusable_action_with_options_and_arguments(self, *args, **kwargs):
+        # Happy path 4
+        # We'll use Click's terminology.
+        # * Options are optional
+        # * Arguments are optional within reason, but are more restricted than options
+        # For more information, see:
+        # https://click.palletsprojects.com/en/8.0.x/parameters/
+        action_in = {
+            "run": "reusable-action:latest --output-format=png output/input.csv"
+        }
+        action_out = project.handle_reusable_action("my_action", action_in)
+        assert action_in is not action_out
+        assert (
+            action_out["run"]
+            == "python:latest python reusable_action/main.py --output-format=png output/input.csv"
         )
 
     def test_with_bad_run_command(self, **kwargs):
@@ -134,16 +171,39 @@ class TestParseAndValidateProjectFile:
         exp_run = "python:latest python reusable_action/main.py --output-format=png"
         assert obs_run == exp_run
 
-
-def test_error_on_duplicate_keys():
-    with pytest.raises(ProjectValidationError):
-        parse_and_validate_project_file(
-            """
-        top_level:
-            duplicate: 1
-            duplicate: 2
+    def test_with_duplicate_keys(self):
+        project_file = """
+            top_level:
+                duplicate: 1
+                duplicate: 2
         """
-        )
+        with pytest.raises(ProjectValidationError):
+            parse_and_validate_project_file(project_file)
+
+
+class TestAddConfigToRunCommand:
+    def test_with_option(self):
+        run_command = "python:latest python analysis/my_action.py --option value"
+        config = {"option": "value"}
+        obs_run_command = project.add_config_to_run_command(run_command, config)
+        exp_run_command = """python:latest python analysis/my_action.py --option value --config '{"option": "value"}'"""
+        assert obs_run_command == exp_run_command
+
+    def test_with_argument(self):
+        run_command = "python:latest python action/__main__.py output/input.csv"
+        config = {"option": "value"}
+        obs_run_command = project.add_config_to_run_command(run_command, config)
+        exp_run_command = """python:latest python action/__main__.py output/input.csv --config '{"option": "value"}'"""
+        assert obs_run_command == exp_run_command
+
+        # Does argparse accept options after arguments?
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--config")  # option
+        parser.add_argument("input_files", nargs="*")  # argument
+        # If parser were in __main__.py, then parser.parse_args would receive sys.argv
+        # by default. sys.argv[0] is the script name (either with or without a path,
+        # depending on the OS) so we slice obs_run_command to mimic this.
+        parser.parse_args(shlex.split(obs_run_command)[2:])
 
 
 def test_assert_valid_glob_pattern():
