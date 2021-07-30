@@ -7,6 +7,7 @@ out to external processes.
 """
 import contextlib
 import logging
+import logging.handlers
 import os
 import subprocess
 import sys
@@ -24,7 +25,38 @@ def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=No
     if status_codes_to_ignore:
         handler.addFilter(IgnoreStatusCodes(status_codes_to_ignore))
     handler.addFilter(formatting_filter)
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
+
+    log_level = os.environ.get("LOGLEVEL", "INFO")
+    handlers = [handler]
+
+    # Support a separate log file at level DEBUG, while leaving the default
+    # logs untouched. DEBUG logging can be extremely noisy and so we want a way
+    # to capture these that doesn't pollute the primary logs.
+    debug_log_file = os.environ.get("DEBUG_LOG_FILE")
+    if debug_log_file:
+        debug_handler = logging.handlers.TimedRotatingFileHandler(
+            debug_log_file,
+            encoding="utf-8",
+            delay=True,
+            # Rotate daily, keeping 14 days of backups
+            when="D",
+            interval=1,
+            backupCount=14,
+            utc=True,
+        )
+        debug_handler.setFormatter(formatter)
+        debug_handler.addFilter(formatting_filter)
+        debug_handler.setLevel("DEBUG")
+        handlers.append(debug_handler)
+        # Set the default handler to the originally specified log level and
+        # then increase the base log level to DEBUG
+        handler.setLevel(log_level)
+        log_level = "DEBUG"
+
+    logging.basicConfig(level=log_level, handlers=handlers)
+
+    if debug_log_file:
+        logging.getLogger(__name__).info(f"Writing DEBUG logs to '{debug_log_file}'")
 
     # We attach a custom handler for uncaught exceptions to display error
     # output from failed subprocesses
