@@ -6,7 +6,6 @@ output. It also includes the stderr output from any failed attempts to shell
 out to external processes.
 """
 import contextlib
-import datetime
 import logging
 import os
 import subprocess
@@ -18,38 +17,6 @@ import time
 DEFAULT_FORMAT = "{asctime} {message} {tags}"
 
 
-def formatting_filter(record):
-    """Ensure various record attribute are always available for formatting."""
-
-    # ensure this are always available for static formatting
-    record.action = ""
-
-    tags = {}
-    ctx = set_log_context.current_context
-    job = getattr(record, "job", None) or ctx.get("job")
-    req = getattr(record, "job_request", None) or ctx.get("job_request")
-
-    status_code = getattr(record, "status_code", None)
-    if status_code:
-        tags["status"] = record.status_code
-
-    if job:
-        # preserve short action for local run formatting
-        record.action = job.action + ": "
-        if "status" not in tags and job.status_code:
-            tags["status"] = job.status_code
-        tags["project"] = job.project
-        tags["action"] = job.action
-        tags["id"] = job.id
-
-    if req:
-        tags["req"] = req.id
-
-    record.tags = " ".join(f"{k}={v}" for k, v in tags.items())
-
-    return True
-
-
 def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=None):
     formatter = JobRunnerFormatter(fmt, style="{")
     handler = logging.StreamHandler(stream=stream)
@@ -58,6 +25,9 @@ def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=No
         handler.addFilter(IgnoreStatusCodes(status_codes_to_ignore))
     handler.addFilter(formatting_filter)
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"), handlers=[handler])
+
+    # We attach a custom handler for uncaught exceptions to display error
+    # output from failed subprocesses
     sys.excepthook = show_subprocess_stderr
 
 
@@ -82,19 +52,35 @@ class JobRunnerFormatter(logging.Formatter):
         return message
 
 
-def show_subprocess_stderr(typ, value, traceback):
-    """
-    This applies the same CalledProcessError formatting as in `formatException`
-    above but to uncaught exceptions
-    """
-    sys.__excepthook__(typ, value, traceback)
-    if isinstance(value, subprocess.CalledProcessError):
-        stderr = value.stderr
-        if stderr:
-            if isinstance(stderr, bytes):
-                stderr = stderr.decode("utf-8", "ignore")
-            print("\nstderr:\n", file=sys.stderr)
-            print(stderr, file=sys.stderr)
+def formatting_filter(record):
+    """Ensure various record attribute are always available for formatting."""
+
+    ctx = set_log_context.current_context
+    job = getattr(record, "job", None) or ctx.get("job")
+    req = getattr(record, "job_request", None) or ctx.get("job_request")
+
+    status_code = getattr(record, "status_code", None)
+    if job and not status_code:
+        status_code = job.status_code
+
+    tags = {}
+
+    if status_code:
+        tags["status"] = status_code
+    if job:
+        tags["project"] = job.project
+        tags["action"] = job.action
+        tags["id"] = job.id
+    if req:
+        tags["req"] = req.id
+
+    record.tags = " ".join(f"{k}={v}" for k, v in tags.items())
+
+    # The `action` attribute is only used by format string in "local_run" mode
+    # but we make sure it's always available
+    record.action = f"{job.action}: " if job else ""
+
+    return True
 
 
 class IgnoreStatusCodes:
@@ -143,10 +129,20 @@ class SetLogContext(threading.local):
         finally:
             self.current_context = self.context_stack.pop()
 
-    def filter(self, record):
-        if hasattr(record, "status_code"):
-            return record.status_code not in self.status_codes_to_ignore
-        return True
+
+def show_subprocess_stderr(typ, value, traceback):
+    """
+    This applies the same CalledProcessError formatting as in `JobRunnerFormatter`
+    above but to uncaught exceptions
+    """
+    sys.__excepthook__(typ, value, traceback)
+    if isinstance(value, subprocess.CalledProcessError):
+        stderr = value.stderr
+        if stderr:
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode("utf-8", "ignore")
+            print("\nstderr:\n", file=sys.stderr)
+            print(stderr, file=sys.stderr)
 
 
 set_log_context = SetLogContext()
