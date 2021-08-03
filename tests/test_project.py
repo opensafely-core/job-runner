@@ -285,3 +285,43 @@ def test_get_action_specification_for_cohortextractor_generate_cohort_action():
         action_spec.run
         == """cohortextractor:latest generate_cohort --expectations-population=1000 --output-dir=output"""
     )
+
+
+def test_get_action_specification_for_cohortextractor_v2_action():
+    project_dict = {
+        "expectations": {"population_size": 1_000},
+        "actions": {
+            "generate_cohort_v2": {
+                "run": "cohortextractor-v2:latest --output=output/cohort.csv --dummy-data-file dummy.csv",
+                "outputs": {"highly_sensitive": {"cohort": "output/cohort.csv"}},
+            }
+        },
+    }
+    action_id = "generate_cohort_v2"
+    action_spec = project.get_action_specification(project_dict, action_id)
+    assert (
+        action_spec.run
+        == """cohortextractor-v2:latest --output=output/cohort.csv --dummy-data-file dummy.csv"""
+    )
+
+
+@pytest.mark.parametrize(
+    "args,error",
+    [
+        ("--output=output/cohort1.csv --dummy-data-file dummy.csv", "--output in run command and outputs must match"),
+        ("--output=output/cohort1.csv", "--dummy-data-file is required for a local run"),
+    ]
+)
+def test_get_action_specification_for_cohortextractor_v2_errors(args, error):
+    project_dict = {
+        "expectations": {"population_size": 1_000},
+        "actions": {
+            "generate_cohort_v2": {
+                "run": f"cohortextractor-v2:latest {args}",
+                "outputs": {"highly_sensitive": {"cohort": "output/cohort.csv"}},
+            }
+        },
+    }
+    action_id = "generate_cohort_v2"
+    with pytest.raises(ProjectValidationError, match=error):
+        project.get_action_specification(project_dict, action_id)
