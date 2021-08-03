@@ -10,6 +10,7 @@ from jobrunner.project import (
     ProjectValidationError,
     assert_valid_glob_pattern,
     InvalidPatternError,
+    ReusableAction,
 )
 
 
@@ -125,6 +126,23 @@ class TestHandleReusableAction:
             project.handle_reusable_action(
                 "my_action", {"run": "reusable-action:latest"}
             )
+
+    def test_reusable_action_with_invalid_runtime(self, *args, **kwargs):
+        action_id = "my_action"
+        action = {"run": "foo:v1"}
+        reusable_action_1 = ReusableAction(
+            repo_url="foo", commit="bar", action_file=b"run: notanaction:v1"
+        )
+        with pytest.raises(project.ReusableActionError):
+            project.apply_reusable_action(action_id, action, reusable_action_1)
+        # This is a valid runtime, but it's not allowed in re-usable actions
+        reusable_action_2 = ReusableAction(
+            repo_url="foo",
+            commit="bar",
+            action_file=b"run: cohortextractor:v1 generate_cohort",
+        )
+        with pytest.raises(project.ReusableActionError):
+            project.apply_reusable_action(action_id, action, reusable_action_2)
 
 
 class TestParseAndValidateProjectFile:

@@ -211,7 +211,15 @@ def apply_reusable_action(action_id, action, reusable_action):
         # developer didn't make an error; the reusable action developer did.
         action_config = parse_yaml_file(reusable_action.action_file)
         assert "run" in action_config
-    except (ProjectYAMLError, AssertionError):
+        action_run_args = shlex.split(action_config["run"])
+        action_image, action_tag = action_run_args[0].split(":")
+        if action_image not in config.ALLOWED_IMAGES:
+            raise ProjectValidationError(f"Unrecognised runtime: {action_image}")
+        if is_generate_cohort_command(action_run_args):
+            raise ProjectValidationError(
+                "Re-usable actions cannot invoke cohortextractor"
+            )
+    except (ProjectYAMLError, AssertionError, ProjectValidationError):
         raise ReusableActionError(
             f"There is a problem with the reusable action required by '{action_id}'"
         )
