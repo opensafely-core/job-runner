@@ -9,6 +9,11 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
 
 from . import config, git
+from .github_validators import (
+    validate_branch_and_commit,
+    validate_repo_url,
+    GithubValidationError,
+)
 
 
 # The magic action name which means "run every action"
@@ -115,14 +120,6 @@ def handle_reusable_action(action_id, action):
     Raises:
         ReusableActionError: An error occurred when accessing the reusable action.
     """
-    # This avoids a circular import and is much less invasive than either moving the
-    # imports or importing `project` within `create_or_update_jobs`.
-    from .create_or_update_jobs import (
-        JobRequestError,
-        validate_branch_and_commit,
-        validate_repo_url,
-    )
-
     run_args = shlex.split(action["run"])
     image, tag = run_args[0].split(":")
 
@@ -134,7 +131,7 @@ def handle_reusable_action(action_id, action):
     repo_url = f"{config.ACTIONS_GITHUB_ORG_URL}/{image}"
     try:
         validate_repo_url(repo_url, [config.ACTIONS_GITHUB_ORG])
-    except JobRequestError as e:
+    except GithubValidationError as e:
         raise ReusableActionError(*e.args)  # This keeps the function signature clean
 
     try:
@@ -148,7 +145,7 @@ def handle_reusable_action(action_id, action):
 
     try:
         validate_branch_and_commit(repo_url, commit_sha, "main")
-    except JobRequestError as e:
+    except GithubValidationError as e:
         raise ReusableActionError(*e.args)
 
     try:

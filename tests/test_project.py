@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from jobrunner import create_or_update_jobs, git, project
+from jobrunner import git, project
 from jobrunner.project import (
     parse_and_validate_project_file,
     ProjectValidationError,
@@ -92,8 +92,8 @@ class TestHandleReusableAction:
             )
 
     @mock.patch(
-        "jobrunner.create_or_update_jobs.validate_branch_and_commit",
-        side_effect=create_or_update_jobs.JobRequestError,
+        "jobrunner.project.validate_branch_and_commit",
+        side_effect=project.GithubValidationError,
     )
     def test_with_bad_commit(self, *args, **kwargs):
         with pytest.raises(project.ReusableActionError):
