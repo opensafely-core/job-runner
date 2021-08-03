@@ -9,6 +9,11 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
 
 from . import config, git
+from .github_validators import (
+    validate_branch_and_commit,
+    validate_repo_url,
+    GithubValidationError,
+)
 
 
 # The magic action name which means "run every action"
@@ -65,6 +70,13 @@ class ActionSpecifiction:
     commit: str
 
 
+@dataclasses.dataclass
+class ReusableAction:
+    repo_url: str
+    commit: str
+    action_file: bytes
+
+
 def parse_yaml_file(yaml_file):
     try:
         # We're using the pure-Python version here as we don't care about speed
@@ -115,14 +127,6 @@ def handle_reusable_action(action_id, action):
     Raises:
         ReusableActionError: An error occurred when accessing the reusable action.
     """
-    # This avoids a circular import and is much less invasive than either moving the
-    # imports or importing `project` within `create_or_update_jobs`.
-    from .create_or_update_jobs import (
-        JobRequestError,
-        validate_branch_and_commit,
-        validate_repo_url,
-    )
-
     run_args = shlex.split(action["run"])
     image, tag = run_args[0].split(":")
 
@@ -130,45 +134,104 @@ def handle_reusable_action(action_id, action):
         # This isn't a reusable action.
         return action
 
-    # This is a reusable action.
+    reusable_action = fetch_reusable_action(action_id, image, tag)
+    new_action = apply_reusable_action(action_id, action, reusable_action)
+    return new_action
+
+
+def fetch_reusable_action(action_id, image, tag):
+    """
+    Fetch all metadata from git needed to apply a reusable action
+
+    Args:
+        action_id: The action's ID as a string. This is the action's key in
+            project.yaml. It is used to raise errors with more informative messages.
+        image: The name of the reusable action
+        tag: The specified version of the reusable action
+
+    Returns:
+        ReusableAction object, wrapping the repo_url, commit and the contents
+        of the `action.yaml` file
+
+    Raises:
+        ReusableActionError: An error occurred when accessing the reusable action.
+    """
     repo_url = f"{config.ACTIONS_GITHUB_ORG_URL}/{image}"
     try:
         validate_repo_url(repo_url, [config.ACTIONS_GITHUB_ORG])
-    except JobRequestError as e:
+    except GithubValidationError as e:
         raise ReusableActionError(*e.args)  # This keeps the function signature clean
 
     try:
         # If there's a problem, then it relates to the repository. Maybe the study
         # developer made an error; maybe the reusable action developer made an error.
-        commit_sha = git.get_sha_from_remote_ref(repo_url, tag)
+        commit = git.get_sha_from_remote_ref(repo_url, tag)
     except git.GitError:
         raise ReusableActionError(
             f"Cannot resolve '{action_id}' to a repository at '{repo_url}'"
         )
 
     try:
-        validate_branch_and_commit(repo_url, commit_sha, "main")
-    except JobRequestError as e:
+        validate_branch_and_commit(repo_url, commit, "main")
+    except GithubValidationError as e:
         raise ReusableActionError(*e.args)
 
     try:
         # If there's a problem, then it relates to the reusable action. The study
         # developer didn't make an error; the reusable action developer did.
-        action_file = git.read_file_from_repo(repo_url, commit_sha, "action.yaml")
-        action_config = parse_yaml_file(action_file)
+        action_file = git.read_file_from_repo(repo_url, commit, "action.yaml")
+    except git.GitError:
+        raise ReusableActionError(
+            f"There is a problem with the reusable action required by '{action_id}'"
+        )
+
+    return ReusableAction(repo_url=repo_url, commit=commit, action_file=action_file)
+
+
+def apply_reusable_action(action_id, action, reusable_action):
+    """
+    Rewrite an `action` dict to run the code specifed by the supplied
+    `ReusableAction` instance.
+
+    Args:
+        action_id: The action's ID as a string. This is the action's key in
+            project.yaml. It is used to raise errors with more informative messages.
+        action: The action's representation as a dict. This is the action's value in
+            project.yaml.
+        reusable_action: A ReusableAction instance
+
+    Returns:
+        The modified action's representation as a dict.
+
+    Raises:
+        ReusableActionError: An error occurred when accessing the reusable action.
+    """
+    try:
+        # If there's a problem, then it relates to the reusable action. The study
+        # developer didn't make an error; the reusable action developer did.
+        action_config = parse_yaml_file(reusable_action.action_file)
         assert "run" in action_config
-    except (git.GitError, ProjectYAMLError, AssertionError):
+        action_run_args = shlex.split(action_config["run"])
+        action_image, action_tag = action_run_args[0].split(":")
+        if action_image not in config.ALLOWED_IMAGES:
+            raise ProjectValidationError(f"Unrecognised runtime: {action_image}")
+        if is_generate_cohort_command(action_run_args):
+            raise ProjectValidationError(
+                "Re-usable actions cannot invoke cohortextractor"
+            )
+    except (ProjectYAMLError, AssertionError, ProjectValidationError):
         raise ReusableActionError(
             f"There is a problem with the reusable action required by '{action_id}'"
         )
 
     # ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
+    run_args = shlex.split(action["run"])
     run_args[0] = action_config["run"]
 
     new_action = action.copy()
     new_action["run"] = " ".join(run_args)
-    new_action["repo_url"] = repo_url
-    new_action["commit"] = commit_sha
+    new_action["repo_url"] = reusable_action.repo_url
+    new_action["commit"] = reusable_action.commit
     return new_action
 
 

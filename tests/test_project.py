@@ -4,12 +4,13 @@ from unittest import mock
 
 import pytest
 
-from jobrunner import create_or_update_jobs, git, project
+from jobrunner import git, project
 from jobrunner.project import (
     parse_and_validate_project_file,
     ProjectValidationError,
     assert_valid_glob_pattern,
     InvalidPatternError,
+    ReusableAction,
 )
 
 
@@ -92,8 +93,8 @@ class TestHandleReusableAction:
             )
 
     @mock.patch(
-        "jobrunner.create_or_update_jobs.validate_branch_and_commit",
-        side_effect=create_or_update_jobs.JobRequestError,
+        "jobrunner.project.validate_branch_and_commit",
+        side_effect=project.GithubValidationError,
     )
     def test_with_bad_commit(self, *args, **kwargs):
         with pytest.raises(project.ReusableActionError):
@@ -125,6 +126,23 @@ class TestHandleReusableAction:
             project.handle_reusable_action(
                 "my_action", {"run": "reusable-action:latest"}
             )
+
+    def test_reusable_action_with_invalid_runtime(self, *args, **kwargs):
+        action_id = "my_action"
+        action = {"run": "foo:v1"}
+        reusable_action_1 = ReusableAction(
+            repo_url="foo", commit="bar", action_file=b"run: notanaction:v1"
+        )
+        with pytest.raises(project.ReusableActionError):
+            project.apply_reusable_action(action_id, action, reusable_action_1)
+        # This is a valid runtime, but it's not allowed in re-usable actions
+        reusable_action_2 = ReusableAction(
+            repo_url="foo",
+            commit="bar",
+            action_file=b"run: cohortextractor:v1 generate_cohort",
+        )
+        with pytest.raises(project.ReusableActionError):
+            project.apply_reusable_action(action_id, action, reusable_action_2)
 
 
 class TestParseAndValidateProjectFile:
