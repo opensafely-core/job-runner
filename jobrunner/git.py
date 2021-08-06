@@ -3,15 +3,14 @@ Utility functions for interacting with git
 """
 import logging
 import os
-from pathlib import Path, PurePath
 import subprocess
 import time
+from pathlib import Path, PurePath
 from urllib.parse import urlparse, urlunparse
 
 from . import config
 from .string_utils import project_name_from_url
 from .subprocess_utils import subprocess_run
-
 
 log = logging.getLogger(__name__)
 
