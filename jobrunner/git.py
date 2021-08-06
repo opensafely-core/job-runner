@@ -139,19 +139,15 @@ def get_sha_from_remote_ref(repo_url, ref):
         log.exception("Error resolving remote git ref")
         output = ""
     results = _parse_ls_remote_output(output)
-    if len(results) == 1:
-        return list(results.values())[0]
-    elif len(results) > 1:
-        # Where we have more than one match, but there is either an exact match
-        # or a match for a local branch then use that result. (This happens
-        # when using local repos where there are references to both the local
-        # and remote branches.)
-        for target_ref in [ref, f"refs/heads/{ref}", f"refs/tags/{deref_ref}"]:
-            if target_ref in results:
-                return results[target_ref]
-        raise GitError(f"Ambiguous ref '{ref}' in {repo_url}")
-    else:
-        raise GitError(f"Error resolving ref '{ref}' from {repo_url}")
+    for target_ref in [
+        ref,  # e.g. HEAD
+        f"refs/heads/{ref}",  # Branch
+        f"refs/tags/{deref_ref}",  # Annotated tag
+        f"refs/tags/{ref}",  # Lightweight tag
+    ]:
+        if target_ref in results:
+            return results[target_ref]
+    raise GitError(f"Error resolving ref '{ref}' from {repo_url}")
 
 
 def _parse_ls_remote_output(output):
