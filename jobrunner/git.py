@@ -101,13 +101,19 @@ def commit_reachable_from_ref(repo_url, commit_sha, ref):
 
 
 def get_sha_from_remote_ref(repo_url, ref):
-    """
-    Given a `ref` (branch name, tag, etc) on a remote repo, turn it into a
-    commit SHA.
+    """Gets the SHA of the ref at the repo URL.
 
-    In future we might not need this as the job-server should only supply us
-    with SHAs, but for now we want to be able to accept branch names and
-    transform them into SHAs.
+    Args:
+        repo_url: A repo URL.
+        ref: A ref, such as a branch name, tag name, etc.
+
+    Returns:
+        A SHA, although this won't always be a commit SHA; it depends on the ref. For
+        example, if the ref is an annotated tag, then the SHA will be a tag SHA; if the
+        ref is a lightweight tag, then the SHA will be a commit SHA.
+
+    Raises:
+        GitError: An error occurred when getting the SHA.
     """
     try:
         response = subprocess_run(
