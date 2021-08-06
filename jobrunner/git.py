@@ -101,20 +101,22 @@ def commit_reachable_from_ref(repo_url, commit_sha, ref):
 
 
 def get_sha_from_remote_ref(repo_url, ref):
-    """Gets the SHA of the ref at the repo URL.
+    """Gets the SHA of the commit associated with the ref at the repo URL.
 
     Args:
         repo_url: A repo URL.
         ref: A ref, such as a branch name, tag name, etc.
 
     Returns:
-        A SHA, although this won't always be a commit SHA; it depends on the ref. For
-        example, if the ref is an annotated tag, then the SHA will be a tag SHA; if the
-        ref is a lightweight tag, then the SHA will be a commit SHA.
+        The SHA of the commit. For example, if the ref is an annotated tag, then the SHA
+        will be that of the associated commit, rather than that of the annotated tag.
 
     Raises:
         GitError: An error occurred when getting the SHA.
     """
+    # If `ref` matches an annotated tag, then `deref_ref` will match the associated
+    # commit.
+    deref_ref = f"{ref}^{{}}"
     try:
         response = subprocess_run(
             [
@@ -124,6 +126,7 @@ def get_sha_from_remote_ref(repo_url, ref):
                 "--exit-code",
                 add_access_token_and_proxy(repo_url),
                 ref,
+                deref_ref,
             ],
             check=True,
             capture_output=True,
@@ -143,7 +146,7 @@ def get_sha_from_remote_ref(repo_url, ref):
         # or a match for a local branch then use that result. (This happens
         # when using local repos where there are references to both the local
         # and remote branches.)
-        for target_ref in [ref, f"refs/heads/{ref}"]:
+        for target_ref in [ref, f"refs/heads/{ref}", f"refs/tags/{deref_ref}"]:
             if target_ref in results:
                 return results[target_ref]
         raise GitError(f"Ambiguous ref '{ref}' in {repo_url}")
