@@ -3,15 +3,14 @@ Utility functions for interacting with git
 """
 import logging
 import os
-from pathlib import Path, PurePath
 import subprocess
 import time
+from pathlib import Path, PurePath
 from urllib.parse import urlparse, urlunparse
 
 from . import config
 from .string_utils import project_name_from_url
 from .subprocess_utils import subprocess_run
-
 
 log = logging.getLogger(__name__)
 
@@ -102,14 +101,22 @@ def commit_reachable_from_ref(repo_url, commit_sha, ref):
 
 
 def get_sha_from_remote_ref(repo_url, ref):
-    """
-    Given a `ref` (branch name, tag, etc) on a remote repo, turn it into a
-    commit SHA.
+    """Gets the SHA of the commit associated with the ref at the repo URL.
 
-    In future we might not need this as the job-server should only supply us
-    with SHAs, but for now we want to be able to accept branch names and
-    transform them into SHAs.
+    Args:
+        repo_url: A repo URL.
+        ref: A ref, such as a branch name, tag name, etc.
+
+    Returns:
+        The SHA of the commit. For example, if the ref is an annotated tag, then the SHA
+        will be that of the associated commit, rather than that of the annotated tag.
+
+    Raises:
+        GitError: An error occurred when getting the SHA.
     """
+    # If `ref` matches an annotated tag, then `deref_ref` will match the associated
+    # commit.
+    deref_ref = f"{ref}^{{}}"
     try:
         response = subprocess_run(
             [
@@ -119,6 +126,7 @@ def get_sha_from_remote_ref(repo_url, ref):
                 "--exit-code",
                 add_access_token_and_proxy(repo_url),
                 ref,
+                deref_ref,
             ],
             check=True,
             capture_output=True,
@@ -131,19 +139,15 @@ def get_sha_from_remote_ref(repo_url, ref):
         log.exception("Error resolving remote git ref")
         output = ""
     results = _parse_ls_remote_output(output)
-    if len(results) == 1:
-        return list(results.values())[0]
-    elif len(results) > 1:
-        # Where we have more than one match, but there is either an exact match
-        # or a match for a local branch then use that result. (This happens
-        # when using local repos where there are references to both the local
-        # and remote branches.)
-        for target_ref in [ref, f"refs/heads/{ref}"]:
-            if target_ref in results:
-                return results[target_ref]
-        raise GitError(f"Ambiguous ref '{ref}' in {repo_url}")
-    else:
-        raise GitError(f"Error resolving ref '{ref}' from {repo_url}")
+    for target_ref in [
+        ref,  # e.g. HEAD
+        f"refs/heads/{ref}",  # Branch
+        f"refs/tags/{deref_ref}",  # Annotated tag
+        f"refs/tags/{ref}",  # Lightweight tag
+    ]:
+        if target_ref in results:
+            return results[target_ref]
+    raise GitError(f"Error resolving ref '{ref}' from {repo_url}")
 
 
 def _parse_ls_remote_output(output):

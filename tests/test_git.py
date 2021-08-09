@@ -48,6 +48,15 @@ def test_get_sha_from_remote_ref(tmp_work_dir):
 
 
 @pytest.mark.slow_test
+def test_get_sha_from_remote_ref_annotated_tag():
+    sha = get_sha_from_remote_ref(
+        "https://github.com/opensafely-core/test-public-repository.git",
+        "test-annotated-tag-dont-delete",
+    )
+    assert sha == "3c15ff525001e039d4e27cfc62f652ecad09fde4"
+
+
+@pytest.mark.slow_test
 def test_commit_reachable_from_ref(tmp_work_dir):
     is_reachable_good = commit_reachable_from_ref(
         "https://github.com/opensafely-core/test-public-repository.git",
