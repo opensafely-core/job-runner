@@ -20,6 +20,7 @@ away afterwards.
 """
 import argparse
 from datetime import datetime, timedelta
+import getpass
 import json
 import os
 from pathlib import Path
@@ -202,10 +203,19 @@ def create_and_run_jobs(
     config.DATABASE_FILE = f":memory:{random.randrange(sys.maxsize)}"
     config.TMP_DIR = temp_dir
     config.JOB_LOG_DIR = temp_dir / "logs"
-    config.GIT_REPO_DIR = temp_dir / "git"
     config.BACKEND = "expectations"
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
+
+    # Rather than using the throwaway `temp_dir` to store git repos in we use a
+    # consistent directory within the system tempdir. This means we don't have
+    # to keep refetching commits and also avoids the complexity of deleting
+    # git's read-only directories on Windows. We use `getpass.getuser()` as a
+    # crude means of scoping the directory to the user in order to avoid
+    # potential permissions issues if multiple users share the same directory.
+    config.GIT_REPO_DIR = Path(tempfile.gettempdir()).joinpath(
+        f"opensafely_{getpass.getuser()}"
+    )
 
     # None of the below should be used when running locally
     config.WORK_DIR = None
@@ -227,7 +237,7 @@ def create_and_run_jobs(
         # makes for an awkward workflow when iterating in development
         force_run_failed=True,
         branch="",
-        original={"created_by": os.environ.get("USERNAME")},
+        original={"created_by": getpass.getuser()},
     )
     try:
         create_jobs(job_request)
