@@ -10,10 +10,10 @@ Note the schema is defined separately in `schema.sql`.
 import base64
 import dataclasses
 import datetime
-from enum import Enum
 import hashlib
+from enum import Enum
 
-from .string_utils import slugify, project_name_from_url
+from .string_utils import project_name_from_url, slugify
 
 
 class State(Enum):

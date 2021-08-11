@@ -1,6 +1,5 @@
 from cohortextractor import StudyDefinition, patients
 
-
 study = StudyDefinition(
     default_expectations={
         "date": {"earliest": "1970-01-01", "latest": "today"},

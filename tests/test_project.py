@@ -6,11 +6,11 @@ import pytest
 
 from jobrunner import git, project
 from jobrunner.project import (
-    parse_and_validate_project_file,
-    ProjectValidationError,
-    assert_valid_glob_pattern,
     InvalidPatternError,
+    ProjectValidationError,
     ReusableAction,
+    assert_valid_glob_pattern,
+    parse_and_validate_project_file,
 )
 
 

@@ -10,9 +10,8 @@ import time
 
 from . import config
 from .docker_stats import get_container_stats, get_volume_and_container_sizes
-from .system_stats import get_system_stats
 from .log_utils import configure_logging
-
+from .system_stats import get_system_stats
 
 SCHEMA_SQL = """
 CREATE TABLE stats (

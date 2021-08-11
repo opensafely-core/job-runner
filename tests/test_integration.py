@@ -4,11 +4,10 @@ from pathlib import Path
 
 import pytest
 
-import jobrunner.sync
 import jobrunner.run
+import jobrunner.sync
 from jobrunner import config, docker
 from jobrunner.subprocess_utils import subprocess_run
-
 
 log = logging.getLogger(__name__)
 

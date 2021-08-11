@@ -6,41 +6,40 @@ JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
 import logging
-from pathlib import Path
 import re
 import time
+from pathlib import Path
 
 from . import config
 from .database import (
-    transaction,
-    insert,
+    count_where,
     exists_where,
     find_where,
-    count_where,
+    insert,
+    transaction,
     update_where,
 )
 from .git import (
-    read_file_from_repo,
-    get_sha_from_remote_ref,
     GitError,
     GitFileNotFoundError,
+    get_sha_from_remote_ref,
+    read_file_from_repo,
 )
 from .github_validators import (
+    GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,
-    GithubValidationError,
 )
+from .manage_jobs import action_has_successful_outputs
+from .models import Job, SavedJobRequest, State
 from .project import (
-    parse_and_validate_project_file,
+    RUN_ALL_COMMAND,
+    ProjectValidationError,
+    assert_valid_actions,
     get_action_specification,
     get_all_actions,
-    assert_valid_actions,
-    ProjectValidationError,
-    RUN_ALL_COMMAND,
+    parse_and_validate_project_file,
 )
-from .models import Job, SavedJobRequest, State
-from .manage_jobs import action_has_successful_outputs
-
 
 log = logging.getLogger(__name__)
 

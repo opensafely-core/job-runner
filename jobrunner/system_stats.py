@@ -1,7 +1,6 @@
 from .docker import MANAGEMENT_CONTAINER_IMAGE
 from .subprocess_utils import subprocess_run
 
-
 # Populated by calls to `register_command` below
 COMMANDS = []
 PARSERS = []

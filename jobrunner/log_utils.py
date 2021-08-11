@@ -14,7 +14,6 @@ import sys
 import threading
 import time
 
-
 DEFAULT_FORMAT = "{asctime} {message} {tags}"
 
 

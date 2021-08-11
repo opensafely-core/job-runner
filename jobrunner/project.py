@@ -1,20 +1,19 @@
 import dataclasses
 import json
-from pathlib import PureWindowsPath, PurePosixPath
 import posixpath
 import shlex
+from pathlib import PurePosixPath, PureWindowsPath
 from types import SimpleNamespace
 
 from ruamel.yaml import YAML
-from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
+from ruamel.yaml.error import YAMLError, YAMLFutureWarning, YAMLStreamError, YAMLWarning
 
 from . import config, git
 from .github_validators import (
+    GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,
-    GithubValidationError,
 )
-
 
 # The magic action name which means "run every action"
 RUN_ALL_COMMAND = "run_all"

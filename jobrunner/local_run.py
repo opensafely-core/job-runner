@@ -19,11 +19,9 @@ temporary database and log directory is created for each run and then thrown
 away afterwards.
 """
 import argparse
-from datetime import datetime, timedelta
 import getpass
 import json
 import os
-from pathlib import Path
 import platform
 import random
 import shlex
@@ -33,24 +31,24 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from datetime import datetime, timedelta
+from pathlib import Path
 
-from .run import main as run_main
-from . import config
-from . import docker
-from .database import find_where
-from .manage_jobs import METADATA_DIR
-from .models import JobRequest, Job, State, StatusCode
+from . import config, docker
 from .create_or_update_jobs import (
-    create_jobs,
-    ProjectValidationError,
+    RUN_ALL_COMMAND,
     JobRequestError,
     NothingToDoError,
-    RUN_ALL_COMMAND,
+    ProjectValidationError,
+    create_jobs,
 )
+from .database import find_where
 from .log_utils import configure_logging
-from .subprocess_utils import subprocess_run
+from .manage_jobs import METADATA_DIR
+from .models import Job, JobRequest, State, StatusCode
+from .run import main as run_main
 from .string_utils import tabulate
-
+from .subprocess_utils import subprocess_run
 
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]

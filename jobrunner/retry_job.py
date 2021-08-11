@@ -17,10 +17,10 @@ updates on it.
 import argparse
 import time
 
-from .sync import api_post, job_to_remote_format
 from .database import find_where, update
+from .manage_jobs import container_name, docker
 from .models import Job, State
-from .manage_jobs import docker, container_name
+from .sync import api_post, job_to_remote_format
 
 
 def main(partial_job_id):

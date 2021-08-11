@@ -1,5 +1,5 @@
-from jobrunner.sync import job_request_from_remote_format
 from jobrunner.models import JobRequest
+from jobrunner.sync import job_request_from_remote_format
 
 
 def test_job_request_from_remote_format():

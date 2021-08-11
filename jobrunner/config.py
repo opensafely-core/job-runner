@@ -1,8 +1,8 @@
 import configparser
 import os
-from pathlib import Path
 import re
 from multiprocessing import cpu_count
+from pathlib import Path
 
 
 class ConfigException(Exception):

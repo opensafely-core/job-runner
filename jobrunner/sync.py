@@ -8,12 +8,11 @@ import time
 
 import requests
 
-from .log_utils import configure_logging, set_log_context
 from . import config
 from .create_or_update_jobs import create_or_update_jobs
 from .database import find_where
-from .models import JobRequest, Job
-
+from .log_utils import configure_logging, set_log_context
+from .models import Job, JobRequest
 
 session = requests.Session()
 log = logging.getLogger(__name__)
