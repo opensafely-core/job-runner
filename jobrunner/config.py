@@ -1,8 +1,8 @@
 import configparser
 import os
-from pathlib import Path
 import re
 from multiprocessing import cpu_count
+from pathlib import Path
 
 
 class ConfigException(Exception):
@@ -50,7 +50,14 @@ if os.environ.get("USING_DUMMY_DATA_BACKEND", "false").lower().strip() in truthy
 else:
     USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
-ALLOWED_IMAGES = {"cohortextractor", "cohortextractor-v2", "stata-mp", "r", "jupyter", "python"}
+ALLOWED_IMAGES = {
+    "cohortextractor",
+    "cohortextractor-v2",
+    "stata-mp",
+    "r",
+    "jupyter",
+    "python",
+}
 
 DOCKER_REGISTRY = "ghcr.io/opensafely-core"
 

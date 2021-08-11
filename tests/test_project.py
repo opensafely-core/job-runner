@@ -6,11 +6,11 @@ import pytest
 
 from jobrunner import git, project
 from jobrunner.project import (
-    parse_and_validate_project_file,
-    ProjectValidationError,
-    assert_valid_glob_pattern,
     InvalidPatternError,
+    ProjectValidationError,
     ReusableAction,
+    assert_valid_glob_pattern,
+    parse_and_validate_project_file,
 )
 
 
@@ -308,9 +308,15 @@ def test_get_action_specification_for_cohortextractor_v2_action():
 @pytest.mark.parametrize(
     "args,error",
     [
-        ("--output=output/cohort1.csv --dummy-data-file dummy.csv", "--output in run command and outputs must match"),
-        ("--output=output/cohort1.csv", "--dummy-data-file is required for a local run"),
-    ]
+        (
+            "--output=output/cohort1.csv --dummy-data-file dummy.csv",
+            "--output in run command and outputs must match",
+        ),
+        (
+            "--output=output/cohort1.csv",
+            "--dummy-data-file is required for a local run",
+        ),
+    ],
 )
 def test_get_action_specification_for_cohortextractor_v2_errors(args, error):
     project_dict = {

@@ -4,15 +4,14 @@ from pathlib import Path
 import pytest
 
 from jobrunner.git import (
-    read_file_from_repo,
     checkout_commit,
-    get_sha_from_remote_ref,
+    commit_already_fetched,
     commit_reachable_from_ref,
     ensure_git_init,
     fetch_commit,
-    commit_already_fetched,
+    get_sha_from_remote_ref,
+    read_file_from_repo,
 )
-
 
 REPO_FIXTURE = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
 

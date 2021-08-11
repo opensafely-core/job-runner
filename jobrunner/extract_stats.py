@@ -3,8 +3,8 @@ Quick script to grab an extract of resource usage stats from the stats database
 """
 import argparse
 import gzip
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 
 from . import config
 

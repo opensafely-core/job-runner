@@ -2,15 +2,11 @@
 Script runs both jobrunner flows in a single process.
 """
 import logging
-import time
 import threading
+import time
 
-from . import config
+from . import config, record_stats, run, sync
 from .log_utils import configure_logging
-from . import run
-from . import sync
-from . import record_stats
-
 
 log = logging.getLogger(__name__)
 

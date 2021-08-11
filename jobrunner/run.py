@@ -9,19 +9,18 @@ import random
 import sys
 import time
 
-from .log_utils import configure_logging, set_log_context
 from . import config
-from .database import find_where, update, select_values
-from .models import Job, State, StatusCode
+from .database import find_where, select_values, update
+from .log_utils import configure_logging, set_log_context
 from .manage_jobs import (
     JobError,
-    start_job,
-    job_still_running,
-    finalise_job,
     cleanup_job,
+    finalise_job,
+    job_still_running,
     kill_job,
+    start_job,
 )
-
+from .models import Job, State, StatusCode
 
 log = logging.getLogger(__name__)
 

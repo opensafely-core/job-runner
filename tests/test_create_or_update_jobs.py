@@ -1,16 +1,16 @@
-from pathlib import Path
 import uuid
+from pathlib import Path
 
 import pytest
 
-from jobrunner.database import find_where
-from jobrunner.models import JobRequest, Job, State
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
-    create_or_update_jobs,
     create_jobs_with_project_file,
+    create_or_update_jobs,
     validate_job_request,
 )
+from jobrunner.database import find_where
+from jobrunner.models import Job, JobRequest, State
 
 
 @pytest.fixture(autouse=True)
@@ -189,7 +189,7 @@ def test_validate_job_request(params, exc_msg, monkeypatch):
     kwargs.update(params)
     job_request = JobRequest(**kwargs)
 
-    with pytest.raises(JobRequestError, match=exc_msg) as exc:
+    with pytest.raises(JobRequestError, match=exc_msg):
         validate_job_request(job_request)
 
 

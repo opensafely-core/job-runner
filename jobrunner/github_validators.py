@@ -1,6 +1,6 @@
-from .git import commit_reachable_from_ref
-
 from urllib.parse import urlparse
+
+from .git import commit_reachable_from_ref
 
 
 class GithubValidationError(Exception):

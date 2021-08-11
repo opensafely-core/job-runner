@@ -1,4 +1,3 @@
-from textwrap import dedent
 import platform
 import signal
 import subprocess
@@ -6,9 +5,6 @@ import sys
 import time
 
 import pytest
-
-from jobrunner import service
-from jobrunner.subprocess_utils import subprocess_run
 
 
 @pytest.mark.skipif(

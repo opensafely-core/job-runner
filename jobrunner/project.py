@@ -1,20 +1,19 @@
 import dataclasses
 import json
-from pathlib import PureWindowsPath, PurePosixPath
 import posixpath
 import shlex
+from pathlib import PurePosixPath, PureWindowsPath
 from types import SimpleNamespace
 
 from ruamel.yaml import YAML
-from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
+from ruamel.yaml.error import YAMLError, YAMLFutureWarning, YAMLStreamError, YAMLWarning
 
 from . import config, git
 from .github_validators import (
+    GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,
-    GithubValidationError,
 )
-
 
 # The magic action name which means "run every action"
 RUN_ALL_COMMAND = "run_all"
@@ -411,13 +410,21 @@ def get_action_specification(project, action_id):
         # cohortextractor Version 2 expects all command line arguments to be
         # specified in the run command
         if config.USING_DUMMY_DATA_BACKEND and "--dummy-data-file" not in run_command:
-            raise ProjectValidationError("--dummy-data-file is required for a local run")
+            raise ProjectValidationError(
+                "--dummy-data-file is required for a local run"
+            )
 
         # There is one and only one output file in the outputs spec (verified
         # in validate_project_and_set_defaults())
-        output_file = next(output_file for output in action_spec["outputs"].values() for output_file in output.values())
+        output_file = next(
+            output_file
+            for output in action_spec["outputs"].values()
+            for output_file in output.values()
+        )
         if output_file not in run_command:
-            raise ProjectValidationError("--output in run command and outputs must match")
+            raise ProjectValidationError(
+                "--output in run command and outputs must match"
+            )
 
     elif is_generate_cohort_command(run_args):
         raise RuntimeError("Unhandled cohortextractor version")

@@ -9,14 +9,13 @@ surface area of this module is sufficiently small that swapping it out
 shouldn't be too large a job.
 """
 import dataclasses
-from enum import Enum
 import json
-from pathlib import Path
 import sqlite3
 import threading
+from enum import Enum
+from pathlib import Path
 
 from . import config
-
 
 CONNECTION_CACHE = threading.local()
 

@@ -6,17 +6,17 @@ import argparse
 import base64
 import dataclasses
 import pprint
-from pathlib import Path
-from urllib.parse import urlparse
 import secrets
 import textwrap
+from pathlib import Path
+from urllib.parse import urlparse
 
-from .log_utils import configure_logging
-from .sync import job_request_from_remote_format
-from .database import find_where
-from .models import Job
 from .create_or_update_jobs import create_or_update_jobs
+from .database import find_where
 from .git import get_sha_from_remote_ref
+from .log_utils import configure_logging
+from .models import Job
+from .sync import job_request_from_remote_format
 
 
 def main(
