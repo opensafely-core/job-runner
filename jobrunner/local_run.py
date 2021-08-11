@@ -166,17 +166,13 @@ def main(
         else:
             containers = find_docker_entities("container", docker_label)
             volumes = find_docker_entities("volume", docker_label)
-            if containers or volumes:
-                print(f"\n{'-' * 48}")
-                print(
-                    "\nRunning in --debug mode so not cleaning up."
-                    " To clean up run:\n"
-                )
-                for container in containers:
-                    print(f"  docker container rm --force {container}")
-                for volume in volumes:
-                    print(f"  docker volume rm --force {volume}")
-                print(f"  rm -rf {temp_dir}")
+            print(f"\n{'-' * 48}")
+            print("\nRunning in --debug mode so not cleaning up. To clean up run:\n")
+            for container in containers:
+                print(f"  docker container rm --force {container}")
+            for volume in volumes:
+                print(f"  docker volume rm --force {volume}")
+            print(f"  rm -rf {temp_dir}")
     return success_flag
 
 
