@@ -252,15 +252,27 @@ def create_and_run_jobs(
 
     jobs = find_where(Job)
 
-    for image in get_docker_images(jobs):
-        is_stata = "stata-mp" in image
+    docker_images = get_docker_images(jobs)
 
-        if is_stata and config.STATA_LICENSE is None:
-            config.STATA_LICENSE = get_stata_license()
-            if config.STATA_LICENSE is None:
-                # TODO switch this to failing when the stata image requires it
-                print("WARNING: no STATA_LICENSE found")
+    stata_images = [i for i in docker_images if i.startswith("stata-mp")]
+    if stata_images and config.STATA_LICENSE is None:
+        config.STATA_LICENSE = get_stata_license()
+        if config.STATA_LICENSE is None:
+            print(
+                f"The docker image '{stata_images[0]}' requires a license to function.\n"
+                f"\n"
+                f"If you are a member of OpenSAFELY we should have been able to fetch\n"
+                f"the license automatically, so something has gone wrong.  Please open\n"
+                f"a new discussion here so we can help:\n"
+                f"  https://github.com/opensafely/documentation/discussions\n"
+                f"\n"
+                f"If you are not a member of OpenSAFELY you will have to provide your\n"
+                f"own license. See the dicussion here for pointers:\n"
+                f" https://github.com/opensafely/documentation/discussions/299"
+            )
+            return False
 
+    for image in docker_images:
         if not docker.image_exists_locally(image):
             print(f"Fetching missing docker image: docker pull {image}")
             try:
