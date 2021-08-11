@@ -568,13 +568,3 @@ def assert_valid_glob_pattern(pattern):
     # for both platforms
     if PurePosixPath(pattern).is_absolute() or PureWindowsPath(pattern).is_absolute():
         raise InvalidPatternError("is an absolute path")
-
-
-def assert_valid_actions(project, actions):
-    if not actions:
-        raise UnknownActionError("At least one action must be supplied", project)
-    for action in actions:
-        if action != RUN_ALL_COMMAND and action not in project["actions"]:
-            raise UnknownActionError(
-                f"Action '{action}' not found in project.yaml", project
-            )

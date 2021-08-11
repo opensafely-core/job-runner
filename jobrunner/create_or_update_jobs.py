@@ -23,7 +23,6 @@ from .models import Job, SavedJobRequest, State
 from .project import (
     RUN_ALL_COMMAND,
     ProjectValidationError,
-    assert_valid_actions,
     get_action_specification,
     get_all_actions,
     parse_and_validate_project_file,
@@ -103,7 +102,6 @@ def create_jobs(job_request):
 
 def create_jobs_with_project_file(job_request, project_file):
     project = parse_and_validate_project_file(project_file)
-    assert_valid_actions(project, job_request.requested_actions)
 
     active_jobs = get_active_jobs_for_workpace(job_request.workspace)
     new_jobs = get_jobs_to_run(job_request, project, active_jobs)
@@ -260,6 +258,8 @@ def validate_job_request(job_request):
         validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
     if not job_request.workspace:
         raise JobRequestError("Workspace name cannot be blank")
+    if not job_request.requested_actions:
+        raise JobRequestError("At least one action must be supplied")
     # In local run mode the workspace name is whatever the user's working
     # directory happens to be called, which we don't want or need to place any
     # restrictions on. Otherwise, as these are externally supplied strings that
