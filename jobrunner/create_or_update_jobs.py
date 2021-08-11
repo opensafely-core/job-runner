@@ -19,12 +19,7 @@ from .database import (
     transaction,
     update_where,
 )
-from .git import (
-    GitError,
-    GitFileNotFoundError,
-    get_sha_from_remote_ref,
-    read_file_from_repo,
-)
+from .git import GitError, GitFileNotFoundError, read_file_from_repo
 from .github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
@@ -96,18 +91,6 @@ def related_jobs_exist(job_request):
 
 def create_jobs(job_request):
     validate_job_request(job_request)
-    # In future I expect the job-server to only ever supply commits and so this
-    # branch resolution will be redundant
-
-    # job_request.commit will be:
-    # 1. None when in local run mode
-    # 2. None when not in local run mode and job-server didn't supply a commit
-    # 3. A non-empty string when not in local run mode and job-server supplied a commit
-    # Are we 2?
-    if not job_request.commit and not config.LOCAL_RUN_MODE:
-        job_request.commit = get_sha_from_remote_ref(
-            job_request.repo_url, job_request.branch
-        )
     try:
         if not config.LOCAL_RUN_MODE:
             project_file = read_file_from_repo(

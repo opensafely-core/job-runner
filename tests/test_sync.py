@@ -14,11 +14,12 @@ def test_job_request_from_remote_format():
         "requested_actions": ["generate_cohort"],
         "cancelled_actions": ["analyse"],
         "force_run_dependencies": True,
+        "sha": "abcdef",
     }
     expected = JobRequest(
         id="123",
         repo_url="https://github.com/opensafely/foo",
-        commit=None,
+        commit="abcdef",
         branch="master",
         workspace="testing",
         database_name="full",
