@@ -15,6 +15,7 @@ import shlex
 import shutil
 import tempfile
 import time
+import sys
 
 from . import config
 from . import docker
@@ -96,14 +97,13 @@ def start_job(job):
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
     if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
-    # Check the image exists locally and error if not. Newer versions of
-    # docker-cli support `--pull=never` as an argument to `docker run` which
-    # would make this simpler, but it looks like it will be a while before this
-    # makes it to Docker for Windows:
-    # https://github.com/docker/cli/pull/1498
+    # we have to pull via the proxy, so we do that rather than let docker's
+    # native pull-on-run functionality do it. We do not update it, however
     if not docker.image_exists_locally(full_image):
-        log.info(f"Image not found, may need to run: docker pull {full_image}")
-        raise JobError(f"Docker image {image} is not currently available")
+        # when running via local_run, show the the docker download output
+        # rather than appearing to hang
+        loud = config.LOCAL_RUN_MODE and sys.stdout.isatty()
+        docker.pull(full_image, quiet=not loud)
     # Start the container
     docker.run(
         container_name(job),
