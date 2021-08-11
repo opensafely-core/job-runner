@@ -20,7 +20,6 @@ away afterwards.
 """
 import argparse
 import getpass
-import json
 import os
 import platform
 import random
@@ -270,14 +269,9 @@ def create_and_run_jobs(
                 # layer download noise
                 docker.pull(image, quiet=not sys.stdout.isatty())
             except docker.DockerPullError as e:
-                success = False
-                if is_stata:
-                    # best effort retry hack
-                    success = temporary_stata_workaround(image)
-                if not success:
-                    print("Failed with error:")
-                    print(e)
-                    return False
+                print("Failed with error:")
+                print(e)
+                return False
 
     action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
@@ -459,44 +453,6 @@ def get_log_file_snippet(log_file, max_lines):
     else:
         truncated = False
     return "\n".join(log_lines).strip(), truncated
-
-
-def temporary_stata_workaround(image):
-    """
-    This is a temporary workaround for the fact that the current crop of Github
-    Actions have credentials for the old docker.opensafely.org registry but not
-    for ghcr.io. These are only needed for the one private image we have
-    (Stata) so we detect when we are in this situation and pull from the old
-    registry instead.
-
-    We'll shortly be updating the Github Actions to use an entirely new set of
-    commands in any case, so this will hopefully be a short-lived hack.
-    """
-    if not os.environ.get("GITHUB_WORKFLOW"):
-        return False
-
-    docker_config = os.environ.get("DOCKER_CONFIG", os.path.expanduser("~/.docker"))
-    config_path = Path(docker_config) / "config.json"
-    try:
-        config = json.loads(config_path.read_text())
-        auths = config["auths"]
-    except Exception:
-        return False
-
-    if "ghcr.io" in auths or "docker.opensafely.org" not in auths:
-        return False
-
-    print("Applying Docker authentication workaround...")
-    alt_image = image.replace("ghcr.io/opensafely-core/", "docker.opensafely.org/")
-
-    try:
-        docker.pull(alt_image, quiet=True)
-        print(f"Retagging '{alt_image}' as '{image}'")
-        subprocess_run(["docker", "tag", alt_image, image])
-    except Exception:
-        return False
-
-    return True
 
 
 def get_stata_license(repo=config.STATA_LICENSE_REPO):
