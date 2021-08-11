@@ -20,6 +20,7 @@ away afterwards.
 """
 import argparse
 from datetime import datetime, timedelta
+import getpass
 import json
 import os
 from pathlib import Path
@@ -123,8 +124,7 @@ def main(
         return False
 
     project_dir = Path(project_dir).resolve()
-    temp_log_dir = project_dir / METADATA_DIR / ".logs"
-    temp_git_repo_dir = project_dir / ".reusable_actions"
+    temp_dir = Path(tempfile.mkdtemp(prefix="opensafely_"))
     if not debug:
         # Generate unique docker label to use for all volumes and containers we
         # create during this run in order to make cleanup easy. We're using a
@@ -148,9 +148,8 @@ def main(
             actions,
             force_run_dependencies=force_run_dependencies,
             continue_on_error=continue_on_error,
-            temp_log_dir=temp_log_dir,
+            temp_dir=temp_dir,
             docker_label=docker_label,
-            temp_git_repo_dir=temp_git_repo_dir,
             clean_up_docker_objects=(not debug),
             log_format=log_format,
             format_output_for_github=format_output_for_github,
@@ -163,21 +162,17 @@ def main(
         if not debug:
             delete_docker_entities("container", docker_label, ignore_errors=True)
             delete_docker_entities("volume", docker_label, ignore_errors=True)
-            shutil.rmtree(temp_log_dir, ignore_errors=True)
-            shutil.rmtree(temp_git_repo_dir, ignore_errors=True)
+            shutil.rmtree(temp_dir, ignore_errors=True)
         else:
             containers = find_docker_entities("container", docker_label)
             volumes = find_docker_entities("volume", docker_label)
-            if containers or volumes:
-                print(f"\n{'-' * 48}")
-                print(
-                    "\nRunning in --debug mode so not cleaning up."
-                    " To clean up run:\n"
-                )
-                for container in containers:
-                    print(f"  docker container rm --force {container}")
-                for volume in volumes:
-                    print(f"  docker volume rm --force {volume}")
+            print(f"\n{'-' * 48}")
+            print("\nRunning in --debug mode so not cleaning up. To clean up run:\n")
+            for container in containers:
+                print(f"  docker container rm --force {container}")
+            for volume in volumes:
+                print(f"  docker volume rm --force {volume}")
+            print(f"  rm -rf {temp_dir}")
     return success_flag
 
 
@@ -186,9 +181,8 @@ def create_and_run_jobs(
     actions,
     force_run_dependencies,
     continue_on_error,
-    temp_log_dir,
+    temp_dir,
     docker_label,
-    temp_git_repo_dir,
     clean_up_docker_objects=True,
     log_format=LOCAL_RUN_FORMAT,
     format_output_for_github=False,
@@ -203,15 +197,24 @@ def create_and_run_jobs(
     # get their own unique in-memory database. This is only really relevant
     # during testing.
     config.DATABASE_FILE = f":memory:{random.randrange(sys.maxsize)}"
-    config.JOB_LOG_DIR = temp_log_dir
+    config.TMP_DIR = temp_dir
+    config.JOB_LOG_DIR = temp_dir / "logs"
     config.BACKEND = "expectations"
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
-    config.GIT_REPO_DIR = temp_git_repo_dir
+
+    # Rather than using the throwaway `temp_dir` to store git repos in we use a
+    # consistent directory within the system tempdir. This means we don't have
+    # to keep refetching commits and also avoids the complexity of deleting
+    # git's read-only directories on Windows. We use `getpass.getuser()` as a
+    # crude means of scoping the directory to the user in order to avoid
+    # potential permissions issues if multiple users share the same directory.
+    config.GIT_REPO_DIR = Path(tempfile.gettempdir()).joinpath(
+        f"opensafely_{getpass.getuser()}"
+    )
 
     # None of the below should be used when running locally
     config.WORK_DIR = None
-    config.TMP_DIR = None
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
@@ -230,7 +233,7 @@ def create_and_run_jobs(
         # makes for an awkward workflow when iterating in development
         force_run_failed=True,
         branch="",
-        original={"created_by": os.environ.get("USERNAME")},
+        original={"created_by": getpass.getuser()},
     )
     try:
         create_jobs(job_request)
