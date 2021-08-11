@@ -138,14 +138,13 @@ Usually four characters will get you uniqueness.
 
 ### Pulling a docker image
 
-You can't run `docker pull` as normal because all Docker operations must
-go via our proxy. Instead run:
+You need to use the proxy to pull images:
 
-    ./scripts/update-docker-image.sh <IMAGE_NAME e.g. cohortextractor>
+    docker pull docker-proxy.opensafely.org/opensafely-core/$IMAGE
 
-This will pull the updated image via the proxy, re-tag it as appopriate
-and prune any unused images.
+This is also a good opportunity to run a clean up:
 
+    docker image prune
 
 ### Updating job-runner configuration
 

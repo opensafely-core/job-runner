@@ -52,7 +52,7 @@ else:
 
 ALLOWED_IMAGES = {"cohortextractor", "cohortextractor-v2", "stata-mp", "r", "jupyter", "python"}
 
-DOCKER_REGISTRY = "ghcr.io/opensafely-core"
+DOCKER_REGISTRY = "docker-proxy.opensafely.org/opensafely-core"
 
 DATABASE_URLS = {
     "full": os.environ.get("FULL_DATABASE_URL"),
