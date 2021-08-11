@@ -215,8 +215,7 @@ def apply_reusable_action(action_id, action, reusable_action):
         action_image, action_tag = action_run_args[0].split(":")
         if action_image not in config.ALLOWED_IMAGES:
             raise ProjectValidationError(f"Unrecognised runtime: {action_image}")
-        is_generate_cohort, _ = is_generate_cohort_command(action_run_args)
-        if is_generate_cohort:
+        if is_generate_cohort_command(action_run_args):
             raise ProjectValidationError(
                 "Re-usable actions cannot invoke cohortextractor"
             )
@@ -286,8 +285,7 @@ def validate_project_and_set_defaults(project):
     project_actions = project["actions"]
 
     for action_id, action_config in project_actions.items():
-        is_generate_cohort, _ = is_generate_cohort_command(shlex.split(action_config["run"]))
-        if is_generate_cohort:
+        if is_generate_cohort_command(shlex.split(action_config["run"])):
             if len(action_config["outputs"]) != 1:
                 raise ProjectValidationError(
                     f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}",
@@ -379,47 +377,50 @@ def get_action_specification(project, action_id):
     run_args = shlex.split(run_command)
 
     # Special case handling for the `cohortextractor generate_cohort` command
-    is_generate_cohort, version = is_generate_cohort_command(run_args)
-    if is_generate_cohort:
-        if version == 1:
-            # Set the size of the dummy data population, if that's what we're
-            # generating.  Possibly this should be moved to the study definition
-            # anyway, which would make this unnecessary.
-            if config.USING_DUMMY_DATA_BACKEND:
-                if "dummy_data_file" in action_spec:
-                    run_command += f" --dummy-data-file={action_spec['dummy_data_file']}"
-                else:
-                    size = int(project["expectations"]["population_size"])
-                    run_command += f" --expectations-population={size}"
-            # Automatically configure the cohortextractor to produce output in the
-            # directory the `outputs` spec is expecting. Longer term I'd like to
-            # just make it an error if the directories don't match, rather than
-            # silently fixing it. (We can use the project versioning system to
-            # ensure this doesn't break existing studies.)
-            output_dirs = get_output_dirs(action_spec["outputs"])
-            if len(output_dirs) != 1:
-                # If we detect multiple output directories but the command
-                # explicitly specifies an output directory then we assume the user
-                # knows what they're doing and don't attempt to modify the output
-                # directory or throw an error
-                if not args_include(run_args, "--output-dir"):
-                    raise ProjectValidationError(
-                        f"generate_cohort command should produce output in only one "
-                        f"directory, found {len(output_dirs)}:\n"
-                        + "\n".join([f" - {d}/" for d in output_dirs])
-                    )
+    if is_generate_cohort_command(run_args, require_version=1):
+        # Set the size of the dummy data population, if that's what we're
+        # generating.  Possibly this should be moved to the study definition
+        # anyway, which would make this unnecessary.
+        if config.USING_DUMMY_DATA_BACKEND:
+            if "dummy_data_file" in action_spec:
+                run_command += f" --dummy-data-file={action_spec['dummy_data_file']}"
             else:
-                run_command += f" --output-dir={output_dirs[0]}"
+                size = int(project["expectations"]["population_size"])
+                run_command += f" --expectations-population={size}"
+        # Automatically configure the cohortextractor to produce output in the
+        # directory the `outputs` spec is expecting. Longer term I'd like to
+        # just make it an error if the directories don't match, rather than
+        # silently fixing it. (We can use the project versioning system to
+        # ensure this doesn't break existing studies.)
+        output_dirs = get_output_dirs(action_spec["outputs"])
+        if len(output_dirs) != 1:
+            # If we detect multiple output directories but the command
+            # explicitly specifies an output directory then we assume the user
+            # knows what they're doing and don't attempt to modify the output
+            # directory or throw an error
+            if not args_include(run_args, "--output-dir"):
+                raise ProjectValidationError(
+                    f"generate_cohort command should produce output in only one "
+                    f"directory, found {len(output_dirs)}:\n"
+                    + "\n".join([f" - {d}/" for d in output_dirs])
+                )
         else:
-            # cohortextractor Version 2 expects all command line arguments to be specified in the run command
-            assert version == 2, version
-            if config.USING_DUMMY_DATA_BACKEND and "--dummy-data-file" not in run_command:
-                raise ProjectValidationError("--dummy-data-file is required for a local run")
+            run_command += f" --output-dir={output_dirs[0]}"
 
-            # There is one and only one output file in the outputs spec (verified in validate_project_and_set_defaults())
-            output_file = next(output_file for output in action_spec["outputs"].values() for output_file in output.values())
-            if output_file not in run_command:
-                raise ProjectValidationError("--output in run command and outputs must match")
+    elif is_generate_cohort_command(run_args, require_version=2):
+        # cohortextractor Version 2 expects all command line arguments to be
+        # specified in the run command
+        if config.USING_DUMMY_DATA_BACKEND and "--dummy-data-file" not in run_command:
+            raise ProjectValidationError("--dummy-data-file is required for a local run")
+
+        # There is one and only one output file in the outputs spec (verified
+        # in validate_project_and_set_defaults())
+        output_file = next(output_file for output in action_spec["outputs"].values() for output_file in output.values())
+        if output_file not in run_command:
+            raise ProjectValidationError("--output in run command and outputs must match")
+
+    elif is_generate_cohort_command(run_args):
+        raise RuntimeError("Unhandled cohortextractor version")
 
     return ActionSpecifiction(
         run=run_command,
@@ -443,19 +444,26 @@ def add_config_to_run_command(run_command, config):
     return f"{run_command} --config '{config_as_json}'"
 
 
-def is_generate_cohort_command(args):
+def is_generate_cohort_command(args, require_version=None):
     """
     The `cohortextractor generate_cohort` command gets special treatment in
     various places (e.g. it's the only command which gets access to the
     database) so it's helpful to have a single function for identifying it
     """
     assert not isinstance(args, str)
+    version_found = None
     if len(args) > 1:
         if args[0].startswith("cohortextractor:") and args[1] == "generate_cohort":
-            return True, 1
+            version_found = 1
         if args[0].startswith("cohortextractor-v2:"):
-            return True, 2
-    return False, None
+            version_found = 2
+    # If we're not looking for a specific version then return True if any
+    # version found
+    if require_version is None:
+        return version_found is not None
+    # Otherwise return True only if specified version found
+    else:
+        return version_found == require_version
 
 
 def args_include(args, target_arg):
