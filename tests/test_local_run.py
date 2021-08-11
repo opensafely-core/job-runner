@@ -36,7 +36,7 @@ def test_local_run_stata(tmp_path, monkeypatch):
     monkeypatch.setattr("jobrunner.config.STATA_LICENSE", os.environ["STATA_LICENSE"])
     local_run.main(project_dir=project_dir, actions=["stata"])
     env_file = project_dir / "output/env.txt"
-    assert "University of Oxford" in env_file.read_text()
+    assert "Bennett Institute" in env_file.read_text()
 
 
 @pytest.fixture
