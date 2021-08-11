@@ -308,9 +308,15 @@ def test_get_action_specification_for_cohortextractor_v2_action():
 @pytest.mark.parametrize(
     "args,error",
     [
-        ("--output=output/cohort1.csv --dummy-data-file dummy.csv", "--output in run command and outputs must match"),
-        ("--output=output/cohort1.csv", "--dummy-data-file is required for a local run"),
-    ]
+        (
+            "--output=output/cohort1.csv --dummy-data-file dummy.csv",
+            "--output in run command and outputs must match",
+        ),
+        (
+            "--output=output/cohort1.csv",
+            "--dummy-data-file is required for a local run",
+        ),
+    ],
 )
 def test_get_action_specification_for_cohortextractor_v2_errors(args, error):
     project_dict = {
