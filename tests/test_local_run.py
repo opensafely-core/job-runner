@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import os
 import shutil
-import sys
 
 import pytest
 

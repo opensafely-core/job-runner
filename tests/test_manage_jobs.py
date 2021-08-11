@@ -45,7 +45,7 @@ class TestCreateAndPopulateVolume:
     def action_job(self):
         """Returns a minimal Job instance that represents an action."""
         return models.Job(
-            repo_url=f"opensafely/my-study",
+            repo_url="opensafely/my-study",
             requires_outputs_from=[],
             workspace="output",
         )
@@ -54,7 +54,7 @@ class TestCreateAndPopulateVolume:
     def reusable_action_job(self):
         """Returns a minimal Job instance that represents a reusable action."""
         return models.Job(
-            repo_url=f"opensafely-actions/my-reusable-action",
+            repo_url="opensafely-actions/my-reusable-action",
             commit="the-sha-for-this-commit",
             requires_outputs_from=[],
             workspace="output",

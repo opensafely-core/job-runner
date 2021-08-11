@@ -189,7 +189,7 @@ def test_validate_job_request(params, exc_msg, monkeypatch):
     kwargs.update(params)
     job_request = JobRequest(**kwargs)
 
-    with pytest.raises(JobRequestError, match=exc_msg) as exc:
+    with pytest.raises(JobRequestError, match=exc_msg):
         validate_job_request(job_request)
 
 

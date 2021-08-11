@@ -1,4 +1,4 @@
-import argparse, json, sys
+import argparse, json
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
