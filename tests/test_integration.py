@@ -37,6 +37,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
         "identifier": 1,
         "requested_actions": [
             "analyse_data",
+            "test_reusable_action",
             "test_cancellation",
         ],
         "cancelled_actions": [],
@@ -59,13 +60,13 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
 
     # Run sync to grab the JobRequest from the mocked job-server
     jobrunner.sync.sync()
-    # Check that six pending jobs are created
+    # Check that expected number of pending jobs are created
     jobs = get_posted_jobs(requests_mock)
-    assert [job["status"] for job in jobs.values()] == ["pending"] * 6
+    assert [job["status"] for job in jobs.values()] == ["pending"] * 7
     # Exectue one tick of the run loop and then sync
     jobrunner.run.handle_jobs()
     jobrunner.sync.sync()
-    # We should now have one running job and five waiting on dependencies
+    # We should now have one running job and all others waiting on dependencies
     jobs = get_posted_jobs(requests_mock)
     assert jobs["generate_cohort"]["status"] == "running"
     for action in [
@@ -73,6 +74,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
         "prepare_data_f",
         "prepare_data_with_quote_in_filename",
         "analyse_data",
+        "test_reusable_action",
         "test_cancellation",
     ]:
         assert jobs[action]["status_message"].startswith("Waiting on dependencies")
@@ -115,6 +117,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     assert jobs["prepare_data_f"]["status"] == "succeeded"
     assert jobs["prepare_data_with_quote_in_filename"]["status"] == "succeeded"
     assert jobs["analyse_data"]["status"] == "succeeded"
+    assert jobs["test_reusable_action"]["status"] == "succeeded"
     assert jobs["test_cancellation"]["status"] == "failed"
 
     # Check that the manfiest contains what we expect
@@ -136,6 +139,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
             "prepare_data_m",
             "prepare_data_with_quote_in_filename",
             "analyse_data",
+            "test_reusable_action",
         ]
     )
 
@@ -146,6 +150,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
             "female.csv",
             "qu'ote.csv",
             "output/input.csv",
+            "output/input.bak.csv",
             "output/extra/input.csv",
         ]
     )
