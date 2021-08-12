@@ -30,7 +30,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     # Take our test project fixture and commit it to a temporary git repo
     project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")
     repo_path = tmp_work_dir / "test-repo"
-    commit_directory_contents(repo_path, project_fixture)
+    commit = commit_directory_contents(repo_path, project_fixture)
 
     # Set up a mock job-server with a single job request
     job_request_1 = {
@@ -47,6 +47,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
             "branch": "HEAD",
             "db": "dummy",
         },
+        "sha": commit,
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
@@ -92,6 +93,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
             "branch": "HEAD",
             "db": "dummy",
         },
+        "sha": commit,
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
@@ -158,6 +160,14 @@ def commit_directory_contents(repo_path, directory):
     subprocess_run(["git", "config", "user.name", "Test"], check=True, env=env)
     subprocess_run(["git", "add", "."], check=True, env=env)
     subprocess_run(["git", "commit", "--quiet", "-m", "initial"], check=True, env=env)
+    response = subprocess_run(
+        ["git", "rev-parse", "HEAD"],
+        check=True,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    return response.stdout.strip()
 
 
 def ensure_docker_images_present(*images):

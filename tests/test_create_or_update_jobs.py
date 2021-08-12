@@ -24,7 +24,8 @@ def test_create_or_update_jobs(tmp_work_dir):
     job_request = JobRequest(
         id="123",
         repo_url=repo_url,
-        commit=None,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
         branch="v1",
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
@@ -59,11 +60,12 @@ def test_create_or_update_jobs(tmp_work_dir):
 # Basic smoketest to test the error path
 def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+    bad_commit = "0" * 40
     job_request = JobRequest(
         id="123",
         repo_url=repo_url,
-        commit=None,
-        branch="no-such-branch",
+        commit=bad_commit,
+        branch="v1",
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
         workspace="1",
@@ -77,7 +79,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     assert j.job_request_id == "123"
     assert j.state == State.FAILED
     assert j.repo_url == repo_url
-    assert j.commit == None
+    assert j.commit == bad_commit
     assert j.workspace == "1"
     assert j.wait_for_job_ids == None
     assert j.requires_outputs_from == None
@@ -85,7 +87,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     assert j.output_spec == None
     assert (
         j.status_message
-        == f"GitError: Error resolving ref 'no-such-branch' from {repo_url}"
+        == f"GitError: Error fetching commit {bad_commit} from {repo_url}"
     )
 
 
@@ -178,7 +180,8 @@ def test_validate_job_request(params, exc_msg, monkeypatch):
     kwargs = dict(
         id="123",
         repo_url=repo_url,
-        commit=None,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
         branch="v1",
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
