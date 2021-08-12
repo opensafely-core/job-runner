@@ -78,7 +78,8 @@ def start_job(job):
     action_args = shlex.split(job.run_command)
     allow_network_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
-    if is_generate_cohort_command(action_args):
+    # Check `is True` so we fail closed if we ever get anything else
+    if is_generate_cohort_command(action_args) is True:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_network_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
