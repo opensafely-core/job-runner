@@ -84,6 +84,10 @@ class Job:
     # Name of the action (one of the keys in the `actions` dict in
     # project.yaml)
     action: str = None
+    # URL of git repository for action (None if action is not reusable)
+    action_repo_url: str = None
+    # Full SHA of commit in action repo (None if action is not reusable)
+    action_commit: str = None
     # List of action names whose outputs need to be used as inputs to this
     # action
     requires_outputs_from: list = None

@@ -16,6 +16,8 @@ CREATE TABLE job (
     workspace TEXT,
     database_name TEXT,
     action TEXT,
+    action_repo_url TEXT,
+    action_commit TEXT,
     requires_outputs_from TEXT,
     wait_for_job_ids TEXT,
     run_command TEXT,

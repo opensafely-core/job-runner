@@ -134,7 +134,9 @@ def create_and_populate_volume(job):
     if config.LOCAL_RUN_MODE and not job.commit:
         copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
     else:
-        copy_git_commit_to_volume(volume, job.repo_url, job.commit, extra_dirs)
+        repo_url = job.action_repo_url or job.repo_url
+        commit = job.action_commit or job.commit
+        copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs)
 
     for filename, action in input_files.items():
         log.info(f"Copying input file {action}: {filename}")

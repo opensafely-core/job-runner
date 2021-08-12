@@ -205,19 +205,16 @@ def recursively_build_jobs(jobs_by_action, job_request, project, action):
         if required_job is not NULL_JOB:
             wait_for_job_ids.append(required_job.id)
 
-    # If action_spec (an instance of ActionSpecifiction) represents a reusable action,
-    # then it will have non-None values for the following attributes.
-    repo_url = action_spec.repo_url if action_spec.repo_url else job_request.repo_url
-    commit = action_spec.commit if action_spec.commit else job_request.commit
-
     job = Job(
         job_request_id=job_request.id,
         state=State.PENDING,
-        repo_url=repo_url,
-        commit=commit,
+        repo_url=job_request.repo_url,
+        commit=job_request.commit,
         workspace=job_request.workspace,
         database_name=job_request.database_name,
         action=action,
+        action_repo_url=action_spec.repo_url,
+        action_commit=action_spec.commit,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=action_spec.needs,
         run_command=action_spec.run,
