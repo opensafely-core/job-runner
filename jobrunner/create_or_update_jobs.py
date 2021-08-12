@@ -112,6 +112,21 @@ def create_jobs_with_project_file(job_request, project_file):
         else:
             raise NothingToDoError()
 
+    # There is a delay between getting the active jobs from the database, and
+    # getting the state of completed jobs from disk, and creating our new jobs
+    # below. This means the state of the world may have changed in the
+    # meantime. Why is this OK?
+    #
+    # Because we're single threaded and because this function is the only place
+    # jobs are created, we can guarantee that no *new* jobs were created. So
+    # the only state change that's possible is that some active jobs might have
+    # completed. That's unproblematic: any jobs which were waiting on these
+    # now-already-completed jobs will see they have completed the first time
+    # they check and then proceed as normal.
+    #
+    # (It is also possible that someone could delete files off disk that are
+    # needed by a particular job, but there's not much we can do about that
+    # other than fail gracefully when trying to start the job.)
     with transaction():
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))
         for job in new_jobs:
@@ -148,7 +163,7 @@ def get_jobs_to_run(job_request, project, active_jobs):
     jobs_by_action = {job.action: job for job in active_jobs}
     # Add new jobs to it by recursing through the dependency tree
     for action in actions_to_run:
-        recursively_create_jobs(jobs_by_action, job_request, project, action)
+        recursively_build_jobs(jobs_by_action, job_request, project, action)
 
     # Pick out the new jobs we've added and return them
     new_jobs = [
@@ -159,7 +174,7 @@ def get_jobs_to_run(job_request, project, active_jobs):
     return new_jobs
 
 
-def recursively_create_jobs(jobs_by_action, job_request, project, action):
+def recursively_build_jobs(jobs_by_action, job_request, project, action):
     """
     Recursively populate the `jobs_by_action` dict with jobs
 
@@ -185,7 +200,7 @@ def recursively_create_jobs(jobs_by_action, job_request, project, action):
     # starts
     wait_for_job_ids = []
     for required_action in action_spec.needs:
-        recursively_create_jobs(jobs_by_action, job_request, project, required_action)
+        recursively_build_jobs(jobs_by_action, job_request, project, required_action)
         required_job = jobs_by_action[required_action]
         if required_job is not NULL_JOB:
             wait_for_job_ids.append(required_job.id)
