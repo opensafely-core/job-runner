@@ -48,6 +48,13 @@ actions:
       moderately_sensitive:
         counts: counts.txt
 
+  test_reusable_action:
+    run: minimal-action:v1.0.0 output/input.csv
+    needs: [generate_cohort]
+    outputs:
+      highly_sensitive:
+        cohort: output/input.bak.csv
+
   test_cancellation:
     run: python:latest python analysis/filter_by_sex.py F output/input.csv somefile.csv
     needs: [generate_cohort]
