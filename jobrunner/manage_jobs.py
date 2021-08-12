@@ -36,6 +36,21 @@ METADATA_DIR = "metadata"
 # Records details of which action created each file
 MANIFEST_FILE = "manifest.json"
 
+# Keys of fields to log in manifest.json and log file
+KEYS_TO_LOG = [
+    "state",
+    "commit",
+    "docker_image_id",
+    "action_repo_url",
+    "action_commit",
+    "job_id",
+    "run_by_user",
+    "created_at",
+    "completed_at",
+    "exit_code",
+]
+
+
 # This is a Docker label applied in addition to the default label which
 # `docker.py` applies to all containers and volumes it creates. It allows us to
 # easily identify just the containers actually used for running jobs, which is
@@ -406,19 +421,7 @@ def write_log_file(job, job_metadata, filename):
     outputs = sorted(job_metadata["outputs"].items())
     with open(filename, "a") as f:
         f.write("\n\n")
-        for key in [
-            "state",
-            "commit",
-            "docker_image_id",
-            "action_repo_url",
-            "action_commit",
-            "exit_code",
-            "job_id",
-            "run_by_user",
-            "created_at",
-            "started_at",
-            "completed_at",
-        ]:
+        for key in KEYS_TO_LOG:
             if not job_metadata[key]:
                 continue
             f.write(f"{key}: {job_metadata[key]}\n")
@@ -582,19 +585,7 @@ def update_manifest(manifest, job_metadata):
     # so actions end up in the order they were run
     manifest["actions"].pop(action, None)
     manifest["actions"][action] = {
-        key: job_metadata[key]
-        for key in [
-            "state",
-            "commit",
-            "docker_image_id",
-            "action_repo_url",
-            "action_commit",
-            "job_id",
-            "run_by_user",
-            "created_at",
-            "completed_at",
-        ]
-        if job_metadata[key] is not None
+        key: job_metadata[key] for key in KEYS_TO_LOG if job_metadata[key] is not None
     }
 
 
