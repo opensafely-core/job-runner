@@ -410,6 +410,8 @@ def write_log_file(job, job_metadata, filename):
             "state",
             "commit",
             "docker_image_id",
+            "action_repo_url",
+            "action_commit",
             "exit_code",
             "job_id",
             "run_by_user",
@@ -417,6 +419,8 @@ def write_log_file(job, job_metadata, filename):
             "started_at",
             "completed_at",
         ]:
+            if not job_metadata[key]:
+                continue
             f.write(f"{key}: {job_metadata[key]}\n")
         f.write(f"\n{job_metadata['status_message']}\n")
         if job.unmatched_outputs:
@@ -583,11 +587,14 @@ def update_manifest(manifest, job_metadata):
             "state",
             "commit",
             "docker_image_id",
+            "action_repo_url",
+            "action_commit",
             "job_id",
             "run_by_user",
             "created_at",
             "completed_at",
         ]
+        if job_metadata[key] is not None
     }
 
 
