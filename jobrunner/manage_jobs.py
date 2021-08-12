@@ -36,6 +36,21 @@ METADATA_DIR = "metadata"
 # Records details of which action created each file
 MANIFEST_FILE = "manifest.json"
 
+# Keys of fields to log in manifest.json and log file
+KEYS_TO_LOG = [
+    "state",
+    "commit",
+    "docker_image_id",
+    "action_repo_url",
+    "action_commit",
+    "job_id",
+    "run_by_user",
+    "created_at",
+    "completed_at",
+    "exit_code",
+]
+
+
 # This is a Docker label applied in addition to the default label which
 # `docker.py` applies to all containers and volumes it creates. It allows us to
 # easily identify just the containers actually used for running jobs, which is
@@ -129,12 +144,16 @@ def create_and_populate_volume(job):
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
     extra_dirs = set(Path(filename).parent for filename in input_files.keys())
-    # If job represents a reusable action, then job.commit will be non-None and we need
-    # to copy it to the volume whether or not we're in local development mode.
-    if config.LOCAL_RUN_MODE and not job.commit:
+    if config.LOCAL_RUN_MODE and not job.action_commit:
+        # We're in local run mode and we're not running a reusable action, so we need to
+        # copy the workspace to a volume.
         copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
     else:
-        copy_git_commit_to_volume(volume, job.repo_url, job.commit, extra_dirs)
+        # We're either not in local run mode or we're running a reusable action, so we
+        # need to copy a git commit to a volume.
+        repo_url = job.action_repo_url or job.repo_url
+        commit = job.action_commit or job.commit
+        copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs)
 
     for filename, action in input_files.items():
         log.info(f"Copying input file {action}: {filename}")
@@ -404,17 +423,9 @@ def write_log_file(job, job_metadata, filename):
     outputs = sorted(job_metadata["outputs"].items())
     with open(filename, "a") as f:
         f.write("\n\n")
-        for key in [
-            "state",
-            "commit",
-            "docker_image_id",
-            "exit_code",
-            "job_id",
-            "run_by_user",
-            "created_at",
-            "started_at",
-            "completed_at",
-        ]:
+        for key in KEYS_TO_LOG:
+            if not job_metadata[key]:
+                continue
             f.write(f"{key}: {job_metadata[key]}\n")
         f.write(f"\n{job_metadata['status_message']}\n")
         if job.unmatched_outputs:
@@ -576,16 +587,7 @@ def update_manifest(manifest, job_metadata):
     # so actions end up in the order they were run
     manifest["actions"].pop(action, None)
     manifest["actions"][action] = {
-        key: job_metadata[key]
-        for key in [
-            "state",
-            "commit",
-            "docker_image_id",
-            "job_id",
-            "run_by_user",
-            "created_at",
-            "completed_at",
-        ]
+        key: job_metadata[key] for key in KEYS_TO_LOG if job_metadata[key] is not None
     }
 
 
