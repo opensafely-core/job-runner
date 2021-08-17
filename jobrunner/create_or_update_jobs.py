@@ -5,6 +5,7 @@ It handles all logic connected with creating or updating Jobs in response to
 JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
+import dataclasses
 import logging
 import re
 import time
@@ -18,7 +19,7 @@ from .github_validators import (
     validate_branch_and_commit,
     validate_repo_url,
 )
-from .manage_jobs import action_has_successful_outputs
+from .manage_jobs import get_states_for_actions
 from .models import Job, SavedJobRequest, State
 from .project import (
     RUN_ALL_COMMAND,
@@ -28,10 +29,15 @@ from .project import (
     parse_and_validate_project_file,
 )
 
-# Placeholder to mark jobs that don't need doing
-NULL_JOB = object()
-
 log = logging.getLogger(__name__)
+
+
+# Minimal representation of a Job, containing just the fields necessary for the
+# dependency resolution algorithm (see `get_completed_jobs_from_disk`).
+@dataclasses.dataclass
+class JobPlaceholder:
+    action: str
+    state: State
 
 
 class JobRequestError(Exception):
@@ -109,11 +115,11 @@ def create_jobs(job_request):
 def create_jobs_with_project_file(job_request, project_file):
     project = parse_and_validate_project_file(project_file)
 
-    active_jobs = get_active_jobs_for_workpace(job_request.workspace)
-    new_jobs = get_jobs_to_run(job_request, project, active_jobs)
+    current_jobs = get_latest_job_for_each_action(job_request.workspace)
+    new_jobs = get_jobs_to_run(job_request, project, current_jobs)
 
     if not new_jobs:
-        if active_jobs:
+        if any(job.state in [State.PENDING, State.RUNNING] for job in current_jobs):
             raise JobRequestError("All requested actions were already scheduled to run")
         else:
             raise NothingToDoError()
@@ -141,7 +147,25 @@ def create_jobs_with_project_file(job_request, project_file):
     return len(new_jobs)
 
 
-def get_active_jobs_for_workpace(workspace):
+def get_latest_job_for_each_action(workspace):
+    """
+    Return a list containing the most recent job (if any) for each action in
+    the workspace
+    """
+    # We treat the files on disk as the canonical source for the state of
+    # completed jobs.
+    completed_jobs = get_completed_jobs_from_disk(workspace)
+    # However active jobs aren't represented on disk so if we want to know what
+    # jobs are currently running we have to ask the database.
+    active_jobs = get_active_jobs_from_database(workspace)
+    # Combine the two sources of jobs. Where there is an active job and a
+    # completed job for the same action we prefer the active job as that is
+    # necessarily the more recent.
+    combined = {job.action: job for job in completed_jobs + active_jobs}
+    return list(combined.values())
+
+
+def get_active_jobs_from_database(workspace):
     return find_where(
         Job,
         workspace=workspace,
@@ -149,15 +173,29 @@ def get_active_jobs_for_workpace(workspace):
     )
 
 
-def get_jobs_to_run(job_request, project, active_jobs):
+def get_completed_jobs_from_disk(workspace):
+    # This is slightly inelegant but helps keep the rest of the code simple:
+    # the `manifest.json` file in the workspace directory on disk stores the
+    # final state of completed jobs, but doesn't store the full set of Job
+    # object fields because they aren't generally needed. This means we can't
+    # reconstruct Job instances to return so instead we create a JobPlaceholder
+    # containing just the two fields we care about in this context: the action
+    # and the final state.
+    return [
+        JobPlaceholder(action=action, state=state)
+        for action, state in get_states_for_actions(workspace).items()
+    ]
+
+
+def get_jobs_to_run(job_request, project, current_jobs):
     """
     Returns a list of jobs to run in response to the supplied JobReqeust
 
     Args:
         job_request: JobRequest instance
         project: dict representing the parsed project file from the JobRequest
-        active_jobs: list of all pending or running jobs in the JobRequest's
-            workspace
+        current_jobs: list containing the most recent Job for each action in
+            the workspace
     """
     # Handle the special `run_all` action
     if RUN_ALL_COMMAND in job_request.requested_actions:
@@ -166,17 +204,13 @@ def get_jobs_to_run(job_request, project, active_jobs):
         actions_to_run = job_request.requested_actions
 
     # Build a dict mapping action names to job instances
-    jobs_by_action = {job.action: job for job in active_jobs}
+    jobs_by_action = {job.action: job for job in current_jobs}
     # Add new jobs to it by recursing through the dependency tree
     for action in actions_to_run:
         recursively_build_jobs(jobs_by_action, job_request, project, action)
 
     # Pick out the new jobs we've added and return them
-    new_jobs = [
-        job
-        for job in jobs_by_action.values()
-        if job is not NULL_JOB and job not in active_jobs
-    ]
+    new_jobs = [job for job in jobs_by_action.values() if job not in current_jobs]
     return new_jobs
 
 
@@ -190,13 +224,8 @@ def recursively_build_jobs(jobs_by_action, job_request, project, action):
         project: A dict representing the project.
         action: The string ID of the action to be added as a job.
     """
-    # If there's already a job scheduled for this action there's nothing to do
-    if action in jobs_by_action:
-        return
-
-    # If the action doesn't need running create an emtpy placeholder job entry
-    if not action_needs_running(job_request, action):
-        jobs_by_action[action] = NULL_JOB
+    existing_job = jobs_by_action.get(action)
+    if existing_job and not job_should_be_rerun(job_request, existing_job):
         return
 
     action_spec = get_action_specification(project, action)
@@ -208,7 +237,7 @@ def recursively_build_jobs(jobs_by_action, job_request, project, action):
     for required_action in action_spec.needs:
         recursively_build_jobs(jobs_by_action, job_request, project, required_action)
         required_job = jobs_by_action[required_action]
-        if required_job is not NULL_JOB:
+        if required_job.state in [State.PENDING, State.RUNNING]:
             wait_for_job_ids.append(required_job.id)
 
     job = Job(
@@ -233,42 +262,35 @@ def recursively_build_jobs(jobs_by_action, job_request, project, action):
     jobs_by_action[action] = job
 
 
-def action_needs_running(job_request, action):
+def job_should_be_rerun(job_request, job):
     """
-    Does this action need to be run as part of this job request?
+    Do we need to run the action referenced by this job again?
     """
-    # Explicitly requested actions always get run
-    if action in job_request.requested_actions:
+    # Already running or about to run so don't start a new one
+    if job.state in [State.PENDING, State.RUNNING]:
+        return False
+    # Explicitly requested actions always get re-run
+    if job.action in job_request.requested_actions:
         return True
     # If it's not an explicilty requested action then it's a dependency, and if
     # we're forcing all dependencies to run then we need to run this one
     if job_request.force_run_dependencies:
         return True
 
-    # Has this dependency been run previously?
-    action_status = action_has_successful_outputs(job_request.workspace, action)
-
-    # Yes, and it was successful
-    if action_status is True:
-        # So no need to run it again
+    # Otherwise if it succeeded last time there's no need to run again
+    if job.state == State.SUCCEEDED:
         return False
-
-    # Yes, and it failed
-    elif action_status is False:
-        # If we're not re-running failed jobs then this is an error condition
-        if not job_request.force_run_failed:
-            raise JobRequestError(
-                f"{action} failed on a previous run and must be re-run"
-            )
-        # Otherwise, re-run it
-        return True
-
-    # No, it's not been run before
-    elif action_status is None:
-        # So run it now
-        return True
+    # If it failed last time ...
+    elif job.state == State.FAILED:
+        # ... and we're forcing failed jobs to re-run then re-run it
+        if job_request.force_run_failed:
+            return True
+        # Otherwise it's an error condition
+        raise JobRequestError(
+            f"{job.action} failed on a previous run and must be re-run"
+        )
     else:
-        raise RuntimeError(f"Unhandled action_status: {action_status}")
+        raise ValueError(f"Invalid state: {job}")
 
 
 def validate_job_request(job_request):
