@@ -70,11 +70,8 @@ def create_or_update_jobs(job_request):
     else:
         if job_request.cancelled_actions:
             log.debug("Cancelling actions: %s", job_request.cancelled_actions)
-            update_where(
-                Job,
-                {"cancelled": True},
-                job_request_id=job_request.id,
-                action__in=job_request.cancelled_actions,
+            set_cancelled_flag_for_actions(
+                job_request.id, job_request.cancelled_actions
             )
         else:
             log.debug("Ignoring already processed JobRequest")
@@ -82,6 +79,15 @@ def create_or_update_jobs(job_request):
 
 def related_jobs_exist(job_request):
     return exists_where(Job, job_request_id=job_request.id)
+
+
+def set_cancelled_flag_for_actions(job_request_id, actions):
+    update_where(
+        Job,
+        {"cancelled": True},
+        job_request_id=job_request_id,
+        action__in=actions,
+    )
 
 
 def create_jobs(job_request):
