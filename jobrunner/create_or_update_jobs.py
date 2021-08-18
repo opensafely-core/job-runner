@@ -98,6 +98,30 @@ def set_cancelled_flag_for_actions(job_request_id, actions):
 
 def create_jobs(job_request):
     validate_job_request(job_request)
+    project_file = get_project_file(job_request)
+    project = parse_and_validate_project_file(project_file)
+    current_jobs = get_latest_job_for_each_action(job_request.workspace)
+    new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
+    assert_new_jobs_created(new_jobs, current_jobs)
+    # There is a delay between getting the current jobs (which we fetch from
+    # the database and the disk) and inserting our new jobs below. This means
+    # the state of the world may have changed in the meantime. Why is this OK?
+    #
+    # Because we're single threaded and because this function is the only place
+    # jobs are created, we can guarantee that no *new* jobs were created. So
+    # the only state change that's possible is that some active jobs might have
+    # completed. That's unproblematic: any new jobs which are waiting on these
+    # now-already-completed jobs will see they have completed the first time
+    # they check and then proceed as normal.
+    #
+    # (It is also possible that someone could delete files off disk that are
+    # needed by a particular job, but there's not much we can do about that
+    # other than fail gracefully when trying to start the job.)
+    insert_into_database(job_request, new_jobs)
+    return len(new_jobs)
+
+
+def get_project_file(job_request):
     try:
         if not config.LOCAL_RUN_MODE:
             project_file = read_file_from_repo(
@@ -107,44 +131,14 @@ def create_jobs(job_request):
             project_file = (Path(job_request.repo_url) / "project.yaml").read_bytes()
     except (GitFileNotFoundError, FileNotFoundError):
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
-    # Do most of the work in a separate function which never needs to talk to
-    # git, for easier testing
-    return create_jobs_with_project_file(job_request, project_file)
+    return project_file
 
 
-def create_jobs_with_project_file(job_request, project_file):
-    project = parse_and_validate_project_file(project_file)
-
-    current_jobs = get_latest_job_for_each_action(job_request.workspace)
-    new_jobs = get_jobs_to_run(job_request, project, current_jobs)
-
-    if not new_jobs:
-        if any(job.state in [State.PENDING, State.RUNNING] for job in current_jobs):
-            raise JobRequestError("All requested actions were already scheduled to run")
-        else:
-            raise NothingToDoError()
-
-    # There is a delay between getting the active jobs from the database, and
-    # getting the state of completed jobs from disk, and creating our new jobs
-    # below. This means the state of the world may have changed in the
-    # meantime. Why is this OK?
-    #
-    # Because we're single threaded and because this function is the only place
-    # jobs are created, we can guarantee that no *new* jobs were created. So
-    # the only state change that's possible is that some active jobs might have
-    # completed. That's unproblematic: any jobs which were waiting on these
-    # now-already-completed jobs will see they have completed the first time
-    # they check and then proceed as normal.
-    #
-    # (It is also possible that someone could delete files off disk that are
-    # needed by a particular job, but there's not much we can do about that
-    # other than fail gracefully when trying to start the job.)
+def insert_into_database(job_request, jobs):
     with transaction():
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))
-        for job in new_jobs:
+        for job in jobs:
             insert(job)
-
-    return len(new_jobs)
 
 
 def get_latest_job_for_each_action(workspace):
@@ -187,9 +181,9 @@ def get_completed_jobs_from_disk(workspace):
     ]
 
 
-def get_jobs_to_run(job_request, project, current_jobs):
+def get_new_jobs_to_run(job_request, project, current_jobs):
     """
-    Returns a list of jobs to run in response to the supplied JobReqeust
+    Returns a list of new jobs to run in response to the supplied JobReqeust
 
     Args:
         job_request: JobRequest instance
@@ -197,21 +191,22 @@ def get_jobs_to_run(job_request, project, current_jobs):
         current_jobs: list containing the most recent Job for each action in
             the workspace
     """
-    # Handle the special `run_all` action
-    if RUN_ALL_COMMAND in job_request.requested_actions:
-        actions_to_run = get_all_actions(project)
-    else:
-        actions_to_run = job_request.requested_actions
-
     # Build a dict mapping action names to job instances
     jobs_by_action = {job.action: job for job in current_jobs}
     # Add new jobs to it by recursing through the dependency tree
-    for action in actions_to_run:
+    for action in get_actions_to_run(job_request, project):
         recursively_build_jobs(jobs_by_action, job_request, project, action)
 
     # Pick out the new jobs we've added and return them
-    new_jobs = [job for job in jobs_by_action.values() if job not in current_jobs]
-    return new_jobs
+    return [job for job in jobs_by_action.values() if job not in current_jobs]
+
+
+def get_actions_to_run(job_request, project):
+    # Handle the special `run_all` action
+    if RUN_ALL_COMMAND in job_request.requested_actions:
+        return get_all_actions(project)
+    else:
+        return job_request.requested_actions
 
 
 def recursively_build_jobs(jobs_by_action, job_request, project, action):
@@ -293,6 +288,18 @@ def job_should_be_rerun(job_request, job):
         raise ValueError(f"Invalid state: {job}")
 
 
+def assert_new_jobs_created(new_jobs, current_jobs):
+    if not new_jobs:
+        # There are two reasons we can end up with no new jobs to run: one is
+        # that the "run all" action was requested but everything has already
+        # run successfully
+        if all(job.state == State.SUCCEEDED for job in current_jobs):
+            raise NothingToDoError()
+        # The other is that every requested action is already running or pending
+        else:
+            raise JobRequestError("All requested actions were already scheduled to run")
+
+
 def validate_job_request(job_request):
     if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
         validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
@@ -355,21 +362,18 @@ def create_failed_job(job_request, exception):
         state = State.FAILED
         status_message = f"{type(exception).__name__}: {exception}"
         action = "__error__"
-    with transaction():
-        insert(SavedJobRequest(id=job_request.id, original=job_request.original))
-        now = int(time.time())
-        insert(
-            Job(
-                job_request_id=job_request.id,
-                state=state,
-                repo_url=job_request.repo_url,
-                commit=job_request.commit,
-                workspace=job_request.workspace,
-                action=action,
-                status_message=status_message,
-                created_at=now,
-                started_at=now,
-                updated_at=now,
-                completed_at=now,
-            ),
-        )
+    now = int(time.time())
+    job = Job(
+        job_request_id=job_request.id,
+        state=state,
+        repo_url=job_request.repo_url,
+        commit=job_request.commit,
+        workspace=job_request.workspace,
+        action=action,
+        status_message=status_message,
+        created_at=now,
+        started_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    insert_into_database(job_request, [job])
