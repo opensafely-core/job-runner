@@ -83,19 +83,6 @@ def create_or_update_jobs(job_request):
             log.debug("Ignoring already processed JobRequest")
 
 
-def related_jobs_exist(job_request):
-    return exists_where(Job, job_request_id=job_request.id)
-
-
-def set_cancelled_flag_for_actions(job_request_id, actions):
-    update_where(
-        Job,
-        {"cancelled": True},
-        job_request_id=job_request_id,
-        action__in=actions,
-    )
-
-
 def create_jobs(job_request):
     validate_job_request(job_request)
     project_file = get_project_file(job_request)
@@ -121,6 +108,48 @@ def create_jobs(job_request):
     return len(new_jobs)
 
 
+def validate_job_request(job_request):
+    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
+        validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
+    if not job_request.workspace:
+        raise JobRequestError("Workspace name cannot be blank")
+    if not job_request.requested_actions:
+        raise JobRequestError("At least one action must be supplied")
+    # In local run mode the workspace name is whatever the user's working
+    # directory happens to be called, which we don't want or need to place any
+    # restrictions on. Otherwise, as these are externally supplied strings that
+    # end up as paths, we want to be much more restrictive.
+    if not config.LOCAL_RUN_MODE:
+        if re.search(r"[^a-zA-Z0-9_\-]", job_request.workspace):
+            raise JobRequestError(
+                "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
+            )
+
+    if not config.USING_DUMMY_DATA_BACKEND:
+        database_name = job_request.database_name
+        valid_names = config.DATABASE_URLS.keys()
+
+        if database_name not in valid_names:
+            raise JobRequestError(
+                f"Invalid database name '{database_name}', allowed are: "
+                + ", ".join(valid_names)
+            )
+
+        if not config.DATABASE_URLS[database_name]:
+            raise JobRequestError(
+                f"Database name '{database_name}' is not currently defined "
+                f"for backend '{config.BACKEND}'"
+            )
+    # If we're not restricting to specific Github organisations then there's no
+    # point in checking the provenance of the supplied commit
+    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
+        # As this involves talking to the remote git server we only do it at
+        # the end once all other checks have passed
+        validate_branch_and_commit(
+            job_request.repo_url, job_request.commit, job_request.branch
+        )
+
+
 def get_project_file(job_request):
     try:
         if not config.LOCAL_RUN_MODE:
@@ -132,13 +161,6 @@ def get_project_file(job_request):
     except (GitFileNotFoundError, FileNotFoundError):
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
     return project_file
-
-
-def insert_into_database(job_request, jobs):
-    with transaction():
-        insert(SavedJobRequest(id=job_request.id, original=job_request.original))
-        for job in jobs:
-            insert(job)
 
 
 def get_latest_job_for_each_action(workspace):
@@ -300,48 +322,6 @@ def assert_new_jobs_created(new_jobs, current_jobs):
             raise JobRequestError("All requested actions were already scheduled to run")
 
 
-def validate_job_request(job_request):
-    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
-        validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
-    if not job_request.workspace:
-        raise JobRequestError("Workspace name cannot be blank")
-    if not job_request.requested_actions:
-        raise JobRequestError("At least one action must be supplied")
-    # In local run mode the workspace name is whatever the user's working
-    # directory happens to be called, which we don't want or need to place any
-    # restrictions on. Otherwise, as these are externally supplied strings that
-    # end up as paths, we want to be much more restrictive.
-    if not config.LOCAL_RUN_MODE:
-        if re.search(r"[^a-zA-Z0-9_\-]", job_request.workspace):
-            raise JobRequestError(
-                "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
-            )
-
-    if not config.USING_DUMMY_DATA_BACKEND:
-        database_name = job_request.database_name
-        valid_names = config.DATABASE_URLS.keys()
-
-        if database_name not in valid_names:
-            raise JobRequestError(
-                f"Invalid database name '{database_name}', allowed are: "
-                + ", ".join(valid_names)
-            )
-
-        if not config.DATABASE_URLS[database_name]:
-            raise JobRequestError(
-                f"Database name '{database_name}' is not currently defined "
-                f"for backend '{config.BACKEND}'"
-            )
-    # If we're not restricting to specific Github organisations then there's no
-    # point in checking the provenance of the supplied commit
-    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
-        # As this involves talking to the remote git server we only do it at
-        # the end once all other checks have passed
-        validate_branch_and_commit(
-            job_request.repo_url, job_request.commit, job_request.branch
-        )
-
-
 def create_failed_job(job_request, exception):
     """
     Sometimes we want to say to the job-server (and the user): your JobRequest
@@ -377,3 +357,23 @@ def create_failed_job(job_request, exception):
         completed_at=now,
     )
     insert_into_database(job_request, [job])
+
+
+def insert_into_database(job_request, jobs):
+    with transaction():
+        insert(SavedJobRequest(id=job_request.id, original=job_request.original))
+        for job in jobs:
+            insert(job)
+
+
+def related_jobs_exist(job_request):
+    return exists_where(Job, job_request_id=job_request.id)
+
+
+def set_cancelled_flag_for_actions(job_request_id, actions):
+    update_where(
+        Job,
+        {"cancelled": True},
+        job_request_id=job_request_id,
+        action__in=actions,
+    )
