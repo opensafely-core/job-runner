@@ -1,11 +1,12 @@
 import uuid
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
-    create_jobs_with_project_file,
+    create_jobs,
     create_or_update_jobs,
     validate_job_request,
 )
@@ -210,3 +211,9 @@ def make_job_request(action="generate_cohort", **kwargs):
     for key, value in kwargs.items():
         setattr(job_request, key, value)
     return job_request
+
+
+def create_jobs_with_project_file(job_request, project_file):
+    with mock.patch("jobrunner.create_or_update_jobs.get_project_file") as f:
+        f.return_value = project_file
+        return create_jobs(job_request)

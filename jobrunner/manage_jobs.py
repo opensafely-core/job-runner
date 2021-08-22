@@ -500,25 +500,23 @@ def delete_files(directory, filenames, files_to_keep=()):
             path.unlink()
 
 
-def action_has_successful_outputs(workspace, action):
+def get_states_for_actions(workspace):
     """
-    Returns True if the action ran successfully and all its outputs still exist
-    on disk.
-    Returns False if the action was run and failed.
-    Returns None if the action hasn't been run yet.
-
-    If an action _has_ run, but some of its files have been manually deleted
-    from disk we treat this as equivalent to not being run i.e. there was no
-    explicit failure with the action, but we can't treat it as having
-    successful outputs either.
+    Return a dictionary mapping action IDs to their current state (if any)
     """
-    try:
-        list_outputs_from_action(workspace, action)
-        return True
-    except ActionFailedError:
-        return False
-    except (ActionNotRunError, MissingOutputError):
-        return None
+    directory = get_high_privacy_workspace(workspace)
+    manifest = read_manifest_file(directory)
+    states_by_action = {
+        action_id: State(action_details["state"])
+        for action_id, action_details in manifest["actions"].items()
+    }
+    for filename, file_details in manifest["files"].items():
+        # If the file has been manually deleted from disk...
+        if not directory.joinpath(filename).exists():
+            source_action = file_details["created_by_action"]
+            # ... remove the action's state as if it hadn't been run
+            states_by_action.pop(source_action, None)
+    return states_by_action
 
 
 def list_outputs_from_action(workspace, action, ignore_errors=False):
