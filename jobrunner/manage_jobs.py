@@ -89,7 +89,11 @@ def start_job(job):
     if docker.container_exists(container_name(job)):
         log.info("Container already created, nothing to do")
         return
-    volume = create_and_populate_volume(job)
+    try:
+        volume = create_and_populate_volume(job)
+    except docker.DockerDiskSpaceError as e:
+        log.exception(str(e))
+        raise JobError("Out of disk space, please try again later")
     action_args = shlex.split(job.run_command)
     allow_network_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
