@@ -133,7 +133,8 @@ checking up on and stopping Docker containers.
 
 If you are looking for information on a specific job or job request then
 open the log with `less` and search for a few characters from the ID.
-Usually four characters will get you uniqueness.
+Usually four characters will get you uniqueness. (Use `less` rather than
+`grep` so you get the full error messages and context.)
 
 
 ### Pulling a docker image
