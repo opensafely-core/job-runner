@@ -11,8 +11,10 @@ To try to avoid this, when copying code into a volume we ignore any files which
 match any of the output patterns in the project. We then copy in just the
 explicit dependencies of the action.
 
-This is achieved by setting a LOCAL_RUN_MODE flag in the config which, in two
-key places, tells the code not to talk to git but do something else instead.
+The job creation logic is also slighty different here (compare the
+`create_job_request_and_jobs` function below with the `create_jobs` function in
+`jobrunner.create_or_update_jobs`) as things like validating the repo URL don't
+apply locally.
 
 Other than that, everything else runs entirely as it would in production. A
 temporary database and log directory is created for each run and then thrown
@@ -189,15 +191,15 @@ def create_and_run_jobs(
     log_format=LOCAL_RUN_FORMAT,
     format_output_for_github=False,
 ):
-    # Configure
+    # Fiddle with the configuration to suit what we need for running local jobs
     docker.LABEL = docker_label
-    config.LOCAL_RUN_MODE = True
     # It's more helpful in this context to have things consistent
     config.RANDOMISE_JOB_ORDER = False
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
     # Append a random value so that multiple runs in the same process will each
     # get their own unique in-memory database. This is only really relevant
-    # during testing.
+    # during testing as we never do mutliple runs in the same process
+    # otherwise.
     config.DATABASE_FILE = f":memory:{random.randrange(sys.maxsize)}"
     config.TMP_DIR = temp_dir
     config.JOB_LOG_DIR = temp_dir / "logs"
