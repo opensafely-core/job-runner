@@ -37,6 +37,6 @@ update-wheels: venv/ready requirements.txt requirements.tools.txt | lib
 # test the license shenanigins work when run from a console
 test-stata: venv/ready
 	rm -f tests/fixtures/stata_project/output/env.txt
-	venv/bin/python -c 'from jobrunner.local_run import main; main("tests/fixtures/stata_project", ["stata"])'
+	venv/bin/python -c 'from jobrunner.cli.local_run import main; main("tests/fixtures/stata_project", ["stata"])'
 	cat tests/fixtures/stata_project/output/env.txt
 	echo

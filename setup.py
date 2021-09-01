@@ -18,7 +18,7 @@ setup(
     classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],
     entry_points=dict(
         console_scripts=[
-            "local_run=jobrunner.local_run:run",
+            "local_run=jobrunner.cli.local_run:run",
             "add_job=jobrunner.cli.add_job:run",
             "kill_job=jobrunner.cli.kill_job:run",
             "retry_job=jobrunner.cli.retry_job:run",
