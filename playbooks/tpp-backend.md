@@ -285,7 +285,7 @@ automatically cleaned up and so it's possible to retry the job without
 having to start from scratch. If the bug has been fixed or you have some
 other reason to think it was transient then you can re-try the job with:
 
-    bash scripts/run.sh -m jobrunner.retry_job <job_id>
+    bash scripts/run.sh -m jobrunner.cli.retry_job <job_id>
 
 The `job_id` actually only has to be a sub-string of the job ID (full
 ones are a bit awkward to type) and you will be able to select the
@@ -300,7 +300,7 @@ to be done then it's a good idea to clean up the job (see below).
 To kill a running job (or prevent it starting if it hasn't yet) use the
 `kill_job` command:
 
-    bash scripts/run.sh -m jobrunner.kill_job --cleanup <job_id> [... <job_id>]
+    bash scripts/run.sh -m jobrunner.cli.kill_job --cleanup <job_id> [... <job_id>]
 
 The `job_id` actually only has to be a sub-string of the job ID (full
 ones are a bit awkward to type) and you wil be able to select the

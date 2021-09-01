@@ -91,15 +91,15 @@ Windows installed in a VM and Docker running on the host. The steps are:
 
 ## Running jobs locally
 
-Adding jobs locally is most easily done with the `jobrunner.add_job`
+Adding jobs locally is most easily done with the `jobrunner.cli.add_job`
 command e.g
 ```
-python -m jobrunner.add_job https://github.com/opensafely/os-demo-research run_all
+python -m jobrunner.cli.add_job https://github.com/opensafely/os-demo-research run_all
 ```
 
 As well as URLs this will accept paths to local git repos e.g.
 ```
-python -m jobrunner.add_job ../os-demo-research run_all
+python -m jobrunner.cli.add_job ../os-demo-research run_all
 ```
 
 If you now run the main loop you'll see it pick up the jobs:
@@ -109,5 +109,5 @@ python -m jobrunner.run
 
 See the full set of options it accepts with:
 ```
-python -m jobrunner.add_job --help
+python -m jobrunner.cli.add_job --help
 ```
