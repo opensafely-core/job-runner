@@ -9,7 +9,6 @@ import dataclasses
 import logging
 import re
 import time
-from pathlib import Path
 
 from jobrunner import config
 from jobrunner.lib.database import (
@@ -119,22 +118,16 @@ def create_jobs(job_request):
 
 
 def validate_job_request(job_request):
-    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
+    if config.ALLOWED_GITHUB_ORGS:
         validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
-    if not job_request.workspace:
-        raise JobRequestError("Workspace name cannot be blank")
     if not job_request.requested_actions:
         raise JobRequestError("At least one action must be supplied")
-    # In local run mode the workspace name is whatever the user's working
-    # directory happens to be called, which we don't want or need to place any
-    # restrictions on. Otherwise, as these are externally supplied strings that
-    # end up as paths, we want to be much more restrictive.
-    if not config.LOCAL_RUN_MODE:
-        if re.search(r"[^a-zA-Z0-9_\-]", job_request.workspace):
-            raise JobRequestError(
-                "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
-            )
-
+    if not job_request.workspace:
+        raise JobRequestError("Workspace name cannot be blank")
+    if re.search(r"[^a-zA-Z0-9_\-]", job_request.workspace):
+        raise JobRequestError(
+            "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
+        )
     if not config.USING_DUMMY_DATA_BACKEND:
         database_name = job_request.database_name
         valid_names = config.DATABASE_URLS.keys()
@@ -152,7 +145,7 @@ def validate_job_request(job_request):
             )
     # If we're not restricting to specific Github organisations then there's no
     # point in checking the provenance of the supplied commit
-    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
+    if config.ALLOWED_GITHUB_ORGS:
         # As this involves talking to the remote git server we only do it at
         # the end once all other checks have passed
         validate_branch_and_commit(
@@ -162,15 +155,11 @@ def validate_job_request(job_request):
 
 def get_project_file(job_request):
     try:
-        if not config.LOCAL_RUN_MODE:
-            project_file = read_file_from_repo(
-                job_request.repo_url, job_request.commit, "project.yaml"
-            )
-        else:
-            project_file = (Path(job_request.repo_url) / "project.yaml").read_bytes()
-    except (GitFileNotFoundError, FileNotFoundError):
+        return read_file_from_repo(
+            job_request.repo_url, job_request.commit, "project.yaml"
+        )
+    except GitFileNotFoundError:
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
-    return project_file
 
 
 def get_latest_job_for_each_action(workspace):
