@@ -9,7 +9,6 @@ import pytest
 from jobrunner.cli import local_run
 from jobrunner.lib.subprocess_utils import subprocess_run
 
-
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
 
 

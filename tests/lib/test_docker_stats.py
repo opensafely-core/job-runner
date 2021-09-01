@@ -3,7 +3,10 @@ import time
 import pytest
 
 from jobrunner.lib import docker
-from jobrunner.lib.docker_stats import get_container_stats, get_volume_and_container_sizes
+from jobrunner.lib.docker_stats import (
+    get_container_stats,
+    get_volume_and_container_sizes,
+)
 
 
 @pytest.mark.needs_docker

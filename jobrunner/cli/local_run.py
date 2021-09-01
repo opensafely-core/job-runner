@@ -34,7 +34,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from jobrunner import config
-from jobrunner.lib import docker
 from jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,
@@ -42,13 +41,14 @@ from jobrunner.create_or_update_jobs import (
     ProjectValidationError,
     create_jobs,
 )
+from jobrunner.lib import docker
 from jobrunner.lib.database import find_where
 from jobrunner.lib.log_utils import configure_logging
+from jobrunner.lib.string_utils import tabulate
+from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import METADATA_DIR
 from jobrunner.models import Job, JobRequest, State, StatusCode
 from jobrunner.run import main as run_main
-from jobrunner.lib.string_utils import tabulate
-from jobrunner.lib.subprocess_utils import subprocess_run
 
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]

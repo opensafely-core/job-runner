@@ -20,14 +20,14 @@ from jobrunner import config
 from jobrunner.lib import docker
 from jobrunner.lib.database import find_where
 from jobrunner.lib.git import checkout_commit
-from jobrunner.models import SavedJobRequest, State, StatusCode
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
+from jobrunner.lib.string_utils import tabulate
+from jobrunner.lib.subprocess_utils import subprocess_run
+from jobrunner.models import SavedJobRequest, State, StatusCode
 from jobrunner.project import (
     get_all_output_patterns_from_project_file,
     is_generate_cohort_command,
 )
-from jobrunner.lib.string_utils import tabulate
-from jobrunner.lib.subprocess_utils import subprocess_run
 
 log = logging.getLogger(__name__)
 
