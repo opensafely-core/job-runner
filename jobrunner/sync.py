@@ -11,7 +11,7 @@ import requests
 from jobrunner import config
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where
-from jobrunner.log_utils import configure_logging, set_log_context
+from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, JobRequest
 
 session = requests.Session()

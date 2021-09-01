@@ -11,7 +11,7 @@ import time
 
 from jobrunner import config
 from jobrunner.lib.database import find_where, select_values, update
-from jobrunner.log_utils import configure_logging, set_log_context
+from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.manage_jobs import (
     JobError,
     cleanup_job,

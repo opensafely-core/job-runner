@@ -8,7 +8,7 @@ import jobrunner.run
 import jobrunner.sync
 from jobrunner import config
 from jobrunner.lib import docker
-from jobrunner.subprocess_utils import subprocess_run
+from jobrunner.lib.subprocess_utils import subprocess_run
 
 log = logging.getLogger(__name__)
 

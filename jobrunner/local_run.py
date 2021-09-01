@@ -43,12 +43,12 @@ from jobrunner.create_or_update_jobs import (
     create_jobs,
 )
 from jobrunner.lib.database import find_where
-from jobrunner.log_utils import configure_logging
+from jobrunner.lib.log_utils import configure_logging
 from jobrunner.manage_jobs import METADATA_DIR
 from jobrunner.models import Job, JobRequest, State, StatusCode
 from jobrunner.run import main as run_main
-from jobrunner.string_utils import tabulate
-from jobrunner.subprocess_utils import subprocess_run
+from jobrunner.lib.string_utils import tabulate
+from jobrunner.lib.subprocess_utils import subprocess_run
 
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]

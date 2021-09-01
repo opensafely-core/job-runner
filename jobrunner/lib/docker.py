@@ -7,7 +7,7 @@ import re
 import subprocess
 
 from jobrunner import config
-from jobrunner.subprocess_utils import subprocess_run
+from jobrunner.lib.subprocess_utils import subprocess_run
 
 # Docker requires a container in order to interact with volumes, but it doesn't
 # much matter what it is for our purposes as long as it has `sh` and `find`

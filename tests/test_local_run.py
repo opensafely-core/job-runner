@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from jobrunner import local_run
-from jobrunner.subprocess_utils import subprocess_run
+from jobrunner.lib.subprocess_utils import subprocess_run
 
 
 @pytest.mark.slow_test
@@ -64,7 +64,7 @@ def test_get_stata_license_cache_recent(systmpdir, monkeypatch, tmp_path):
     def fail(*a, **kwargs):
         assert False, "should not have been called"
 
-    monkeypatch.setattr("jobrunner.subprocess_utils.subprocess_run", fail)
+    monkeypatch.setattr("jobrunner.lib.subprocess_utils.subprocess_run", fail)
     cache = tmp_path / "opensafely-stata.lic"
     cache.write_text("cached-license")
     assert local_run.get_stata_license() == "cached-license"
