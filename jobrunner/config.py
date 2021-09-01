@@ -18,6 +18,7 @@ TMP_DIR = WORK_DIR / "temp"
 GIT_REPO_DIR = WORK_DIR / "repos"
 
 DATABASE_FILE = WORK_DIR / "db.sqlite"
+DATABASE_SCHEMA_FILE = Path(__file__).parent / "schema.sql"
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
     os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORK_DIR / "high_privacy")

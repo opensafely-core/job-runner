@@ -6,16 +6,17 @@ from pathlib import Path
 
 import pytest
 
-from jobrunner import local_run
-from jobrunner.subprocess_utils import subprocess_run
+from jobrunner.cli import local_run
+from jobrunner.lib.subprocess_utils import subprocess_run
+
+FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
 
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_local_run(tmp_path):
-    project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")
     project_dir = tmp_path / "project"
-    shutil.copytree(project_fixture, project_dir)
+    shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
     local_run.main(project_dir=project_dir, actions=["analyse_data"])
     assert (project_dir / "output/input.csv").exists()
     assert (project_dir / "counts.txt").exists()
@@ -30,9 +31,8 @@ def test_local_run(tmp_path):
     not os.environ.get("STATA_LICENSE"), reason="No STATA_LICENSE env var"
 )
 def test_local_run_stata(tmp_path, monkeypatch):
-    project_fixture = str(Path(__file__).parent.resolve() / "fixtures/stata_project")
     project_dir = tmp_path / "project"
-    shutil.copytree(project_fixture, project_dir)
+    shutil.copytree(str(FIXTURE_DIR / "stata_project"), project_dir)
     monkeypatch.setattr("jobrunner.config.STATA_LICENSE", os.environ["STATA_LICENSE"])
     local_run.main(project_dir=project_dir, actions=["stata"])
     env_file = project_dir / "output/env.txt"
@@ -64,7 +64,7 @@ def test_get_stata_license_cache_recent(systmpdir, monkeypatch, tmp_path):
     def fail(*a, **kwargs):
         assert False, "should not have been called"
 
-    monkeypatch.setattr("jobrunner.subprocess_utils.subprocess_run", fail)
+    monkeypatch.setattr("jobrunner.lib.subprocess_utils.subprocess_run", fail)
     cache = tmp_path / "opensafely-stata.lic"
     cache.write_text("cached-license")
     assert local_run.get_stata_license() == "cached-license"

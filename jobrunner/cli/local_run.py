@@ -33,21 +33,22 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import config, docker
-from .create_or_update_jobs import (
+from jobrunner import config
+from jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,
     NothingToDoError,
     ProjectValidationError,
     create_jobs,
 )
-from .database import find_where
-from .log_utils import configure_logging
-from .manage_jobs import METADATA_DIR
-from .models import Job, JobRequest, State, StatusCode
-from .run import main as run_main
-from .string_utils import tabulate
-from .subprocess_utils import subprocess_run
+from jobrunner.lib import docker
+from jobrunner.lib.database import find_where
+from jobrunner.lib.log_utils import configure_logging
+from jobrunner.lib.string_utils import tabulate
+from jobrunner.lib.subprocess_utils import subprocess_run
+from jobrunner.manage_jobs import METADATA_DIR
+from jobrunner.models import Job, JobRequest, State, StatusCode
+from jobrunner.run import main as run_main
 
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]

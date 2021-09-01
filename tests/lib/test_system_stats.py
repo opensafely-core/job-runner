@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner.system_stats import get_system_stats
+from jobrunner.lib.system_stats import get_system_stats
 
 
 @pytest.mark.needs_docker

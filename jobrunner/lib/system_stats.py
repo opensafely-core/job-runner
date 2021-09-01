@@ -1,4 +1,8 @@
-from .docker import MANAGEMENT_CONTAINER_IMAGE, DockerDiskSpaceError, docker
+from jobrunner.lib.docker import (
+    MANAGEMENT_CONTAINER_IMAGE,
+    DockerDiskSpaceError,
+    docker,
+)
 
 __all__ = ["get_system_stats", "DockerDiskSpaceError"]
 
