@@ -39,7 +39,11 @@ from jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
     ProjectValidationError,
-    create_jobs,
+    assert_new_jobs_created,
+    get_latest_job_for_each_action,
+    get_new_jobs_to_run,
+    insert_into_database,
+    parse_and_validate_project_file,
 )
 from jobrunner.lib import docker
 from jobrunner.lib.database import find_where
@@ -217,24 +221,10 @@ def create_and_run_jobs(
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
 
-    # Create job_request and jobs
-    job_request = JobRequest(
-        id="local",
-        repo_url=str(project_dir),
-        commit=None,
-        requested_actions=actions,
-        cancelled_actions=[],
-        workspace=project_dir.name,
-        database_name="dummy",
-        force_run_dependencies=force_run_dependencies,
-        # The default behaviour of refusing to run if a dependency has failed
-        # makes for an awkward workflow when iterating in development
-        force_run_failed=True,
-        branch="",
-        original={"created_by": getpass.getuser()},
-    )
     try:
-        create_jobs(job_request)
+        job_request, jobs = create_job_request_and_jobs(
+            project_dir, actions, force_run_dependencies
+        )
     except NothingToDoError:
         print("=> All actions already completed successfully")
         print("   Use -f option to force everything to re-run")
@@ -250,8 +240,6 @@ def create_and_run_jobs(
                 else:
                     print(f"     {action} (runs all actions in project)")
         return False
-
-    jobs = find_where(Job)
 
     docker_images = get_docker_images(jobs)
 
@@ -386,6 +374,37 @@ def create_and_run_jobs(
 
     success_flag = all(job.state == State.SUCCEEDED for job in final_jobs)
     return success_flag
+
+
+def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
+    job_request = JobRequest(
+        id="local",
+        repo_url=str(project_dir),
+        commit=None,
+        requested_actions=actions,
+        cancelled_actions=[],
+        workspace=project_dir.name,
+        database_name="dummy",
+        force_run_dependencies=force_run_dependencies,
+        # The default behaviour of refusing to run if a dependency has failed
+        # makes for an awkward workflow when iterating in development
+        force_run_failed=True,
+        branch="",
+        original={"created_by": getpass.getuser()},
+    )
+    project_file_path = project_dir / "project.yaml"
+    if not project_file_path.exists():
+        raise ProjectValidationError(f"No project.yaml file found in {project_dir}")
+    # NOTE: Similar but non-identical logic is implemented for running jobs in
+    # production in `jobrunner.create_or_update_jobs.create_jobs`. If you make
+    # changes below then consider what, if any, the appropriate corresponding
+    # changes might be for production jobs.
+    project = parse_and_validate_project_file(project_file_path.read_bytes())
+    current_jobs = get_latest_job_for_each_action(job_request.workspace)
+    new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
+    assert_new_jobs_created(new_jobs, current_jobs)
+    insert_into_database(job_request, new_jobs)
+    return job_request, new_jobs
 
 
 def no_jobs_remaining(active_jobs):
