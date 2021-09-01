@@ -16,7 +16,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from jobrunner import config, docker
+from jobrunner import config
+from jobrunner.lib import docker
 from jobrunner.lib.database import find_where
 from jobrunner.lib.git import checkout_commit
 from jobrunner.models import SavedJobRequest, State, StatusCode

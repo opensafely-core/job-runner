@@ -33,7 +33,8 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from jobrunner import config, docker
+from jobrunner import config
+from jobrunner.lib import docker
 from jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,

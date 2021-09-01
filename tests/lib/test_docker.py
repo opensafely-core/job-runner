@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner import docker
+from jobrunner.lib import docker
 
 
 @pytest.mark.slow_test

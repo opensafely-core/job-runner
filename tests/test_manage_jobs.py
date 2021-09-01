@@ -28,7 +28,7 @@ def test_delete_files(tmp_path):
 
 
 @mock.patch.multiple(
-    "jobrunner.docker",
+    "jobrunner.lib.docker",
     create_volume=mock.DEFAULT,
     copy_to_volume=mock.DEFAULT,
 )
