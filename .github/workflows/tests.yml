@@ -61,14 +61,18 @@ jobs:
       run: |
         pip install wheel
         python setup.py sdist bdist_wheel
-    - name: Check that wheel installs
+    - name: Check that wheel installs and runs
       run: |
         python -m venv test-wheel
         test-wheel/bin/pip install dist/*.whl
-    - name: Check that sdist installs
+        # Minimal check that it has actually built correctly
+        test-wheel/bin/python -m jobrunner.cli.local_run --help
+    - name: Check that sdist installs and runs
       run: |
         python -m venv test-sdist
         test-sdist/bin/pip install dist/*.tar.gz
+        # Minimal check that it has actually built correctly
+        test-sdist/bin/python -m jobrunner.cli.local_run --help
 
   test-docker-build:
     runs-on: ubuntu-latest
