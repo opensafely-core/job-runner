@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 from jobrunner import config
-from jobrunner.database import exists_where, find_where, insert, transaction, update_where
+from jobrunner.lib.database import exists_where, find_where, insert, transaction, update_where
 from jobrunner.git import GitError, GitFileNotFoundError, read_file_from_repo
 from jobrunner.github_validators import (
     GithubValidationError,

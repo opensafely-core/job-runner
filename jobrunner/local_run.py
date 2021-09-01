@@ -41,7 +41,7 @@ from jobrunner.create_or_update_jobs import (
     ProjectValidationError,
     create_jobs,
 )
-from jobrunner.database import find_where
+from jobrunner.lib.database import find_where
 from jobrunner.log_utils import configure_logging
 from jobrunner.manage_jobs import METADATA_DIR
 from jobrunner.models import Job, JobRequest, State, StatusCode

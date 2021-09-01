@@ -10,7 +10,7 @@ from jobrunner.create_or_update_jobs import (
     create_or_update_jobs,
     validate_job_request,
 )
-from jobrunner.database import find_where
+from jobrunner.lib.database import find_where
 from jobrunner.models import Job, JobRequest, State
 
 

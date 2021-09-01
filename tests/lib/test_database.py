@@ -1,4 +1,4 @@
-from jobrunner.database import find_where, insert, select_values, update
+from jobrunner.lib.database import find_where, insert, select_values, update
 from jobrunner.models import Job, State
 
 
