@@ -9,9 +9,9 @@ import sys
 import time
 
 from jobrunner import config
-from jobrunner.docker_stats import get_container_stats, get_volume_and_container_sizes
+from jobrunner.lib.docker_stats import get_container_stats, get_volume_and_container_sizes
 from jobrunner.lib.log_utils import configure_logging
-from jobrunner.system_stats import DockerDiskSpaceError, get_system_stats
+from jobrunner.lib.system_stats import DockerDiskSpaceError, get_system_stats
 
 SCHEMA_SQL = """
 CREATE TABLE stats (
