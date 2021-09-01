@@ -149,16 +149,20 @@ def create_and_populate_volume(job):
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
     extra_dirs = set(Path(filename).parent for filename in input_files.keys())
-    if config.LOCAL_RUN_MODE and not job.action_commit:
-        # We're in local run mode and we're not running a reusable action, so we need to
-        # copy the workspace to a volume.
-        copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
-    else:
-        # We're either not in local run mode or we're running a reusable action, so we
-        # need to copy a git commit to a volume.
-        repo_url = job.action_repo_url or job.repo_url
-        commit = job.action_commit or job.commit
+
+    # Jobs which are running reusable actions pull their code from the reusable
+    # action repo, all other jobs pull their code from the study repo
+    repo_url = job.action_repo_url or job.repo_url
+    commit = job.action_commit or job.commit
+    # Both of action commit and repo_url should be set if either are
+    assert bool(job.action_commit) == bool(job.action_repo_url)
+
+    if repo_url and commit:
         copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs)
+    else:
+        # We only encounter jobs without a repo or commit when using the
+        # "local_run" command to execute uncommited local code
+        copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
 
     for filename, action in input_files.items():
         log.info(f"Copying input file {action}: {filename}")

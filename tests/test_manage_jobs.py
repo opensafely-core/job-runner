@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from jobrunner import config, models
+from jobrunner import models
 from jobrunner.manage_jobs import create_and_populate_volume, delete_files
 
 
@@ -46,6 +46,20 @@ class TestCreateAndPopulateVolume:
         """Returns a minimal Job instance that represents an action."""
         return models.Job(
             repo_url="opensafely/my-study",
+            commit="the-sha-for-this-commit'",
+            requires_outputs_from=[],
+            workspace="output",
+        )
+
+    @pytest.fixture
+    def local_action_job(self):
+        """
+        Returns a minimal Job instance that represents an action produced by
+        the local_run command.
+        """
+        return models.Job(
+            repo_url="some/local/dir",
+            commit=None,
             requires_outputs_from=[],
             workspace="output",
         )
@@ -61,35 +75,23 @@ class TestCreateAndPopulateVolume:
             workspace="output",
         )
 
-    @mock.patch.object(config, "LOCAL_RUN_MODE", True)
-    def test_is_local_run_not_reusable_action(self, *, action_job, **kwargs):
+    def test_action_gets_code_from_git(self, *, action_job, **kwargs):
         mocked_copy_local_workspace_to_volume = kwargs["copy_local_workspace_to_volume"]
         mocked_copy_git_commit_to_volume = kwargs["copy_git_commit_to_volume"]
 
         create_and_populate_volume(action_job)
+        mocked_copy_local_workspace_to_volume.assert_not_called()
+        mocked_copy_git_commit_to_volume.assert_called_once()
+
+    def test_local_action_gets_code_from_workspace(self, *, local_action_job, **kwargs):
+        mocked_copy_local_workspace_to_volume = kwargs["copy_local_workspace_to_volume"]
+        mocked_copy_git_commit_to_volume = kwargs["copy_git_commit_to_volume"]
+
+        create_and_populate_volume(local_action_job)
         mocked_copy_local_workspace_to_volume.assert_called_once()
         mocked_copy_git_commit_to_volume.assert_not_called()
 
-    @mock.patch.object(config, "LOCAL_RUN_MODE", True)
-    def test_is_local_run_is_reusable_action(self, *, reusable_action_job, **kwargs):
-        mocked_copy_local_workspace_to_volume = kwargs["copy_local_workspace_to_volume"]
-        mocked_copy_git_commit_to_volume = kwargs["copy_git_commit_to_volume"]
-
-        create_and_populate_volume(reusable_action_job)
-        mocked_copy_local_workspace_to_volume.assert_not_called()
-        mocked_copy_git_commit_to_volume.assert_called_once()
-
-    @mock.patch.object(config, "LOCAL_RUN_MODE", False)
-    def test_not_local_run_not_reusable_action(self, *, action_job, **kwargs):
-        mocked_copy_local_workspace_to_volume = kwargs["copy_local_workspace_to_volume"]
-        mocked_copy_git_commit_to_volume = kwargs["copy_git_commit_to_volume"]
-
-        create_and_populate_volume(action_job)
-        mocked_copy_local_workspace_to_volume.assert_not_called()
-        mocked_copy_git_commit_to_volume.assert_called_once()
-
-    @mock.patch.object(config, "LOCAL_RUN_MODE", False)
-    def test_not_local_run_is_reusable_action(self, *, reusable_action_job, **kwargs):
+    def test_reusable_action_gets_code_from_git(self, *, reusable_action_job, **kwargs):
         mocked_copy_local_workspace_to_volume = kwargs["copy_local_workspace_to_volume"]
         mocked_copy_git_commit_to_volume = kwargs["copy_git_commit_to_volume"]
 
