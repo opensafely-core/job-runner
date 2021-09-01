@@ -8,9 +8,9 @@ import time
 from pathlib import Path, PurePath
 from urllib.parse import urlparse, urlunparse
 
-from . import config
-from .string_utils import project_name_from_url
-from .subprocess_utils import subprocess_run
+from jobrunner import config
+from jobrunner.string_utils import project_name_from_url
+from jobrunner.subprocess_utils import subprocess_run
 
 log = logging.getLogger(__name__)
 

@@ -16,17 +16,17 @@ import tempfile
 import time
 from pathlib import Path
 
-from . import config, docker
-from .database import find_where
-from .git import checkout_commit
-from .models import SavedJobRequest, State, StatusCode
-from .path_utils import list_dir_with_ignore_patterns
-from .project import (
+from jobrunner import config, docker
+from jobrunner.database import find_where
+from jobrunner.git import checkout_commit
+from jobrunner.models import SavedJobRequest, State, StatusCode
+from jobrunner.path_utils import list_dir_with_ignore_patterns
+from jobrunner.project import (
     get_all_output_patterns_from_project_file,
     is_generate_cohort_command,
 )
-from .string_utils import tabulate
-from .subprocess_utils import subprocess_run
+from jobrunner.string_utils import tabulate
+from jobrunner.subprocess_utils import subprocess_run
 
 log = logging.getLogger(__name__)
 

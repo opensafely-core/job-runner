@@ -5,8 +5,8 @@ import logging
 import threading
 import time
 
-from . import config, record_stats, run, sync
-from .log_utils import configure_logging
+from jobrunner import config, record_stats, run, sync
+from jobrunner.log_utils import configure_logging
 
 log = logging.getLogger(__name__)
 

@@ -11,17 +11,17 @@ import re
 import time
 from pathlib import Path
 
-from . import config
-from .database import exists_where, find_where, insert, transaction, update_where
-from .git import GitError, GitFileNotFoundError, read_file_from_repo
-from .github_validators import (
+from jobrunner import config
+from jobrunner.database import exists_where, find_where, insert, transaction, update_where
+from jobrunner.git import GitError, GitFileNotFoundError, read_file_from_repo
+from jobrunner.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,
 )
-from .manage_jobs import get_states_for_actions
-from .models import Job, SavedJobRequest, State
-from .project import (
+from jobrunner.manage_jobs import get_states_for_actions
+from jobrunner.models import Job, SavedJobRequest, State
+from jobrunner.project import (
     RUN_ALL_COMMAND,
     ProjectValidationError,
     get_action_specification,

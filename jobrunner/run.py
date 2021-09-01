@@ -9,10 +9,10 @@ import random
 import sys
 import time
 
-from . import config
-from .database import find_where, select_values, update
-from .log_utils import configure_logging, set_log_context
-from .manage_jobs import (
+from jobrunner import config
+from jobrunner.database import find_where, select_values, update
+from jobrunner.log_utils import configure_logging, set_log_context
+from jobrunner.manage_jobs import (
     JobError,
     cleanup_job,
     finalise_job,
@@ -20,7 +20,7 @@ from .manage_jobs import (
     kill_job,
     start_job,
 )
-from .models import Job, State, StatusCode
+from jobrunner.models import Job, State, StatusCode
 
 log = logging.getLogger(__name__)
 

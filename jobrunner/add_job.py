@@ -11,12 +11,12 @@ import textwrap
 from pathlib import Path
 from urllib.parse import urlparse
 
-from .create_or_update_jobs import create_or_update_jobs
-from .database import find_where
-from .git import get_sha_from_remote_ref
-from .log_utils import configure_logging
-from .models import Job
-from .sync import job_request_from_remote_format
+from jobrunner.create_or_update_jobs import create_or_update_jobs
+from jobrunner.database import find_where
+from jobrunner.git import get_sha_from_remote_ref
+from jobrunner.log_utils import configure_logging
+from jobrunner.models import Job
+from jobrunner.sync import job_request_from_remote_format
 
 
 def main(

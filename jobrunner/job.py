@@ -4,7 +4,7 @@ job-runner API to keep the cohortextractor integration working unchanged.
 """
 import sys
 
-from . import local_run
+from jobrunner import local_run
 
 
 class Job:

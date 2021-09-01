@@ -13,7 +13,7 @@ import datetime
 import hashlib
 from enum import Enum
 
-from .string_utils import project_name_from_url, slugify
+from jobrunner.string_utils import project_name_from_url, slugify
 
 
 class State(Enum):

@@ -15,7 +15,7 @@ import threading
 from enum import Enum
 from pathlib import Path
 
-from . import config
+from jobrunner import config
 
 CONNECTION_CACHE = threading.local()
 

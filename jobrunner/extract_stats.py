@@ -6,7 +6,7 @@ import gzip
 import sqlite3
 from pathlib import Path
 
-from . import config
+from jobrunner import config
 
 
 def main(output_file, since, gz=False):
