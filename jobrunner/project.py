@@ -8,7 +8,8 @@ from types import SimpleNamespace
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError, YAMLFutureWarning, YAMLStreamError, YAMLWarning
 
-from jobrunner import config, git
+from jobrunner import config
+from jobrunner.lib import git
 from jobrunner.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,

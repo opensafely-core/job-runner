@@ -4,7 +4,8 @@ from unittest import mock
 
 import pytest
 
-from jobrunner import git, project
+from jobrunner import project
+from jobrunner.lib import git
 from jobrunner.project import (
     InvalidPatternError,
     ProjectValidationError,
@@ -15,7 +16,7 @@ from jobrunner.project import (
 
 
 @mock.patch.multiple(
-    "jobrunner.git",
+    "jobrunner.lib.git",
     get_sha_from_remote_ref=mock.DEFAULT,
     read_file_from_repo=mock.DEFAULT,
 )
@@ -164,7 +165,7 @@ class TestParseAndValidateProjectFile:
         assert obs_run == exp_run
 
     @mock.patch.multiple(
-        "jobrunner.git",
+        "jobrunner.lib.git",
         get_sha_from_remote_ref=mock.DEFAULT,
         read_file_from_repo=mock.DEFAULT,
     )

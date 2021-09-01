@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from jobrunner.git import (
+from jobrunner.lib.git import (
     checkout_commit,
     commit_already_fetched,
     commit_reachable_from_ref,
@@ -13,7 +13,7 @@ from jobrunner.git import (
     read_file_from_repo,
 )
 
-REPO_FIXTURE = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+REPO_FIXTURE = str(Path(__file__).parents[1].resolve() / "fixtures/git-repo")
 
 
 @pytest.mark.slow_test

@@ -18,7 +18,7 @@ from pathlib import Path
 
 from jobrunner import config, docker
 from jobrunner.lib.database import find_where
-from jobrunner.git import checkout_commit
+from jobrunner.lib.git import checkout_commit
 from jobrunner.models import SavedJobRequest, State, StatusCode
 from jobrunner.path_utils import list_dir_with_ignore_patterns
 from jobrunner.project import (
