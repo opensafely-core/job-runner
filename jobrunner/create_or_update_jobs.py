@@ -14,7 +14,7 @@ from pathlib import Path
 from jobrunner import config
 from jobrunner.lib.database import exists_where, find_where, insert, transaction, update_where
 from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
-from jobrunner.github_validators import (
+from jobrunner.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,

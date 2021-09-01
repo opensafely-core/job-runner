@@ -10,7 +10,7 @@ from ruamel.yaml.error import YAMLError, YAMLFutureWarning, YAMLStreamError, YAM
 
 from jobrunner import config
 from jobrunner.lib import git
-from jobrunner.github_validators import (
+from jobrunner.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,
