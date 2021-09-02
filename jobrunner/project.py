@@ -5,9 +5,6 @@ import shlex
 from pathlib import PurePosixPath, PureWindowsPath
 from types import SimpleNamespace
 
-from ruamel.yaml import YAML
-from ruamel.yaml.error import YAMLError, YAMLFutureWarning, YAMLStreamError, YAMLWarning
-
 from jobrunner import config
 from jobrunner.lib import git
 from jobrunner.lib.github_validators import (
@@ -15,6 +12,7 @@ from jobrunner.lib.github_validators import (
     validate_branch_and_commit,
     validate_repo_url,
 )
+from jobrunner.lib.yaml_utils import YAMLError, parse_yaml
 
 # The magic action name which means "run every action"
 RUN_ALL_COMMAND = "run_all"
@@ -30,10 +28,6 @@ RUN_COMMANDS_CONFIG = {
 
 
 class ProjectValidationError(Exception):
-    pass
-
-
-class ProjectYAMLError(ProjectValidationError):
     pass
 
 
@@ -77,19 +71,6 @@ class ReusableAction:
     action_file: bytes
 
 
-def parse_yaml_file(yaml_file):
-    try:
-        # We're using the pure-Python version here as we don't care about speed
-        # and this gives better error messages (and consistent behaviour
-        # cross-platform)
-        return YAML(typ="safe", pure=True).load(yaml_file)
-        # ruamel doesn't have a nice exception hierarchy so we have to catch
-        # these four separate base classes
-    except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
-        e = make_yaml_error_more_helpful(e)
-        raise ProjectYAMLError(f"{type(e).__name__} {e}")
-
-
 def parse_and_validate_project_file(project_file):
     """Parse and validate the project file, handling reusable actions.
 
@@ -100,9 +81,12 @@ def parse_and_validate_project_file(project_file):
         A dict representing the project.
 
     Raises:
-        ProjectYAMLError: The contents of the project file could not be parsed.
+        ProjectValidationError: The project could not be parsed, or was not valid
     """
-    project = parse_yaml_file(project_file)
+    try:
+        project = parse_yaml(project_file, name="project.yaml")
+    except YAMLError as e:
+        raise ProjectValidationError(*e.args)
     actions = project["actions"]
     for action_id, action in actions.items():
         actions[action_id] = handle_reusable_action(action_id, action)
@@ -209,7 +193,7 @@ def apply_reusable_action(action_id, action, reusable_action):
     try:
         # If there's a problem, then it relates to the reusable action. The study
         # developer didn't make an error; the reusable action developer did.
-        action_config = parse_yaml_file(reusable_action.action_file)
+        action_config = parse_yaml(reusable_action.action_file, name="action.yaml")
         assert "run" in action_config
         action_run_args = shlex.split(action_config["run"])
         action_image, action_tag = action_run_args[0].split(":")
@@ -219,7 +203,7 @@ def apply_reusable_action(action_id, action, reusable_action):
             raise ProjectValidationError(
                 "Re-usable actions cannot invoke cohortextractor"
             )
-    except (ProjectYAMLError, AssertionError, ProjectValidationError):
+    except (YAMLError, AssertionError, ProjectValidationError):
         raise ReusableActionError(
             f"There is a problem with the reusable action required by '{action_id}'"
         )
@@ -233,30 +217,6 @@ def apply_reusable_action(action_id, action, reusable_action):
     new_action["repo_url"] = reusable_action.repo_url
     new_action["commit"] = reusable_action.commit
     return new_action
-
-
-def make_yaml_error_more_helpful(exc):
-    """
-    ruamel produces quite helpful error messages but they refer to the file as
-    `<byte_string>` (which will be confusing for users) and they also include
-    notes and warnings to developers about API changes. This function attempts
-    to fix these issues, but just returns the exception unchanged if anything
-    goes wrong.
-    """
-    try:
-        try:
-            exc.context_mark.name = "project.yaml"
-        except AttributeError:
-            pass
-        try:
-            exc.problem_mark.name = "project.yaml"
-        except AttributeError:
-            pass
-        exc.note = ""
-        exc.warn = ""
-    except Exception:
-        pass
-    return exc
 
 
 # Copied almost verbatim from the original job-runner
