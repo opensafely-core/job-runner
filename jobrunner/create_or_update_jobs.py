@@ -264,8 +264,6 @@ def recursively_build_jobs(jobs_by_action, job_request, project, action):
         workspace=job_request.workspace,
         database_name=job_request.database_name,
         action=action,
-        action_repo_url=action_spec.repo_url,
-        action_commit=action_spec.commit,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=action_spec.needs,
         run_command=action_spec.run,
