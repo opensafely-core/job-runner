@@ -14,12 +14,6 @@ RUN_ALL_COMMAND = "run_all"
 # The version of `project.yaml` where each feature was introduced
 FEATURE_FLAGS_BY_VERSION = {"UNIQUE_OUTPUT_PATH": 2, "EXPECTATIONS_POPULATION": 3}
 
-# Build a config dict in the same format the old code expects
-RUN_COMMANDS_CONFIG = {
-    image: {"docker_invocation": [f"{config.DOCKER_REGISTRY}/{image}"]}
-    for image in config.ALLOWED_IMAGES
-}
-
 
 class ProjectValidationError(Exception):
     pass
@@ -125,12 +119,9 @@ def validate_project_and_set_defaults(project):
                         f"Output path {filename} is not unique"
                     )
                 seen_output_files.append(filename)
-        # Check it's a permitted run command
 
         command, *args = shlex.split(action_config["run"])
         name, _, version = command.partition(":")
-        if name not in RUN_COMMANDS_CONFIG:
-            raise ProjectValidationError(f"{name} is not a supported command")
         if not version:
             raise ProjectValidationError(
                 f"{name} must have a version specified (e.g. {name}:0.5.2)",
