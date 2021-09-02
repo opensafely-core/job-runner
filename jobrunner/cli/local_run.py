@@ -255,21 +255,23 @@ def create_and_run_jobs(
 
     docker_images = get_docker_images(jobs)
 
-    stata_images = [i for i in docker_images if i.startswith("stata-mp")]
-    if stata_images and config.STATA_LICENSE is None:
+    uses_stata = any(
+        i.startswith(f"{config.DOCKER_REGISTRY}/stata-mp:") for i in docker_images
+    )
+    if uses_stata and config.STATA_LICENSE is None:
         config.STATA_LICENSE = get_stata_license()
         if config.STATA_LICENSE is None:
             print(
-                f"The docker image '{stata_images[0]}' requires a license to function.\n"
-                f"\n"
-                f"If you are a member of OpenSAFELY we should have been able to fetch\n"
-                f"the license automatically, so something has gone wrong.  Please open\n"
-                f"a new discussion here so we can help:\n"
-                f"  https://github.com/opensafely/documentation/discussions\n"
-                f"\n"
-                f"If you are not a member of OpenSAFELY you will have to provide your\n"
-                f"own license. See the dicussion here for pointers:\n"
-                f" https://github.com/opensafely/documentation/discussions/299"
+                "The docker image 'stata-mp' requires a license to function.\n"
+                "\n"
+                "If you are a member of OpenSAFELY we should have been able to fetch\n"
+                "the license automatically, so something has gone wrong. Please open\n"
+                "a new discussion here so we can help:\n"
+                "  https://github.com/opensafely/documentation/discussions\n"
+                "\n"
+                "If you are not a member of OpenSAFELY you will have to provide your\n"
+                "own license. See the dicussion here for pointers:\n"
+                " https://github.com/opensafely/documentation/discussions/299"
             )
             return False
 
