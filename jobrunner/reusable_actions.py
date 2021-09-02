@@ -27,6 +27,30 @@ class ReusableAction:
     action_file: bytes
 
 
+def resolve_reusable_action_references(jobs):
+    """
+    Accepts a list of Job instances, identifies any which invoke reusable
+    actions and modifies them appropriately which means:
+        * rewriting their `run` command to use the entrypoint defined by the
+          reusable action
+        * adding a reference to the reusable action's repo and commit
+
+    Args:
+        jobs: list of Job instances
+
+    Returns:
+        None - it modifies its arguments in place
+
+    Raises:
+        ReusableActionError
+    """
+    for job in jobs:
+        action_dict = handle_reusable_action(job.action, {"run": job.run_command})
+        job.run_command = action_dict["run"]
+        job.action_repo_url = action_dict.get("repo_url")
+        job.action_commit = action_dict.get("commit")
+
+
 def handle_reusable_action(action_id, action):
     """If `action` is reusable, then handle it. If not, then return it unchanged.
 

@@ -54,6 +54,10 @@ from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import METADATA_DIR
 from jobrunner.models import Job, JobRequest, State, StatusCode
+from jobrunner.reusable_actions import (
+    ReusableActionError,
+    resolve_reusable_action_references,
+)
 from jobrunner.run import main as run_main
 
 # First paragraph of docstring
@@ -231,7 +235,7 @@ def create_and_run_jobs(
         print("=> All actions already completed successfully")
         print("   Use -f option to force everything to re-run")
         return True
-    except (ProjectValidationError, JobRequestError) as e:
+    except (ProjectValidationError, ReusableActionError, JobRequestError) as e:
         print(f"=> {type(e).__name__}")
         print(textwrap.indent(str(e), "   "))
         if hasattr(e, "valid_actions"):
@@ -405,6 +409,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     current_jobs = get_latest_job_for_each_action(job_request.workspace)
     new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
     assert_new_jobs_created(new_jobs, current_jobs)
+    resolve_reusable_action_references(new_jobs)
     insert_into_database(job_request, new_jobs)
     return job_request, new_jobs
 
