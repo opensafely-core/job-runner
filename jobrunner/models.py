@@ -72,7 +72,7 @@ class Job:
     id: str = None
     job_request_id: str = None
     state: State = None
-    # Git repository URL (may be a local path in LOCAL_RUN_MODE)
+    # Git repository URL
     repo_url: str = None
     # Full commit sha
     commit: str = None

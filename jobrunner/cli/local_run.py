@@ -11,8 +11,10 @@ To try to avoid this, when copying code into a volume we ignore any files which
 match any of the output patterns in the project. We then copy in just the
 explicit dependencies of the action.
 
-This is achieved by setting a LOCAL_RUN_MODE flag in the config which, in two
-key places, tells the code not to talk to git but do something else instead.
+The job creation logic is also slighty different here (compare the
+`create_job_request_and_jobs` function below with the `create_jobs` function in
+`jobrunner.create_or_update_jobs`) as things like validating the repo URL don't
+apply locally.
 
 Other than that, everything else runs entirely as it would in production. A
 temporary database and log directory is created for each run and then thrown
@@ -39,7 +41,11 @@ from jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
     ProjectValidationError,
-    create_jobs,
+    assert_new_jobs_created,
+    get_latest_job_for_each_action,
+    get_new_jobs_to_run,
+    insert_into_database,
+    parse_and_validate_project_file,
 )
 from jobrunner.lib import docker
 from jobrunner.lib.database import find_where
@@ -185,15 +191,15 @@ def create_and_run_jobs(
     log_format=LOCAL_RUN_FORMAT,
     format_output_for_github=False,
 ):
-    # Configure
+    # Fiddle with the configuration to suit what we need for running local jobs
     docker.LABEL = docker_label
-    config.LOCAL_RUN_MODE = True
     # It's more helpful in this context to have things consistent
     config.RANDOMISE_JOB_ORDER = False
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
     # Append a random value so that multiple runs in the same process will each
     # get their own unique in-memory database. This is only really relevant
-    # during testing.
+    # during testing as we never do mutliple runs in the same process
+    # otherwise.
     config.DATABASE_FILE = f":memory:{random.randrange(sys.maxsize)}"
     config.TMP_DIR = temp_dir
     config.JOB_LOG_DIR = temp_dir / "logs"
@@ -217,24 +223,10 @@ def create_and_run_jobs(
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
 
-    # Create job_request and jobs
-    job_request = JobRequest(
-        id="local",
-        repo_url=str(project_dir),
-        commit=None,
-        requested_actions=actions,
-        cancelled_actions=[],
-        workspace=project_dir.name,
-        database_name="dummy",
-        force_run_dependencies=force_run_dependencies,
-        # The default behaviour of refusing to run if a dependency has failed
-        # makes for an awkward workflow when iterating in development
-        force_run_failed=True,
-        branch="",
-        original={"created_by": getpass.getuser()},
-    )
     try:
-        create_jobs(job_request)
+        job_request, jobs = create_job_request_and_jobs(
+            project_dir, actions, force_run_dependencies
+        )
     except NothingToDoError:
         print("=> All actions already completed successfully")
         print("   Use -f option to force everything to re-run")
@@ -250,8 +242,6 @@ def create_and_run_jobs(
                 else:
                     print(f"     {action} (runs all actions in project)")
         return False
-
-    jobs = find_where(Job)
 
     docker_images = get_docker_images(jobs)
 
@@ -386,6 +376,37 @@ def create_and_run_jobs(
 
     success_flag = all(job.state == State.SUCCEEDED for job in final_jobs)
     return success_flag
+
+
+def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
+    job_request = JobRequest(
+        id="local",
+        repo_url=str(project_dir),
+        commit=None,
+        requested_actions=actions,
+        cancelled_actions=[],
+        workspace=project_dir.name,
+        database_name="dummy",
+        force_run_dependencies=force_run_dependencies,
+        # The default behaviour of refusing to run if a dependency has failed
+        # makes for an awkward workflow when iterating in development
+        force_run_failed=True,
+        branch="",
+        original={"created_by": getpass.getuser()},
+    )
+    project_file_path = project_dir / "project.yaml"
+    if not project_file_path.exists():
+        raise ProjectValidationError(f"No project.yaml file found in {project_dir}")
+    # NOTE: Similar but non-identical logic is implemented for running jobs in
+    # production in `jobrunner.create_or_update_jobs.create_jobs`. If you make
+    # changes below then consider what, if any, the appropriate corresponding
+    # changes might be for production jobs.
+    project = parse_and_validate_project_file(project_file_path.read_bytes())
+    current_jobs = get_latest_job_for_each_action(job_request.workspace)
+    new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
+    assert_new_jobs_created(new_jobs, current_jobs)
+    insert_into_database(job_request, new_jobs)
+    return job_request, new_jobs
 
 
 def no_jobs_remaining(active_jobs):

@@ -107,9 +107,6 @@ MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 # locally
 RANDOMISE_JOB_ORDER = True
 
-# See `local_run.py` for more detail
-LOCAL_RUN_MODE = False
-
 # Automatically delete containers and volumes after they have been used
 CLEAN_UP_DOCKER_OBJECTS = True
 
