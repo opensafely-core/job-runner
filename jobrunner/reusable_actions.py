@@ -45,18 +45,22 @@ def resolve_reusable_action_references(jobs):
         ReusableActionError
     """
     for job in jobs:
-        action_dict = handle_reusable_action(job.action, {"run": job.run_command})
+        try:
+            action_dict = handle_reusable_action({"run": job.run_command})
+        except ReusableActionError as e:
+            # Annotate the exception with the context of the action in which it
+            # occured
+            context = f"{job.action}: {job.run_command.split()[0]}"
+            raise ReusableActionError(f"in '{context}' {e}") from e
         job.run_command = action_dict["run"]
         job.action_repo_url = action_dict.get("repo_url")
         job.action_commit = action_dict.get("commit")
 
 
-def handle_reusable_action(action_id, action):
+def handle_reusable_action(action):
     """If `action` is reusable, then handle it. If not, then return it unchanged.
 
     Args:
-        action_id: The action's ID as a string. This is the action's key in
-            project.yaml. It is used to raise errors with more informative messages.
         action: The action's representation as a dict. This is the action's value in
             project.yaml.
 
@@ -75,18 +79,16 @@ def handle_reusable_action(action_id, action):
         # This isn't a reusable action.
         return action
 
-    reusable_action = fetch_reusable_action(action_id, image, tag)
-    new_action = apply_reusable_action(action_id, action, reusable_action)
+    reusable_action = fetch_reusable_action(image, tag)
+    new_action = apply_reusable_action(action, reusable_action)
     return new_action
 
 
-def fetch_reusable_action(action_id, image, tag):
+def fetch_reusable_action(image, tag):
     """
     Fetch all metadata from git needed to apply a reusable action
 
     Args:
-        action_id: The action's ID as a string. This is the action's key in
-            project.yaml. It is used to raise errors with more informative messages.
         image: The name of the reusable action
         tag: The specified version of the reusable action
 
@@ -108,9 +110,7 @@ def fetch_reusable_action(action_id, image, tag):
         # developer made an error; maybe the reusable action developer made an error.
         commit = git.get_sha_from_remote_ref(repo_url, tag)
     except git.GitError:
-        raise ReusableActionError(
-            f"Cannot resolve '{action_id}' to a repository at '{repo_url}'"
-        )
+        raise ReusableActionError(f"could not find tag '{tag}' at '{repo_url}'")
 
     try:
         validate_branch_and_commit(repo_url, commit, "main")
@@ -123,20 +123,19 @@ def fetch_reusable_action(action_id, image, tag):
         action_file = git.read_file_from_repo(repo_url, commit, "action.yaml")
     except git.GitError:
         raise ReusableActionError(
-            f"There is a problem with the reusable action required by '{action_id}'"
+            f"{repo_url}/tree/{tag} doesn't look like a valid action "
+            f"(no 'action.yaml' file)"
         )
 
     return ReusableAction(repo_url=repo_url, commit=commit, action_file=action_file)
 
 
-def apply_reusable_action(action_id, action, reusable_action):
+def apply_reusable_action(action, reusable_action):
     """
     Rewrite an `action` dict to run the code specifed by the supplied
     `ReusableAction` instance.
 
     Args:
-        action_id: The action's ID as a string. This is the action's key in
-            project.yaml. It is used to raise errors with more informative messages.
         action: The action's representation as a dict. This is the action's value in
             project.yaml.
         reusable_action: A ReusableAction instance
@@ -162,7 +161,8 @@ def apply_reusable_action(action_id, action, reusable_action):
             )
     except (YAMLError, AssertionError, ProjectValidationError):
         raise ReusableActionError(
-            f"There is a problem with the reusable action required by '{action_id}'"
+            f"invalid action, please open an issue on "
+            f"{reusable_action.repo_url}/issues"
         )
 
     # ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
