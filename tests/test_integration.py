@@ -151,7 +151,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
             "female.csv",
             "qu'ote.csv",
             "output/input.csv",
-            "output/input.bak.csv",
+            "output/input.backup.csv",
             "output/extra/input.csv",
         ]
     )
