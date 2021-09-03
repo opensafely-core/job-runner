@@ -79,7 +79,7 @@ class TestHandleReusableAction:
             )
 
     def test_with_bad_remote_ref(self, **kwargs):
-        kwargs["get_sha_from_remote_ref"].side_effect = git.GitError
+        kwargs["get_sha_from_remote_ref"].side_effect = git.GitUnknownRefError
         with pytest.raises(reusable_actions.ReusableActionError):
             reusable_actions.handle_reusable_action({"run": "reusable-action:latest"})
 

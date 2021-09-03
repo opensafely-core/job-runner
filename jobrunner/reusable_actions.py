@@ -109,8 +109,10 @@ def fetch_reusable_action(image, tag):
         # If there's a problem, then it relates to the repository. Maybe the study
         # developer made an error; maybe the reusable action developer made an error.
         commit = git.get_sha_from_remote_ref(repo_url, tag)
-    except git.GitError:
-        raise ReusableActionError(f"could not find tag '{tag}' at '{repo_url}'")
+    except git.GitRepoNotReachableError:
+        raise ReusableActionError(f"could not find action repo at {repo_url}")
+    except git.GitUnknownRefError:
+        raise ReusableActionError(f"'{tag}' is not a tag listed in {repo_url}/tags")
 
     try:
         validate_branch_and_commit(repo_url, commit, "main")
