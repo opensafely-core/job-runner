@@ -47,42 +47,45 @@ def resolve_reusable_action_references(jobs):
     """
     for job in jobs:
         try:
-            action_dict = handle_reusable_action({"run": job.run_command})
+            run_command, repo_url, commit = handle_reusable_action(job.run_command)
         except ReusableActionError as e:
             # Annotate the exception with the context of the action in which it
             # occured
             context = f"{job.action}: {job.run_command.split()[0]}"
             raise ReusableActionError(f"in '{context}' {e}") from e
-        job.run_command = action_dict["run"]
-        job.action_repo_url = action_dict.get("repo_url")
-        job.action_commit = action_dict.get("commit")
+        job.run_command = run_command
+        job.action_repo_url = repo_url
+        job.action_commit = commit
 
 
-def handle_reusable_action(action):
-    """If `action` is reusable, then handle it. If not, then return it unchanged.
+def handle_reusable_action(run_command):
+    """
+    If `run_command` refers to a reusable action then rewrite it appropriately
+    and return it along with the repo_url and commit of the reusable action.
+    Otherwise return it unchanged with null values for repo_url and commit.
 
     Args:
-        action: The action's representation as a dict. This is the action's value in
-            project.yaml.
+        run_command: Action's run command as a string
 
-    Returns:
-        The action's representation as a dict. If `action` resolves to a reusable
-        action, then it is rewritten to point to the reusable action and a copy is
-        returned. If not, then `action` is returned unchanged.
+    Returns: tuple consisting of
+        - rewritten_run_command: string
+        - resuable_action_repo_url: string or None if not a reusable action
+        - reusable_action_commit: string or None if not a reusable action
 
     Raises:
-        ReusableActionError: An error occurred when accessing the reusable action.
+        ReusableActionError: Something was wrong with the reusable action
     """
-    run_args = shlex.split(action["run"])
+    run_args = shlex.split(run_command)
     image, tag = run_args[0].split(":")
 
     if image in config.ALLOWED_IMAGES:
-        # This isn't a reusable action.
-        return action
+        # This isn't a reusable action, nothing to do
+        return run_command, None, None
 
     reusable_action = fetch_reusable_action(image, tag)
-    new_action = apply_reusable_action(action, reusable_action)
-    return new_action
+    new_run_args = apply_reusable_action(run_args, reusable_action)
+    new_run_command = " ".join(new_run_args)
+    return new_run_command, reusable_action.repo_url, reusable_action.commit
 
 
 def fetch_reusable_action(image, tag):
@@ -154,18 +157,17 @@ def fetch_reusable_action(image, tag):
     return ReusableAction(repo_url=repo_url, commit=commit, action_file=action_file)
 
 
-def apply_reusable_action(action, reusable_action):
+def apply_reusable_action(run_args, reusable_action):
     """
-    Rewrite an `action` dict to run the code specifed by the supplied
+    Rewrite a list of "run" arguments to run the code specifed by the supplied
     `ReusableAction` instance.
 
     Args:
-        action: The action's representation as a dict. This is the action's value in
-            project.yaml.
+        run_args: Action's run command as a list of string arguments
         reusable_action: A ReusableAction instance
 
     Returns:
-        The modified action's representation as a dict.
+        The modified run arguments as a list
 
     Raises:
         ReusableActionError: An error occurred when accessing the reusable action.
@@ -191,11 +193,4 @@ def apply_reusable_action(action, reusable_action):
         )
 
     # ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
-    run_args = shlex.split(action["run"])
-    run_args[0] = action_config["run"]
-
-    new_action = action.copy()
-    new_action["run"] = " ".join(run_args)
-    new_action["repo_url"] = reusable_action.repo_url
-    new_action["commit"] = reusable_action.commit
-    return new_action
+    return action_run_args + run_args[1:]

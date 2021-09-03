@@ -16,8 +16,8 @@ from jobrunner.reusable_actions import ReusableAction
 class TestHandleReusableAction:
     def test_when_not_a_reusable_action(self, **kwargs):
         # Happy path 1
-        action_in = {"run": "python:latest python analysis/my_action.py"}
-        action_out = reusable_actions.handle_reusable_action(action_in)
+        action_in = "python:latest python analysis/my_action.py"
+        action_out = reusable_actions.handle_reusable_action(action_in)[0]
         assert action_in is action_out
         kwargs["get_sha_from_remote_ref"].assert_not_called()
         kwargs["read_file_from_repo"].assert_not_called()
@@ -28,11 +28,11 @@ class TestHandleReusableAction:
     )
     def test_when_a_reusable_action_with_options(self, *args, **kwargs):
         # Happy path 2
-        action_in = {"run": "reusable-action:latest --output-format=png"}
-        action_out = reusable_actions.handle_reusable_action(action_in)
+        action_in = "reusable-action:latest --output-format=png"
+        action_out = reusable_actions.handle_reusable_action(action_in)[0]
         assert action_in is not action_out
         assert (
-            action_out["run"]
+            action_out
             == "python:latest python reusable_action/main.py --output-format=png"
         )
 
@@ -42,11 +42,11 @@ class TestHandleReusableAction:
     )
     def test_when_a_reusable_action_with_arguments(self, *args, **kwargs):
         # Happy path 3
-        action_in = {"run": "reusable-action:latest output/input.csv"}
-        action_out = reusable_actions.handle_reusable_action(action_in)
+        action_in = "reusable-action:latest output/input.csv"
+        action_out = reusable_actions.handle_reusable_action(action_in)[0]
         assert action_in is not action_out
         assert (
-            action_out["run"]
+            action_out
             == "python:latest python reusable_action/main.py output/input.csv"
         )
 
@@ -61,13 +61,11 @@ class TestHandleReusableAction:
         # * Arguments are optional within reason, but are more restricted than options
         # For more information, see:
         # https://click.palletsprojects.com/en/8.0.x/parameters/
-        action_in = {
-            "run": "reusable-action:latest --output-format=png output/input.csv"
-        }
-        action_out = reusable_actions.handle_reusable_action(action_in)
+        action_in = "reusable-action:latest --output-format=png output/input.csv"
+        action_out = reusable_actions.handle_reusable_action(action_in)[0]
         assert action_in is not action_out
         assert (
-            action_out["run"]
+            action_out
             == "python:latest python reusable_action/main.py --output-format=png output/input.csv"
         )
 
@@ -75,13 +73,13 @@ class TestHandleReusableAction:
         # We don't need to check the scheme, netloc, or org because we add those.
         with pytest.raises(reusable_actions.ReusableActionError):
             reusable_actions.handle_reusable_action(
-                {"run": "../my-bad-org/reusable-action:latest"},
+                "../my-bad-org/reusable-action:latest"
             )
 
     def test_with_bad_remote_ref(self, **kwargs):
         kwargs["get_sha_from_remote_ref"].side_effect = git.GitUnknownRefError
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action({"run": "reusable-action:latest"})
+            reusable_actions.handle_reusable_action("reusable-action:latest")
 
     @mock.patch(
         "jobrunner.reusable_actions.validate_branch_and_commit",
@@ -89,14 +87,12 @@ class TestHandleReusableAction:
     )
     def test_with_bad_commit(self, *args, **kwargs):
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action(
-                {"run": "reusable-action:latest"},
-            )
+            reusable_actions.handle_reusable_action("reusable-action:latest")
 
     def test_with_bad_file(self, **kwargs):
         kwargs["read_file_from_repo"].side_effect = git.GitError
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action({"run": "reusable-action:latest"})
+            reusable_actions.handle_reusable_action("reusable-action:latest")
 
     @mock.patch(
         "jobrunner.reusable_actions.parse_yaml",
@@ -104,15 +100,15 @@ class TestHandleReusableAction:
     )
     def test_with_bad_yaml(self, *args, **kwargs):
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action({"run": "reusable-action:latest"})
+            reusable_actions.handle_reusable_action("reusable-action:latest")
 
     @mock.patch("jobrunner.reusable_actions.parse_yaml", return_value={})
     def test_with_bad_action_config(self, *args, **kwargs):
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action({"run": "reusable-action:latest"})
+            reusable_actions.handle_reusable_action("reusable-action:latest")
 
     def test_reusable_action_with_invalid_runtime(self, *args, **kwargs):
-        action = {"run": "foo:v1"}
+        action = "foo:v1"
         reusable_action_1 = ReusableAction(
             repo_url="foo", commit="bar", action_file=b"run: notanaction:v1"
         )
