@@ -84,7 +84,8 @@ def handle_reusable_action(run_command):
 
     reusable_action = fetch_reusable_action(image, tag)
     new_run_args = apply_reusable_action(run_args, reusable_action)
-    new_run_command = " ".join(new_run_args)
+    # When we no longer support Python 3.7 we can just use `shlex.join()` here
+    new_run_command = " ".join(shlex.quote(arg) for arg in new_run_args)
     return new_run_command, reusable_action.repo_url, reusable_action.commit
 
 
