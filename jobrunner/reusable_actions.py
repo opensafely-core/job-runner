@@ -102,32 +102,53 @@ def fetch_reusable_action(image, tag):
     repo_url = f"{config.ACTIONS_GITHUB_ORG_URL}/{image}"
     try:
         validate_repo_url(repo_url, [config.ACTIONS_GITHUB_ORG])
-    except GithubValidationError as e:
-        raise ReusableActionError(*e.args)  # This keeps the function signature clean
+    except GithubValidationError:
+        raise ReusableActionError(f"'{image}' contains invalid characters")
 
     try:
         # If there's a problem, then it relates to the repository. Maybe the study
         # developer made an error; maybe the reusable action developer made an error.
         commit = git.get_sha_from_remote_ref(repo_url, tag)
     except git.GitRepoNotReachableError:
-        raise ReusableActionError(f"could not find action repo at {repo_url}")
+        raise ReusableActionError(
+            f"could not find a repo at {repo_url}\n"
+            f"Check that '{image}' is in the list of available actions at "
+            f"https://actions.opensafely.org"
+        )
     except git.GitUnknownRefError:
         raise ReusableActionError(f"'{tag}' is not a tag listed in {repo_url}/tags")
 
+    # We're planning to give write access to specific external collaborators on
+    # specific action repos, but we want to retain final control over what gets
+    # deployed. Github's permissions model doesn't (yet) allow us to restrict
+    # what tags they can push, but we can restrict access to certain branches.
+    # So here we check that the tag refers to a commit which has been merged to
+    # main and refuse to run if not. If Github ever supports restricting tag
+    # creation then we can do away with this check.
     try:
         validate_branch_and_commit(repo_url, commit, "main")
-    except GithubValidationError as e:
-        raise ReusableActionError(*e.args)
+    except GithubValidationError:
+        raise ReusableActionError(
+            f"tag '{tag}' has not yet been approved for use (not merged into main branch)"
+        )
+    except git.GitError:
+        # Our git library already logs the relevant details here so throwing
+        # away the original exception is fine
+        raise ReusableActionError(f"error validating '{commit}' in {repo_url}")
 
     try:
         # If there's a problem, then it relates to the reusable action. The study
         # developer didn't make an error; the reusable action developer did.
         action_file = git.read_file_from_repo(repo_url, commit, "action.yaml")
-    except git.GitError:
+    except git.GitFileNotFoundError:
         raise ReusableActionError(
             f"{repo_url}/tree/{tag} doesn't look like a valid action "
-            f"(no 'action.yaml' file)"
+            f"(no 'action.yaml' file present)"
         )
+    except git.GitError:
+        # Our git library already logs the relevant details here so throwing
+        # away the original exception is fine
+        raise ReusableActionError(f"error reading '{commit}' from {repo_url}")
 
     return ReusableAction(repo_url=repo_url, commit=commit, action_file=action_file)
 
