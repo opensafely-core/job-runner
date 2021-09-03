@@ -1,5 +1,6 @@
 import dataclasses
 import shlex
+import textwrap
 
 from jobrunner import config
 from jobrunner.lib import git
@@ -9,7 +10,7 @@ from jobrunner.lib.github_validators import (
     validate_repo_url,
 )
 from jobrunner.lib.yaml_utils import YAMLError, parse_yaml
-from jobrunner.project import ProjectValidationError, is_generate_cohort_command
+from jobrunner.project import is_generate_cohort_command
 
 
 class ReusableActionError(Exception):
@@ -173,19 +174,20 @@ def apply_reusable_action(action, reusable_action):
         # If there's a problem, then it relates to the reusable action. The study
         # developer didn't make an error; the reusable action developer did.
         action_config = parse_yaml(reusable_action.action_file, name="action.yaml")
-        assert "run" in action_config
+        if "run" not in action_config:
+            raise ReusableActionError("Missing `run` key in 'action.yaml'")
         action_run_args = shlex.split(action_config["run"])
         action_image, action_tag = action_run_args[0].split(":")
         if action_image not in config.ALLOWED_IMAGES:
-            raise ProjectValidationError(f"Unrecognised runtime: {action_image}")
+            raise ReusableActionError(f"Unrecognised runtime: {action_image}")
         if is_generate_cohort_command(action_run_args):
-            raise ProjectValidationError(
-                "Re-usable actions cannot invoke cohortextractor"
-            )
-    except (YAMLError, AssertionError, ProjectValidationError):
+            raise ReusableActionError("Re-usable actions cannot invoke cohortextractor")
+    except (YAMLError, ReusableActionError) as e:
+        formatted_error = textwrap.indent(f"{type(e).__name__}: {e}", "  ")
         raise ReusableActionError(
             f"invalid action, please open an issue on "
-            f"{reusable_action.repo_url}/issues"
+            f"{reusable_action.repo_url}/issues\n\n"
+            f"{formatted_error}"
         )
 
     # ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
