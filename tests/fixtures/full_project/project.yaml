@@ -49,11 +49,13 @@ actions:
         counts: counts.txt
 
   test_reusable_action:
-    run: minimal-action:v1.0.0 output/input.csv
+    run: minimal-action:v1.1.0 output/input.csv
+    config:
+      suffix: .backup
     needs: [generate_cohort]
     outputs:
       highly_sensitive:
-        cohort: output/input.bak.csv
+        cohort: output/input.backup.csv
 
   test_cancellation:
     run: python:latest python analysis/filter_by_sex.py F output/input.csv somefile.csv

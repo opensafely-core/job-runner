@@ -5,16 +5,8 @@ import shlex
 from pathlib import PurePosixPath, PureWindowsPath
 from types import SimpleNamespace
 
-from ruamel.yaml import YAML
-from ruamel.yaml.error import YAMLError, YAMLFutureWarning, YAMLStreamError, YAMLWarning
-
 from jobrunner import config
-from jobrunner.lib import git
-from jobrunner.lib.github_validators import (
-    GithubValidationError,
-    validate_branch_and_commit,
-    validate_repo_url,
-)
+from jobrunner.lib.yaml_utils import YAMLError, parse_yaml
 
 # The magic action name which means "run every action"
 RUN_ALL_COMMAND = "run_all"
@@ -22,18 +14,8 @@ RUN_ALL_COMMAND = "run_all"
 # The version of `project.yaml` where each feature was introduced
 FEATURE_FLAGS_BY_VERSION = {"UNIQUE_OUTPUT_PATH": 2, "EXPECTATIONS_POPULATION": 3}
 
-# Build a config dict in the same format the old code expects
-RUN_COMMANDS_CONFIG = {
-    image: {"docker_invocation": [f"{config.DOCKER_REGISTRY}/{image}"]}
-    for image in config.ALLOWED_IMAGES
-}
-
 
 class ProjectValidationError(Exception):
-    pass
-
-
-class ProjectYAMLError(ProjectValidationError):
     pass
 
 
@@ -52,46 +34,16 @@ class InvalidPatternError(ProjectValidationError):
     pass
 
 
-class ReusableActionError(Exception):
-    """Represents a study developer-friendly reusable action error.
-
-    We raise this in preference to other, lower-level, errors because there's only so
-    much a study developer can do when there's an error with a reusable action.
-    """
-
-
 # Tiny dataclass to capture the specification of a project action
 @dataclasses.dataclass
 class ActionSpecifiction:
     run: str
     needs: list
     outputs: dict
-    repo_url: str
-    commit: str
-
-
-@dataclasses.dataclass
-class ReusableAction:
-    repo_url: str
-    commit: str
-    action_file: bytes
-
-
-def parse_yaml_file(yaml_file):
-    try:
-        # We're using the pure-Python version here as we don't care about speed
-        # and this gives better error messages (and consistent behaviour
-        # cross-platform)
-        return YAML(typ="safe", pure=True).load(yaml_file)
-        # ruamel doesn't have a nice exception hierarchy so we have to catch
-        # these four separate base classes
-    except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
-        e = make_yaml_error_more_helpful(e)
-        raise ProjectYAMLError(f"{type(e).__name__} {e}")
 
 
 def parse_and_validate_project_file(project_file):
-    """Parse and validate the project file, handling reusable actions.
+    """Parse and validate the project file.
 
     Args:
         project_file: The contents of the project file as an immutable array of bytes.
@@ -100,163 +52,13 @@ def parse_and_validate_project_file(project_file):
         A dict representing the project.
 
     Raises:
-        ProjectYAMLError: The contents of the project file could not be parsed.
-    """
-    project = parse_yaml_file(project_file)
-    actions = project["actions"]
-    for action_id, action in actions.items():
-        actions[action_id] = handle_reusable_action(action_id, action)
-    project = validate_project_and_set_defaults(project)
-    return project
-
-
-def handle_reusable_action(action_id, action):
-    """If `action` is reusable, then handle it. If not, then return it unchanged.
-
-    Args:
-        action_id: The action's ID as a string. This is the action's key in
-            project.yaml. It is used to raise errors with more informative messages.
-        action: The action's representation as a dict. This is the action's value in
-            project.yaml.
-
-    Returns:
-        The action's representation as a dict. If `action` resolves to a reusable
-        action, then it is rewritten to point to the reusable action and a copy is
-        returned. If not, then `action` is returned unchanged.
-
-    Raises:
-        ReusableActionError: An error occurred when accessing the reusable action.
-    """
-    run_args = shlex.split(action["run"])
-    image, tag = run_args[0].split(":")
-
-    if image in config.ALLOWED_IMAGES:
-        # This isn't a reusable action.
-        return action
-
-    reusable_action = fetch_reusable_action(action_id, image, tag)
-    new_action = apply_reusable_action(action_id, action, reusable_action)
-    return new_action
-
-
-def fetch_reusable_action(action_id, image, tag):
-    """
-    Fetch all metadata from git needed to apply a reusable action
-
-    Args:
-        action_id: The action's ID as a string. This is the action's key in
-            project.yaml. It is used to raise errors with more informative messages.
-        image: The name of the reusable action
-        tag: The specified version of the reusable action
-
-    Returns:
-        ReusableAction object, wrapping the repo_url, commit and the contents
-        of the `action.yaml` file
-
-    Raises:
-        ReusableActionError: An error occurred when accessing the reusable action.
-    """
-    repo_url = f"{config.ACTIONS_GITHUB_ORG_URL}/{image}"
-    try:
-        validate_repo_url(repo_url, [config.ACTIONS_GITHUB_ORG])
-    except GithubValidationError as e:
-        raise ReusableActionError(*e.args)  # This keeps the function signature clean
-
-    try:
-        # If there's a problem, then it relates to the repository. Maybe the study
-        # developer made an error; maybe the reusable action developer made an error.
-        commit = git.get_sha_from_remote_ref(repo_url, tag)
-    except git.GitError:
-        raise ReusableActionError(
-            f"Cannot resolve '{action_id}' to a repository at '{repo_url}'"
-        )
-
-    try:
-        validate_branch_and_commit(repo_url, commit, "main")
-    except GithubValidationError as e:
-        raise ReusableActionError(*e.args)
-
-    try:
-        # If there's a problem, then it relates to the reusable action. The study
-        # developer didn't make an error; the reusable action developer did.
-        action_file = git.read_file_from_repo(repo_url, commit, "action.yaml")
-    except git.GitError:
-        raise ReusableActionError(
-            f"There is a problem with the reusable action required by '{action_id}'"
-        )
-
-    return ReusableAction(repo_url=repo_url, commit=commit, action_file=action_file)
-
-
-def apply_reusable_action(action_id, action, reusable_action):
-    """
-    Rewrite an `action` dict to run the code specifed by the supplied
-    `ReusableAction` instance.
-
-    Args:
-        action_id: The action's ID as a string. This is the action's key in
-            project.yaml. It is used to raise errors with more informative messages.
-        action: The action's representation as a dict. This is the action's value in
-            project.yaml.
-        reusable_action: A ReusableAction instance
-
-    Returns:
-        The modified action's representation as a dict.
-
-    Raises:
-        ReusableActionError: An error occurred when accessing the reusable action.
+        ProjectValidationError: The project could not be parsed, or was not valid
     """
     try:
-        # If there's a problem, then it relates to the reusable action. The study
-        # developer didn't make an error; the reusable action developer did.
-        action_config = parse_yaml_file(reusable_action.action_file)
-        assert "run" in action_config
-        action_run_args = shlex.split(action_config["run"])
-        action_image, action_tag = action_run_args[0].split(":")
-        if action_image not in config.ALLOWED_IMAGES:
-            raise ProjectValidationError(f"Unrecognised runtime: {action_image}")
-        if is_generate_cohort_command(action_run_args):
-            raise ProjectValidationError(
-                "Re-usable actions cannot invoke cohortextractor"
-            )
-    except (ProjectYAMLError, AssertionError, ProjectValidationError):
-        raise ReusableActionError(
-            f"There is a problem with the reusable action required by '{action_id}'"
-        )
-
-    # ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
-    run_args = shlex.split(action["run"])
-    run_args[0] = action_config["run"]
-
-    new_action = action.copy()
-    new_action["run"] = " ".join(run_args)
-    new_action["repo_url"] = reusable_action.repo_url
-    new_action["commit"] = reusable_action.commit
-    return new_action
-
-
-def make_yaml_error_more_helpful(exc):
-    """
-    ruamel produces quite helpful error messages but they refer to the file as
-    `<byte_string>` (which will be confusing for users) and they also include
-    notes and warnings to developers about API changes. This function attempts
-    to fix these issues, but just returns the exception unchanged if anything
-    goes wrong.
-    """
-    try:
-        try:
-            exc.context_mark.name = "project.yaml"
-        except AttributeError:
-            pass
-        try:
-            exc.problem_mark.name = "project.yaml"
-        except AttributeError:
-            pass
-        exc.note = ""
-        exc.warn = ""
-    except Exception:
-        pass
-    return exc
+        project = parse_yaml(project_file, name="project.yaml")
+    except YAMLError as e:
+        raise ProjectValidationError(*e.args)
+    return validate_project_and_set_defaults(project)
 
 
 # Copied almost verbatim from the original job-runner
@@ -317,12 +119,9 @@ def validate_project_and_set_defaults(project):
                         f"Output path {filename} is not unique"
                     )
                 seen_output_files.append(filename)
-        # Check it's a permitted run command
 
         command, *args = shlex.split(action_config["run"])
         name, _, version = command.partition(":")
-        if name not in RUN_COMMANDS_CONFIG:
-            raise ProjectValidationError(f"{name} is not a supported command")
         if not version:
             raise ProjectValidationError(
                 f"{name} must have a version specified (e.g. {name}:0.5.2)",
@@ -434,10 +233,6 @@ def get_action_specification(project, action_id):
         run=run_command,
         needs=action_spec.get("needs", []),
         outputs=action_spec["outputs"],
-        # If action_spec (a dict) represents a reusable action, then it will have the
-        # following keys. If not, then it won't.
-        repo_url=action_spec.get("repo_url"),
-        commit=action_spec.get("commit"),
     )
 
 

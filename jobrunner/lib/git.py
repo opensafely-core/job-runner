@@ -27,6 +27,14 @@ class GitFileNotFoundError(GitError):
     pass
 
 
+class GitRepoNotReachableError(GitError):
+    pass
+
+
+class GitUnknownRefError(GitError):
+    pass
+
+
 def read_file_from_repo(repo_url, commit_sha, path):
     """
     Return the contents of the file at `path` in `repo_url` as of `commit_sha`
@@ -112,7 +120,8 @@ def get_sha_from_remote_ref(repo_url, ref):
         will be that of the associated commit, rather than that of the annotated tag.
 
     Raises:
-        GitError: An error occurred when getting the SHA.
+        GitRepoNotReachableError: We couldn't read from the remote repo
+        GitUnknownRefError: We couldn't find the specified ref in the remote repo
     """
     # If `ref` matches an annotated tag, then `deref_ref` will match the associated
     # commit.
@@ -136,8 +145,8 @@ def get_sha_from_remote_ref(repo_url, ref):
         output = response.stdout
     except subprocess.SubprocessError as exc:
         redact_token_from_exception(exc)
-        log.exception("Error resolving remote git ref")
-        output = ""
+        log.exception("Error reading from remote repository")
+        raise GitRepoNotReachableError(f"Could not read from {repo_url}")
     results = _parse_ls_remote_output(output)
     for target_ref in [
         ref,  # e.g. HEAD
@@ -147,7 +156,7 @@ def get_sha_from_remote_ref(repo_url, ref):
     ]:
         if target_ref in results:
             return results[target_ref]
-    raise GitError(f"Error resolving ref '{ref}' from {repo_url}")
+    raise GitUnknownRefError(f"Could not find ref '{ref}' in {repo_url}")
 
 
 def _parse_ls_remote_output(output):

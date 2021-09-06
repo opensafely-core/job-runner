@@ -33,6 +33,10 @@ from jobrunner.project import (
     get_all_actions,
     parse_and_validate_project_file,
 )
+from jobrunner.reusable_actions import (
+    ReusableActionError,
+    resolve_reusable_action_references,
+)
 
 log = logging.getLogger(__name__)
 
@@ -71,6 +75,7 @@ def create_or_update_jobs(job_request):
             GitError,
             GithubValidationError,
             ProjectValidationError,
+            ReusableActionError,
             JobRequestError,
         ) as e:
             log.info(f"JobRequest failed:\n{e}")
@@ -99,6 +104,7 @@ def create_jobs(job_request):
     current_jobs = get_latest_job_for_each_action(job_request.workspace)
     new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
     assert_new_jobs_created(new_jobs, current_jobs)
+    resolve_reusable_action_references(new_jobs)
     # There is a delay between getting the current jobs (which we fetch from
     # the database and the disk) and inserting our new jobs below. This means
     # the state of the world may have changed in the meantime. Why is this OK?
@@ -264,8 +270,6 @@ def recursively_build_jobs(jobs_by_action, job_request, project, action):
         workspace=job_request.workspace,
         database_name=job_request.database_name,
         action=action,
-        action_repo_url=action_spec.repo_url,
-        action_commit=action_spec.commit,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=action_spec.needs,
         run_command=action_spec.run,
