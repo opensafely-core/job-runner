@@ -13,6 +13,7 @@ from jobrunner import config
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.manage_jobs import (
+    BrokenContainerError,
     JobError,
     cleanup_job,
     finalise_job,
@@ -86,7 +87,10 @@ def handle_pending_job(job):
                 start_job(job)
             except JobError as exception:
                 mark_job_as_failed(job, exception)
-                cleanup_job(job)
+                # See the `raise` in manage_jobs which explains why we can't
+                # cleanup on this specific error
+                if not isinstance(exception, BrokenContainerError):
+                    cleanup_job(job)
             except Exception:
                 mark_job_as_failed(job, "Internal error when starting job")
                 cleanup_job(job)
