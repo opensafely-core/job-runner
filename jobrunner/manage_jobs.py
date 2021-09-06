@@ -79,6 +79,10 @@ class MissingOutputError(JobError):
     pass
 
 
+class BrokenContainerError(JobError):
+    pass
+
+
 def start_job(job):
     """Start the given job.
 
@@ -198,15 +202,18 @@ def copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs):
             #
             # This means we can end up with jobs where any attempt to start
             # them (by copying in code from git) causes the job-runner to
-            # completely lock up.  To avoid this we use a timeout (60 seconds,
+            # completely lock up. To avoid this we use a timeout (60 seconds,
             # which should be more than enough to copy in a few megabytes of
             # code). The exception this triggers will cause the job to fail
             # with an "internal error" message, which will then stop it
-            # blocking other jobs. It's important that we don't use a subclass
-            # of JobError here because such errors are regarded as "clean"
-            # exits and cause the runner to try to remove the container, which
-            # would also hang.
-            raise RuntimeError("Timed out copying code to volume, see issue #154")
+            # blocking other jobs. We need a specific exception class here as
+            # we need to avoid trying to remove the container, which we would
+            # ordinarily do on error, because that operation will also hang :(
+            log.exception("Timed out copying code to volume, see issue #154")
+            raise BrokenContainerError(
+                "There was a (hopefully temporary) internal Docker error, "
+                "please try the job again"
+            )
 
 
 def copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs):
