@@ -158,7 +158,14 @@ def copy_to_volume(volume_name, source, dest, timeout=None):
     )
 
 
-def copy_from_volume(volume_name, source, dest):
+def copy_from_volume(volume_name, source, dest, timeout=None):
+    """
+    Copy the contents of `source` from the root of the named volume to `dest`
+    on local disk
+
+    As this command can potentially take a long time with large files it does
+    not, by default, have any timeout.
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
     docker(
         [
@@ -168,6 +175,7 @@ def copy_from_volume(volume_name, source, dest):
         ],
         check=True,
         capture_output=True,
+        timeout=timeout,
     )
 
 
