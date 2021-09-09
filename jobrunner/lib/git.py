@@ -3,17 +3,20 @@ Utility functions for interacting with git
 """
 import logging
 import os
-from pathlib import Path, PurePath
 import subprocess
 import time
+from pathlib import Path, PurePath
 from urllib.parse import urlparse, urlunparse
 
-from . import config
-from .string_utils import project_name_from_url
-from .subprocess_utils import subprocess_run
-
+from jobrunner import config
+from jobrunner.lib.string_utils import project_name_from_url
+from jobrunner.lib.subprocess_utils import subprocess_run
 
 log = logging.getLogger(__name__)
+
+
+# See `commit_already_fetched`
+SENTINEL_TAG_PREFIX = "fetched/"
 
 
 class GitError(Exception):
@@ -21,6 +24,14 @@ class GitError(Exception):
 
 
 class GitFileNotFoundError(GitError):
+    pass
+
+
+class GitRepoNotReachableError(GitError):
+    pass
+
+
+class GitUnknownRefError(GitError):
     pass
 
 
@@ -71,15 +82,50 @@ def checkout_commit(repo_url, commit_sha, target_dir):
     )
 
 
-def get_sha_from_remote_ref(repo_url, ref):
+def commit_reachable_from_ref(repo_url, commit_sha, ref):
     """
-    Given a `ref` (branch name, tag, etc) on a remote repo, turn it into a
-    commit SHA.
+    Given a `ref` (branch name, tag, etc) on a remote repo, check whether the
+    supplied commit is reachable from that ref.
+    """
+    ref_sha = get_sha_from_remote_ref(repo_url, ref)
+    # The easy case and the case I expect to be hit almost every time as the UI
+    # currently only supports running against the branch head
+    if commit_sha == ref_sha:
+        return True
+    # However a well (or badly) timed push could cause the target sha and the
+    # branch head to diverge, so we need to handle that. In order to do so we
+    # need to fetch the history of the branch. We first fetch just the last 10
+    # commits on the assumption that it's probably one of those. If that fails
+    # we fetch the entire branch history.
+    repo_dir = get_local_repo_dir(repo_url)
+    ensure_git_init(repo_dir)
+    fetch_commit(repo_dir, repo_url, ref_sha, depth=10)
+    if commit_is_ancestor(repo_dir, commit_sha, ref_sha):
+        return True
+    # The below is a git magic number meaning "infinite depth". See:
+    # https://git-scm.com/docs/shallow
+    fetch_commit(repo_dir, repo_url, ref_sha, depth=2147483647)
+    return commit_is_ancestor(repo_dir, commit_sha, ref_sha)
 
-    In future we might not need this as the job-server should only supply us
-    with SHAs, but for now we want to be able to accept branch names and
-    transform them into SHAs.
+
+def get_sha_from_remote_ref(repo_url, ref):
+    """Gets the SHA of the commit associated with the ref at the repo URL.
+
+    Args:
+        repo_url: A repo URL.
+        ref: A ref, such as a branch name, tag name, etc.
+
+    Returns:
+        The SHA of the commit. For example, if the ref is an annotated tag, then the SHA
+        will be that of the associated commit, rather than that of the annotated tag.
+
+    Raises:
+        GitRepoNotReachableError: We couldn't read from the remote repo
+        GitUnknownRefError: We couldn't find the specified ref in the remote repo
     """
+    # If `ref` matches an annotated tag, then `deref_ref` will match the associated
+    # commit.
+    deref_ref = f"{ref}^{{}}"
     try:
         response = subprocess_run(
             [
@@ -87,8 +133,9 @@ def get_sha_from_remote_ref(repo_url, ref):
                 "ls-remote",
                 "--quiet",
                 "--exit-code",
-                add_access_token(repo_url),
+                add_access_token_and_proxy(repo_url),
                 ref,
+                deref_ref,
             ],
             check=True,
             capture_output=True,
@@ -98,22 +145,18 @@ def get_sha_from_remote_ref(repo_url, ref):
         output = response.stdout
     except subprocess.SubprocessError as exc:
         redact_token_from_exception(exc)
-        log.exception(f"Error resolving {ref} from {repo_url}")
-        output = ""
+        log.exception("Error reading from remote repository")
+        raise GitRepoNotReachableError(f"Could not read from {repo_url}")
     results = _parse_ls_remote_output(output)
-    if len(results) == 1:
-        return list(results.values())[0]
-    elif len(results) > 1:
-        # Where we have more than one match, but there is either an exact match
-        # or a match for a local branch then use that result. (This happens
-        # when using local repos where there are references to both the local
-        # and remote branches.)
-        for target_ref in [ref, f"refs/heads/{ref}"]:
-            if target_ref in results:
-                return results[target_ref]
-        raise GitError(f"Ambiguous ref '{ref}' in {repo_url}")
-    else:
-        raise GitError(f"Error resolving ref '{ref}' from {repo_url}")
+    for target_ref in [
+        ref,  # e.g. HEAD
+        f"refs/heads/{ref}",  # Branch
+        f"refs/tags/{deref_ref}",  # Annotated tag
+        f"refs/tags/{ref}",  # Lightweight tag
+    ]:
+        if target_ref in results:
+            return results[target_ref]
+    raise GitUnknownRefError(f"Could not find ref '{ref}' in {repo_url}")
 
 
 def _parse_ls_remote_output(output):
@@ -133,27 +176,71 @@ def get_local_repo_dir(repo_url):
 
 
 def ensure_commit_fetched(repo_dir, repo_url, commit_sha):
-    if not os.path.exists(repo_dir / "config"):
-        subprocess_run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
-        fetched = False
-    # It's safe to keep re-fetching the same commit, but it requires talking to
-    # the remote repo every time so it's better to avoid it if we can
-    else:
-        fetched = commit_already_fetched(repo_dir, commit_sha)
-    if not fetched:
+    ensure_git_init(repo_dir)
+    # It's safe to keep re-fetching the same commit, but it requires
+    # talking to the remote repo every time so it's better to avoid it if
+    # we can
+    if not commit_already_fetched(repo_dir, commit_sha):
         fetch_commit(repo_dir, repo_url, commit_sha)
 
 
+def ensure_git_init(repo_dir):
+    if not os.path.exists(repo_dir / "config"):
+        subprocess_run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
+
+
 def commit_already_fetched(repo_dir, commit_sha):
+    """
+    Return whether a given commit exists in a repo directory
+
+    We used to do this with:
+
+        git cat-file -e 'COMMIT_SHA^{commit}'
+
+    However it's possible that an interrupted fetch leaves the commit object in
+    place without all of its associated blobs, meaning that the above check
+    passes but attempting to check out the commit will fail. To work around
+    this we create a special "sentinel" tag for each commit to indicate that
+    the entire fetch process has completed successfully.
+    """
     response = subprocess_run(
-        ["git", "cat-file", "-e", f"{commit_sha}^{{commit}}"],
+        [
+            "git",
+            "tag",
+            "--list",
+            SENTINEL_TAG_PREFIX + commit_sha,
+            "--points-at",
+            commit_sha,
+            "--format",
+            "exists",
+        ],
+        check=True,
         capture_output=True,
         cwd=repo_dir,
     )
-    return response.returncode == 0
+    return response.stdout.strip() == b"exists"
 
 
-def fetch_commit(repo_dir, repo_url, commit_sha):
+def mark_commmit_as_fetched(repo_dir, commit_sha):
+    """
+    Create a special "sentinel" tag to indicate that the supplied commit has
+    been fully fetched (see `commit_already_fetched` above)
+    """
+    subprocess_run(
+        [
+            "git",
+            "tag",
+            "--force",
+            SENTINEL_TAG_PREFIX + commit_sha,
+            commit_sha,
+        ],
+        check=True,
+        capture_output=True,
+        cwd=repo_dir,
+    )
+
+
+def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
     # The unfortunate retry complexity here is due to mysterious errors we
     # sometimes get when fetching commits in the live environment:
     #
@@ -166,30 +253,32 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
     max_retries = 5
     sleep = 4
     attempt = 1
+    authenticated_url = add_access_token_and_proxy(repo_url)
     while True:
         try:
             subprocess_run(
                 [
                     "git",
                     "fetch",
-                    "--depth",
-                    "1",
                     "--force",
-                    add_access_token(repo_url),
+                    "--depth",
+                    str(depth),
+                    authenticated_url,
                     commit_sha,
                 ],
                 check=True,
                 capture_output=True,
                 cwd=repo_dir,
             )
+            mark_commmit_as_fetched(repo_dir, commit_sha)
             break
         except subprocess.SubprocessError as e:
             redact_token_from_exception(e)
-            log.exception(
-                f"Error fetching commit {commit_sha} from {repo_url}"
-                f" (attempt {attempt}/{max_retries})"
-            )
-            if b"GnuTLS recv error" in e.stderr:
+            log.exception(f"Error fetching commit (attempt {attempt}/{max_retries})")
+            if (
+                b"GnuTLS recv error" in e.stderr
+                or b"SSL_read: Connection was reset" in e.stderr
+            ):
                 attempt += 1
                 if attempt > max_retries:
                     raise GitError(
@@ -204,7 +293,18 @@ def fetch_commit(repo_dir, repo_url, commit_sha):
                 raise GitError(f"Error fetching commit {commit_sha} from {repo_url}")
 
 
-def add_access_token(repo_url):
+def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
+    response = subprocess_run(
+        ["git", "merge-base", "--is-ancestor", ancestor_sha, descendant_sha],
+        cwd=repo_dir,
+        capture_output=True,
+    )
+    return response.returncode == 0
+
+
+def add_access_token_and_proxy(repo_url):
+    # We've already validated that the repo url starts with https://github.com
+    repo_url = repo_url.replace("github.com", config.GIT_PROXY_DOMAIN)
     # We previously did a complicated thing involving the GIT_ASKPASS
     # executable which worked OK on Linux but not on Windows or macOS, so we're
     # doing the more reliable thing of just sticking the token in the URL
@@ -213,7 +313,7 @@ def add_access_token(repo_url):
         return repo_url
     # Ensure we only ever send our token to github.com over https
     parsed = urlparse(repo_url)
-    if parsed.hostname != "github.com" or parsed.scheme != "https":
+    if parsed.hostname != config.GIT_PROXY_DOMAIN or parsed.scheme != "https":
         return repo_url
     # Don't overwrite existing auth details (not sure why they'd be there but
     # seems polite)

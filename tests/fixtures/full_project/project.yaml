@@ -10,6 +10,14 @@ actions:
       highly_sensitive:
         cohort: output/input.csv
 
+  generate_cohort_with_dummy_data:
+    # we provide --output-dir here to distinguish the action from the one above
+    run: cohortextractor:latest generate_cohort --output-dir output/extra
+    dummy_data_file: test-data/dummy-data.csv
+    outputs:
+      highly_sensitive:
+        cohort: output/extra/input.csv
+
   prepare_data_m:
     run: python:latest python analysis/filter_by_sex.py M output/input.csv male.csv
     needs: [generate_cohort]
@@ -24,12 +32,30 @@ actions:
       highly_sensitive:
         female_cohort: female.*
 
+  prepare_data_with_quote_in_filename:
+    run: python:latest python analysis/filter_by_sex.py F output/input.csv "qu'ote.csv"
+    needs: [generate_cohort]
+    outputs:
+      highly_sensitive:
+        quote_cohort: "qu'ote.*"
+
   analyse_data:
-    run: python:latest python analysis/count_lines.py counts.txt male.csv female.csv
-    needs: [prepare_data_m, prepare_data_f]
+    run: python:latest python analysis/count_lines.py counts.txt
+    config:
+      files: ["male.csv", "female.csv", "qu'ote.csv"]
+    needs: [prepare_data_m, prepare_data_f, prepare_data_with_quote_in_filename]
     outputs:
       moderately_sensitive:
         counts: counts.txt
+
+  test_reusable_action:
+    run: minimal-action:v1.1.0 output/input.csv
+    config:
+      suffix: .backup
+    needs: [generate_cohort]
+    outputs:
+      highly_sensitive:
+        cohort: output/input.backup.csv
 
   test_cancellation:
     run: python:latest python analysis/filter_by_sex.py F output/input.csv somefile.csv

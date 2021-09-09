@@ -3,8 +3,10 @@ name: Tests
 on: [push]
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
+  STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
 jobs:
-  test_job:
+  test-job:
     runs-on: ubuntu-latest
     name: Run test suite
     steps:
@@ -22,7 +24,7 @@ jobs:
       run: python -m pytest
 
   # A bit of inelegant copy/paste here, just to see if this works
-  test_job_windows:
+  test-job-windows:
     runs-on: windows-2019
     name: "Run test suite on Windows"
     steps:
@@ -51,18 +53,26 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: 3.8
+    # We need to set this to a valid version string in order to keep pip happy,
+    # but it doesn't really matter what version we use
+    - name: Set version
+      run: echo '1.0' > VERSION
     - name: Build package
       run: |
         pip install wheel
         python setup.py sdist bdist_wheel
-    - name: Check that wheel installs
+    - name: Check that wheel installs and runs
       run: |
         python -m venv test-wheel
         test-wheel/bin/pip install dist/*.whl
-    - name: Check that sdist installs
+        # Minimal check that it has actually built correctly
+        test-wheel/bin/python -m jobrunner.cli.local_run --help
+    - name: Check that sdist installs and runs
       run: |
         python -m venv test-sdist
         test-sdist/bin/pip install dist/*.tar.gz
+        # Minimal check that it has actually built correctly
+        test-sdist/bin/python -m jobrunner.cli.local_run --help
 
   test-docker-build:
     runs-on: ubuntu-latest
@@ -72,3 +82,26 @@ jobs:
       uses: actions/checkout@v1
     - name: Build image
       run: docker build . --file Dockerfile --build-arg=pythonversion=3.8.3
+
+  test-github-workflow-output:
+    runs-on: ubuntu-latest
+    name: Inspect test runner output in the context of a Github Workflow
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Run equivalent command used by test runner
+      # We don't care if this command succeeds or not, we just want to be able
+      # to look at the output
+      run: |
+        python -m jobrunner.local_run run_all \
+          --project-dir=tests/fixtures/full_project \
+          --continue-on-error --timestamps --format-output-for-github \
+          || true

@@ -8,11 +8,13 @@ import sqlite3
 import sys
 import time
 
-from . import config
-from .docker_stats import get_container_stats, get_volume_and_container_sizes
-from .system_stats import get_system_stats
-from .log_utils import configure_logging
-
+from jobrunner import config
+from jobrunner.lib.docker_stats import (
+    get_container_stats,
+    get_volume_and_container_sizes,
+)
+from jobrunner.lib.log_utils import configure_logging
+from jobrunner.lib.system_stats import DockerDiskSpaceError, get_system_stats
 
 SCHEMA_SQL = """
 CREATE TABLE stats (
@@ -61,7 +63,14 @@ def log_stats(connection):
 
 
 def get_all_stats():
-    stats = get_system_stats()
+    try:
+        stats = get_system_stats()
+    except DockerDiskSpaceError:
+        # Sometimes we're so low on disk space that we can't start the
+        # container needed to get system-level stats, in this case it's better
+        # to not get the stats than to bail entirely (and spam the logs in the
+        # process)
+        stats = {}
     volume_sizes, container_sizes = get_volume_and_container_sizes()
     containers = get_container_stats()
     for name, container in containers.items():

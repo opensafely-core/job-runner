@@ -1,8 +1,8 @@
 import configparser
 import os
-from pathlib import Path
 import re
 from multiprocessing import cpu_count
+from pathlib import Path
 
 
 class ConfigException(Exception):
@@ -18,6 +18,7 @@ TMP_DIR = WORK_DIR / "temp"
 GIT_REPO_DIR = WORK_DIR / "repos"
 
 DATABASE_FILE = WORK_DIR / "db.sqlite"
+DATABASE_SCHEMA_FILE = Path(__file__).parent / "schema.sql"
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
     os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORK_DIR / "high_privacy")
@@ -45,9 +46,21 @@ DEBUG = os.environ.get("DEBUG", "0")
 
 BACKEND = os.environ.get("BACKEND", "expectations")
 
-USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
+truthy = ("true", "1", "yes")
 
-ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter", "python"}
+if os.environ.get("USING_DUMMY_DATA_BACKEND", "false").lower().strip() in truthy:
+    USING_DUMMY_DATA_BACKEND = True
+else:
+    USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
+
+ALLOWED_IMAGES = {
+    "cohortextractor",
+    "cohortextractor-v2",
+    "stata-mp",
+    "r",
+    "jupyter",
+    "python",
+}
 
 # DOCKER_REGISTRY = "ghcr.io/opensafely-core"
 DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "")
@@ -92,8 +105,11 @@ if PRESTO_TLS_CERT_PATH:
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 
-# See `local_run.py` for more detail
-LOCAL_RUN_MODE = False
+# This is a crude mechanism for preventing a single large JobRequest with lots
+# of associated Jobs from hogging all the resources. We want this configurable
+# because it's useful to be able to disable this during tests and when running
+# locally
+RANDOMISE_JOB_ORDER = True
 
 # Automatically delete containers and volumes after they have been used
 CLEAN_UP_DOCKER_OBJECTS = True
@@ -106,6 +122,18 @@ STATA_LICENSE_REPO = os.environ.get(
     "STATA_LICENSE_REPO",
     "https://github.com/opensafely/server-instructions.git",
 )
+
+
+ACTIONS_GITHUB_ORG = "opensafely-actions"
+ACTIONS_GITHUB_ORG_URL = f"https://github.com/{ACTIONS_GITHUB_ORG}"
+
+ALLOWED_GITHUB_ORGS = (
+    os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely").strip().split(",")
+)
+
+# we hardcode this for now, as from a security perspective, we do not want it
+# to be run time configurable.
+GIT_PROXY_DOMAIN = "github-proxy.opensafely.org"
 
 
 def parse_job_resource_weights(config_file):

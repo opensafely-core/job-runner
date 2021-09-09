@@ -10,10 +10,10 @@ Note the schema is defined separately in `schema.sql`.
 import base64
 import dataclasses
 import datetime
-from enum import Enum
 import hashlib
+from enum import Enum
 
-from .string_utils import slugify, project_name_from_url
+from jobrunner.lib.string_utils import project_name_from_url, slugify
 
 
 class State(Enum):
@@ -72,7 +72,7 @@ class Job:
     id: str = None
     job_request_id: str = None
     state: State = None
-    # Git repository URL (may be a local path in LOCAL_RUN_MODE)
+    # Git repository URL
     repo_url: str = None
     # Full commit sha
     commit: str = None
@@ -84,6 +84,10 @@ class Job:
     # Name of the action (one of the keys in the `actions` dict in
     # project.yaml)
     action: str = None
+    # URL of git repository for action (None if action is not reusable)
+    action_repo_url: str = None
+    # Full SHA of commit in action repo (None if action is not reusable)
+    action_commit: str = None
     # List of action names whose outputs need to be used as inputs to this
     # action
     requires_outputs_from: list = None

@@ -6,16 +6,17 @@ import argparse
 import base64
 import dataclasses
 import pprint
-from pathlib import Path
-from urllib.parse import urlparse
 import secrets
 import textwrap
+from pathlib import Path
+from urllib.parse import urlparse
 
-from .log_utils import configure_logging
-from .sync import job_request_from_remote_format
-from .database import find_where
-from .models import Job
-from .create_or_update_jobs import create_or_update_jobs
+from jobrunner.create_or_update_jobs import create_or_update_jobs
+from jobrunner.lib.database import find_where
+from jobrunner.lib.git import get_sha_from_remote_ref
+from jobrunner.lib.log_utils import configure_logging
+from jobrunner.models import Job
+from jobrunner.sync import job_request_from_remote_format
 
 
 def main(
@@ -27,6 +28,8 @@ def main(
         path = Path(parsed.path).resolve()
         # In case we're on Windows
         repo_url = str(path).replace("\\", "/")
+    if not commit:
+        commit = get_sha_from_remote_ref(repo_url, branch)
     job_request = job_request_from_remote_format(
         dict(
             identifier=random_id(),
@@ -34,6 +37,7 @@ def main(
             workspace=dict(name=workspace, repo=repo_url, branch=branch, db=database),
             requested_actions=actions,
             force_run_dependencies=force_run_dependencies,
+            cancelled_actions=[],
         )
     )
     print("Submitting JobRequest:\n")

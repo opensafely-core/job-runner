@@ -1,5 +1,10 @@
-from .docker import MANAGEMENT_CONTAINER_IMAGE
-from .subprocess_utils import subprocess_run
+from jobrunner.lib.docker import (
+    MANAGEMENT_CONTAINER_IMAGE,
+    DockerDiskSpaceError,
+    docker,
+)
+
+__all__ = ["get_system_stats", "DockerDiskSpaceError"]
 
 
 # Populated by calls to `register_command` below
@@ -10,8 +15,8 @@ PARSERS = []
 def get_system_stats():
     separator = "____"
     command = f" && echo {separator} && ".join(COMMANDS)
-    response = subprocess_run(
-        ["docker", "run", "--rm", MANAGEMENT_CONTAINER_IMAGE, "sh", "-c", command],
+    response = docker(
+        ["run", "--rm", MANAGEMENT_CONTAINER_IMAGE, "sh", "-c", command],
         capture_output=True,
         check=True,
     )

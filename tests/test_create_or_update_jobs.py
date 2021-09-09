@@ -1,12 +1,22 @@
-from pathlib import Path
 import uuid
+from pathlib import Path
+from unittest import mock
 
-from jobrunner.database import find_where
-from jobrunner.models import JobRequest, Job, State
+import pytest
+
 from jobrunner.create_or_update_jobs import (
+    JobRequestError,
+    create_jobs,
     create_or_update_jobs,
-    create_jobs_with_project_file,
+    validate_job_request,
 )
+from jobrunner.lib.database import find_where
+from jobrunner.models import Job, JobRequest, State
+
+
+@pytest.fixture(autouse=True)
+def disable_github_org_checking(monkeypatch):
+    monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
 
 
 # Basic smoketest to test the full execution path
@@ -15,7 +25,8 @@ def test_create_or_update_jobs(tmp_work_dir):
     job_request = JobRequest(
         id="123",
         repo_url=repo_url,
-        commit=None,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
         branch="v1",
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
@@ -50,11 +61,12 @@ def test_create_or_update_jobs(tmp_work_dir):
 # Basic smoketest to test the error path
 def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+    bad_commit = "0" * 40
     job_request = JobRequest(
         id="123",
         repo_url=repo_url,
-        commit=None,
-        branch="no-such-branch",
+        commit=bad_commit,
+        branch="v1",
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
         workspace="1",
@@ -68,7 +80,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     assert j.job_request_id == "123"
     assert j.state == State.FAILED
     assert j.repo_url == repo_url
-    assert j.commit == None
+    assert j.commit == bad_commit
     assert j.workspace == "1"
     assert j.wait_for_job_ids == None
     assert j.requires_outputs_from == None
@@ -76,7 +88,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     assert j.output_spec == None
     assert (
         j.status_message
-        == f"GitError: Error resolving ref 'no-such-branch' from {repo_url}"
+        == f"GitError: Error fetching commit {bad_commit} from {repo_url}"
     )
 
 
@@ -155,6 +167,36 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     assert generate_job.cancelled == False
 
 
+@pytest.mark.parametrize(
+    "params,exc_msg",
+    [
+        ({"workspace": None}, "Workspace name cannot be blank"),
+        ({"workspace": "$%#"}, "Invalid workspace"),
+        ({"database_name": "invalid"}, "Invalid database name"),
+    ],
+)
+def test_validate_job_request(params, exc_msg, monkeypatch):
+    monkeypatch.setattr("jobrunner.config.USING_DUMMY_DATA_BACKEND", False)
+    repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+    kwargs = dict(
+        id="123",
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        branch="v1",
+        requested_actions=["generate_cohort"],
+        cancelled_actions=[],
+        workspace="1",
+        database_name="full",  # note db from from job-server is 'full'
+        original={},
+    )
+    kwargs.update(params)
+    job_request = JobRequest(**kwargs)
+
+    with pytest.raises(JobRequestError, match=exc_msg):
+        validate_job_request(job_request)
+
+
 def make_job_request(action="generate_cohort", **kwargs):
     job_request = JobRequest(
         id=str(uuid.uuid4()),
@@ -169,3 +211,9 @@ def make_job_request(action="generate_cohort", **kwargs):
     for key, value in kwargs.items():
         setattr(job_request, key, value)
     return job_request
+
+
+def create_jobs_with_project_file(job_request, project_file):
+    with mock.patch("jobrunner.create_or_update_jobs.get_project_file") as f:
+        f.return_value = project_file
+        return create_jobs(job_request)

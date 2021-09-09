@@ -9,14 +9,12 @@ surface area of this module is sufficiently small that swapping it out
 shouldn't be too large a job.
 """
 import dataclasses
-from enum import Enum
 import json
-from pathlib import Path
 import sqlite3
 import threading
+from enum import Enum
 
-from . import config
-
+from jobrunner import config
 
 CONNECTION_CACHE = threading.local()
 
@@ -127,7 +125,7 @@ def get_connection_from_file(filename):
     conn.row_factory = sqlite3.Row
     schema_count = list(conn.execute("SELECT COUNT(*) FROM sqlite_master"))[0][0]
     if schema_count == 0:
-        with open(Path(__file__).parent / "schema.sql") as f:
+        with open(config.DATABASE_SCHEMA_FILE) as f:
             schema_sql = f.read()
         conn.executescript(schema_sql)
     return conn

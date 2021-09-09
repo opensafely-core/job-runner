@@ -11,17 +11,18 @@ To try to avoid this, when copying code into a volume we ignore any files which
 match any of the output patterns in the project. We then copy in just the
 explicit dependencies of the action.
 
-This is achieved by setting a LOCAL_RUN_MODE flag in the config which, in two
-key places, tells the code not to talk to git but do something else instead.
+The job creation logic is also slighty different here (compare the
+`create_job_request_and_jobs` function below with the `create_jobs` function in
+`jobrunner.create_or_update_jobs`) as things like validating the repo URL don't
+apply locally.
 
 Other than that, everything else runs entirely as it would in production. A
 temporary database and log directory is created for each run and then thrown
 away afterwards.
 """
 import argparse
-import json
+import getpass
 import os
-from pathlib import Path
 import platform
 import random
 import shlex
@@ -31,29 +32,48 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from datetime import datetime, timedelta
+from pathlib import Path
 
-from .run import main as run_main, JobError
-from . import config
-from . import docker
-from .database import find_where
-from .manage_jobs import METADATA_DIR
-from .models import JobRequest, Job, State, StatusCode
-from .create_or_update_jobs import (
-    create_jobs,
-    ProjectValidationError,
+from jobrunner import config
+from jobrunner.create_or_update_jobs import (
+    RUN_ALL_COMMAND,
     JobRequestError,
     NothingToDoError,
-    RUN_ALL_COMMAND,
+    ProjectValidationError,
+    assert_new_jobs_created,
+    get_latest_job_for_each_action,
+    get_new_jobs_to_run,
+    insert_into_database,
+    parse_and_validate_project_file,
 )
-from .log_utils import configure_logging
-from .subprocess_utils import subprocess_run
-from .string_utils import tabulate
-
+from jobrunner.lib import docker
+from jobrunner.lib.database import find_where
+from jobrunner.lib.log_utils import configure_logging
+from jobrunner.lib.string_utils import tabulate
+from jobrunner.lib.subprocess_utils import subprocess_run
+from jobrunner.manage_jobs import METADATA_DIR
+from jobrunner.models import Job, JobRequest, State, StatusCode
+from jobrunner.reusable_actions import (
+    ReusableActionError,
+    resolve_reusable_action_references,
+)
+from jobrunner.run import main as run_main
 
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]
 # local run logging format
 LOCAL_RUN_FORMAT = "{action}{message}"
+
+
+# Super-crude support for colourised/formatted output inside Github Actions. It
+# would be good to support formatted output in the CLI more generally, but we
+# should use a decent library for that to handle the various cross-platform
+# issues.
+class ANSI:
+    Reset = "\u001b[0m"
+    Bold = "\u001b[1m"
+    Grey = "\u001b[38;5;248m"
 
 
 def add_arguments(parser):
@@ -88,6 +108,14 @@ def add_arguments(parser):
         help="Leave docker containers and volumes in place for debugging",
         action="store_true",
     )
+    parser.add_argument(
+        "--format-output-for-github",
+        help=(
+            "Produce output in a format suitable for display inside a "
+            "Github Actions Workflow"
+        ),
+        action="store_true",
+    )
     return parser
 
 
@@ -98,12 +126,13 @@ def main(
     continue_on_error=False,
     debug=False,
     timestamps=False,
+    format_output_for_github=False,
 ):
     if not docker_preflight_check():
         return False
 
     project_dir = Path(project_dir).resolve()
-    temp_log_dir = project_dir / METADATA_DIR / ".logs"
+    temp_dir = Path(tempfile.mkdtemp(prefix="opensafely_"))
     if not debug:
         # Generate unique docker label to use for all volumes and containers we
         # create during this run in order to make cleanup easy. We're using a
@@ -127,10 +156,11 @@ def main(
             actions,
             force_run_dependencies=force_run_dependencies,
             continue_on_error=continue_on_error,
-            temp_log_dir=temp_log_dir,
+            temp_dir=temp_dir,
             docker_label=docker_label,
             clean_up_docker_objects=(not debug),
             log_format=log_format,
+            format_output_for_github=format_output_for_github,
         )
     except KeyboardInterrupt:
         print("\nKilled by user")
@@ -140,20 +170,17 @@ def main(
         if not debug:
             delete_docker_entities("container", docker_label, ignore_errors=True)
             delete_docker_entities("volume", docker_label, ignore_errors=True)
-            shutil.rmtree(temp_log_dir, ignore_errors=True)
+            shutil.rmtree(temp_dir, ignore_errors=True)
         else:
             containers = find_docker_entities("container", docker_label)
             volumes = find_docker_entities("volume", docker_label)
-            if containers or volumes:
-                print(f"\n{'-' * 48}")
-                print(
-                    "\nRunning in --debug mode so not cleaning up."
-                    " To clean up run:\n"
-                )
-                for container in containers:
-                    print(f"  docker container rm --force {container}")
-                for volume in volumes:
-                    print(f"  docker volume rm --force {volume}")
+            print(f"\n{'-' * 48}")
+            print("\nRunning in --debug mode so not cleaning up. To clean up run:\n")
+            for container in containers:
+                print(f"  docker container rm --force {container}")
+            for volume in volumes:
+                print(f"  docker volume rm --force {volume}")
+            print(f"  rm -rf {temp_dir}")
     return success_flag
 
 
@@ -162,55 +189,53 @@ def create_and_run_jobs(
     actions,
     force_run_dependencies,
     continue_on_error,
-    temp_log_dir,
+    temp_dir,
     docker_label,
     clean_up_docker_objects=True,
     log_format=LOCAL_RUN_FORMAT,
+    format_output_for_github=False,
 ):
-    # Configure
+    # Fiddle with the configuration to suit what we need for running local jobs
     docker.LABEL = docker_label
-    config.LOCAL_RUN_MODE = True
+    # It's more helpful in this context to have things consistent
+    config.RANDOMISE_JOB_ORDER = False
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
     # Append a random value so that multiple runs in the same process will each
     # get their own unique in-memory database. This is only really relevant
-    # during testing.
+    # during testing as we never do mutliple runs in the same process
+    # otherwise.
     config.DATABASE_FILE = f":memory:{random.randrange(sys.maxsize)}"
-    config.JOB_LOG_DIR = temp_log_dir
+    config.TMP_DIR = temp_dir
+    config.JOB_LOG_DIR = temp_dir / "logs"
     config.BACKEND = "expectations"
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
 
+    # Rather than using the throwaway `temp_dir` to store git repos in we use a
+    # consistent directory within the system tempdir. This means we don't have
+    # to keep refetching commits and also avoids the complexity of deleting
+    # git's read-only directories on Windows. We use `getpass.getuser()` as a
+    # crude means of scoping the directory to the user in order to avoid
+    # potential permissions issues if multiple users share the same directory.
+    config.GIT_REPO_DIR = Path(tempfile.gettempdir()).joinpath(
+        f"opensafely_{getpass.getuser()}"
+    )
+
     # None of the below should be used when running locally
     config.WORK_DIR = None
-    config.TMP_DIR = None
-    config.GIT_REPO_DIR = None
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
 
-    # Create job_request and jobs
-    job_request = JobRequest(
-        id="local",
-        repo_url=str(project_dir),
-        commit="none",
-        requested_actions=actions,
-        cancelled_actions=[],
-        workspace=project_dir.name,
-        database_name="dummy",
-        force_run_dependencies=force_run_dependencies,
-        # The default behaviour of refusing to run if a dependency has failed
-        # makes for an awkward workflow when iterating in development
-        force_run_failed=True,
-        branch="",
-        original={"created_by": os.environ.get("USERNAME")},
-    )
     try:
-        create_jobs(job_request)
+        job_request, jobs = create_job_request_and_jobs(
+            project_dir, actions, force_run_dependencies
+        )
     except NothingToDoError:
         print("=> All actions already completed successfully")
         print("   Use -f option to force everything to re-run")
         return True
-    except (ProjectValidationError, JobRequestError) as e:
+    except (ProjectValidationError, ReusableActionError, JobRequestError) as e:
         print(f"=> {type(e).__name__}")
         print(textwrap.indent(str(e), "   "))
         if hasattr(e, "valid_actions"):
@@ -222,17 +247,29 @@ def create_and_run_jobs(
                     print(f"     {action} (runs all actions in project)")
         return False
 
-    jobs = find_where(Job)
+    docker_images = get_docker_images(jobs)
 
-    for image in get_docker_images(jobs):
-        is_stata = "stata-mp" in image
+    uses_stata = any(
+        i.startswith(f"{config.DOCKER_REGISTRY}/stata-mp:") for i in docker_images
+    )
+    if uses_stata and config.STATA_LICENSE is None:
+        config.STATA_LICENSE = get_stata_license()
+        if config.STATA_LICENSE is None:
+            print(
+                "The docker image 'stata-mp' requires a license to function.\n"
+                "\n"
+                "If you are a member of OpenSAFELY we should have been able to fetch\n"
+                "the license automatically, so something has gone wrong. Please open\n"
+                "a new discussion here so we can help:\n"
+                "  https://github.com/opensafely/documentation/discussions\n"
+                "\n"
+                "If you are not a member of OpenSAFELY you will have to provide your\n"
+                "own license. See the dicussion here for pointers:\n"
+                " https://github.com/opensafely/documentation/discussions/299"
+            )
+            return False
 
-        if is_stata and config.STATA_LICENSE is None:
-            config.STATA_LICENSE = get_stata_license()
-            if config.STATA_LICENSE is None:
-                # TODO switch this to failing when the stata image requires it
-                print("WARNING: no STATA_LICENSE found")
-
+    for image in docker_images:
         if not docker.image_exists_locally(image):
             print(f"Fetching missing docker image: docker pull {image}")
             try:
@@ -241,14 +278,9 @@ def create_and_run_jobs(
                 # layer download noise
                 docker.pull(image, quiet=not sys.stdout.isatty())
             except docker.DockerPullError as e:
-                success = False
-                if is_stata:
-                    # best effort retry hack
-                    success = temporary_stata_workaround(image)
-                if not success:
-                    print("Failed with error:")
-                    print(e)
-                    return False
+                print("Failed with error:")
+                print(e)
+                return False
 
     action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
@@ -268,15 +300,22 @@ def create_and_run_jobs(
         stream=sys.stdout,
     )
 
+    # Wrap all the log output inside an expandable block when running inside
+    # Github Actions
+    if format_output_for_github:
+        print(f"::group::Job Runner Logs {ANSI.Grey}(click to view){ANSI.Reset}")
+
     # Run everything
+    exit_condition = (
+        no_jobs_remaining if continue_on_error else job_failed_or_none_remaining
+    )
     try:
-        run_main(
-            exit_when_done=True,
-            shuffle_jobs=False,
-            raise_on_failure=not continue_on_error,
-        )
-    except (JobError, KeyboardInterrupt):
+        run_main(exit_callback=exit_condition)
+    except KeyboardInterrupt:
         pass
+    finally:
+        if format_output_for_github:
+            print("::endgroup::")
 
     final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED])
     # Always show failed jobs last, otherwise show in order run
@@ -300,7 +339,10 @@ def create_and_run_jobs(
             and job.status_code == StatusCode.DEPENDENCY_FAILED
         ):
             continue
-        print(f"=> {job.action}")
+        if format_output_for_github:
+            print(f"{ANSI.Bold}=> {job.action}{ANSI.Reset}")
+        else:
+            print(f"=> {job.action}")
         print(textwrap.indent(job.status_message, "   "))
         # Where a job failed because expected outputs weren't found we show a
         # list of other outputs which were generated
@@ -310,7 +352,19 @@ def create_and_run_jobs(
             )
             print("\n    - ".join(job.unmatched_outputs))
         print()
-        print(f"   log file: {log_file}")
+        # Output the entire log file inside an expandable block when running
+        # inside Github Actions
+        if format_output_for_github:
+            print(
+                f"::group:: log file: {log_file} {ANSI.Grey}(click to view){ANSI.Reset}"
+            )
+            long_grey_line = ANSI.Grey + ("\u2015" * 80) + ANSI.Reset
+            print(long_grey_line)
+            print((project_dir / log_file).read_text())
+            print(long_grey_line)
+            print("::endgroup::")
+        else:
+            print(f"   log file: {log_file}")
         # Display matched outputs
         print("   outputs:")
         outputs = sorted(job.outputs.items()) if job.outputs else []
@@ -326,6 +380,48 @@ def create_and_run_jobs(
 
     success_flag = all(job.state == State.SUCCEEDED for job in final_jobs)
     return success_flag
+
+
+def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
+    job_request = JobRequest(
+        id="local",
+        repo_url=str(project_dir),
+        commit=None,
+        requested_actions=actions,
+        cancelled_actions=[],
+        workspace=project_dir.name,
+        database_name="dummy",
+        force_run_dependencies=force_run_dependencies,
+        # The default behaviour of refusing to run if a dependency has failed
+        # makes for an awkward workflow when iterating in development
+        force_run_failed=True,
+        branch="",
+        original={"created_by": getpass.getuser()},
+    )
+    project_file_path = project_dir / "project.yaml"
+    if not project_file_path.exists():
+        raise ProjectValidationError(f"No project.yaml file found in {project_dir}")
+    # NOTE: Similar but non-identical logic is implemented for running jobs in
+    # production in `jobrunner.create_or_update_jobs.create_jobs`. If you make
+    # changes below then consider what, if any, the appropriate corresponding
+    # changes might be for production jobs.
+    project = parse_and_validate_project_file(project_file_path.read_bytes())
+    current_jobs = get_latest_job_for_each_action(job_request.workspace)
+    new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
+    assert_new_jobs_created(new_jobs, current_jobs)
+    resolve_reusable_action_references(new_jobs)
+    insert_into_database(job_request, new_jobs)
+    return job_request, new_jobs
+
+
+def no_jobs_remaining(active_jobs):
+    return len(active_jobs) == 0
+
+
+def job_failed_or_none_remaining(active_jobs):
+    if any(job.state == State.FAILED for job in active_jobs):
+        return True
+    return len(active_jobs) == 0
 
 
 # Copied from test/conftest.py to avoid a more complex dependency tree
@@ -400,47 +496,10 @@ def get_log_file_snippet(log_file, max_lines):
     return "\n".join(log_lines).strip(), truncated
 
 
-def temporary_stata_workaround(image):
-    """
-    This is a temporary workaround for the fact that the current crop of Github
-    Actions have credentials for the old docker.opensafely.org registry but not
-    for ghcr.io. These are only needed for the one private image we have
-    (Stata) so we detect when we are in this situation and pull from the old
-    registry instead.
-
-    We'll shortly be updating the Github Actions to use an entirely new set of
-    commands in any case, so this will hopefully be a short-lived hack.
-    """
-    if not os.environ.get("GITHUB_WORKFLOW"):
-        return False
-
-    docker_config = os.environ.get("DOCKER_CONFIG", os.path.expanduser("~/.docker"))
-    config_path = Path(docker_config) / "config.json"
-    try:
-        config = json.loads(config_path.read_text())
-        auths = config["auths"]
-    except Exception:
-        return False
-
-    if "ghcr.io" in auths or "docker.opensafely.org" not in auths:
-        return False
-
-    print("Applying Docker authentication workaround...")
-    alt_image = image.replace("ghcr.io/opensafely-core/", "docker.opensafely.org/")
-
-    try:
-        docker.pull(alt_image, quiet=True)
-        print(f"Retagging '{alt_image}' as '{image}'")
-        subprocess_run(["docker", "tag", alt_image, image])
-    except Exception:
-        return False
-
-    return True
-
-
 def get_stata_license(repo=config.STATA_LICENSE_REPO):
     """Load a stata license from local cache or remote repo."""
     cached = Path(f"{tempfile.gettempdir()}/opensafely-stata.lic")
+    license_timeout = timedelta(hours=2)
 
     def git_clone(repo_url, cwd):
         cmd = ["git", "clone", "--depth=1", repo_url, "repo"]
@@ -455,7 +514,15 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
         )
         return result.returncode == 0
 
-    if not cached.exists():
+    fetch = False
+    if cached.exists():
+        mtime = datetime.fromtimestamp(cached.stat().st_mtime)
+        if datetime.utcnow() - mtime > license_timeout:
+            fetch = True
+    else:
+        fetch = True
+
+    if fetch:
         try:
             tmp = tempfile.TemporaryDirectory(suffix="opensafely")
             success = git_clone(repo, tmp.name)
@@ -467,14 +534,21 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
                 )
             shutil.copyfile(f"{tmp.name}/repo/stata.lic", cached)
         except Exception:
-            return None
+            pass
         finally:
             # py3.7 on windows can't clean up TemporaryDirectory with git's read only
             # files in them, so just don't bother.
             if platform.system() != "Windows" or sys.version_info[:2] > (3, 7):
                 tmp.cleanup()
 
-    return cached.read_text()
+    if cached.exists():
+        # if the refresh failed for some reason, update the last time it was
+        # used to now to avoid spamming github on every subsequent run
+        t = datetime.utcnow().timestamp()
+        os.utime(cached, (t, t))
+        return cached.read_text()
+    else:
+        return None
 
 
 def docker_preflight_check():

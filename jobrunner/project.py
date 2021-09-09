@@ -1,14 +1,12 @@
 import dataclasses
-from pathlib import PureWindowsPath, PurePosixPath
+import json
 import posixpath
 import shlex
+from pathlib import PurePosixPath, PureWindowsPath
 from types import SimpleNamespace
 
-from ruamel.yaml import YAML
-from ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
-
-from . import config
-
+from jobrunner import config
+from jobrunner.lib.yaml_utils import YAMLError, parse_yaml
 
 # The magic action name which means "run every action"
 RUN_ALL_COMMAND = "run_all"
@@ -16,18 +14,8 @@ RUN_ALL_COMMAND = "run_all"
 # The version of `project.yaml` where each feature was introduced
 FEATURE_FLAGS_BY_VERSION = {"UNIQUE_OUTPUT_PATH": 2, "EXPECTATIONS_POPULATION": 3}
 
-# Build a config dict in the same format the old code expects
-RUN_COMMANDS_CONFIG = {
-    image: {"docker_invocation": [f"{config.DOCKER_REGISTRY}{image}"]}
-    for image in config.ALLOWED_IMAGES
-}
-
 
 class ProjectValidationError(Exception):
-    pass
-
-
-class ProjectYAMLError(ProjectValidationError):
     pass
 
 
@@ -55,42 +43,22 @@ class ActionSpecifiction:
 
 
 def parse_and_validate_project_file(project_file):
-    try:
-        # We're using the pure-Python version here as we don't care about speed
-        # and this gives better error messages (and consistent behaviour
-        # cross-platform)
-        project = YAML(typ="safe", pure=True).load(project_file)
-        # ruamel doesn't have a nice exception hierarchy so we have to catch
-        # these four separate base classes
-    except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
-        e = make_yaml_error_more_helpful(e)
-        raise ProjectYAMLError(f"{type(e).__name__} {e}")
-    project = validate_project_and_set_defaults(project)
-    return project
+    """Parse and validate the project file.
 
+    Args:
+        project_file: The contents of the project file as an immutable array of bytes.
 
-def make_yaml_error_more_helpful(exc):
-    """
-    ruamel produces quite helpful error messages but they refer to the file as
-    `<byte_string>` (which will be confusing for users) and they also include
-    notes and warnings to developers about API changes. This function attempts
-    to fix these issues, but just returns the exception unchanged if anything
-    goes wrong.
+    Returns:
+        A dict representing the project.
+
+    Raises:
+        ProjectValidationError: The project could not be parsed, or was not valid
     """
     try:
-        try:
-            exc.context_mark.name = "project.yaml"
-        except AttributeError:
-            pass
-        try:
-            exc.problem_mark.name = "project.yaml"
-        except AttributeError:
-            pass
-        exc.note = ""
-        exc.warn = ""
-    except Exception:
-        pass
-    return exc
+        project = parse_yaml(project_file, name="project.yaml")
+    except YAMLError as e:
+        raise ProjectValidationError(*e.args)
+    return validate_project_and_set_defaults(project)
 
 
 # Copied almost verbatim from the original job-runner
@@ -151,12 +119,9 @@ def validate_project_and_set_defaults(project):
                         f"Output path {filename} is not unique"
                     )
                 seen_output_files.append(filename)
-        # Check it's a permitted run command
 
         command, *args = shlex.split(action_config["run"])
         name, _, version = command.partition(":")
-        if name not in RUN_COMMANDS_CONFIG:
-            raise ProjectValidationError(f"{name} is not a supported command")
         if not version:
             raise ProjectValidationError(
                 f"{name} must have a version specified (e.g. {name}:0.5.2)",
@@ -186,9 +151,18 @@ def validate_project_and_set_defaults(project):
 
 
 def get_action_specification(project, action_id):
-    """
-    Given a project and action, return an ActionSpecification which contains
-    everything the job-runner needs to run this action
+    """Get a specification for the action from the project.
+
+    Args:
+        project: A dict representing the project.
+        action_id: The string ID of the action.
+
+    Returns:
+        An instance of ActionSpecification.
+
+    Raises:
+        UnknownActionError: The action was not found in the project.
+        ProjectValidationError: The project was not valid.
     """
     try:
         action_spec = project["actions"][action_id]
@@ -197,15 +171,21 @@ def get_action_specification(project, action_id):
             f"Action '{action_id}' not found in project.yaml", project
         )
     run_command = action_spec["run"]
+    if "config" in action_spec:
+        run_command = add_config_to_run_command(run_command, action_spec["config"])
     run_args = shlex.split(run_command)
-    # Specical case handling for the `cohortextractor generate_cohort` command
-    if is_generate_cohort_command(run_args):
-        # Set the size of the dummy data population, if that's what were
+
+    # Special case handling for the `cohortextractor generate_cohort` command
+    if is_generate_cohort_command(run_args, require_version=1):
+        # Set the size of the dummy data population, if that's what we're
         # generating.  Possibly this should be moved to the study definition
         # anyway, which would make this unnecessary.
         if config.USING_DUMMY_DATA_BACKEND:
-            size = int(project["expectations"]["population_size"])
-            run_command += f" --expectations-population={size}"
+            if "dummy_data_file" in action_spec:
+                run_command += f" --dummy-data-file={action_spec['dummy_data_file']}"
+            else:
+                size = int(project["expectations"]["population_size"])
+                run_command += f" --expectations-population={size}"
         # Automatically configure the cohortextractor to produce output in the
         # directory the `outputs` spec is expecting. Longer term I'd like to
         # just make it an error if the directories don't match, rather than
@@ -225,6 +205,30 @@ def get_action_specification(project, action_id):
                 )
         else:
             run_command += f" --output-dir={output_dirs[0]}"
+
+    elif is_generate_cohort_command(run_args, require_version=2):
+        # cohortextractor Version 2 expects all command line arguments to be
+        # specified in the run command
+        if config.USING_DUMMY_DATA_BACKEND and "--dummy-data-file" not in run_command:
+            raise ProjectValidationError(
+                "--dummy-data-file is required for a local run"
+            )
+
+        # There is one and only one output file in the outputs spec (verified
+        # in validate_project_and_set_defaults())
+        output_file = next(
+            output_file
+            for output in action_spec["outputs"].values()
+            for output_file in output.values()
+        )
+        if output_file not in run_command:
+            raise ProjectValidationError(
+                "--output in run command and outputs must match"
+            )
+
+    elif is_generate_cohort_command(run_args):
+        raise RuntimeError("Unhandled cohortextractor version")
+
     return ActionSpecifiction(
         run=run_command,
         needs=action_spec.get("needs", []),
@@ -232,20 +236,37 @@ def get_action_specification(project, action_id):
     )
 
 
-def is_generate_cohort_command(args):
+def add_config_to_run_command(run_command, config):
+    """Add --config flag to command.
+
+    For commands that require complex config, users can supply a config key in
+    project.yaml.  We serialize this as JSON, and pass it to the command with the
+    --config flag.
+    """
+    config_as_json = json.dumps(config).replace("'", r"\u0027")
+    return f"{run_command} --config '{config_as_json}'"
+
+
+def is_generate_cohort_command(args, require_version=None):
     """
     The `cohortextractor generate_cohort` command gets special treatment in
     various places (e.g. it's the only command which gets access to the
     database) so it's helpful to have a single function for identifying it
     """
     assert not isinstance(args, str)
-    if (
-        len(args) > 1
-        and args[0].startswith("cohortextractor:")
-        and args[1] == "generate_cohort"
-    ):
-        return True
-    return False
+    version_found = None
+    if len(args) > 1:
+        if args[0].startswith("cohortextractor:") and args[1] == "generate_cohort":
+            version_found = 1
+        if args[0].startswith("cohortextractor-v2:"):
+            version_found = 2
+    # If we're not looking for a specific version then return True if any
+    # version found
+    if require_version is None:
+        return version_found is not None
+    # Otherwise return True only if specified version found
+    else:
+        return version_found == require_version
 
 
 def args_include(args, target_arg):
@@ -343,13 +364,3 @@ def assert_valid_glob_pattern(pattern):
     # for both platforms
     if PurePosixPath(pattern).is_absolute() or PureWindowsPath(pattern).is_absolute():
         raise InvalidPatternError("is an absolute path")
-
-
-def assert_valid_actions(project, actions):
-    if not actions:
-        raise UnknownActionError("At least one action must be supplied", project)
-    for action in actions:
-        if action != RUN_ALL_COMMAND and action not in project["actions"]:
-            raise UnknownActionError(
-                f"Action '{action}' not found in project.yaml", project
-            )

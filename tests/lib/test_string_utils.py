@@ -1,4 +1,4 @@
-from jobrunner.string_utils import project_name_from_url
+from jobrunner.lib.string_utils import project_name_from_url
 
 
 def test_project_name_from_url():
