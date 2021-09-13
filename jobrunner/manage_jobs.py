@@ -116,7 +116,7 @@ def start_job(job):
                 env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
     # Prepend registry name
     image = action_args[0]
-    full_image = f"{config.DOCKER_REGISTRY}{image}"
+    full_image = f"{config.DOCKER_REGISTRY}/{image}"
     if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
     # Check the image exists locally and error if not. Newer versions of

@@ -471,7 +471,7 @@ def find_docker_entities(entity, label):
 def get_docker_images(jobs):
     docker_images = {shlex.split(job.run_command)[0] for job in jobs}
     full_docker_images = {
-        f"{config.DOCKER_REGISTRY}{image}" for image in docker_images
+        f"{config.DOCKER_REGISTRY}/{image}" for image in docker_images
     }
     # We always need this image to work with volumes
     full_docker_images.add(docker.MANAGEMENT_CONTAINER_IMAGE)
