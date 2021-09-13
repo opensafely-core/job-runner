@@ -13,15 +13,10 @@ from jobrunner import config
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.manage_jobs import (
-    BrokenContainerError,
-    JobError,
-    cleanup_job,
-    finalise_job,
-    job_still_running,
     kill_job,
-    start_job,
+    start_job, sync_job_status,
 )
-from jobrunner.models import Job, State, StatusCode
+from jobrunner.models import Job, State, StatusCode, JobError
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +55,7 @@ def handle_pending_job(job):
     if job.cancelled:
         # Mark the job as running and then immediately invoke
         # `handle_running_job` to deal with the cancellation. This slightly
-        # counterintuitive appraoch allows us to keep a simple, consistent set
+        # counterintuitive approach allows us to keep a simple, consistent set
         # of state transitions and to consolidate all the kill/cleanup code
         # together. It also means that there aren't edge cases where we could
         # lose track of jobs completely after losing database state
@@ -87,13 +82,8 @@ def handle_pending_job(job):
                 start_job(job)
             except JobError as exception:
                 mark_job_as_failed(job, exception)
-                # See the `raise` in manage_jobs which explains why we can't
-                # cleanup on this specific error
-                if not isinstance(exception, BrokenContainerError):
-                    cleanup_job(job)
             except Exception:
                 mark_job_as_failed(job, "Internal error when starting job")
-                cleanup_job(job)
                 raise
             else:
                 mark_job_as_running(job)
@@ -104,36 +94,21 @@ def handle_running_job(job):
         log.info("Cancellation requested, killing job")
         kill_job(job)
 
-    log.debug("Checking job running state")
-    is_running = job_still_running(job)
-    log.debug("Check done")
-    if is_running:
-        set_message(job, "Running")
-    else:
-        try:
-            set_message(job, "Finished, checking status and extracting outputs")
-            job = finalise_job(job)
-            # We expect the job to be transitioned into its final state at this
-            # point
-            assert job.state in [State.SUCCEEDED, State.FAILED]
-        except JobError as exception:
-            mark_job_as_failed(job, exception)
-            # Question: do we want to clean up failed jobs? Given that we now
-            # tag all job-runner volumes and containers with a specific label
-            # we could leave them around for debugging purposes and have a
-            # cronjob which cleans them up a few days after they've stopped.
-            cleanup_job(job)
-        except Exception:
-            mark_job_as_failed(job, "Internal error when finalising job")
-            # We deliberately don't clean up after an internal error so we have
-            # some change of debugging. It's also possible, after fixing the
-            # error, to manually flip the state of the job back to "running" in
-            # the database and the code will then be able to finalise it
-            # correctly without having to re-run the job.
-            raise
+    try:
+        is_running = sync_job_status(job)
+
+        if is_running:
+            set_message(job, "Running")
         else:
+            set_message(job, "Finished")
             mark_job_as_completed(job)
-            cleanup_job(job)
+    except JobError as exception:
+        set_message(job, "Failed")
+        mark_job_as_failed(job, exception)
+    except Exception:
+        set_message(job, "Failed")
+        mark_job_as_failed(job, "Internal error when finalising job")
+        raise
 
 
 def get_states_of_awaited_jobs(job):

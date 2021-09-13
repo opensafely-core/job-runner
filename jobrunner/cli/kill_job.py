@@ -4,7 +4,8 @@ Ops utility for killing jobs and cleaning up containers and volumes
 import argparse
 
 from jobrunner.lib.database import find_where
-from jobrunner.manage_jobs import container_name, docker, volume_name
+from jobrunner.manage_jobs import docker
+from jobrunner.job_executor import container_name, volume_name
 from jobrunner.models import Job, State
 from jobrunner.run import mark_job_as_failed
 
@@ -17,10 +18,10 @@ def main(partial_job_ids, cleanup=False):
         if job.state in (State.PENDING, State.RUNNING):
             mark_job_as_failed(job, "Killed by admin")
         # All these docker commands are idempotent
-        docker.kill(container_name(job))
+        docker.kill(container_name(job.slug))
         if cleanup:
-            docker.delete_container(container_name(job))
-            docker.delete_volume(volume_name(job))
+            docker.delete_container(container_name(job.slug))
+            docker.delete_volume(volume_name(job.slug))
 
 
 def get_jobs(partial_job_ids):

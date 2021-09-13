@@ -185,3 +185,7 @@ def timestamp_to_isoformat(ts):
     if ts is None:
         return None
     return datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"
+
+
+class JobError(Exception):
+    pass

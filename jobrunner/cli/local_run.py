@@ -52,7 +52,7 @@ from jobrunner.lib.database import find_where
 from jobrunner.lib.log_utils import configure_logging
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.manage_jobs import METADATA_DIR
+from jobrunner.job_executor import METADATA_DIR
 from jobrunner.models import Job, JobRequest, State, StatusCode
 from jobrunner.reusable_actions import (
     ReusableActionError,

@@ -5,7 +5,8 @@ from unittest import mock
 import pytest
 
 from jobrunner import models
-from jobrunner.manage_jobs import create_and_populate_volume, delete_files
+from jobrunner.manage_jobs import delete_files
+from jobrunner.job_executor import create_and_populate_volume
 
 
 def is_filesystem_case_sensitive():

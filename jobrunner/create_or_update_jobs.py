@@ -204,7 +204,7 @@ def get_completed_jobs_from_disk(workspace):
     # and the final state.
     return [
         JobPlaceholder(action=action, state=state)
-        for action, state in get_states_for_actions(workspace).items()
+        for action, state in get_states_for_actions().items()
     ]
 
 
