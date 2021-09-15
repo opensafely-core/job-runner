@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Tuple, Optional
 
 from jobrunner import config
-from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI, JobResults, OutputSpec, JobDefinition
+from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI, JobResults, JobDefinition
 from jobrunner.lib import docker
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.string_utils import tabulate
@@ -47,11 +47,11 @@ class LocalDockerJobAPI(JobAPI):
     def terminate(self, job_id):
         docker.kill(container_name(job_id))
 
-    def get_status(self, job_id, workspace, action, output_spec) -> Tuple[State, Optional[JobResults]]:
+    def get_status(self, job_id, workspace, action) -> Tuple[State, Optional[JobResults]]:
         if job_still_running(job_id):
             return State.RUNNING, None
         else:
-            return get_status_of_finished_job(job_id, workspace, action, output_spec)
+            return finalize_job(job_id, workspace, action)
 
 
 class LocalDockerWorkspaceAPI(WorkspaceAPI):
@@ -77,7 +77,8 @@ JOB_LABEL = "jobrunner-job"
 def start_container(job_id: str, definition: JobDefinition):
     repo_url, commit = definition.study
     try:
-        volume = create_and_populate_volume(job_id, definition.workspace, definition.inputs, repo_url, commit)
+        volume = create_and_populate_volume(job_id, definition.workspace, definition.inputs, repo_url, commit,
+                                            definition.outputs)
     except docker.DockerDiskSpaceError as e:
         log.exception(str(e))
         raise JobError("Out of disk space, please try again later")
@@ -92,11 +93,10 @@ def start_container(job_id: str, definition: JobDefinition):
     )
 
 
-def get_status_of_finished_job(job_id: str, workspace: str, action: str, output_spec: OutputSpec) \
-        -> Tuple[State, Optional[JobResults]]:
+def finalize_job(job_id: str, workspace: str, action: str) -> Tuple[State, Optional[JobResults]]:
     try:
         container_metadata = get_container_metadata(job_id)
-        outputs, unmatched_patterns = find_matching_outputs(job_id, output_spec)
+        outputs, unmatched_patterns = find_matching_outputs(job_id)
         # Set the final state of the job
         status_code = None
         unmatched_outputs = []
@@ -166,11 +166,11 @@ def cleanup_job(job_id):
         log.info("Leaving container and volume in place for debugging")
 
 
-def create_and_populate_volume(job_id, workspace, input_files, repo_url, commit):
+def create_and_populate_volume(job_id, workspace, input_files, repo_url, commit, output_spec):
     workspace_dir = get_high_privacy_workspace(workspace)
 
     volume = volume_name(job_id)
-    docker.create_volume(volume)
+    docker.create_volume(volume, output_spec)
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
@@ -254,16 +254,12 @@ def get_container_metadata(job_id):
     return metadata
 
 
-def find_matching_outputs(job_id, output_spec):
+def find_matching_outputs(job_id):
     """
     Returns a dict mapping output filenames to their privacy level, plus a list
     of any patterns that had no matches at all
     """
-    all_patterns = []
-    for privacy_level, named_patterns in output_spec.items():
-        for name, pattern in named_patterns.items():
-            all_patterns.append(pattern)
-    all_matches = docker.glob_volume_files(volume_name(job_id), all_patterns)
+    all_matches, output_spec = docker.glob_volume_files(volume_name(job_id))
     unmatched_patterns = []
     outputs = {}
     for privacy_level, named_patterns in output_spec.items():

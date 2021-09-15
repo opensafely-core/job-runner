@@ -64,7 +64,7 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
             raise
 
 
-def create_volume(volume_name):
+def create_volume(volume_name, output_spec):
     """
     Creates the named volume and also creates (but does not start) a "manager"
     container which we can use to copy files in and out of the volume. Note
@@ -91,6 +91,7 @@ def create_volume(volume_name):
                 "sh",
                 "--interactive",
                 "--init",
+                "--env", f"OUTPUT_SPEC={json.dumps(output_spec)}",
                 MANAGEMENT_CONTAINER_IMAGE,
             ],
             check=True,
@@ -179,7 +180,7 @@ def copy_from_volume(volume_name, source, dest, timeout=None):
     )
 
 
-def glob_volume_files(volume_name, glob_patterns):
+def glob_volume_files(volume_name):
     """
     Accept a list of glob patterns and return a dict mapping each pattern to a
     list of all the files in `volume_name` which match
@@ -187,9 +188,31 @@ def glob_volume_files(volume_name, glob_patterns):
     Accepting multiple patterns like this allow us to avoid multiple round
     trips through Docker when we need to match several different patterns.
     """
-    # Guard against the easy mistake of passing a single string pattern, rather
-    # than a list of patterns
-    assert not isinstance(glob_patterns, str)
+    # We can't use `exec` unless the container is running, even though it won't
+    # actually do anything other than sit waiting for input. This will get
+    # stopped when we `--force rm` the container while removing the volume.
+    docker(
+        ["container", "start", manager_name(volume_name)],
+        check=True,
+        capture_output=True,
+    )
+
+    # TODO this is not okay :-)
+    output_spec_json = docker(
+        ["container", "exec", manager_name(volume_name)] + ["echo", "${OUTPUT_SPEC}"],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    output_spec = json.loads(output_spec_json)
+
+    glob_patterns = []
+    for privacy_level, named_patterns in output_spec.items():
+        for name, pattern in named_patterns.items():
+            glob_patterns.append(pattern)
+
     # Build a `find` command
     args = ["find", VOLUME_MOUNT_POINT, "-type", "f", "("]
     # We need to use regex matching rather than `-path` because find's
@@ -202,14 +225,6 @@ def glob_volume_files(volume_name, glob_patterns):
         )
     # Replace final OR flag with a closing bracket
     args[-1] = ")"
-    # We can't use `exec` unless the container is running, even though it won't
-    # actually do anything other than sit waiting for input. This will get
-    # stopped when we `--force rm` the container while removing the volume.
-    docker(
-        ["container", "start", manager_name(volume_name)],
-        check=True,
-        capture_output=True,
-    )
     response = docker(
         ["container", "exec", manager_name(volume_name)] + args,
         check=True,
@@ -225,7 +240,7 @@ def glob_volume_files(volume_name, glob_patterns):
     for pattern in glob_patterns:
         regex = re.compile(_glob_pattern_to_regex(pattern))
         matches[pattern] = [f for f in files if regex.match(f)]
-    return matches
+    return matches, output_spec
 
 
 def _glob_pattern_to_regex(glob_pattern):

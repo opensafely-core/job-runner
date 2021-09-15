@@ -23,6 +23,7 @@ class JobDefinition:
     args: List[str]  # the arguments to pass to the Docker container
     env: Mapping[str, str]  # the environment variables to set for the Docker container
     inputs: InputSpec  # the files that the job requires, a mapping of file paths to the actions that produced them
+    outputs: OutputSpec  # a description of the expected outputs (privacy level mapped to patterns)
     allow_database_access: bool  # whether this job should have access to the database
 
 
@@ -58,8 +59,7 @@ class JobAPI(Protocol):
     def terminate(self, job_id):
         ...
 
-    def get_status(self, job_id: str, workspace: str, action: str, output_spec: OutputSpec) \
-            -> Tuple[State, Optional[JobResults]]:
+    def get_status(self, job_id: str, workspace: str, action: str) -> Tuple[State, Optional[JobResults]]:
         """
         Return the status of a job and the results if it has finished.
 
@@ -67,8 +67,6 @@ class JobAPI(Protocol):
                 job_id (str): the job
                 workspace (str): the workspace that the job is running in
                 action (str): the action that the job is running
-                output_spec (OutputSpec): a description of the expected outputs (privacy level mapped to a mapping of
-                    names to patterns)
 
             Returns:
                 state (State): the state of the job

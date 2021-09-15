@@ -96,13 +96,14 @@ def start_job(job):
         for filename in list_outputs_from_action(action):
             input_files[filename] = action
 
-    job_def = JobDefinition(job.workspace, study, full_image, action_args, env, input_files, allow_database_access)
+    job_def = JobDefinition(job.workspace, study, full_image, action_args, env, input_files, job.output_spec,
+                            allow_database_access)
 
     jobAPI.run(job.slug, job_def)
 
 
 def sync_job_status(job):
-    state, results = jobAPI.get_status(job.slug, job.workspace, job.action, job.output_spec)
+    state, results = jobAPI.get_status(job.slug, job.workspace, job.action)
 
     if state == State.RUNNING:
         return True
@@ -126,7 +127,10 @@ def sync_job_status(job):
     job.status_message = results.status_message
     job.status_code = results.status_code
     job.outputs = results.outputs
-    job.unmatched_outputs = results.unmatched_outputs
+
+    # TODO calculate unmatched outputs and patterns from job.output_spec and results.outputs rather than doing it in
+    #   the job-executor
+    # job.unmatched_outputs = results.unmatched_outputs
 
     # Update manifest
     manifest = read_manifest_file(Path())
