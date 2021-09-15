@@ -10,9 +10,10 @@ import json
 import logging
 import shlex
 from pathlib import Path
+from typing import Tuple
 
-from jobrunner import config
-from jobrunner.job_executor import Privacy, get_job_status, terminate_job, run_job, delete_files
+from jobrunner import config, local_docker_job_executor
+from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI
 from jobrunner.models import State, JobError
 from jobrunner.project import (
     is_generate_cohort_command,
@@ -50,6 +51,13 @@ class MissingOutputError(JobError):
     pass
 
 
+def load_job_executor() -> Tuple[JobAPI, WorkspaceAPI]:
+    return local_docker_job_executor.LocalDockerJobAPI(), local_docker_job_executor.LocalDockerWorkspaceAPI()
+
+
+jobAPI, workspaceAPI = load_job_executor()
+
+
 def start_job(job):
     """Start the given job.
 
@@ -57,12 +65,12 @@ def start_job(job):
         job: An instance of Job.
     """
     action_args = shlex.split(job.run_command)
-    allow_network_access = False
+    allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
     # Check `is True` so we fail closed if we ever get anything else
     if is_generate_cohort_command(action_args) is True:
         if not config.USING_DUMMY_DATA_BACKEND:
-            allow_network_access = True
+            allow_database_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
             if config.TEMP_DATABASE_NAME:
                 env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
@@ -79,8 +87,7 @@ def start_job(job):
 
     # Jobs which are running reusable actions pull their code from the reusable
     # action repo, all other jobs pull their code from the study repo
-    repo_url = job.action_repo_url or job.repo_url
-    commit = job.action_commit or job.commit
+    study = job.action_repo_url or job.repo_url, job.action_commit or job.commit
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
@@ -89,13 +96,11 @@ def start_job(job):
         for filename in list_outputs_from_action(action):
             input_files[filename] = action
 
-    run_job(job.slug, full_image, action_args, job.workspace, input_files, env, repo_url, commit, allow_network_access)
+    jobAPI.run(job.slug, full_image, action_args, job.workspace, input_files, env, study, allow_database_access)
 
 
 def sync_job_status(job):
-    state, status_code, status_message, outputs, unmatched_outputs = get_job_status(job.slug, job.workspace,
-                                                                                    job.action,
-                                                                                    job.output_spec)
+    state, results = jobAPI.get_status(job.slug, job.workspace, job.action, job.output_spec)
 
     if state == State.RUNNING:
         return True
@@ -108,27 +113,29 @@ def sync_job_status(job):
     existing_files = set(list_outputs_from_action(
         job.action, ignore_errors=True
     ))
-    delete_files(Privacy.HIGH, job.workspace,
-                 existing_files - set(o for o, privacy in outputs if privacy == "highly_sensitive"))
-    delete_files(Privacy.MEDIUM, job.workspace,
-                 existing_files - set(o for o, privacy in outputs if privacy == "moderately_sensitive"))
+    workspaceAPI.delete_files(
+        Privacy.HIGH, job.workspace,
+        existing_files - set(o for o, privacy in results.outputs if privacy == "highly_sensitive"))
+    workspaceAPI.delete_files(
+        Privacy.MEDIUM, job.workspace,
+        existing_files - set(o for o, privacy in results.outputs if privacy == "moderately_sensitive"))
 
     job.state = state
-    job.status_message = status_message
-    job.status_code = status_code
-    job.outputs = outputs
-    job.unmatched_outputs = unmatched_outputs
+    job.status_message = results.status_message
+    job.status_code = results.status_code
+    job.outputs = results.outputs
+    job.unmatched_outputs = results.unmatched_outputs
 
     # Update manifest
     manifest = read_manifest_file(Path())
-    update_manifest(manifest, job, outputs)
+    update_manifest(manifest, job, results.outputs)
     write_manifest_file(Path(), manifest)
 
     return False
 
 
 def kill_job(job):
-    terminate_job(job.slug)
+    jobAPI.terminate(job.slug)
 
 
 def get_states_for_actions():

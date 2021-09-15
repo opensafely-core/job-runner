@@ -5,9 +5,10 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Tuple, Optional, List, Mapping
 
 from jobrunner import config
-from jobrunner.job_executor import Privacy
+from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI, JobResults, OutputSpec, InputSpec, Study
 from jobrunner.lib import docker
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.string_utils import tabulate
@@ -17,66 +18,54 @@ from jobrunner.models import State, StatusCode, JobError
 log = logging.getLogger(__name__)
 
 
-def run_job(job_id, image, args, workspace, input_files, env, repo_url, commit, allow_network_access):
-    try:
-        # Check the image exists locally and error if not. Newer versions of
-        # docker-cli support `--pull=never` as an argument to `docker run` which
-        # would make this simpler, but it looks like it will be a while before this
-        # makes it to Docker for Windows:
-        # https://github.com/docker/cli/pull/1498
-        if not docker.image_exists_locally(image):
-            log.info(f"Image not found, may need to run: docker pull {image}")
-            raise JobError(f"Docker image {image} is not currently available")
-        # If we already created the job but were killed before we updated the state
-        # then there's nothing further to do
-        if docker.container_exists(container_name(job_id)):
-            log.info("Container already created, nothing to do")
+class LocalDockerJobAPI(JobAPI):
+    def run(self, job_id: str, image: str, args: List[str], workspace: str, input_files: InputSpec,
+            env: Mapping[str, str], study: Study, allow_database_access: bool) -> None:
+        try:
+            # Check the image exists locally and error if not. Newer versions of
+            # docker-cli support `--pull=never` as an argument to `docker run` which
+            # would make this simpler, but it looks like it will be a while before this
+            # makes it to Docker for Windows:
+            # https://github.com/docker/cli/pull/1498
+            if not docker.image_exists_locally(image):
+                log.info(f"Image not found, may need to run: docker pull {image}")
+                raise JobError(f"Docker image {image} is not currently available")
+            # If we already created the job but were killed before we updated the state
+            # then there's nothing further to do
+            if docker.container_exists(container_name(job_id)):
+                log.info("Container already created, nothing to do")
+            else:
+                start_container(job_id, image, args, env, workspace, input_files, study, allow_database_access)
+                log.info("Started")
+                log.info(f"View live logs using: docker logs -f {container_name(job_id)}")
+        except Exception as exception:
+            # See the `raise` below which explains why we can't
+            # cleanup on this specific error
+            if not isinstance(exception, BrokenContainerError):
+                cleanup_job(job_id)
+            raise
+
+    def terminate(self, job_id):
+        docker.kill(container_name(job_id))
+
+    def get_status(self, job_id, workspace, action, output_spec) -> Tuple[State, Optional[JobResults]]:
+        if job_still_running(job_id):
+            return State.RUNNING, None
         else:
-            try:
-                volume = create_and_populate_volume(job_id, workspace, input_files, repo_url, commit)
-            except docker.DockerDiskSpaceError as e:
-                log.exception(str(e))
-                raise JobError("Out of disk space, please try again later")
-            # Start the container
-            docker.run(
-                container_name(job_id),
-                [image] + args,
-                volume=(volume, "/workspace"),
-                env=env,
-                allow_network_access=allow_network_access,
-                label=JOB_LABEL,
-            )
-            log.info("Started")
-            log.info(f"View live logs using: docker logs -f {container_name(job_id)}")
-    except Exception as exception:
-        # See the `raise` in manage_jobs which explains why we can't
-        # cleanup on this specific error
-        if not isinstance(exception, BrokenContainerError):
-            cleanup_job(job_id)
-        raise
+            return get_status_of_finished_job(job_id, workspace, action, output_spec)
 
 
-def terminate_job(job_id):
-    docker.kill(container_name(job_id))
-
-
-def get_job_status(job_id, workspace, action, output_spec):
-    if job_still_running(job_id):
-        return State.RUNNING, None, None, None, None
-    else:
-        return get_status_of_finished_job(job_id, workspace, action, output_spec)
-
-
-def delete_files(workspace, privacy, filenames):
-    if privacy == Privacy.HIGH:
-        directory = get_high_privacy_workspace(workspace)
-    else:
-        directory = get_medium_privacy_workspace(workspace)
-    ensure_overwritable(*[directory.joinpath(f) for f in filenames])
-    # TODO Worry about case-sensitivity of filenames
-    for filename in filenames:
-        path = directory / filename
-        path.unlink()
+class LocalDockerWorkspaceAPI(WorkspaceAPI):
+    def delete_files(self, workspace, privacy, paths):
+        if privacy == Privacy.HIGH:
+            directory = get_high_privacy_workspace(workspace)
+        else:
+            directory = get_medium_privacy_workspace(workspace)
+        ensure_overwritable(*[directory.joinpath(f) for f in paths])
+        # TODO Worry about case-sensitivity of filenames
+        for filename in paths:
+            path = directory / filename
+            path.unlink()
 
 
 # This is a Docker label applied in addition to the default label which
@@ -86,7 +75,27 @@ def delete_files(workspace, privacy, filenames):
 JOB_LABEL = "jobrunner-job"
 
 
-def get_status_of_finished_job(job_id, workspace, action, output_spec):
+def start_container(job_id: str, image: str, args: List[str], env: Mapping[str, str], workspace: str,
+                    input_files: InputSpec, study: Study, allow_database_access: bool):
+    repo_url, commit = study
+    try:
+        volume = create_and_populate_volume(job_id, workspace, input_files, repo_url, commit)
+    except docker.DockerDiskSpaceError as e:
+        log.exception(str(e))
+        raise JobError("Out of disk space, please try again later")
+    # Start the container
+    docker.run(
+        container_name(job_id),
+        [image] + args,
+        volume=(volume, "/workspace"),
+        env=env,
+        allow_network_access=allow_database_access,
+        label=JOB_LABEL,
+    )
+
+
+def get_status_of_finished_job(job_id: str, workspace: str, action: str, output_spec: OutputSpec) \
+        -> Tuple[State, Optional[JobResults]]:
     try:
         container_metadata = get_container_metadata(job_id)
         outputs, unmatched_patterns = find_matching_outputs(job_id, output_spec)
@@ -143,7 +152,7 @@ def get_status_of_finished_job(job_id, workspace, action, output_spec):
     except JobError:
         cleanup_job(job_id)
         raise
-    return state, status_code, status_message, outputs, unmatched_outputs
+    return state, JobResults(state, status_code, status_message, outputs, unmatched_outputs)
 
 
 def job_still_running(job_id):
