@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Tuple
 
 from jobrunner import config, local_docker_job_executor
-from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI
+from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI, JobDefinition
 from jobrunner.models import State, JobError
 from jobrunner.project import (
     is_generate_cohort_command,
@@ -96,7 +96,9 @@ def start_job(job):
         for filename in list_outputs_from_action(action):
             input_files[filename] = action
 
-    jobAPI.run(job.slug, full_image, action_args, job.workspace, input_files, env, study, allow_database_access)
+    job_def = JobDefinition(job.workspace, study, full_image, action_args, env, input_files, allow_database_access)
+
+    jobAPI.run(job.slug, job_def)
 
 
 def sync_job_status(job):

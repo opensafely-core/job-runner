@@ -16,6 +16,17 @@ Study = Tuple[str, str]  # Git repo and commit
 
 
 @dataclass
+class JobDefinition:
+    workspace: str  # the workspace to run the job in
+    study: Study  # the study defining the action for this job
+    image: str  # the Docker image to run
+    args: List[str]  # the arguments to pass to the Docker container
+    env: Mapping[str, str]  # the environment variables to set for the Docker container
+    inputs: InputSpec  # the files that the job requires, a mapping of file paths to the actions that produced them
+    allow_database_access: bool  # whether this job should have access to the database
+
+
+@dataclass
 class JobResults:
     state: State
     status_code: Optional[StatusCode]
@@ -25,8 +36,7 @@ class JobResults:
 
 
 class JobAPI(Protocol):
-    def run(self, job_id: str, image: str, args: List[str], workspace: str, input_files: InputSpec,
-            env: Mapping[str, str], study: Study, allow_database_access: bool) -> None:
+    def run(self, job_id: str, definition: JobDefinition) -> None:
         """
         Run a job.
 
@@ -34,17 +44,11 @@ class JobAPI(Protocol):
         should be run with a network allowing access to the database and any configuration needed to contact and
         authenticate with the database should be provided as environment variables.
 
+        The implementation may add environment variables to those in the job definition as necessary for the backend.
+
             Parameters:
-                job_id (str): the job
-                image (str): the Docker image to run
-                args (List[str]): the arguments to pass to the Docker container
-                workspace (str): the workspace to run the job in
-                input_files (InputSpec): the files that the job requires, a mapping of file paths to the actions that
-                    produced them
-                env (Mapping[str, str]): the environment variables to set for the Docker container; the implementation
-                    may choose to add to these as necessary for the backend
-                study (Study): the study defining the action for this job
-                allow_database_access (bool): whether this job should have access to the database
+                job_id (str): the id of the job
+                definition (JobDefinition): the definition of the job
 
             Raises:
                 JobError: if the job definition is invalid

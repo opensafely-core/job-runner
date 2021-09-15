@@ -5,10 +5,10 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Tuple, Optional, List, Mapping
+from typing import Tuple, Optional
 
 from jobrunner import config
-from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI, JobResults, OutputSpec, InputSpec, Study
+from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI, JobResults, OutputSpec, JobDefinition
 from jobrunner.lib import docker
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.string_utils import tabulate
@@ -19,23 +19,22 @@ log = logging.getLogger(__name__)
 
 
 class LocalDockerJobAPI(JobAPI):
-    def run(self, job_id: str, image: str, args: List[str], workspace: str, input_files: InputSpec,
-            env: Mapping[str, str], study: Study, allow_database_access: bool) -> None:
+    def run(self, job_id: str, definition: JobDefinition) -> None:
         try:
             # Check the image exists locally and error if not. Newer versions of
             # docker-cli support `--pull=never` as an argument to `docker run` which
             # would make this simpler, but it looks like it will be a while before this
             # makes it to Docker for Windows:
             # https://github.com/docker/cli/pull/1498
-            if not docker.image_exists_locally(image):
-                log.info(f"Image not found, may need to run: docker pull {image}")
-                raise JobError(f"Docker image {image} is not currently available")
+            if not docker.image_exists_locally(definition.image):
+                log.info(f"Image not found, may need to run: docker pull {definition.image}")
+                raise JobError(f"Docker image {definition.image} is not currently available")
             # If we already created the job but were killed before we updated the state
             # then there's nothing further to do
             if docker.container_exists(container_name(job_id)):
                 log.info("Container already created, nothing to do")
             else:
-                start_container(job_id, image, args, env, workspace, input_files, study, allow_database_access)
+                start_container(job_id, definition)
                 log.info("Started")
                 log.info(f"View live logs using: docker logs -f {container_name(job_id)}")
         except Exception as exception:
@@ -75,21 +74,20 @@ class LocalDockerWorkspaceAPI(WorkspaceAPI):
 JOB_LABEL = "jobrunner-job"
 
 
-def start_container(job_id: str, image: str, args: List[str], env: Mapping[str, str], workspace: str,
-                    input_files: InputSpec, study: Study, allow_database_access: bool):
-    repo_url, commit = study
+def start_container(job_id: str, definition: JobDefinition):
+    repo_url, commit = definition.study
     try:
-        volume = create_and_populate_volume(job_id, workspace, input_files, repo_url, commit)
+        volume = create_and_populate_volume(job_id, definition.workspace, definition.inputs, repo_url, commit)
     except docker.DockerDiskSpaceError as e:
         log.exception(str(e))
         raise JobError("Out of disk space, please try again later")
     # Start the container
     docker.run(
         container_name(job_id),
-        [image] + args,
+        [definition.image] + definition.args,
         volume=(volume, "/workspace"),
-        env=env,
-        allow_network_access=allow_database_access,
+        env=definition.env,
+        allow_network_access=definition.allow_database_access,
         label=JOB_LABEL,
     )
 
