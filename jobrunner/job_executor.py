@@ -10,7 +10,10 @@ class Privacy(Enum):
     MEDIUM = "medium"
 
 
-Study = Tuple[str, str]  # Git repo and commit
+@dataclass
+class Study:
+    git_repo_url: str
+    commit: str
 
 
 @dataclass

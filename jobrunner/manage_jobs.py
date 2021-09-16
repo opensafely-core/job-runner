@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Tuple
 
 from jobrunner import config, local_docker_job_executor
-from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI, JobDefinition
+from jobrunner.job_executor import Privacy, JobAPI, WorkspaceAPI, JobDefinition, Study
 from jobrunner.models import State, JobError
 from jobrunner.project import (
     is_generate_cohort_command,
@@ -87,7 +87,7 @@ def start_job(job):
 
     # Jobs which are running reusable actions pull their code from the reusable
     # action repo, all other jobs pull their code from the study repo
-    study = job.action_repo_url or job.repo_url, job.action_commit or job.commit
+    study = Study(job.action_repo_url or job.repo_url, job.action_commit or job.commit)
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 

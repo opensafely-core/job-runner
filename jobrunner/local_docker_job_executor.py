@@ -75,9 +75,9 @@ JOB_LABEL = "jobrunner-job"
 
 
 def start_container(job_id: str, definition: JobDefinition):
-    repo_url, commit = definition.study
     try:
-        volume = create_and_populate_volume(job_id, definition.workspace, definition.inputs, repo_url, commit,
+        volume = create_and_populate_volume(job_id, definition.workspace, definition.inputs,
+                                            definition.study.git_repo_url, definition.study.commit,
                                             definition.output_spec)
     except docker.DockerDiskSpaceError as e:
         log.exception(str(e))
