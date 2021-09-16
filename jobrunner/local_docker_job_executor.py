@@ -78,7 +78,7 @@ def start_container(job_id: str, definition: JobDefinition):
     repo_url, commit = definition.study
     try:
         volume = create_and_populate_volume(job_id, definition.workspace, definition.inputs, repo_url, commit,
-                                            definition.outputs)
+                                            definition.output_spec)
     except docker.DockerDiskSpaceError as e:
         log.exception(str(e))
         raise JobError("Out of disk space, please try again later")
@@ -174,12 +174,12 @@ def create_and_populate_volume(job_id, workspace, input_files, repo_url, commit,
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
-    extra_dirs = set(Path(filename).parent for filename in input_files.keys())
+    extra_dirs = set(Path(filename).parent for filename in input_files)
 
     copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs)
 
-    for filename, action in input_files.items():
-        log.info(f"Copying input file {action}: {filename}")
+    for filename in input_files:
+        log.info(f"Copying input file: {filename}")
         docker.copy_to_volume(volume, workspace_dir / filename, filename)
     # Hack: see `get_unmatched_outputs`. For some reason this requires a
     # non-empty file so copying `os.devnull` didn't work.
@@ -262,13 +262,12 @@ def find_matching_outputs(job_id):
     all_matches, output_spec = docker.glob_volume_files(volume_name(job_id))
     unmatched_patterns = []
     outputs = {}
-    for privacy_level, named_patterns in output_spec.items():
-        for name, pattern in named_patterns.items():
-            filenames = all_matches[pattern]
-            if not filenames:
-                unmatched_patterns.append(pattern)
-            for filename in filenames:
-                outputs[filename] = privacy_level
+    for pattern, privacy_level in output_spec.items():
+        filenames = all_matches[pattern]
+        if not filenames:
+            unmatched_patterns.append(pattern)
+        for filename in filenames:
+            outputs[filename] = privacy_level
     return outputs, unmatched_patterns
 
 

@@ -10,8 +10,6 @@ class Privacy(Enum):
     MEDIUM = "medium"
 
 
-InputSpec = Mapping[str, str]  # file paths to actions that produced them
-OutputSpec = Mapping[str, Mapping[str, str]]  # privacy levels to names to patterns
 Study = Tuple[str, str]  # Git repo and commit
 
 
@@ -23,8 +21,8 @@ class JobDefinition:
     image: str  # the Docker image to run
     args: List[str]  # the arguments to pass to the Docker container
     env: Mapping[str, str]  # the environment variables to set for the Docker container
-    inputs: InputSpec  # the files that the job requires, a mapping of file paths to the actions that produced them
-    outputs: OutputSpec  # a description of the expected outputs (privacy level mapped to patterns)
+    inputs: List[str]  # the files that the job requires
+    output_spec: Mapping[str, str]  # the files that the job should produce (globs mapped to privacy levels)
     allow_database_access: bool  # whether this job should have access to the database
 
 

@@ -208,10 +208,7 @@ def glob_volume_files(volume_name):
 
     output_spec = json.loads(output_spec_json)
 
-    glob_patterns = []
-    for privacy_level, named_patterns in output_spec.items():
-        for name, pattern in named_patterns.items():
-            glob_patterns.append(pattern)
+    glob_patterns = output_spec.keys()
 
     # Build a `find` command
     args = ["find", VOLUME_MOUNT_POINT, "-type", "f", "("]

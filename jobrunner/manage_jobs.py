@@ -91,13 +91,18 @@ def start_job(job):
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
-    input_files = {}
+    input_files = []
     for action in job.requires_outputs_from:
         for filename in list_outputs_from_action(action):
-            input_files[filename] = action
+            input_files.append(filename)
 
-    job_def = JobDefinition(study, job.workspace, job.action, full_image, action_args, env, input_files,
-                            job.output_spec, allow_database_access)
+    outputs = {}
+    for privacy_level, named_patterns in job.output_spec.items():
+        for name, pattern in named_patterns.items():
+            outputs[pattern] = privacy_level
+
+    job_def = JobDefinition(study, job.workspace, job.action, full_image, action_args, env, input_files, outputs,
+                            allow_database_access)
 
     jobAPI.run(job.slug, job_def)
 
