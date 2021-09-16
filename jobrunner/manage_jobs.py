@@ -64,6 +64,10 @@ def start_job(job):
     Args:
         job: An instance of Job.
     """
+    jobAPI.run(job_to_job_definition(job))
+
+
+def job_to_job_definition(job):
     action_args = shlex.split(job.run_command)
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
@@ -101,14 +105,12 @@ def start_job(job):
         for name, pattern in named_patterns.items():
             outputs[pattern] = privacy_level
 
-    job_def = JobDefinition(study, job.workspace, job.action, full_image, action_args, env, input_files, outputs,
-                            allow_database_access)
-
-    jobAPI.run(job.slug, job_def)
+    return JobDefinition(job.slug, study, job.workspace, job.action, full_image, action_args, env, input_files, outputs,
+                         allow_database_access)
 
 
 def sync_job_status(job):
-    state, results = jobAPI.get_status(job.slug, job.workspace, job.action)
+    state, results = jobAPI.get_status(job_to_job_definition(job))
 
     if state == State.RUNNING:
         return True
@@ -142,7 +144,7 @@ def sync_job_status(job):
 
 
 def kill_job(job):
-    jobAPI.terminate(job.slug)
+    jobAPI.terminate(job_to_job_definition(job))
 
 
 def get_states_for_actions():

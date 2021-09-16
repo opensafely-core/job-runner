@@ -18,6 +18,7 @@ class Study:
 
 @dataclass
 class JobDefinition:
+    id: str  # a unique identifier for the job
     study: Study  # the study defining the action for this job
     workspace: str  # the workspace to run the job in
     action: str  # the name of the action that the job is running
@@ -38,7 +39,7 @@ class JobResults:
 
 
 class JobAPI(Protocol):
-    def run(self, job_id: str, definition: JobDefinition) -> None:
+    def run(self, job: JobDefinition) -> None:
         """
         Run a job.
 
@@ -70,42 +71,30 @@ class JobAPI(Protocol):
         The action log file and any useful metadata from the job run should also be written to a separate log storage
         area in long-term storage.
 
-            Parameters:
-                job_id (str): the id of the job
-                definition (JobDefinition): the definition of the job
-
             Raises:
                 JobError: if the job definition is invalid or job creation fails
         """
         ...
 
-    def terminate(self, job_id):
+    def terminate(self, job: JobDefinition):
         """
         Terminate a running job.
 
         This method must be idempotent; it may be called for a job that doesn't exist or
         which has already been terminated in which case it should return silently.
 
-            Parameters:
-                job_id (str): the id of the job
-
             Raises:
                 JobError: if job termination fails
         """
         ...
 
-    def get_status(self, job_id: str, workspace: str, action: str) -> Tuple[State, Optional[JobResults]]:
+    def get_status(self, job: JobDefinition) -> Tuple[State, Optional[JobResults]]:
         """
         Return the status of a job and the results if it has finished.
 
         The results must include a list of output files that the job produced which matched its output spec. It
         should also include a list of files that it produced but which did not match the output spec,
         to aid in debugging during study development.
-
-            Parameters:
-                job_id (str): the job
-                workspace (str): the workspace that the job is running in
-                action (str): the action that the job is running
 
             Returns:
                 state (State): the state of the job

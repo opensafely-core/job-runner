@@ -19,39 +19,39 @@ log = logging.getLogger(__name__)
 
 
 class LocalDockerJobAPI(JobAPI):
-    def run(self, job_id: str, definition: JobDefinition) -> None:
+    def run(self, job: JobDefinition) -> None:
         try:
             # Check the image exists locally and error if not. Newer versions of
             # docker-cli support `--pull=never` as an argument to `docker run` which
             # would make this simpler, but it looks like it will be a while before this
             # makes it to Docker for Windows:
             # https://github.com/docker/cli/pull/1498
-            if not docker.image_exists_locally(definition.image):
-                log.info(f"Image not found, may need to run: docker pull {definition.image}")
-                raise JobError(f"Docker image {definition.image} is not currently available")
+            if not docker.image_exists_locally(job.image):
+                log.info(f"Image not found, may need to run: docker pull {job.image}")
+                raise JobError(f"Docker image {job.image} is not currently available")
             # If we already created the job but were killed before we updated the state
             # then there's nothing further to do
-            if docker.container_exists(container_name(job_id)):
+            if docker.container_exists(container_name(job.id)):
                 log.info("Container already created, nothing to do")
             else:
-                start_container(job_id, definition)
+                start_container(job)
                 log.info("Started")
-                log.info(f"View live logs using: docker logs -f {container_name(job_id)}")
+                log.info(f"View live logs using: docker logs -f {container_name(job.id)}")
         except Exception as exception:
             # See the `raise` below which explains why we can't
             # cleanup on this specific error
             if not isinstance(exception, BrokenContainerError):
-                cleanup_job(job_id)
+                cleanup_job(job.id)
             raise
 
-    def terminate(self, job_id):
-        docker.kill(container_name(job_id))
+    def terminate(self, job):
+        docker.kill(container_name(job.id))
 
-    def get_status(self, job_id, workspace, action) -> Tuple[State, Optional[JobResults]]:
-        if job_still_running(job_id):
+    def get_status(self, job) -> Tuple[State, Optional[JobResults]]:
+        if job_still_running(job.id):
             return State.RUNNING, None
         else:
-            return finalize_job(job_id, workspace, action)
+            return finalize_job(job)
 
 
 class LocalDockerWorkspaceAPI(WorkspaceAPI):
@@ -74,29 +74,29 @@ class LocalDockerWorkspaceAPI(WorkspaceAPI):
 JOB_LABEL = "jobrunner-job"
 
 
-def start_container(job_id: str, definition: JobDefinition):
+def start_container(job: JobDefinition):
     try:
-        volume = create_and_populate_volume(job_id, definition.workspace, definition.inputs,
-                                            definition.study.git_repo_url, definition.study.commit,
-                                            definition.output_spec)
+        volume = create_and_populate_volume(job.id, job.workspace, job.inputs,
+                                            job.study.git_repo_url, job.study.commit,
+                                            job.output_spec)
     except docker.DockerDiskSpaceError as e:
         log.exception(str(e))
         raise JobError("Out of disk space, please try again later")
     # Start the container
     docker.run(
-        container_name(job_id),
-        [definition.image] + definition.args,
+        container_name(job.id),
+        [job.image] + job.args,
         volume=(volume, "/workspace"),
-        env=definition.env,
-        allow_network_access=definition.allow_database_access,
+        env=job.env,
+        allow_network_access=job.allow_database_access,
         label=JOB_LABEL,
     )
 
 
-def finalize_job(job_id: str, workspace: str, action: str) -> Tuple[State, Optional[JobResults]]:
+def finalize_job(job: JobDefinition) -> Tuple[State, Optional[JobResults]]:
     try:
-        container_metadata = get_container_metadata(job_id)
-        outputs, unmatched_patterns = find_matching_outputs(job_id)
+        container_metadata = get_container_metadata(job.id)
+        outputs, unmatched_patterns = find_matching_outputs(job.id)
         # Set the final state of the job
         status_code = None
         if container_metadata["State"]["ExitCode"] != 0:
@@ -107,7 +107,7 @@ def finalize_job(job_id: str, workspace: str, action: str) -> Tuple[State, Optio
             # If the job fails because an output was missing its very useful to
             # show the user what files were created as often the issue is just a
             # typo
-            unmatched_outputs = get_unmatched_outputs(job_id, outputs)
+            unmatched_outputs = get_unmatched_outputs(job.id, outputs)
             state = State.FAILED
             status_message = """
                 No outputs found matching patterns:
@@ -122,35 +122,35 @@ def finalize_job(job_id: str, workspace: str, action: str) -> Tuple[State, Optio
         # of the job
         job_metadata = get_job_metadata(container_metadata)
         # Dump useful info in log directory
-        log_dir = get_log_dir(job_id)
+        log_dir = get_log_dir(job.id)
         ensure_overwritable(log_dir / "logs.txt", log_dir / "metadata.json")
-        write_log_file(job_id, job_metadata, log_dir / "logs.txt")
+        write_log_file(job.id, job_metadata, log_dir / "logs.txt")
         with open(log_dir / "metadata.json", "w") as f:
             json.dump(job_metadata, f, indent=2)
         # Copy logs to workspace
-        workspace_dir = get_high_privacy_workspace(workspace)
-        metadata_log_file = workspace_dir / METADATA_DIR / f"{action}.log"
+        workspace_dir = get_high_privacy_workspace(job.workspace)
+        metadata_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
         copy_file(log_dir / "logs.txt", metadata_log_file)
         log.info(f"Logs written to: {metadata_log_file}")
         # Extract outputs to workspace
         ensure_overwritable(*[workspace_dir / f for f in outputs.keys()])
-        volume = volume_name(job_id)
+        volume = volume_name(job.id)
         for filename in outputs.keys():
             log.info(f"Extracting output file: {filename}")
             docker.copy_from_volume(volume, filename, workspace_dir / filename)
         # Copy out logs and medium privacy files
-        medium_privacy_dir = get_medium_privacy_workspace(workspace)
+        medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
         if medium_privacy_dir:
             copy_file(
-                workspace_dir / METADATA_DIR / f"{action}.log",
-                medium_privacy_dir / METADATA_DIR / f"{action}.log",
+                workspace_dir / METADATA_DIR / f"{job.action}.log",
+                medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
             )
             for filename, privacy_level in outputs.items():
                 if privacy_level == "moderately_sensitive":
                     copy_file(workspace_dir / filename, medium_privacy_dir / filename)
-        cleanup_job(job_id)
+        cleanup_job(job.id)
     except JobError:
-        cleanup_job(job_id)
+        cleanup_job(job.id)
         raise
     return state, JobResults(state, status_code, status_message, outputs)
 
