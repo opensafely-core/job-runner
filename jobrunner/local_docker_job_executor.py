@@ -76,9 +76,7 @@ JOB_LABEL = "jobrunner-job"
 
 def start_container(job: JobDefinition):
     try:
-        volume = create_and_populate_volume(job.id, job.workspace, job.inputs,
-                                            job.study.git_repo_url, job.study.commit,
-                                            job.output_spec)
+        volume = create_and_populate_volume(job.id, job.workspace, job.inputs, job.study.git_repo_url, job.study.commit)
     except docker.DockerDiskSpaceError as e:
         log.exception(str(e))
         raise JobError("Out of disk space, please try again later")
@@ -96,7 +94,7 @@ def start_container(job: JobDefinition):
 def finalize_job(job: JobDefinition) -> Tuple[State, Optional[JobResults]]:
     try:
         container_metadata = get_container_metadata(job.id)
-        outputs, unmatched_patterns = find_matching_outputs(job.id)
+        outputs, unmatched_patterns = find_matching_outputs(job)
         # Set the final state of the job
         status_code = None
         if container_metadata["State"]["ExitCode"] != 0:
@@ -168,11 +166,11 @@ def cleanup_job(job_id):
         log.info("Leaving container and volume in place for debugging")
 
 
-def create_and_populate_volume(job_id, workspace, input_files, repo_url, commit, output_spec):
+def create_and_populate_volume(job_id, workspace, input_files, repo_url, commit):
     workspace_dir = get_high_privacy_workspace(workspace)
 
     volume = volume_name(job_id)
-    docker.create_volume(volume, output_spec)
+    docker.create_volume(volume)
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
@@ -256,15 +254,15 @@ def get_container_metadata(job_id):
     return metadata
 
 
-def find_matching_outputs(job_id):
+def find_matching_outputs(job):
     """
     Returns a dict mapping output filenames to their privacy level, plus a list
     of any patterns that had no matches at all
     """
-    all_matches, output_spec = docker.glob_volume_files(volume_name(job_id))
+    all_matches = docker.glob_volume_files(volume_name(job.id), job.output_spec.keys())
     unmatched_patterns = []
     outputs = {}
-    for pattern, privacy_level in output_spec.items():
+    for pattern, privacy_level in job.output_spec.items():
         filenames = all_matches[pattern]
         if not filenames:
             unmatched_patterns.append(pattern)

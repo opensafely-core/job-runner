@@ -64,7 +64,7 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
             raise
 
 
-def create_volume(volume_name, output_spec):
+def create_volume(volume_name):
     """
     Creates the named volume and also creates (but does not start) a "manager"
     container which we can use to copy files in and out of the volume. Note
@@ -91,7 +91,6 @@ def create_volume(volume_name, output_spec):
                 "sh",
                 "--interactive",
                 "--init",
-                "--env", f"OUTPUT_SPEC={json.dumps(output_spec)}",
                 MANAGEMENT_CONTAINER_IMAGE,
             ],
             check=True,
@@ -180,7 +179,7 @@ def copy_from_volume(volume_name, source, dest, timeout=None):
     )
 
 
-def glob_volume_files(volume_name):
+def glob_volume_files(volume_name, glob_patterns):
     """
     Accept a list of glob patterns and return a dict mapping each pattern to a
     list of all the files in `volume_name` which match
@@ -196,19 +195,6 @@ def glob_volume_files(volume_name):
         check=True,
         capture_output=True,
     )
-
-    # TODO this is not okay :-)
-    output_spec_json = docker(
-        ["container", "exec", manager_name(volume_name)] + ["echo", "${OUTPUT_SPEC}"],
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-
-    output_spec = json.loads(output_spec_json)
-
-    glob_patterns = output_spec.keys()
 
     # Build a `find` command
     args = ["find", VOLUME_MOUNT_POINT, "-type", "f", "("]
@@ -237,7 +223,7 @@ def glob_volume_files(volume_name):
     for pattern in glob_patterns:
         regex = re.compile(_glob_pattern_to_regex(pattern))
         matches[pattern] = [f for f in files if regex.match(f)]
-    return matches, output_spec
+    return matches
 
 
 def _glob_pattern_to_regex(glob_pattern):
