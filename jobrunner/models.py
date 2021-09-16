@@ -103,10 +103,6 @@ class Job:
     # The outputs the job did produce matching the patterns above, as a mapping
     # of filenames to privacy levels
     outputs: dict = None
-    # A list of the outputs the job produced which didn't match any of the
-    # output patterns. This is only populated in the case that there are
-    # unmatched output patterns, and is only used for debugging purposes.
-    unmatched_outputs: list = None
     # Human readable string giving details about what's currently happening
     # with this job
     status_message: str = None

@@ -99,20 +99,22 @@ def finalize_job(job_id: str, workspace: str, action: str) -> Tuple[State, Optio
         outputs, unmatched_patterns = find_matching_outputs(job_id)
         # Set the final state of the job
         status_code = None
-        unmatched_outputs = []
         if container_metadata["State"]["ExitCode"] != 0:
             state = State.FAILED
             status_message = "Job exited with an error code"
             status_code = StatusCode.NONZERO_EXIT
         elif unmatched_patterns:
-            state = State.FAILED
-            status_message = "No outputs found matching patterns:\n - {}".format(
-                "\n - ".join(unmatched_patterns)
-            )
             # If the job fails because an output was missing its very useful to
             # show the user what files were created as often the issue is just a
             # typo
             unmatched_outputs = get_unmatched_outputs(job_id, outputs)
+            state = State.FAILED
+            status_message = """
+                No outputs found matching patterns:
+                 - {}
+                Did you mean to match one of these files instead?
+                 - {}
+                """.format("\n - ".join(unmatched_patterns), "\n - ".join(unmatched_outputs))
         else:
             state = State.SUCCEEDED
             status_message = "Completed successfully"
@@ -122,7 +124,7 @@ def finalize_job(job_id: str, workspace: str, action: str) -> Tuple[State, Optio
         # Dump useful info in log directory
         log_dir = get_log_dir(job_id)
         ensure_overwritable(log_dir / "logs.txt", log_dir / "metadata.json")
-        write_log_file(job_id, unmatched_outputs, job_metadata, log_dir / "logs.txt")
+        write_log_file(job_id, job_metadata, log_dir / "logs.txt")
         with open(log_dir / "metadata.json", "w") as f:
             json.dump(job_metadata, f, indent=2)
         # Copy logs to workspace
@@ -150,7 +152,7 @@ def finalize_job(job_id: str, workspace: str, action: str) -> Tuple[State, Optio
     except JobError:
         cleanup_job(job_id)
         raise
-    return state, JobResults(state, status_code, status_message, outputs, unmatched_outputs)
+    return state, JobResults(state, status_code, status_message, outputs)
 
 
 def job_still_running(job_id):
@@ -312,7 +314,7 @@ def get_job_metadata(container_metadata):
     return job_metadata
 
 
-def write_log_file(job_id, unmatched_outputs, job_metadata, filename):
+def write_log_file(job_id, job_metadata, filename):
     """
     This dumps the (timestamped) Docker logs for a job to disk, followed by
     some useful metadata about the job and its outputs
@@ -328,10 +330,6 @@ def write_log_file(job_id, unmatched_outputs, job_metadata, filename):
                 continue
             f.write(f"{key}: {job_metadata[key]}\n")
         f.write(f"\n{job_metadata['status_message']}\n")
-        if unmatched_outputs:
-            f.write("\nDid you mean to match one of these files instead?\n - ")
-            f.write("\n - ".join(unmatched_outputs))
-            f.write("\n")
         f.write("\noutputs:\n")
         f.write(tabulate(outputs, separator="  - ", indent=2, empty="(no outputs)"))
 

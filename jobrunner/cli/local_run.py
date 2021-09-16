@@ -52,7 +52,7 @@ from jobrunner.lib.database import find_where
 from jobrunner.lib.log_utils import configure_logging
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.job_executor import METADATA_DIR
+from jobrunner.local_docker_job_executor import METADATA_DIR
 from jobrunner.models import Job, JobRequest, State, StatusCode
 from jobrunner.reusable_actions import (
     ReusableActionError,
@@ -344,13 +344,6 @@ def create_and_run_jobs(
         else:
             print(f"=> {job.action}")
         print(textwrap.indent(job.status_message, "   "))
-        # Where a job failed because expected outputs weren't found we show a
-        # list of other outputs which were generated
-        if job.unmatched_outputs:
-            print(
-                "\n   Did you mean to match one of these files instead?\n    - ", end=""
-            )
-            print("\n    - ".join(job.unmatched_outputs))
         print()
         # Output the entire log file inside an expandable block when running
         # inside Github Actions

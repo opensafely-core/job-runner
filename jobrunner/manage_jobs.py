@@ -133,10 +133,6 @@ def sync_job_status(job):
     job.status_code = results.status_code
     job.outputs = results.outputs
 
-    # TODO calculate unmatched outputs and patterns from job.output_spec and results.outputs rather than doing it in
-    #   the job-executor
-    # job.unmatched_outputs = results.unmatched_outputs
-
     # Update manifest
     manifest = read_manifest_file(Path())
     update_manifest(manifest, job, results.outputs)

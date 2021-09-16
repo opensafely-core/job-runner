@@ -35,7 +35,6 @@ class JobResults:
     status_code: Optional[StatusCode]
     status_message: str
     outputs: Mapping[str, str]
-    unmatched_outputs: List[str]
 
 
 class JobAPI(Protocol):
