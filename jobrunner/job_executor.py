@@ -17,8 +17,9 @@ Study = Tuple[str, str]  # Git repo and commit
 
 @dataclass
 class JobDefinition:
-    workspace: str  # the workspace to run the job in
     study: Study  # the study defining the action for this job
+    workspace: str  # the workspace to run the job in
+    action: str  # the name of the action that the job is running
     image: str  # the Docker image to run
     args: List[str]  # the arguments to pass to the Docker container
     env: Mapping[str, str]  # the environment variables to set for the Docker container
