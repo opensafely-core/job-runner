@@ -76,7 +76,7 @@ class JobAPI(Protocol):
         """
         ...
 
-    def terminate(self, job: JobDefinition):
+    def terminate(self, job: JobDefinition) -> None:
         """
         Terminate a running job.
 
@@ -92,6 +92,10 @@ class JobAPI(Protocol):
         """
         Return the status of a job and the results if it has finished.
 
+        This method must be idempotent; it may be called more than once for a job even after it has finished, so any
+        irreversible cleanup which loses information about must be deferred to JobAPI.cleanup() which will only be
+        called once the results have been persisted.
+
         The results must include a list of output files that the job produced which matched its output spec. It
         should also include a list of files that it produced but which did not match the output spec,
         to aid in debugging during study development.
@@ -103,6 +107,20 @@ class JobAPI(Protocol):
             Raises:
                 JobError: if there is a problem retrieving the status of the job
          """
+        ...
+
+    def cleanup(self, job: JobDefinition) -> None:
+        """
+        Clean up any remaining state for a finished job.
+
+        This method must be idempotent; it will be called at least once for every finished job. The implementation
+        may defer resource cleanup to this method if necessary in order to correctly implement idempotency of
+        JobAPI.get_status().
+
+        This method will not be called for a job that raises an unexpected exception from JobAPI.get_status() (anything
+        other than JobError), in order to facilitate debugging of unexpected failures. It may therefore be necessary
+        for the backend to provide out-of-band mechanisms for cleaning up resources associated with such failures.
+        """
         ...
 
 

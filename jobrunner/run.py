@@ -14,7 +14,7 @@ from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.manage_jobs import (
     kill_job,
-    start_job, sync_job_status,
+    start_job, sync_job_status, cleanup_job,
 )
 from jobrunner.models import Job, State, StatusCode, JobError
 
@@ -102,12 +102,15 @@ def handle_running_job(job):
         else:
             set_message(job, "Finished")
             mark_job_as_completed(job)
+            cleanup_job(job)
     except JobError as exception:
         set_message(job, "Failed")
         mark_job_as_failed(job, exception)
+        cleanup_job(job)
     except Exception:
         set_message(job, "Failed")
         mark_job_as_failed(job, "Internal error when finalising job")
+        # We don't clean up here, to facilitate with debugging this unexpected error
         raise
 
 

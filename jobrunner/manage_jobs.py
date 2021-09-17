@@ -67,6 +67,48 @@ def start_job(job):
     jobAPI.run(job_to_job_definition(job))
 
 
+def sync_job_status(job):
+    state, results = jobAPI.get_status(job_to_job_definition(job))
+
+    if state == State.RUNNING:
+        return True
+    assert state != State.PENDING
+
+    # Delete outputs from previous run of action. It would be simpler to delete
+    # all existing outputs and then copy over the new ones, but this way we
+    # don't delete anything until after we've copied the new outputs which is
+    # safer in case anything goes wrong.
+    existing_files = set(list_outputs_from_action(
+        job.action, ignore_errors=True
+    ))
+    workspaceAPI.delete_files(
+        Privacy.HIGH, job.workspace,
+        existing_files - set(o for o, privacy in results.outputs if privacy == "highly_sensitive"))
+    workspaceAPI.delete_files(
+        Privacy.MEDIUM, job.workspace,
+        existing_files - set(o for o, privacy in results.outputs if privacy == "moderately_sensitive"))
+
+    job.state = state
+    job.status_message = results.status_message
+    job.status_code = results.status_code
+    job.outputs = results.outputs
+
+    # Update manifest
+    manifest = read_manifest_file(Path())
+    update_manifest(manifest, job, results.outputs)
+    write_manifest_file(Path(), manifest)
+
+    return False
+
+
+def kill_job(job):
+    jobAPI.terminate(job_to_job_definition(job))
+
+
+def cleanup_job(job):
+    jobAPI.cleanup(job)
+
+
 def job_to_job_definition(job):
     action_args = shlex.split(job.run_command)
     allow_database_access = False
@@ -107,44 +149,6 @@ def job_to_job_definition(job):
 
     return JobDefinition(job.slug, study, job.workspace, job.action, full_image, action_args, env, input_files, outputs,
                          allow_database_access)
-
-
-def sync_job_status(job):
-    state, results = jobAPI.get_status(job_to_job_definition(job))
-
-    if state == State.RUNNING:
-        return True
-    assert state != State.PENDING
-
-    # Delete outputs from previous run of action. It would be simpler to delete
-    # all existing outputs and then copy over the new ones, but this way we
-    # don't delete anything until after we've copied the new outputs which is
-    # safer in case anything goes wrong.
-    existing_files = set(list_outputs_from_action(
-        job.action, ignore_errors=True
-    ))
-    workspaceAPI.delete_files(
-        Privacy.HIGH, job.workspace,
-        existing_files - set(o for o, privacy in results.outputs if privacy == "highly_sensitive"))
-    workspaceAPI.delete_files(
-        Privacy.MEDIUM, job.workspace,
-        existing_files - set(o for o, privacy in results.outputs if privacy == "moderately_sensitive"))
-
-    job.state = state
-    job.status_message = results.status_message
-    job.status_code = results.status_code
-    job.outputs = results.outputs
-
-    # Update manifest
-    manifest = read_manifest_file(Path())
-    update_manifest(manifest, job, results.outputs)
-    write_manifest_file(Path(), manifest)
-
-    return False
-
-
-def kill_job(job):
-    jobAPI.terminate(job_to_job_definition(job))
 
 
 def get_states_for_actions():

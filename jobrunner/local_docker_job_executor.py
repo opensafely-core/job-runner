@@ -53,6 +53,9 @@ class LocalDockerJobAPI(JobAPI):
         else:
             return finalize_job(job)
 
+    def cleanup(self, job: JobDefinition) -> None:
+        cleanup_job(job.id)
+
 
 class LocalDockerWorkspaceAPI(WorkspaceAPI):
     def delete_files(self, workspace, privacy, paths):
@@ -92,65 +95,71 @@ def start_container(job: JobDefinition):
 
 
 def finalize_job(job: JobDefinition) -> Tuple[State, Optional[JobResults]]:
-    try:
-        container_metadata = get_container_metadata(job.id)
-        outputs, unmatched_patterns = find_matching_outputs(job)
-        # Set the final state of the job
-        status_code = None
-        if container_metadata["State"]["ExitCode"] != 0:
-            state = State.FAILED
-            status_message = "Job exited with an error code"
-            status_code = StatusCode.NONZERO_EXIT
-        elif unmatched_patterns:
-            # If the job fails because an output was missing its very useful to
-            # show the user what files were created as often the issue is just a
-            # typo
-            unmatched_outputs = get_unmatched_outputs(job.id, outputs)
-            state = State.FAILED
-            status_message = """
+    container_metadata = get_container_metadata(job.id)
+    results = get_job_results(job, container_metadata)
+    persist_outputs(job, container_metadata, results.outputs)
+
+    return results.state, results
+
+
+def get_job_results(job, container_metadata):
+    outputs, unmatched_patterns = find_matching_outputs(job)
+    # Set the final state of the job
+    status_code = None
+    if container_metadata["State"]["ExitCode"] != 0:
+        state = State.FAILED
+        status_message = "Job exited with an error code"
+        status_code = StatusCode.NONZERO_EXIT
+    elif unmatched_patterns:
+        # If the job fails because an output was missing its very useful to
+        # show the user what files were created as often the issue is just a
+        # typo
+        unmatched_outputs = get_unmatched_outputs(job.id, outputs)
+        state = State.FAILED
+        status_message = """
                 No outputs found matching patterns:
                  - {}
                 Did you mean to match one of these files instead?
                  - {}
                 """.format("\n - ".join(unmatched_patterns), "\n - ".join(unmatched_outputs))
-        else:
-            state = State.SUCCEEDED
-            status_message = "Completed successfully"
-        # job_metadata is a big dict capturing everything we know about the state
-        # of the job
-        job_metadata = get_job_metadata(container_metadata)
-        # Dump useful info in log directory
-        log_dir = get_log_dir(job.id)
-        ensure_overwritable(log_dir / "logs.txt", log_dir / "metadata.json")
-        write_log_file(job.id, job_metadata, log_dir / "logs.txt")
-        with open(log_dir / "metadata.json", "w") as f:
-            json.dump(job_metadata, f, indent=2)
-        # Copy logs to workspace
-        workspace_dir = get_high_privacy_workspace(job.workspace)
-        metadata_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
-        copy_file(log_dir / "logs.txt", metadata_log_file)
-        log.info(f"Logs written to: {metadata_log_file}")
-        # Extract outputs to workspace
-        ensure_overwritable(*[workspace_dir / f for f in outputs.keys()])
-        volume = volume_name(job.id)
-        for filename in outputs.keys():
-            log.info(f"Extracting output file: {filename}")
-            docker.copy_from_volume(volume, filename, workspace_dir / filename)
-        # Copy out logs and medium privacy files
-        medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
-        if medium_privacy_dir:
-            copy_file(
-                workspace_dir / METADATA_DIR / f"{job.action}.log",
-                medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
-            )
-            for filename, privacy_level in outputs.items():
-                if privacy_level == "moderately_sensitive":
-                    copy_file(workspace_dir / filename, medium_privacy_dir / filename)
-        cleanup_job(job.id)
-    except JobError:
-        cleanup_job(job.id)
-        raise
-    return state, JobResults(state, status_code, status_message, outputs)
+    else:
+        state = State.SUCCEEDED
+        status_message = "Completed successfully"
+    results = JobResults(state, status_code, status_message, outputs)
+    return results
+
+
+def persist_outputs(job, container_metadata, outputs):
+    # job_metadata is a big dict capturing everything we know about the state
+    # of the job
+    job_metadata = get_job_metadata(container_metadata)
+    # Dump useful info in log directory
+    log_dir = get_log_dir(job.id)
+    ensure_overwritable(log_dir / "logs.txt", log_dir / "metadata.json")
+    write_log_file(job.id, job_metadata, log_dir / "logs.txt")
+    with open(log_dir / "metadata.json", "w") as f:
+        json.dump(job_metadata, f, indent=2)
+    # Copy logs to workspace
+    workspace_dir = get_high_privacy_workspace(job.workspace)
+    metadata_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
+    copy_file(log_dir / "logs.txt", metadata_log_file)
+    log.info(f"Logs written to: {metadata_log_file}")
+    # Extract outputs to workspace
+    ensure_overwritable(*[workspace_dir / f for f in outputs.keys()])
+    volume = volume_name(job.id)
+    for filename in outputs.keys():
+        log.info(f"Extracting output file: {filename}")
+        docker.copy_from_volume(volume, filename, workspace_dir / filename)
+    # Copy out logs and medium privacy files
+    medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
+    if medium_privacy_dir:
+        copy_file(
+            workspace_dir / METADATA_DIR / f"{job.action}.log",
+            medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
+        )
+        for filename, privacy_level in outputs.items():
+            if privacy_level == "moderately_sensitive":
+                copy_file(workspace_dir / filename, medium_privacy_dir / filename)
 
 
 def job_still_running(job_id):
