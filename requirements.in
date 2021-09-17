@@ -5,3 +5,5 @@ requests
 # magic incantation to add below to prevent pip installing the ruamel.yaml.clib
 # extension as well.
 ruamel.yaml
+
+kubernetes
