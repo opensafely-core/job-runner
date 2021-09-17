@@ -175,7 +175,7 @@ def get_latest_job_for_each_action(workspace):
     """
     # We treat the files on disk as the canonical source for the state of
     # completed jobs.
-    completed_jobs = get_completed_jobs_from_disk(workspace)
+    completed_jobs = get_completed_jobs_from_disk()
     # However active jobs aren't represented on disk so if we want to know what
     # jobs are currently running we have to ask the database.
     active_jobs = get_active_jobs_from_database(workspace)
@@ -194,7 +194,7 @@ def get_active_jobs_from_database(workspace):
     )
 
 
-def get_completed_jobs_from_disk(workspace):
+def get_completed_jobs_from_disk():
     # This is slightly inelegant but helps keep the rest of the code simple:
     # the `manifest.json` file in the workspace directory on disk stores the
     # final state of completed jobs, but doesn't store the full set of Job

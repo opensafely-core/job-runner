@@ -47,10 +47,6 @@ class ActionFailedError(JobError):
     pass
 
 
-class MissingOutputError(JobError):
-    pass
-
-
 def load_job_executor() -> Tuple[JobAPI, WorkspaceAPI]:
     return local_docker_job_executor.LocalDockerJobAPI(), local_docker_job_executor.LocalDockerWorkspaceAPI()
 
@@ -74,26 +70,13 @@ def sync_job_status(job):
         return True
     assert state != State.PENDING
 
-    # Delete outputs from previous run of action. It would be simpler to delete
-    # all existing outputs and then copy over the new ones, but this way we
-    # don't delete anything until after we've copied the new outputs which is
-    # safer in case anything goes wrong.
-    existing_files = set(list_outputs_from_action(
-        job.action, ignore_errors=True
-    ))
-    workspaceAPI.delete_files(
-        Privacy.HIGH, job.workspace,
-        existing_files - set(o for o, privacy in results.outputs if privacy == "highly_sensitive"))
-    workspaceAPI.delete_files(
-        Privacy.MEDIUM, job.workspace,
-        existing_files - set(o for o, privacy in results.outputs if privacy == "moderately_sensitive"))
+    delete_obsolete_files(job, results)
 
     job.state = state
     job.status_message = results.status_message
     job.status_code = results.status_code
     job.outputs = results.outputs
 
-    # Update manifest
     manifest = read_manifest_file(Path())
     update_manifest(manifest, job, results.outputs)
     write_manifest_file(Path(), manifest)
@@ -107,6 +90,25 @@ def kill_job(job):
 
 def cleanup_job(job):
     jobAPI.cleanup(job)
+
+
+def delete_obsolete_files(job, results):
+    # Earlier versions of the action may have produced outputs that are no longer produced. They will be recorded in
+    # the manifest and still be present on long-term storage. Delete them from long-term storage if there are any --
+    # they'll be removed from the manifest when we update it below.
+    high_privacy_outputs = [o for o, privacy in results.outputs if privacy == "highly_sensitive"]
+    medium_privacy_outputs = [o for o, privacy in results.outputs if privacy == "moderately_sensitive"]
+    manifest = read_manifest_file(Path())
+    high_privacy_files_to_delete = []
+    medium_privacy_files_to_delete = []
+    for filename, details in manifest["files"].items():
+        if details["created_by_action"] == job.action:
+            if details["privacy_level"] == "highly_sensitive" and filename not in high_privacy_outputs:
+                high_privacy_files_to_delete.append(filename)
+            if details["privacy_level"] == "moderately_sensitive" and filename not in medium_privacy_outputs:
+                medium_privacy_files_to_delete.append(filename)
+    workspaceAPI.delete_files(job.workspace, Privacy.HIGH, high_privacy_files_to_delete)
+    workspaceAPI.delete_files(job.workspace, Privacy.MEDIUM, medium_privacy_files_to_delete)
 
 
 def job_to_job_definition(job):
@@ -160,17 +162,10 @@ def get_states_for_actions():
         action_id: State(action_details["state"])
         for action_id, action_details in manifest["actions"].items()
     }
-    # TODO This is part of the unimplemented call get get workspace state.
-    # for filename, file_details in manifest["files"].items():
-    #     # If the file has been manually deleted from disk...
-    #     if not directory.joinpath(filename).exists():
-    #         source_action = file_details["created_by_action"]
-    #         # ... remove the action's state as if it hadn't been run
-    #         states_by_action.pop(source_action, None)
     return states_by_action
 
 
-def list_outputs_from_action(action, ignore_errors=False):
+def list_outputs_from_action(action):
     files = {}
     try:
         manifest = read_manifest_file(Path())
@@ -178,19 +173,15 @@ def list_outputs_from_action(action, ignore_errors=False):
         state = manifest["actions"][action]["state"]
     except KeyError:
         state = None
-    if not ignore_errors:
-        if state is None:
-            raise ActionNotRunError(f"{action} has not been run")
-        if state != State.SUCCEEDED.value:
-            raise ActionFailedError(f"{action} failed")
+    if state is None:
+        raise ActionNotRunError(f"{action} has not been run")
+    if state != State.SUCCEEDED.value:
+        raise ActionFailedError(f"{action} failed")
+
     output_files = []
     for filename, details in files.items():
         if details["created_by_action"] == action:
             output_files.append(filename)
-            # TODO This is part of the unimplemented call get get workspace state.
-            # # This would only happen if files were manually deleted from disk
-            # if not ignore_errors and not directory.joinpath(filename).exists():
-            #     raise MissingOutputError(f"Output {filename} missing from {action}")
     return output_files
 
 

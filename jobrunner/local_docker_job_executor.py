@@ -189,6 +189,8 @@ def create_and_populate_volume(job_id, workspace, input_files, repo_url, commit)
 
     for filename in input_files:
         log.info(f"Copying input file: {filename}")
+        if not (workspace_dir / filename).exists():
+            raise JobError(f"The file {filename} doesn't exist in workspace {workspace} as requested for job {job_id}")
         docker.copy_to_volume(volume, workspace_dir / filename, filename)
     # Hack: see `get_unmatched_outputs`. For some reason this requires a
     # non-empty file so copying `os.devnull` didn't work.

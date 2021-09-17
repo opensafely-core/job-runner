@@ -57,9 +57,10 @@ class JobAPI(Protocol):
         contact and authenticate with the database should be provided as environment variables.
 
         The job must be run with a workspace directory at /workspace in the filesystem (this is expected to be a
-        volume mounted into the container, but other implementations are permitted). The workspace must contain a
+        volume mounted into the container, but other implementations are allowed). The workspace must contain a
         checkout of the study and any inputs specified in the job definition, copied from the workspace in long-term
-        storage.
+        storage. If any of the specified inputs is not present in long-term storage then a JobError must be raised with
+        details of the missing file.
 
         Any files that the job produces that match the output spec in the definition must be copied to the workspace
         long-term storage. Anything written by the container to stdout or stderr must be captured and written to a
@@ -80,8 +81,8 @@ class JobAPI(Protocol):
         """
         Terminate a running job.
 
-        This method must be idempotent; it may be called for a job that doesn't exist or
-        which has already been terminated in which case it should return silently.
+        This method must be idempotent; it may be called for a job that doesn't exist or which has already been
+        terminated in which case it must return silently.
 
             Raises:
                 JobError: if job termination fails
@@ -125,5 +126,10 @@ class JobAPI(Protocol):
 
 
 class WorkspaceAPI(Protocol):
-    def delete_files(self, workspace, privacy, paths):
+    def delete_files(self, workspace: str, privacy: Privacy, paths: [str]):
+        """
+        Delete files from a workspace.
+
+        This method must be idempotent; if any of the files specified doesn't exist then it must ignore them.
+        """
         ...
