@@ -55,7 +55,8 @@ def copy_input_files(inputs, job_dir):
     """
     
     for input_path in inputs:
-        shutil.copy(input_path, job_dir)
+        if len(input_path) > 0:
+            shutil.copy(input_path, job_dir)
 
 
 if __name__ == '__main__':

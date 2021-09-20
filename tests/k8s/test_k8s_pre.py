@@ -39,3 +39,13 @@ def test_copy_input_files(tmp_work_dir, tmp_path):
     copy_input_files(inputs, job_dir)
     
     assert set([f.name for f in job_dir.iterdir()]) == set(f.name for f in inputs)
+
+
+def test_copy_empty_input_files(tmp_path):
+    inputs = "".split(";")
+    job_dir = tmp_path / "job"
+    job_dir.mkdir()
+    
+    copy_input_files(inputs, job_dir)
+    
+    assert len([f.name for f in job_dir.iterdir()]) == 0

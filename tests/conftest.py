@@ -8,6 +8,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "needs_docker: mark test as needing Docker daemon"
     )
+    config.addinivalue_line(
+        "markers", "needs_local_k8s: mark test as needing local k8s server, e.g. minikube"
+    )
 
 
 @pytest.fixture
