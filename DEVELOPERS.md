@@ -75,7 +75,7 @@ dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
 you can do so:
 
 1. Specify `DOCKER_USER` and `DOCKER_ADDR` environment variables.
-2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519'.
+2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
 3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
    set up.
 

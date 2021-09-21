@@ -20,15 +20,6 @@ $(SSH_KEY):
 	ssh-keygen -t ed25519 -N '' -C "$(SSH_COMMENT)" -f $@
 
 
-
-.PHONY: docker-github-actions
-enable-github-actions-ssh:
-	chmod 700 ~
-	mkdir ~/.ssh -m 700
-	touch ~/.ssh/authorized_keys
-	chmod 600 ~/.ssh/authorized_keys
-
-
 # ensure the local dev key is allowed to ssh in as current user
 $(SSH_KEY).authorized: $(SSH_KEY) ssh/known_hosts
 #ifeq ($(CI),"true")
