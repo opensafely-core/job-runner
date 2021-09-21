@@ -68,7 +68,7 @@ jobs:
     - name: Build image
       run: make docker-build
     - name: Test image
-      run: make docker-test
+      run: make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
     - name: Log into GitHub Container Registry
       run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.DOCKER_RW_TOKEN }}
     - name: Push image to GitHub Container Registry

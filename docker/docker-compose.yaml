@@ -25,13 +25,16 @@ services:
     init: true
     # paths relative to docker-compose.yaml
     volumes:
-      - "${MEDIUM_PRIVACY_STORAGE_BASE}:${MEDIUM_PRIVACY_STORAGE_BASE}"
-      - "${HIGH_PRIVACY_STORAGE_BASE}:${HIGH_PRIVACY_STORAGE_BASE}"
-      # used to configure ssh access
+      # use the default dev workdir
+      - ../workdir:/workdir
+      # used to configure ssh access for docker
       - ./ssh:/home/appuser/.ssh
     # ensure WORKDIR environment points to fixed location
     environment:
-      WORK_DIR: /work_dir
+      # default dev config
+      WORKDIR: /workdir
+      MEDIUM_PRIVACY_STORAGE_BASE: /workdir/workspaces
+      HIGH_PRIVACY_STORAGE_BASE: /workdir/workspaces
       # use docker over SSH to avoid socket file permissions
       DOCKER_HOST: ssh://${DOCKER_USER}@${DOCKER_ADDR}
 

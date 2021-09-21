@@ -83,7 +83,7 @@ jobs:
     - name: Build image
       run: make docker-build
     - name: Run tests in docker-image
-      run: make docker-test
+      run: make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
 
   test-github-workflow-output:
     runs-on: ubuntu-latest

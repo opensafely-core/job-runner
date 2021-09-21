@@ -1,3 +1,9 @@
+# remove default Makefile rules
+MAKEFLAGS += --no-builtin-rules
+MAKEFLAGS += --no-builtin-variables
+.SUFFIXES:
+
+
 .PHONY: venv
 venv: venv/ready
 
@@ -44,5 +50,10 @@ test-stata: venv/ready
 
 # include docker commands in main Makefile
 # Assumption is that this will be replaced by justfile at some point
-docker-build docker-serve docker-run docker-test docker-local-ssh docker-clean:
+docker-build docker-serve docker-run docker-test docker-clean: .env
 	$(MAKE) -C docker $@
+
+
+# required by docker-compose.yaml
+.env: 
+	cp dotenv-sample .env
