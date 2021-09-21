@@ -36,33 +36,33 @@ def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name
        2. job container: run the opensafely job command (e.g. cohortextractor) on job_volume
        3. post container: use python re to move matching output files from job volume to ws volume
     """
-    size = '100M' if config.K8S_USE_LOCAL_CONFIG else '20Gi'
-    
-    ws_pv = convert_k8s_name(workspace_name, "pv")
-    job_pv = convert_k8s_name(opensafely_job_id, "pv")
-    create_pv(ws_pv, config.K8S_STORAGE_CLASS, size)
-    create_pv(job_pv, config.K8S_STORAGE_CLASS, size)
-    
-    create_namespace(config.K8S_NAMESPACE)
-    
-    ws_pvc = convert_k8s_name(workspace_name, "pvc")
-    create_pvc(ws_pv, ws_pvc, config.K8S_STORAGE_CLASS, config.K8S_NAMESPACE, size)
-    
-    job_pvc = convert_k8s_name(opensafely_job_id, "pvc")
-    create_pvc(job_pv, job_pvc, config.K8S_STORAGE_CLASS, config.K8S_NAMESPACE, size)
-    
-    job_name = convert_k8s_name(opensafely_job_name, "job")
+    storage_class = config.K8S_STORAGE_CLASS
     namespace = config.K8S_NAMESPACE
     jobrunner_image = config.K8S_JOB_RUNNER_IMAGE
+    size = config.K8S_STORAGE_SIZE
+    
+    ws_pv = convert_k8s_name(workspace_name, "pv")
+    ws_pvc = convert_k8s_name(workspace_name, "pvc")
+    job_pv = convert_k8s_name(opensafely_job_id, "pv")
+    job_pvc = convert_k8s_name(opensafely_job_id, "pvc")
+    job_name = convert_k8s_name(opensafely_job_name, "job", additional_hash=opensafely_job_id)
     ws_dir = "/ws_volume"
     job_dir = "/job_volume"
     
-    create_job_with_pvc(job_name, ws_pvc, job_pvc, namespace, jobrunner_image, repo_url, commit_sha, ws_dir, job_dir, inputs)
+    create_pv(ws_pv, storage_class, size)
+    create_pv(job_pv, storage_class, size)
+    
+    create_namespace(namespace)
+    
+    create_pvc(ws_pv, ws_pvc, storage_class, namespace, size)
+    create_pvc(job_pv, job_pvc, storage_class, namespace, size)
+    
+    create_k8s_job(job_name, ws_pvc, job_pvc, namespace, jobrunner_image, repo_url, commit_sha, ws_dir, job_dir, inputs)
     
     return job_name, ws_pv, ws_pvc, job_pv, job_pvc
 
 
-def convert_k8s_name(text, suffix=None, hash_len=7):
+def convert_k8s_name(text, suffix=None, hash_len=7, additional_hash=None):
     """
     convert the text to the name follow the standard:
     https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
@@ -89,7 +89,10 @@ def convert_k8s_name(text, suffix=None, hash_len=7):
     if suffix is not None:
         max_len -= len(suffix) + 1
     
-    sha1 = hashlib.sha1(text.encode()).hexdigest()[:hash_len]
+    data = text
+    if additional_hash is not None:
+        data += additional_hash
+    sha1 = hashlib.sha1(data.encode()).hexdigest()[:hash_len]
     clean_text = f"{clean_text[:max_len - hash_len - 1]}-{sha1}"
     
     if suffix is not None:
@@ -113,6 +116,7 @@ def create_namespace(name):
                     name=name
             )
     ))
+    print(f"namespace {name} created")
 
 
 def create_pv(pv_name, storage_class, size):
@@ -137,11 +141,11 @@ def create_pv(pv_name, storage_class, size):
                     access_modes=["ReadWriteOnce"],
                     
                     # for testing:
-                    # host_path={"path": f"/pv/{pv_name}"} if config.K8S_USE_LOCAL_CONFIG else None
+                    host_path={"path": f"/pv/{pv_name}"} if config.K8S_USE_LOCAL_CONFIG else None
             )
     )
     core_v1.create_persistent_volume(body=pv)
-
+    print(f"pv {pv_name} created")
 
 def create_pvc(pv_name, pvc_name, storage_class, namespace, size):
     all_pvc = core_v1.list_persistent_volume_claim_for_all_namespaces()
@@ -172,12 +176,18 @@ def create_pvc(pv_name, pvc_name, storage_class, namespace, size):
     print(f"pvc {pvc_name} created")
 
 
-def create_job_with_pvc(job_name, ws_pvc, job_pvc, namespace, job_runner_image, repo_url, commit_sha, ws_dir, job_dir, inputs):
+def create_k8s_job(job_name, ws_pvc, job_pvc, namespace, jobrunner_image, repo_url, commit_sha, ws_dir, job_dir, inputs):
     ws_volume = "ws-volume"
     job_volume = "job-volume"
     
     repos_dir = ws_dir + "/repos"
     job_workspace = job_dir + "/workspace"
+    
+    all_jobs = batch_v1.list_namespaced_job(namespace)
+    for job in all_jobs.items:
+        if job.metadata.name == job_name:
+            print(f"job {job_name} already exist")
+            return
     
     job = client.V1Job(
             api_version="batch/v1",
@@ -213,9 +223,9 @@ def create_job_with_pvc(job_name, ws_pvc, job_pvc, namespace, job_runner_image, 
                                     init_containers=[
                                         client.V1Container(
                                                 name="pre",
-                                                image=job_runner_image,
+                                                image=jobrunner_image,
                                                 image_pull_policy="Never" if config.K8S_USE_LOCAL_CONFIG else "Always",
-                                                command=['python', '-m', 'k8s.pre'],
+                                                command=['python', '-m', 'jobrunner.k8s.pre'],
                                                 args=[repo_url, commit_sha, repos_dir, job_workspace, inputs],
                                                 volume_mounts=[
                                                     client.V1VolumeMount(
@@ -232,7 +242,7 @@ def create_job_with_pvc(job_name, ws_pvc, job_pvc, namespace, job_runner_image, 
                                         client.V1Container(
                                                 name="job",
                                                 image="busybox",
-                                                image_pull_policy="Never",
+                                                image_pull_policy="Never" if config.K8S_USE_LOCAL_CONFIG else "Always",
                                                 command=['/bin/sh', '-c'],
                                                 args=[f"echo ws; ls -R {ws_dir}; echo job; ls -R {job_dir};"],
                                                 volume_mounts=[
@@ -251,7 +261,7 @@ def create_job_with_pvc(job_name, ws_pvc, job_pvc, namespace, job_runner_image, 
                                     containers=[client.V1Container(
                                             name="post",
                                             image="busybox",
-                                            image_pull_policy="Never",
+                                            image_pull_policy="Never" if config.K8S_USE_LOCAL_CONFIG else "Always",
                                             command=['/bin/sh', '-c'],
                                             args=["echo post"],
                                             volume_mounts=[
@@ -270,6 +280,7 @@ def create_job_with_pvc(job_name, ws_pvc, job_pvc, namespace, job_runner_image, 
             )
     )
     batch_v1.create_namespaced_job(body=job, namespace=namespace)
+    print(f"job {job_name} created")
 
 
 def control_job(job_name, namespace):

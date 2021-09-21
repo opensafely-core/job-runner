@@ -185,3 +185,6 @@ K8S_NAMESPACE = os.environ.get("K8S_NAMESPACE", "opensafely")
 
 # Location of the image of the job runner
 K8S_JOB_RUNNER_IMAGE = os.environ.get("K8S_JOB_RUNNER_IMAGE", "ghcr.io/opensafely-core/job-runner:latest")
+
+# Location of the image of the job runner
+K8S_STORAGE_SIZE = os.environ.get("K8S_STORAGE_SIZE", "20Gi")

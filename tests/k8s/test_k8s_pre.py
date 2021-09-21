@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from k8s.pre import (
+from jobrunner.k8s.pre import (
     git_clone_and_checkout,
     copy_input_files
 )
@@ -49,3 +49,4 @@ def test_copy_empty_input_files(tmp_path):
     copy_input_files(inputs, job_dir)
     
     assert len([f.name for f in job_dir.iterdir()]) == 0
+
