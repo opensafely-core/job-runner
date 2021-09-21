@@ -54,6 +54,32 @@ with:
 python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
 ```
 
+### Testing in docker
+
+To run tests in docker, simply run:
+
+    make docker-test
+
+This will build the docker image and run tests. You can run job-runner with:
+
+    make docker-serve
+
+Or run a command inside the docker image:
+
+    make docker-run ARGS=command  # bash by default
+
+Note: we use ssh for authenticated network access to the host's docker in
+development. The above commands will automatically generate a local ed25519
+dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
+`make docker-clean` to remove this.  If you wish to use a different user/host,
+you can do so:
+
+1. Specify `DOCKER_USER` and `DOCKER_ADDR` environment variables.
+2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519'.
+3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
+   set up.
+
+
 ### Testing on Windows
 
 For reasons outlined in [#76](https://github.com/opensafely/job-runner/issues/76) this
