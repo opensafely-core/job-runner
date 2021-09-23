@@ -67,7 +67,7 @@ RUN --mount=type=cache,target=/root/.cache \
 #
 # Not including the code at this stage has two benefits:
 #
-# 1) this image only rebuilds when the handlful of files needed to build job-runner-base
+# 1) this image only rebuilds when the handfull of files needed to build job-runner-base
 #    changes. If we do `COPY . /app` now, this will rebuild when *any* file changes.
 #
 # 2) Ensures we *have* to mount the volume for dev image, as there's no embedded
@@ -96,7 +96,7 @@ VOLUME /app
 # things from the cli
 CMD ["/opt/venv/bin/python", "-m", "jobrunner.service"]
 
-# This may not be nessecary, but it probably doesn't hurt
+# This may not be necessary, but it probably doesn't hurt
 ENV PYTHONPATH=/app
 
 # switch to running as the user

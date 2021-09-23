@@ -62,7 +62,7 @@ services:
       - ..:/app
       - ../workdir:/work_dir
 
-  # test runner service - uses dev-image with a different commnd
+  # test runner service - uses dev-image with a different command
   test:
     extends:
         service: dev
