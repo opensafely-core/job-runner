@@ -406,12 +406,26 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     # changes below then consider what, if any, the appropriate corresponding
     # changes might be for production jobs.
     project = parse_and_validate_project_file(project_file_path.read_bytes())
-    current_jobs = get_latest_job_for_each_action(job_request.workspace)
-    new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
-    assert_new_jobs_created(new_jobs, current_jobs)
+    latest_jobs = get_latest_job_for_each_action(job_request.workspace)
+
+    # On the server out-of-band deletion of an existing output is considered an error, so we ignore that case when
+    # scheduling and allow jobs with missing dependencies to fail loudly when they are actually run. However for local
+    # running we should allow researchers to delete outputs on disk and automatically rerun the actions that create
+    # if they are needed. So here we check whether any files are missing for completed actions and, if so, treat them
+    # as though they had not been run -- this will automatically trigger a rerun.
+    latest_jobs_with_files_present = [
+        job for job in latest_jobs if all_output_files_present(project_dir, job)
+    ]
+
+    new_jobs = get_new_jobs_to_run(job_request, project, latest_jobs_with_files_present)
+    assert_new_jobs_created(new_jobs, latest_jobs_with_files_present)
     resolve_reusable_action_references(new_jobs)
     insert_into_database(job_request, new_jobs)
     return job_request, new_jobs
+
+
+def all_output_files_present(project_dir, job):
+    return all(project_dir.joinpath(f).exists() for f in job.output_files)
 
 
 def no_jobs_remaining(active_jobs):

@@ -165,7 +165,7 @@ def create_and_populate_volume(job):
         copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs)
     else:
         # We only encounter jobs without a repo or commit when using the
-        # "local_run" command to execute uncommited local code
+        # "local_run" command to execute uncommitted local code
         copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
 
     for filename, action in input_files.items():
@@ -504,7 +504,7 @@ def copy_file(source, dest):
 def delete_files(directory, filenames, files_to_keep=()):
     ensure_overwritable(*[directory.joinpath(f) for f in filenames])
     # We implement the "files to keep" logic using inodes rather than names so
-    # we can safely handle case-insenstiive filesystems
+    # we can safely handle case-insensitive filesystems
     inodes_to_keep = set()
     for filename in files_to_keep:
         try:
@@ -521,25 +521,6 @@ def delete_files(directory, filenames, files_to_keep=()):
         inode = (stat.st_dev, stat.st_ino)
         if inode not in inodes_to_keep:
             path.unlink()
-
-
-def get_states_for_actions(workspace):
-    """
-    Return a dictionary mapping action IDs to their current state (if any)
-    """
-    directory = get_high_privacy_workspace(workspace)
-    manifest = read_manifest_file(directory)
-    states_by_action = {
-        action_id: State(action_details["state"])
-        for action_id, action_details in manifest["actions"].items()
-    }
-    for filename, file_details in manifest["files"].items():
-        # If the file has been manually deleted from disk...
-        if not directory.joinpath(filename).exists():
-            source_action = file_details["created_by_action"]
-            # ... remove the action's state as if it hadn't been run
-            states_by_action.pop(source_action, None)
-    return states_by_action
 
 
 def list_outputs_from_action(workspace, action, ignore_errors=False):
