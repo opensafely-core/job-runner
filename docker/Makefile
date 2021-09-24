@@ -22,18 +22,9 @@ $(SSH_KEY):
 
 # ensure the local dev key is allowed to ssh in as current user
 $(SSH_KEY).authorized: $(SSH_KEY) ssh/known_hosts
-#ifeq ($(CI),"true")
-    # ensure local user is set up for ssh in GHA
-	chmod 700 ~
-	mkdir ~/.ssh -m 700
-	touch ~/.ssh/authorized_keys
-	chmod 600 ~/.ssh/authorized_keys
-#endif
 	grep -q "$(shell cat $(SSH_PUBKEY))" ~/.ssh/authorized_keys || cat $(SSH_PUBKEY) >> ~/.ssh/authorized_keys
-#ifeq ($(CI),"true")
-	# test ssh works
-	ssh -i $(SSH_KEY) -o UserKnownHostsFile=ssh/known_hosts $(DOCKER_USER)@$(DOCKER_ADDR) true || { tail /var/log/auth.log; exit 1; }
-#endif
+	# quick test to fail early if ssh doesn't work for some reason
+	ssh -i $(SSH_KEY) -o UserKnownHostsFile=ssh/known_hosts $(DOCKER_USER)@$(DOCKER_ADDR) true || { echo "Failed to ssh into $(DOCKER_ADDR)"; tail /var/log/auth.log; exit 1; }
 	touch $@
 
 
