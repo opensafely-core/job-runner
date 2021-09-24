@@ -21,3 +21,4 @@ service*.log
 tags
 docker/ssh/id_*
 docker/ssh/known_hosts
+/.idea/
