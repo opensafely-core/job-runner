@@ -1,3 +1,9 @@
+# remove default Makefile rules
+MAKEFLAGS += --no-builtin-rules
+MAKEFLAGS += --no-builtin-variables
+.SUFFIXES:
+
+
 .PHONY: venv
 venv: venv/ready
 
@@ -40,3 +46,14 @@ test-stata: venv/ready
 	venv/bin/python -c 'from jobrunner.cli.local_run import main; main("tests/fixtures/stata_project", ["stata"])'
 	cat tests/fixtures/stata_project/output/env.txt
 	echo
+
+
+# include docker commands in main Makefile
+# Assumption is that this will be replaced by justfile at some point
+docker-build docker-serve docker-run docker-test docker-clean: .env
+	$(MAKE) -C docker $@
+
+
+# required by docker-compose.yaml
+.env: 
+	cp dotenv-sample .env

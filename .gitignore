@@ -19,3 +19,5 @@ pip-wheel-metadata/*
 /tests/fixtures/*/metadata
 service*.log
 tags
+docker/ssh/id_*
+docker/ssh/known_hosts
