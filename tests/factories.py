@@ -53,7 +53,7 @@ def job_factory(job_request=None, **kwargs):
     return job
 
 
-class TestJobAPI:
+class StubJobAPI:
     def __init__(self):
         self.jobs_run = {}
         self.jobs_status = {}
@@ -62,9 +62,9 @@ class TestJobAPI:
         self.results = {}
         self.errors = {}
 
-    def add_test_job(self, **kwargs):
+    def add_test_job(self, *args, **kwargs):
         """Create and track a db job object."""
-        job = job_factory(**kwargs)
+        job = job_factory(*args, **kwargs)
         if job.state == State.RUNNING:
             self.jobs_run[job.id] = job
         return job

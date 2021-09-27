@@ -7,7 +7,7 @@ from jobrunner import config
 from jobrunner.lib.database import transaction
 from jobrunner import run
 
-from tests.factories import TestJobAPI
+from tests.factories import StubJobAPI
 
 
 @pytest.fixture()
@@ -19,7 +19,7 @@ def db(monkeypatch):
 
 
 def test_handle_pending_job_success(db):
-    api = TestJobAPI()
+    api = StubJobAPI()
     job = api.add_test_job(state=State.PENDING)
 
     run.handle_pending_job_api(job, api)
@@ -31,7 +31,7 @@ def test_handle_pending_job_success(db):
 
 
 def test_handle_pending_job_cancelled(db):
-    api = TestJobAPI()
+    api = StubJobAPI()
     job = api.add_test_job(state=State.PENDING, cancelled=True)
 
     run.handle_pending_job_api(job, api)
@@ -45,7 +45,7 @@ def test_handle_pending_job_cancelled(db):
 
 
 def test_handle_pending_job_dependency_failed(db):
-    api = TestJobAPI()
+    api = StubJobAPI()
     dependency = api.add_test_job(state=State.FAILED)
     job = api.add_test_job(
         job_request_id=dependency.job_request_id,
@@ -64,7 +64,7 @@ def test_handle_pending_job_dependency_failed(db):
 
 
 def test_handle_pending_job_waiting_on_dependency(db):
-    api = TestJobAPI()
+    api = StubJobAPI()
     dependency = api.add_test_job(state=State.RUNNING)
 
     job = api.add_test_job(
@@ -86,7 +86,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
 def test_handle_pending_job_waiting_on_workers(db, monkeypatch):
     # hack to ensure no workers available
     monkeypatch.setattr(config, "MAX_WORKERS", 0)
-    api = TestJobAPI()
+    api = StubJobAPI()
     job = api.add_test_job(state=State.PENDING)
 
     run.handle_pending_job_api(job, api)
@@ -99,7 +99,7 @@ def test_handle_pending_job_waiting_on_workers(db, monkeypatch):
 
 
 def test_handle_pending_job_run_job_error(db):
-    api = TestJobAPI()
+    api = StubJobAPI()
 
     job = api.add_test_job(state=State.PENDING)
     api.add_job_exception(job.id, JobError("test"))
@@ -115,7 +115,7 @@ def test_handle_pending_job_run_job_error(db):
 
 
 def test_handle_pending_job_run_exception(db):
-    api = TestJobAPI()
+    api = StubJobAPI()
 
     job = api.add_test_job(state=State.PENDING)
     api.add_job_exception(job.id, Exception("test"))
@@ -133,7 +133,7 @@ def test_handle_pending_job_run_exception(db):
 
 
 def test_handle_running_job_success(db, tmp_work_dir):
-    api = TestJobAPI()
+    api = StubJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_result(job.id, State.SUCCEEDED, None, "Finished")
 
@@ -149,7 +149,7 @@ def test_handle_running_job_success(db, tmp_work_dir):
 
 
 def test_handle_running_job_still_running(db):
-    api = TestJobAPI()
+    api = StubJobAPI()
     job = api.add_test_job(state=State.RUNNING)
 
     run.handle_running_job_api(job, api)
@@ -159,7 +159,7 @@ def test_handle_running_job_still_running(db):
 
 
 def test_handle_running_job_failed(db, tmp_work_dir):
-    api = TestJobAPI()
+    api = StubJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_result(
         job.id,
@@ -180,7 +180,7 @@ def test_handle_running_job_failed(db, tmp_work_dir):
 
 
 def test_handle_running_job_joberror(db):
-    api = TestJobAPI()
+    api = StubJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_exception(job.id, JobError("job error"))
 
@@ -193,7 +193,7 @@ def test_handle_running_job_joberror(db):
 
 
 def test_handle_running_job_exception(db):
-    api = TestJobAPI()
+    api = StubJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_exception(job.id, Exception("unknown error"))
 
