@@ -88,7 +88,7 @@ def handle_pending_job(job):
     if job.cancelled:
         # Mark the job as running and then immediately invoke
         # `handle_running_job` to deal with the cancellation. This slightly
-        # counterintuitive appraoch allows us to keep a simple, consistent set
+        # counterintuitive approach allows us to keep a simple, consistent set
         # of state transitions and to consolidate all the kill/cleanup code
         # together. It also means that there aren't edge cases where we could
         # lose track of jobs completely after losing database state

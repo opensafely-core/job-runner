@@ -14,6 +14,7 @@ import shlex
 import shutil
 import tempfile
 import time
+from operator import attrgetter
 from pathlib import Path
 
 from jobrunner import config
@@ -23,7 +24,7 @@ from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.models import SavedJobRequest, State, StatusCode
+from jobrunner.models import SavedJobRequest, State, StatusCode, Job
 from jobrunner.project import (
     get_all_output_patterns_from_project_file,
     is_generate_cohort_command,
@@ -313,9 +314,9 @@ def finalise_job(job):
     log.info(f"Logs written to: {metadata_log_file}")
 
     # Extract outputs to workspace
-    ensure_overwritable(*[workspace_dir / f for f in job.outputs.keys()])
+    ensure_overwritable(*[workspace_dir / f for f in job.output_files])
     volume = volume_name(job)
-    for filename in job.outputs.keys():
+    for filename in job.output_files:
         log.info(f"Extracting output file: {filename}")
         docker.copy_from_volume(volume, filename, workspace_dir / filename)
 
@@ -324,9 +325,9 @@ def finalise_job(job):
     # don't delete anything until after we've copied the new outputs which is
     # safer in case anything goes wrong.
     existing_files = list_outputs_from_action(
-        job.workspace, job.action, ignore_errors=True
+        job.workspace, job.action
     )
-    delete_files(workspace_dir, existing_files, files_to_keep=job.outputs.keys())
+    delete_files(workspace_dir, existing_files, files_to_keep=job.output_files)
 
     # Update manifest
     manifest = read_manifest_file(workspace_dir)
@@ -523,28 +524,17 @@ def delete_files(directory, filenames, files_to_keep=()):
             path.unlink()
 
 
-def list_outputs_from_action(workspace, action, ignore_errors=False):
-    directory = get_high_privacy_workspace(workspace)
-    files = {}
-    try:
-        manifest = read_manifest_file(directory)
-        files = manifest["files"]
-        state = manifest["actions"][action]["state"]
-    except KeyError:
-        state = None
-    if not ignore_errors:
-        if state is None:
-            raise ActionNotRunError(f"{action} has not been run")
-        if state != State.SUCCEEDED.value:
-            raise ActionFailedError(f"{action} failed")
-    output_files = []
-    for filename, details in files.items():
-        if details["created_by_action"] == action:
-            output_files.append(filename)
-            # This would only happen if files were manually deleted from disk
-            if not ignore_errors and not directory.joinpath(filename).exists():
-                raise MissingOutputError(f"Output {filename} missing from {action}")
-    return output_files
+def list_outputs_from_action(workspace, action):
+    all_jobs = find_where(Job, workspace=workspace, action=action)
+
+    if not all_jobs:
+        # The action has never been run before
+        return []
+
+    ordered_jobs = sorted(all_jobs, key=attrgetter("created_at"), reverse=True)
+    latest_job = ordered_jobs[0]
+
+    return latest_job.output_files
 
 
 def read_manifest_file(workspace_dir):

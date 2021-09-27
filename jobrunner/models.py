@@ -182,6 +182,13 @@ class Job:
         """
         return slugify(f"{self.project}-{self.action}-{self.id}")
 
+    @property
+    def output_files(self):
+        if self.outputs:
+            return self.outputs.keys()
+        else:
+            return []
+
 
 def timestamp_to_isoformat(ts):
     if ts is None:
