@@ -1,5 +1,6 @@
 import base64
 import secrets
+from copy import deepcopy
 
 from jobrunner import job_executor
 from jobrunner.models import Job, JobRequest, SavedJobRequest, State
@@ -34,7 +35,7 @@ def job_request_factory(**kwargs):
     if "id" not in kwargs:
         kwargs["id"] = base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
-    values = JOB_REQUEST_DEFAULTS.copy()
+    values = deepcopy(JOB_REQUEST_DEFAULTS)
     values.update(kwargs)
     job_request = JobRequest(**values)
     insert(SavedJobRequest(id=job_request.id, original=job_request.original))
@@ -45,7 +46,7 @@ def job_factory(job_request=None, **kwargs):
     if job_request is None:
         job_request = job_request_factory()
 
-    values = JOB_DEFAULTS.copy()
+    values = deepcopy(JOB_DEFAULTS)
     values.update(kwargs)
     values["job_request_id"] = job_request.id
     job = Job(**values)
