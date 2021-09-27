@@ -98,7 +98,10 @@ def test_handle_pending_job_waiting_on_workers(db, monkeypatch):
     assert job.status_code == StatusCode.WAITING_ON_WORKERS
 
 
-def test_handle_pending_job_run_job_error(db):
+def test_handle_pending_job_run_job_error(db, monkeypatch):
+    # GH runners default to 1, which causes this test to fail
+    monkeypatch.setattr(config, "MAX_WORKERS", 4)
+
     api = StubJobAPI()
 
     job = api.add_test_job(state=State.PENDING)
@@ -114,7 +117,9 @@ def test_handle_pending_job_run_job_error(db):
     assert job.status_code is None
 
 
-def test_handle_pending_job_run_exception(db):
+def test_handle_pending_job_run_exception(db, monkeypatch):
+    # GH runners default to 1, which causes this test to fail
+    monkeypatch.setattr(config, "MAX_WORKERS", 4)
     api = StubJobAPI()
 
     job = api.add_test_job(state=State.PENDING)
