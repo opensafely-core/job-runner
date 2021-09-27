@@ -9,6 +9,7 @@ import random
 import sys
 import shlex
 import time
+from pathlib import Path
 
 from jobrunner import config
 from jobrunner.lib.database import find_where, select_values, update
@@ -21,6 +22,10 @@ from jobrunner.manage_jobs import (
     job_still_running,
     kill_job,
     start_job,
+    get_job_metadata,
+    read_manifest_file,
+    write_manifest_file,
+    update_manifest,
 )
 from jobrunner.models import Job, State, StatusCode
 from jobrunner import job_executor
@@ -283,10 +288,19 @@ def sync_job_status(job, api):
     set_message(job, results.status_message, results.status_code)
     update(job)
 
-    # TODO: implement workspace state tracking
-    #manifest = read_manifest_file(Path())
-    #update_manifest(manifest, job, results.outputs)
-    #write_manifest_file(Path(), manifest)
+    workspace_dir = Path(config.HIGH_PRIVACY_STORAGE_BASE, job.workspace)
+
+    # fake a Docker container metadata just enough for now
+    container_metadata = {
+        "State": {"ExitCode": results.exit_code},
+        "Image": results.image_id,
+    }
+
+    job_metadata = get_job_metadata(job, container_metadata)
+
+    manifest = read_manifest_file(workspace_dir)
+    update_manifest(manifest, job_metadata)
+    write_manifest_file(workspace_dir, manifest)
 
     return False
 

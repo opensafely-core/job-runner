@@ -39,6 +39,8 @@ class JobResults:
     status_code: Optional[StatusCode]
     status_message: str
     outputs: Mapping[str, str]
+    exit_code: int
+    image_id: str
 
 
 class JobAPI(Protocol):

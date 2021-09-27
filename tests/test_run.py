@@ -132,10 +132,14 @@ def test_handle_pending_job_run_exception(db):
     assert job.status_code is None
 
 
-def test_handle_running_job_success(db):
+def test_handle_running_job_success(db, tmp_work_dir):
     api = TestJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_result(job.id, State.SUCCEEDED, None, "Finished")
+
+    # temporary setup until we get the new metadata implementation
+    workspace_dir = config.HIGH_PRIVACY_STORAGE_BASE / job.workspace / "metadata"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
 
     run.handle_running_job_api(job, api)
 
@@ -154,7 +158,7 @@ def test_handle_running_job_still_running(db):
     assert job.state == State.RUNNING
 
 
-def test_handle_running_job_failed(db):
+def test_handle_running_job_failed(db, tmp_work_dir):
     api = TestJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_result(
@@ -163,6 +167,9 @@ def test_handle_running_job_failed(db):
         StatusCode.NONZERO_EXIT,
         "Job exited with an error code",
     )
+    # temporary until we get the new metadata implementation
+    workspace_dir = config.HIGH_PRIVACY_STORAGE_BASE / job.workspace / "metadata"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
 
     run.handle_running_job_api(job, api)
 

@@ -2,12 +2,25 @@ import base64
 import secrets
 
 from jobrunner import job_executor
-from jobrunner.models import Job, State
+from jobrunner.models import Job, JobRequest, SavedJobRequest, State
 from jobrunner.lib.database import insert
 from jobrunner.manage_jobs import JobError
 
 
-DEFAULTS = {
+JOB_REQUEST_DEFAULTS = {
+    "repo_url": "repo",
+    "commit": "commit",
+    "requested_actions": [],
+    "cancelled_actions": [],
+    "workspace": "workspace",
+    "database_name": "full",
+    "original": {
+        "created_by": "testuser",
+    },
+}
+
+
+JOB_DEFAULTS = {
     "action": "action_name",
     "repo_url": "opensafely/study",
     "workspace": "workspace",
@@ -17,15 +30,27 @@ DEFAULTS = {
 }
 
 
-def job_factory(**kwargs):
-    values = DEFAULTS.copy()
+def job_request_factory(**kwargs):
+    if "id" not in kwargs:
+        kwargs["id"] = base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
+
+    values = JOB_REQUEST_DEFAULTS.copy()
     values.update(kwargs)
-    if "job_request_id" not in values:
-        # use random job_request_id as id is derived from it
-        values["job_request_id"] = (
-            base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
-        )
-    return Job(**values)
+    job_request = JobRequest(**values)
+    insert(SavedJobRequest(id=job_request.id, original=job_request.original))
+    return job_request
+
+
+def job_factory(job_request=None, **kwargs):
+    if job_request is None:
+        job_request = job_request_factory()
+
+    values = JOB_DEFAULTS.copy()
+    values.update(kwargs)
+    values["job_request_id"] = job_request.id
+    job = Job(**values)
+    insert(job)
+    return job
 
 
 class TestJobAPI:
@@ -40,9 +65,6 @@ class TestJobAPI:
     def add_test_job(self, **kwargs):
         """Create and track a db job object."""
         job = job_factory(**kwargs)
-        # various code paths check the db, e.g. what's the state of my
-        # dependencies?, so we inject the test job into the db also.
-        insert(job)
         if job.state == State.RUNNING:
             self.jobs_run[job.id] = job
         return job
@@ -50,8 +72,19 @@ class TestJobAPI:
     def add_job_exception(self, job_id, exc):
         self.errors[job_id] = exc
 
-    def add_job_result(self, job_id, state, code=None, message=None, outputs={}):
-        self.results[job_id] = job_executor.JobResults(state, code, message, outputs)
+    def add_job_result(
+        self,
+        job_id,
+        state,
+        code=None,
+        message=None,
+        outputs={},
+        exit_code=0,
+        image_id="image_id",
+    ):
+        self.results[job_id] = job_executor.JobResults(
+            state, code, message, outputs, exit_code, image_id
+        )
 
     def run(self, definition):
         """Track this definition."""
