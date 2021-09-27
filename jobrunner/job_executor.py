@@ -100,6 +100,8 @@ class JobAPI(Protocol):
         irreversible cleanup which loses information about must be deferred to JobAPI.cleanup() which will only be
         called once the results have been persisted.
 
+        If no matching job can be found, it should raise a JobError exception.
+
         The results must include a list of output files that the job produced which matched its output spec. It
         should also include a list of files that it produced but which did not match the output spec,
         to aid in debugging during study development.
