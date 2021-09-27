@@ -9,9 +9,6 @@ from jobrunner import run
 
 from tests.factories import TestJobAPI
 
-class Rollback(Exception):
-    pass
-
 
 @pytest.fixture()
 def db(monkeypatch):
@@ -97,11 +94,45 @@ def test_handle_pending_job_waiting_on_workers(db, monkeypatch):
     assert job.status_code == StatusCode.WAITING_ON_WORKERS
 
 
+def test_handle_pending_job_run_job_error(db):
+    api = TestJobAPI()
+
+    job = api.add_test_job(state=State.PENDING)
+    api.add_job_exception(job.id, JobError("test"))
+
+    run.handle_pending_job_api(job, api)
+
+    assert job.id in api.jobs_run
+    assert job.id in api.jobs_cleaned
+
+    assert job.state == State.FAILED
+    assert job.status_message == "JobError: test"
+    assert job.status_code is None
+
+
+def test_handle_pending_job_run_exception(db):
+    api = TestJobAPI()
+
+    job = api.add_test_job(state=State.PENDING)
+    api.add_job_exception(job.id, Exception("test"))
+
+    with pytest.raises(Exception):
+        run.handle_pending_job_api(job, api)
+
+    assert job.id in api.jobs_run
+    # we don't clean up on unknown exceptions
+    assert job.id not in api.jobs_cleaned
+
+    assert job.state == State.FAILED
+    assert job.status_message == "Internal error when starting job"
+    assert job.status_code is None
+
+
 def test_handle_running_job_success(db):
     api = TestJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_result(job.id, State.SUCCEEDED, None, "Finished")
- 
+
     run.handle_running_job_api(job, api)
 
     assert job.status_message == "Finished"

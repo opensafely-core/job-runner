@@ -42,7 +42,8 @@ class TestJobAPI():
     def add_test_job(self, **kwargs):
         """Create and track a db job object."""
         job = job_factory(**kwargs)
-        self.jobs[job.id] = job
+        # various code paths check the db, e.g. what's the state of my
+        # dependencies?, so we inject the test job into the db also.
         insert(job)
         if job.state == State.RUNNING:
             self.jobs_run[job.id] = job
@@ -54,10 +55,11 @@ class TestJobAPI():
     def add_job_result(self, job_id, state, code=None, message=None, outputs={}):
         self.results[job_id] = job_executor.JobResults(state, code, message, outputs)
 
-
     def run(self, definition):
         """Track this definition."""
         self.jobs_run[definition.id] = definition
+        if definition.id in self.errors:
+            raise self.errors[definition.id]
 
     def terminate(self, definition):
         if definition.id not in self.jobs_run:

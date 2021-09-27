@@ -140,13 +140,14 @@ def handle_pending_job_api(job, api):
             try:
                 set_message(job, "Preparing")
                 api.run(job_to_job_definition(job))
+                mark_job_as_running(job)
             except JobError as exception:
                 mark_job_as_failed(job, exception)
+                # support any clean up needed
+                api.cleanup(job_to_job_definition(job))
             except Exception:
                 mark_job_as_failed(job, "Internal error when starting job")
                 raise
-            else:
-                mark_job_as_running(job)
 
 
 def handle_running_job(job):
