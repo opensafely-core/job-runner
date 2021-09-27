@@ -22,16 +22,14 @@ def job_factory(**kwargs):
     values.update(kwargs)
     if "job_request_id" not in values:
         # use random job_request_id as id is derived from it
-        values["job_request_id"] = base64.b32encode(
-            secrets.token_bytes(10)
-        ).decode("ascii").lower()
+        values["job_request_id"] = (
+            base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
+        )
     return Job(**values)
 
 
-class TestJobAPI():
-
+class TestJobAPI:
     def __init__(self):
-        self.jobs = {}
         self.jobs_run = {}
         self.jobs_status = {}
         self.jobs_terminated = {}
@@ -85,10 +83,6 @@ class TestJobAPI():
         self.jobs_cleaned[definition.id] = definition
 
 
-class TestWorkspaceAPI():
+class TestWorkspaceAPI:
     def delete_files(self, workspace, privacy, paths):
         raise NotImplemented
-
-
-
-

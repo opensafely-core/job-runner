@@ -13,7 +13,9 @@ from tests.factories import TestJobAPI
 @pytest.fixture()
 def db(monkeypatch):
     """Create a throwaway db."""
-    monkeypatch.setattr(config, "DATABASE_FILE", ":memory:{random.randrange(sys.maxsize)}")
+    monkeypatch.setattr(
+        config, "DATABASE_FILE", ":memory:{random.randrange(sys.maxsize)}"
+    )
 
 
 def test_handle_pending_job_success(db):
@@ -48,8 +50,9 @@ def test_handle_pending_job_dependency_failed(db):
     job = api.add_test_job(
         job_request_id=dependency.job_request_id,
         action="action2",
-        state=State.PENDING, 
-        wait_for_job_ids=[dependency.id])
+        state=State.PENDING,
+        wait_for_job_ids=[dependency.id],
+    )
 
     run.handle_pending_job_api(job, api)
 
@@ -67,8 +70,9 @@ def test_handle_pending_job_waiting_on_dependency(db):
     job = api.add_test_job(
         job_request_id=dependency.job_request_id,
         action="action2",
-        state=State.PENDING, 
-        wait_for_job_ids=[dependency.id])
+        state=State.PENDING,
+        wait_for_job_ids=[dependency.id],
+    )
 
     run.handle_pending_job_api(job, api)
 
@@ -143,7 +147,7 @@ def test_handle_running_job_success(db):
 def test_handle_running_job_still_running(db):
     api = TestJobAPI()
     job = api.add_test_job(state=State.RUNNING)
- 
+
     run.handle_running_job_api(job, api)
 
     assert job.status_message == "Running"
@@ -154,12 +158,12 @@ def test_handle_running_job_failed(db):
     api = TestJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_result(
-            job.id, 
-            State.FAILED, 
-            StatusCode.NONZERO_EXIT,
-            "Job exited with an error code",
+        job.id,
+        State.FAILED,
+        StatusCode.NONZERO_EXIT,
+        "Job exited with an error code",
     )
- 
+
     run.handle_running_job_api(job, api)
 
     assert job.state == State.FAILED
@@ -172,7 +176,7 @@ def test_handle_running_job_joberror(db):
     api = TestJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_exception(job.id, JobError("job error"))
- 
+
     run.handle_running_job_api(job, api)
 
     assert job.state == State.FAILED
@@ -185,7 +189,7 @@ def test_handle_running_job_exception(db):
     api = TestJobAPI()
     job = api.add_test_job(state=State.RUNNING)
     api.add_job_exception(job.id, Exception("unknown error"))
- 
+
     with pytest.raises(Exception):
         run.handle_running_job_api(job, api)
 

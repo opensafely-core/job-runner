@@ -24,7 +24,9 @@ from jobrunner.manage_jobs import (
 )
 from jobrunner.models import Job, State, StatusCode
 from jobrunner import job_executor
-from jobrunner.project import ( is_generate_cohort_command,)
+from jobrunner.project import (
+    is_generate_cohort_command,
+)
 
 
 log = logging.getLogger(__name__)
@@ -235,7 +237,9 @@ def job_to_job_definition(job):
 
     # Jobs which are running reusable actions pull their code from the reusable
     # action repo, all other jobs pull their code from the study repo
-    study = job_executor.Study(job.action_repo_url or job.repo_url, job.action_commit or job.commit)
+    study = job_executor.Study(
+        job.action_repo_url or job.repo_url, job.action_commit or job.commit
+    )
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
@@ -249,9 +253,18 @@ def job_to_job_definition(job):
         for name, pattern in named_patterns.items():
             outputs[pattern] = privacy_level
 
-    return job_executor.JobDefinition(job.id, study, job.workspace,
-            job.action, full_image, action_args, env, input_files, outputs,
-            allow_database_access)
+    return job_executor.JobDefinition(
+        job.id,
+        study,
+        job.workspace,
+        job.action,
+        full_image,
+        action_args,
+        env,
+        input_files,
+        outputs,
+        allow_database_access,
+    )
 
 
 def sync_job_status(job, api):
@@ -263,7 +276,7 @@ def sync_job_status(job, api):
     assert state != State.PENDING
 
     # TODO: implement workspace state tracking
-    #delete_obsolete_files(job, results)
+    # delete_obsolete_files(job, results)
 
     job.state = state
     job.outputs = results.outputs

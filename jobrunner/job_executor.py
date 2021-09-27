@@ -27,7 +27,9 @@ class JobDefinition:
     args: List[str]  # the arguments to pass to the Docker container
     env: Mapping[str, str]  # the environment variables to set for the Docker container
     inputs: List[str]  # the files that the job requires
-    output_spec: Mapping[str, str]  # the files that the job should produce (globs mapped to privacy levels)
+    output_spec: Mapping[
+        str, str
+    ]  # the files that the job should produce (globs mapped to privacy levels)
     allow_database_access: bool  # whether this job should have access to the database
 
 
@@ -108,7 +110,7 @@ class JobAPI(Protocol):
 
             Raises:
                 JobError: if there is a problem retrieving the status of the job
-         """
+        """
         ...
 
     def cleanup(self, job: JobDefinition) -> None:
@@ -134,8 +136,6 @@ class WorkspaceAPI(Protocol):
         This method must be idempotent; if any of the files specified doesn't exist then it must ignore them.
         """
         ...
-
-
 
 
 class NullJobAPI(JobAPI):
@@ -165,6 +165,3 @@ def get_job_api():
 
 def get_workspace_api():
     return NullWorkspaceAPI()
-
-
-
