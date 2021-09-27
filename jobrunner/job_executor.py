@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol, Mapping, List, Tuple, Optional
+from typing import Mapping, List, Tuple, Optional
 
 from jobrunner.models import State, StatusCode
 from jobrunner import config
@@ -43,7 +43,7 @@ class JobResults:
     image_id: str
 
 
-class JobAPI(Protocol):
+class JobAPI:
     def run(self, job: JobDefinition) -> None:
         """
         Run a job.
@@ -132,7 +132,7 @@ class JobAPI(Protocol):
         ...
 
 
-class WorkspaceAPI(Protocol):
+class WorkspaceAPI:
     def delete_files(self, workspace: str, privacy: Privacy, paths: [str]):
         """
         Delete files from a workspace.
@@ -158,7 +158,7 @@ class NullJobAPI(JobAPI):
         raise NotImplemented
 
 
-class NullWorkspaceAPI(Protocol):
+class NullWorkspaceAPI:
     def delete_files(self, workspace: str, privacy: Privacy, paths: [str]):
         raise NotImplemented
 
