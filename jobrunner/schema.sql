@@ -21,6 +21,7 @@ CREATE TABLE job (
     requires_outputs_from TEXT,
     wait_for_job_ids TEXT,
     run_command TEXT,
+    image_id TEXT,
     output_spec TEXT,
     outputs TEXT,
     unmatched_outputs TEXT,
