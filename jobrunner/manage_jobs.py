@@ -269,6 +269,7 @@ def finalise_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
     job.outputs = outputs
+    job.image_id = container_metadata["Image"]
 
     # Set the final state of the job
     if container_metadata["State"]["ExitCode"] != 0:

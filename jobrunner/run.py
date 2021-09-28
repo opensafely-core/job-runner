@@ -285,6 +285,7 @@ def sync_job_status(job, api):
     # delete_obsolete_files(job, results)
 
     job.state = state
+    job.image_id = results.image_id
     job.outputs = results.outputs
     set_message(job, results.status_message, results.status_code)
     update(job)
@@ -361,6 +362,7 @@ def set_state(job, state, message, code=None):
     update(
         job,
         update_fields=[
+            "image_id",
             "state",
             "status_message",
             "status_code",
