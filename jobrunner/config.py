@@ -169,3 +169,7 @@ if STATS_DATABASE_FILE:
     STATS_DATABASE_FILE = Path(STATS_DATABASE_FILE)
 
 STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
+
+
+# feature flag to enable new API abstraction
+EXECUTION_API = os.environ.get("EXECUTION_API", "false").lower() == "true"
