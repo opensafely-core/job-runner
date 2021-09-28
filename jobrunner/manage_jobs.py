@@ -329,10 +329,6 @@ def finalise_job(job):
     )
     delete_files(workspace_dir, existing_files, files_to_keep=job.output_files)
 
-    # Update manifest
-    manifest = read_manifest_file(workspace_dir)
-    update_manifest(manifest, job_metadata)
-
     # Copy out logs and medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
     if medium_privacy_dir:
@@ -346,12 +342,25 @@ def finalise_job(job):
                 copy_file(workspace_dir / filename, medium_privacy_dir / filename)
                 new_files.append(filename)
         delete_files(medium_privacy_dir, existing_files, files_to_keep=new_files)
-        write_manifest_file(medium_privacy_dir, manifest)
 
-    # Don't update the primary manifest until after we've deleted old files
-    # from both the high and medium privacy directories, else we risk losing
-    # track of old files if we get interrupted
-    write_manifest_file(workspace_dir, manifest)
+        # osrelease needs to be able to read the workspace name and repo URL from somewhere, in order to avoid the
+        # person doing the release having to enter all the details. So we write this rump manifest just into the
+        # medium privacy workspace. release-hatch is launched with this information already provided, so when osrelease
+        # has been removed we can stop doing this.
+        #
+        # We only really need to write this the first time that an action is run in a workspace, but it's easier to do
+        # it here every time than try to detect that. Writing this here every time also ensures that we get rid of old
+        # versions of the manifest that have no-longer-used-and-soon-to-be-out-of-date data in them (see the comment
+        # below).
+        write_manifest_file(
+            medium_privacy_dir, {"repo": job.repo_url, "workspace": job.workspace}
+        )
+
+    # We no longer use the manifest file in the high privacy workspace. Delete any old instances of it so that we're
+    # not left with an out-of-date version sitting around.
+    manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
+    if manifest_file.exists():
+        manifest_file.unlink()
 
     return job
 
@@ -535,52 +544,6 @@ def list_outputs_from_action(workspace, action):
     latest_job = ordered_jobs[0]
 
     return latest_job.output_files
-
-
-def read_manifest_file(workspace_dir):
-    """
-    Read the manifest of a given workspace, returning an empty manifest if none
-    found
-    """
-    try:
-        with open(workspace_dir / METADATA_DIR / MANIFEST_FILE) as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {"files": {}, "actions": {}}
-
-
-def update_manifest(manifest, job_metadata):
-    action = job_metadata["action"]
-    new_outputs = job_metadata["outputs"]
-    # Remove all files created by previous runs of this action, and any files
-    # created by other actions which are being overwritten by this action. This
-    # latter case should never occur during a "clean" run of a project because
-    # each output file should be unique across the project. However when
-    # iterating during development it's possible to move outputs between
-    # actions and hit this condition.
-    files = [
-        (name, details)
-        for (name, details) in manifest["files"].items()
-        if details["created_by_action"] != action and name not in new_outputs
-    ]
-    # Add newly created files
-    for filename, privacy_level in new_outputs.items():
-        files.append(
-            (
-                filename,
-                {"created_by_action": action, "privacy_level": privacy_level},
-            )
-        )
-    files.sort()
-    manifest["workspace"] = job_metadata["workspace"]
-    manifest["repo"] = job_metadata["repo_url"]
-    manifest["files"] = dict(files)
-    # Popping and re-adding means the action gets moved to the end of the dict
-    # so actions end up in the order they were run
-    manifest["actions"].pop(action, None)
-    manifest["actions"][action] = {
-        key: job_metadata[key] for key in KEYS_TO_LOG if job_metadata[key] is not None
-    }
 
 
 def write_manifest_file(workspace_dir, manifest):

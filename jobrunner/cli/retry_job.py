@@ -4,10 +4,9 @@ completion
 
 This only applies to (and only works for) jobs which failed with an
 Internal Error during the "finalise" step where we copy output files,
-dump logs, update the manifest etc. When this happens we don't
-automatically clean up the job's container and volume giving us an
-opportunity to fix the bug and try again without having to re-run the
-entire job.
+dump logs etc. When this happens we don't automatically clean up the
+job's container and volume giving us an opportunity to fix the bug and
+try again without having to re-run the entire job.
 
 To do this we simply put the job back into the RUNNING state and let the
 jobrunner pick it up again. We also need to update the job-server when we do

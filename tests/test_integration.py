@@ -121,7 +121,9 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     assert jobs["test_reusable_action"]["status"] == "succeeded"
     assert jobs["test_cancellation"]["status"] == "failed"
 
-    # Check that the manfiest contains what we expect
+    # Check that the manifest contains what we expect
+    # This is a subset of what used to be in the manifest, to support nicer UX for osrelease. See the comment in
+    # manage_jobs.finalize_job().
     manifest_file = (
         tmp_work_dir
         / "medium_privacy_workspaces_dir"
@@ -132,29 +134,6 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     manifest = json.load(manifest_file.open())
     assert manifest["workspace"] == "testing"
     assert manifest["repo"] == str(repo_path)
-    assert set(manifest["actions"]) == set(
-        [
-            "generate_cohort",
-            "generate_cohort_with_dummy_data",
-            "prepare_data_f",
-            "prepare_data_m",
-            "prepare_data_with_quote_in_filename",
-            "analyse_data",
-            "test_reusable_action",
-        ]
-    )
-
-    assert set(manifest["files"]) == set(
-        [
-            "counts.txt",
-            "male.csv",
-            "female.csv",
-            "qu'ote.csv",
-            "output/input.csv",
-            "output/input.backup.csv",
-            "output/extra/input.csv",
-        ]
-    )
 
 
 def commit_directory_contents(repo_path, directory):

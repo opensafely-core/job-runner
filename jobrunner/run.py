@@ -9,7 +9,6 @@ import random
 import sys
 import shlex
 import time
-from pathlib import Path
 
 from jobrunner import config
 from jobrunner.lib.database import find_where, select_values, update
@@ -24,10 +23,6 @@ from jobrunner.manage_jobs import (
     job_still_running,
     kill_job,
     start_job,
-    get_job_metadata,
-    read_manifest_file,
-    write_manifest_file,
-    update_manifest,
 )
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.project import (
