@@ -22,7 +22,7 @@ from jobrunner.manage_jobs import (
     finalise_job,
     job_still_running,
     kill_job,
-    start_job,
+    start_job, list_outputs_from_action,
 )
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.project import (
@@ -347,7 +347,7 @@ def job_to_job_definition(job):
 
     input_files = []
     for action in job.requires_outputs_from:
-        for filename in list_outputs_from_action(action):
+        for filename in list_outputs_from_action(job.workspace, action):
             input_files.append(filename)
 
     outputs = {}

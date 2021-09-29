@@ -25,7 +25,7 @@ JOB_DEFAULTS = {
     "action": "action_name",
     "repo_url": "opensafely/study",
     "workspace": "workspace",
-    "requires_outputs_from": [],
+    "requires_outputs_from": ["some-earlier-action"],
     "run_command": "python myscript.py",
     "output_spec": {},
 }
