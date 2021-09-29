@@ -403,7 +403,7 @@ def mark_job_as_completed(job):
         job.status_code = StatusCode.CANCELLED_BY_USER
     job.completed_at = int(time.time())
     log.debug("Updating full job record")
-    update(job)
+    update_job(job)
     log.debug("Update done")
     log.info(job.status_message, extra={"status_code": job.status_code})
 
@@ -419,18 +419,7 @@ def set_state(job, state, message, code=None):
     job.status_code = code
     job.updated_at = timestamp
     log.debug("Updating job status and timestamps")
-    update(
-        job,
-        update_fields=[
-            "image_id",
-            "state",
-            "status_message",
-            "status_code",
-            "updated_at",
-            "started_at",
-            "completed_at",
-        ],
-    )
+    update_job(job)
     log.debug("Update done")
     log.info(job.status_message, extra={"status_code": job.status_code})
 
@@ -442,7 +431,7 @@ def set_message(job, message, code=None):
         job.status_message = message
         job.status_code = code
         job.updated_at = timestamp
-        update(job, update_fields=["status_message", "status_code", "updated_at"])
+        update_job(job)
         log.info(job.status_message, extra={"status_code": job.status_code})
     # If the status message hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
@@ -450,7 +439,7 @@ def set_message(job, message, code=None):
     elif timestamp - job.updated_at >= 60:
         job.updated_at = timestamp
         log.debug("Updating job timestamp")
-        update(job, update_fields=["updated_at"])
+        update_job(job)
         log.debug("Update done")
         # For long running jobs we don't want to fill the logs up with "Job X
         # is still running" messages, but it is useful to have semi-regular
@@ -486,6 +475,12 @@ def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):
             if pattern.fullmatch(job.action):
                 return weight
     return 1
+
+
+def update_job(job):
+    # The cancelled field is written by the sync thread and we should never update it. The sync thread never updates
+    # any other fields after it has created the job, so we're always safe to modify them.
+    update(job, exclude_fields=["cancelled"])
 
 
 if __name__ == "__main__":

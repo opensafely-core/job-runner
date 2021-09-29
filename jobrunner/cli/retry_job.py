@@ -33,16 +33,7 @@ def main(partial_job_id):
     job.updated_at = int(time.time())
     print("\nUpdating job in database:")
     print(job)
-    update(
-        job,
-        update_fields=[
-            "state",
-            "status_message",
-            "status_code",
-            "completed_at",
-            "updated_at",
-        ],
-    )
+    update(job)
     print("\nPOSTing update to job-server")
     api_post("jobs", json=[job_to_remote_format(job)])
     print("\nDone")

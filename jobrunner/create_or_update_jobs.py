@@ -343,6 +343,9 @@ def related_jobs_exist(job_request):
 
 
 def set_cancelled_flag_for_actions(job_request_id, actions):
+    # It's important that we modify the Jobs in-place in the database rather than retrieving, updating and re-writing
+    # them. If we did the latter then we would risk dirty writes if the run thread modified a Job while we were
+    # working.
     update_where(
         Job,
         {"cancelled": True},

@@ -1,10 +1,10 @@
 """
 Super-crude ORM layer than works with dataclasses and implements just the bare
 minimum of database functions we need. There was some discussion earlier about
-avoiding heavywieght external dependencies like SQLAlchemy hence this little
+avoiding heavyweight external dependencies like SQLAlchemy hence this little
 piece of NIH-ism. However, given that we're going to be relying on external
 dependencies for YAML parsing it might make sense to replace this with
-something like SQLAlchemny, pinned to a known compromise-free version. The API
+something like SQLAlchemy, pinned to a known compromise-free version. The API
 surface area of this module is sufficiently small that swapping it out
 shouldn't be too large a job.
 """
@@ -28,10 +28,12 @@ def insert(item):
     get_connection().execute(sql, encode_field_values(fields, item))
 
 
-def update(item, update_fields=None):
+def update(item, exclude_fields=None):
     assert item.id
-    if update_fields is None:
-        update_fields = [f.name for f in dataclasses.fields(item)]
+    exclude_fields = exclude_fields or []
+    update_fields = [
+        f.name for f in dataclasses.fields(item) if f.name not in exclude_fields
+    ]
     update_dict = {f: getattr(item, f) for f in update_fields}
     update_where(item.__class__, update_dict, id=item.id)
 

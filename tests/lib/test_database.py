@@ -19,9 +19,20 @@ def test_update(tmp_work_dir):
     job = Job(id="foo123", action="foo")
     insert(job)
     job.action = "bar"
-    update(job, update_fields=["action"])
+    update(job)
     jobs = find_where(Job, id="foo123")
     assert jobs[0].action == "bar"
+
+
+def test_update_excluding_a_field(tmp_work_dir):
+    job = Job(id="foo123", action="foo", commit="commit-of-glory")
+    insert(job)
+    job.action = "bar"
+    job.commit = "commit-of-doom"
+    update(job, exclude_fields=["commit"])
+    jobs = find_where(Job, id="foo123")
+    assert jobs[0].action == "bar"
+    assert jobs[0].commit == "commit-of-glory"
 
 
 def test_select_values(tmp_work_dir):
