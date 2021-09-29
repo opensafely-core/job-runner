@@ -6,7 +6,6 @@ from jobrunner.lib.docker import (
 
 __all__ = ["get_system_stats", "DockerDiskSpaceError"]
 
-
 # Populated by calls to `register_command` below
 COMMANDS = []
 PARSERS = []
@@ -97,7 +96,7 @@ def parse_output_from_mpstat(output):
     # Average:       3   36.27    0.00   12.75    0.00    0.00    0.00    0.00    0.00   50.98
     prefix = "Average:"
     output = "\n".join(
-        line[len(prefix) :] for line in output.splitlines() if line.startswith(prefix)
+        line[len(prefix):] for line in output.splitlines() if line.startswith(prefix)
     )
     rows = _parse_table(output)
     rows = [

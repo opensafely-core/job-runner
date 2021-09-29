@@ -3,10 +3,9 @@ import secrets
 from copy import deepcopy
 
 from jobrunner.job_executor import ExecutorState, JobStatus, JobResults
-from jobrunner.models import Job, JobRequest, SavedJobRequest, State
 from jobrunner.lib.database import insert
 from jobrunner.manage_jobs import JobError
-
+from jobrunner.models import Job, JobRequest, SavedJobRequest, State
 
 JOB_REQUEST_DEFAULTS = {
     "repo_url": "repo",
@@ -162,4 +161,4 @@ class StubJobAPI:
 
 class TestWorkspaceAPI:
     def delete_files(self, workspace, privacy, paths):
-        raise NotImplemented
+        raise NotImplementedError

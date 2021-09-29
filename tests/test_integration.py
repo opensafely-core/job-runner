@@ -137,7 +137,11 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
 
 
 def commit_directory_contents(repo_path, directory):
-    env = {"GIT_WORK_TREE": directory, "GIT_DIR": repo_path, "GIT_CONFIG_GLOBAL": "/dev/null"}
+    env = {
+        "GIT_WORK_TREE": directory,
+        "GIT_DIR": repo_path,
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+    }
     subprocess_run(["git", "init", "--bare", "--quiet", repo_path], check=True)
     subprocess_run(
         ["git", "config", "user.email", "test@example.com"], check=True, env=env

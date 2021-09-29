@@ -56,7 +56,9 @@ def license_repo(tmp_path):
     repo_path = str(repo)
     subprocess_run(git + ["init"], cwd=repo_path, env=env)
     subprocess_run(git + ["add", "stata.lic"], cwd=repo_path, env=env)
-    subprocess_run(git + ["commit", "--no-gpg-sign", "-m", "test"], cwd=repo_path, env=env)
+    subprocess_run(
+        git + ["commit", "--no-gpg-sign", "-m", "test"], cwd=repo_path, env=env
+    )
     return repo_path
 
 

@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Mapping, List, Tuple, Optional
+from typing import List, Mapping, Optional, Tuple
 
 from jobrunner.models import State, StatusCode
-from jobrunner import config
 
 
 class Privacy(Enum):

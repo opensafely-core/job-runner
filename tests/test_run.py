@@ -1,13 +1,9 @@
-import random
 import pytest
 
-from jobrunner.models import State, StatusCode
+from jobrunner import config, run
 from jobrunner.job_executor import ExecutorState
 from jobrunner.manage_jobs import JobError
-from jobrunner import config
-from jobrunner.lib.database import transaction
-from jobrunner import run
-
+from jobrunner.models import State, StatusCode
 from tests.factories import StubJobAPI
 
 

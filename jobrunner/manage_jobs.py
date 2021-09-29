@@ -24,7 +24,7 @@ from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.models import SavedJobRequest, State, StatusCode, Job
+from jobrunner.models import Job, SavedJobRequest, State, StatusCode
 from jobrunner.project import (
     get_all_output_patterns_from_project_file,
     is_generate_cohort_command,
@@ -324,9 +324,7 @@ def finalise_job(job):
     # all existing outputs and then copy over the new ones, but this way we
     # don't delete anything until after we've copied the new outputs which is
     # safer in case anything goes wrong.
-    existing_files = list_outputs_from_action(
-        job.workspace, job.action
-    )
+    existing_files = list_outputs_from_action(job.workspace, job.action)
     delete_files(workspace_dir, existing_files, files_to_keep=job.output_files)
 
     # Copy out logs and medium privacy files

@@ -51,7 +51,7 @@ def test_create_or_update_jobs(tmp_work_dir):
         " --output-dir=."
     )
     assert j.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
-    assert j.status_message == None
+    assert j.status_message is None
     # Check no new jobs created from same JobRequest
     create_or_update_jobs(job_request)
     new_jobs = find_where(Job)
@@ -82,10 +82,10 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     assert j.repo_url == repo_url
     assert j.commit == bad_commit
     assert j.workspace == "1"
-    assert j.wait_for_job_ids == None
-    assert j.requires_outputs_from == None
-    assert j.run_command == None
-    assert j.output_spec == None
+    assert j.wait_for_job_ids is None
+    assert j.requires_outputs_from is None
+    assert j.run_command is None
+    assert j.output_spec is None
     assert (
         j.status_message
         == f"GitError: Error fetching commit {bad_commit} from {repo_url}"
@@ -161,10 +161,10 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     prepare_1_job = find_where(Job, action="prepare_data_1")[0]
     prepare_2_job = find_where(Job, action="prepare_data_2")[0]
     generate_job = find_where(Job, action="generate_cohort")[0]
-    assert analyse_job.cancelled == False
-    assert prepare_1_job.cancelled == True
-    assert prepare_2_job.cancelled == True
-    assert generate_job.cancelled == False
+    assert analyse_job.cancelled == 0
+    assert prepare_1_job.cancelled == 1
+    assert prepare_2_job.cancelled == 1
+    assert generate_job.cancelled == 0
 
 
 @pytest.mark.parametrize(

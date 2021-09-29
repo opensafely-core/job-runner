@@ -10,7 +10,7 @@ def test_job_resource_weights(tmp_path):
         """
         [my-workspace]
         some_action = 2.5
-        pattern[\d]+ = 4
+        pattern[\\d]+ = 4
         """
     )
     config_file = tmp_path / "config.ini"

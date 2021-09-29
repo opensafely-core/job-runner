@@ -6,11 +6,11 @@ updates its state as appropriate.
 import datetime
 import logging
 import random
-import sys
 import shlex
+import sys
 import time
 
-from jobrunner import config
+from jobrunner import config, job_executor
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner import job_executor
@@ -22,13 +22,11 @@ from jobrunner.manage_jobs import (
     finalise_job,
     job_still_running,
     kill_job,
-    start_job, list_outputs_from_action,
+    list_outputs_from_action,
+    start_job,
 )
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.project import (
-    is_generate_cohort_command,
-)
-
+from jobrunner.project import is_generate_cohort_command
 
 log = logging.getLogger(__name__)
 
