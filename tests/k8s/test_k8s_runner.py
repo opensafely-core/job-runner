@@ -227,13 +227,15 @@ def test_create_opensafely_job(monkeypatch):
     
     allow_network_access = True
     execute_job_image = 'ghcr.io/opensafely-core/cohortextractor:latest'
-    execute_job_command = ['generate_cohort', '--study-definition', 'study_definition', '--index-date-range', '2021-01-01 to 2021-02-01 by month', '--output-dir=output',
-                           '--output-dir=output', '--expectations-population=1']
+    execute_job_command = None
+    execute_job_arg = ['generate_cohort', '--study-definition', 'study_definition', '--index-date-range', '2021-01-01 to 2021-02-01 by month', '--output-dir=output',
+                       '--output-dir=output', '--expectations-population=1']
     execute_job_env = {'OPENSAFELY_BACKEND': 'graphnet', 'DATABASE_URL': 'mssql://dummy_user:dummy_password@dummy_server:1433/dummy_db'}
     
     jobs, ws_pv, _, job_pv, _ = create_opensafely_job("test_workspace", "test_job_id", "test_job_name",
                                                       "https://github.com/opensafely-core/test-public-repository.git",
-                                                      "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "")
+                                                      "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image, execute_job_command,
+                                                      execute_job_arg, execute_job_env)
     
     for job_name in jobs:
         assert_job_status(job_name, namespace, JobStatus.SUCCEEDED)
@@ -259,16 +261,24 @@ def test_create_opensafely_job_concurrent(monkeypatch):
     
     init_k8s_config()
     
+    allow_network_access = True
+    execute_job_image = 'busybox'
+    execute_job_command = ['/bin/sh', '-c']
+    execute_job_arg = [f"echo job; ls -R -a /workspace;"]
+    execute_job_env = {'OPENSAFELY_BACKEND': 'graphnet', 'DATABASE_URL': 'mssql://dummy_user:dummy_password@dummy_server:1433/dummy_db'}
+    
     # same workspace, same name, but different id
     workspace = "test_workspace"
     opensafely_job_name = "test_job_name"
     jobs1, ws_pv_1, ws_pvc_1, job_pv_1, job_pvc_1 = create_opensafely_job(workspace, "test_job_id_1", opensafely_job_name,
                                                                           "https://github.com/opensafely-core/test-public-repository.git",
-                                                                          "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "")
+                                                                          "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
+                                                                          execute_job_command, execute_job_arg, execute_job_env)
     
     jobs2, ws_pv_2, ws_pvc_2, job_pv_2, job_pvc_2 = create_opensafely_job(workspace, "test_job_id_2", opensafely_job_name,
                                                                           "https://github.com/opensafely-core/test-public-repository.git",
-                                                                          "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "")
+                                                                          "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
+                                                                          execute_job_command, execute_job_arg, execute_job_env)
     
     assert set(jobs1) != set(jobs2)
     assert ws_pv_1 == ws_pv_2
@@ -306,18 +316,26 @@ def test_create_opensafely_job_duplicated(monkeypatch):
     
     init_k8s_config()
     
+    allow_network_access = True
+    execute_job_image = 'busybox'
+    execute_job_command = ['/bin/sh', '-c']
+    execute_job_arg = [f"echo job; ls -R -a /workspace;"]
+    execute_job_env = {'OPENSAFELY_BACKEND': 'graphnet', 'DATABASE_URL': 'mssql://dummy_user:dummy_password@dummy_server:1433/dummy_db'}
+    
     # same workspace, same name, same id
     workspace = "test_workspace"
     opensafely_job_name = "test_job_name"
     opensafely_job_id = "test_job_id"
     jobs1, ws_pv_1, ws_pvc_1, job_pv_1, job_pvc_1 = create_opensafely_job(workspace, opensafely_job_id, opensafely_job_name,
                                                                           "https://github.com/opensafely-core/test-public-repository.git",
-                                                                          "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "")
+                                                                          "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
+                                                                          execute_job_command, execute_job_arg, execute_job_env)
     
     # should not return error
     jobs2, ws_pv_2, ws_pvc_2, job_pv_2, job_pvc_2 = create_opensafely_job(workspace, opensafely_job_id, opensafely_job_name,
                                                                           "https://github.com/opensafely-core/test-public-repository.git",
-                                                                          "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "")
+                                                                          "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
+                                                                          execute_job_command, execute_job_arg, execute_job_env)
     
     for job_name_1 in jobs1:
         assert_job_status(job_name_1, namespace, JobStatus.SUCCEEDED)

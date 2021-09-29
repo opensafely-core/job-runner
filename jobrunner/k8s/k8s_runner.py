@@ -31,7 +31,8 @@ def init_k8s_config():
 
 
 # TODO to be split into multiple functions: prepare / execute / finalize
-def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name, repo_url, commit_sha, inputs):
+def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name, repo_url, commit_sha, inputs, allow_network_access, execute_job_image,
+                          execute_job_command, execute_job_arg, execute_job_env):
     """
     1. create pv and pvc (ws_pvc) for the workspace if not exist
     2. check if the job exists, skip the job if already created
@@ -340,7 +341,7 @@ def create_k8s_job(
 
 
 def create_network_policy(namespace, address_ports):
-    if address_ports and len(address_ports)>0:
+    if address_ports and len(address_ports) > 0:
         np_name = convert_k8s_name(f"allow-{'-'.join([f'{ip}:{port}' for ip, port in address_ports])}")
     else:
         np_name = convert_k8s_name(f"deny-all")
@@ -427,14 +428,18 @@ def read_k8s_job_status(job_name: str, namespace: str) -> JobStatus:
     # Active
     pods = core_v1.list_namespaced_pod(namespace=namespace)
     job_pods_status = [p.status for p in pods.items if p.metadata.labels.get('job-name') == job_name]  # get must be used to avoid error when key not found
-    init_status = job_pods_status[-1].init_container_statuses
-    if init_status and len(init_status) > 0:
-        waiting = init_status[-1].state.waiting
+
+    init_container_statuses = job_pods_status[-1].init_container_statuses
+    if init_container_statuses and len(init_container_statuses) > 0:
+        waiting = init_container_statuses[-1].state.waiting
         if waiting and waiting.reason == 'ImagePullBackOff':
             return JobStatus.FAILED  # Fail to pull the image in the init_containers
-    waiting = job_pods_status[-1].container_statuses[-1].state.waiting
-    if waiting and waiting.reason == 'ImagePullBackOff':
-        return JobStatus.FAILED  # Fail to pull the image in the containers
+    
+    container_statuses = job_pods_status[-1].container_statuses
+    if container_statuses and len(container_statuses) > 0:
+        waiting = container_statuses[-1].state.waiting
+        if waiting and waiting.reason == 'ImagePullBackOff':
+            return JobStatus.FAILED  # Fail to pull the image in the containers
     
     return JobStatus.RUNNING
 
