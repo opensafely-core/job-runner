@@ -518,7 +518,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
     def git_clone(repo_url, cwd):
         cmd = ["git", "clone", "--depth=1", repo_url, "repo"]
         # GIT_TERMINAL_PROMPT=0 means it will fail if it requires auth. This
-        # alows us to retry with an ssh url on linux/mac, as they would
+        # allows us to retry with an ssh url on linux/mac, as they would
         # generally prompt given an https url.
         result = subprocess_run(
             cmd,
