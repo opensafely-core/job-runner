@@ -85,9 +85,10 @@ def test_job_env(monkeypatch):
     create_k8s_job(job, namespace, image, command, args, env, storage, pod_labels, image_pull_policy="Never")
     
     # assert
-    assert_job_status(job, namespace, JobStatus.SUCCEEDED)
+    status = await_job_status(job, namespace)
     logs = read_log(job, namespace)
     print(logs)
+    assert status == JobStatus.SUCCEEDED
     log = list(logs.values())[0]
     for k, v in env.items():
         assert f"{k}={v}" in log
@@ -145,11 +146,14 @@ def test_job_network(monkeypatch):
     # create_k8s_job(job_google, namespace, image, command, args, {}, storage, network_labels, image_pull_policy="Never")
     # jobs.append(job_google)
     
-    assert_job_status(job_allowed, namespace, JobStatus.SUCCEEDED)
-    assert_job_status(job_blocked, namespace, JobStatus.FAILED)
+    status1 = await_job_status(job_allowed, namespace)
+    status2 = await_job_status(job_blocked, namespace)
     
     for job_name in jobs:
         log_k8s_job(job_name, namespace)
+    
+    assert status1 == JobStatus.SUCCEEDED
+    assert status2 == JobStatus.FAILED
     
     # clean up
     delete_namespace(namespace)
@@ -199,8 +203,9 @@ def test_job_sequence(monkeypatch):
     
     last_completion_time = None
     for job_name in jobs:
-        assert_job_status(job_name, namespace, JobStatus.SUCCEEDED)
+        status = await_job_status(job_name, namespace)
         log_k8s_job(job_name, namespace)
+        assert status == JobStatus.SUCCEEDED
         
         status = batch_v1.read_namespaced_job(job_name, namespace=namespace).status
         if last_completion_time:
@@ -214,7 +219,7 @@ def test_job_sequence(monkeypatch):
 
 @pytest.mark.slow_test
 @pytest.mark.needs_local_k8s
-def test_create_opensafely_job(monkeypatch):
+def test_corhortextraction(monkeypatch):
     namespace = "opensafely-test"
     
     monkeypatch.setattr("jobrunner.config.K8S_USE_LOCAL_CONFIG", 1)
@@ -222,35 +227,48 @@ def test_create_opensafely_job(monkeypatch):
     monkeypatch.setattr("jobrunner.config.K8S_NAMESPACE", namespace)
     monkeypatch.setattr("jobrunner.config.K8S_JOB_RUNNER_IMAGE", "opensafely-job-runner:latest")
     monkeypatch.setattr("jobrunner.config.K8S_STORAGE_SIZE", "100M")
+    monkeypatch.setattr("jobrunner.config.K8S_EXECUTION_HOST_WHITELIST", "127.0.0.1:1433")
     
     init_k8s_config()
+    
+    import configparser
+    config = configparser.RawConfigParser()
+    config.read('private_test_config.ini')
+    
+    workspace_name = "test_workspace"
+    opensafely_job_id = "test_job_id"
+    opensafely_job_name = "test_job_name"
+    repo_url = "https://github.com/graphnet-opensafely/opensafely-SRO-Measures.git"
+    commit_sha = "8cfdfbaadbc63c7b5023609731f4a591e3e279fa"
+    private_repo_access_token = config.get('git', 'PRIVATE_REPO_ACCESS_TOKEN')
+    inputs = ""
     
     allow_network_access = True
     execute_job_image = 'ghcr.io/opensafely-core/cohortextractor:latest'
     execute_job_command = None
     execute_job_arg = ['generate_cohort', '--study-definition', 'study_definition', '--index-date-range', '2021-01-01 to 2021-02-01 by month', '--output-dir=output',
                        '--output-dir=output', '--expectations-population=1']
-    execute_job_env = {'OPENSAFELY_BACKEND': 'graphnet', 'DATABASE_URL': 'mssql://dummy_user:dummy_password@dummy_server:1433/dummy_db'}
+    execute_job_env = {'OPENSAFELY_BACKEND': 'graphnet', 'DATABASE_URL': 'mssql://dummy_user:dummy_password@127.0.0.1:1433/dummy_db'}
     
-    jobs, ws_pv, _, job_pv, _ = create_opensafely_job("test_workspace", "test_job_id", "test_job_name",
-                                                      "https://github.com/opensafely-core/test-public-repository.git",
-                                                      "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image, execute_job_command,
-                                                      execute_job_arg, execute_job_env)
+    jobs, ws_pv, _, job_pv, _ = create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name,
+                                                      repo_url, private_repo_access_token, commit_sha, inputs,
+                                                      allow_network_access, execute_job_image, execute_job_command, execute_job_arg, execute_job_env)
     
     for job_name in jobs:
-        assert_job_status(job_name, namespace, JobStatus.SUCCEEDED)
+        status = await_job_status(job_name, namespace)
         log_k8s_job(job_name, namespace)
+        assert status == JobStatus.SUCCEEDED
     
     # clean up
-    delete_namespace(namespace)
-    
-    delete_persistent_volume(ws_pv)
-    delete_persistent_volume(job_pv)
+    # delete_namespace(namespace)
+    #
+    # delete_persistent_volume(ws_pv)
+    # delete_persistent_volume(job_pv)
 
 
 @pytest.mark.slow_test
 @pytest.mark.needs_local_k8s
-def test_create_opensafely_job_concurrent(monkeypatch):
+def test_create_concurrent_jobs(monkeypatch):
     namespace = "opensafely-test"
     
     monkeypatch.setattr("jobrunner.config.K8S_USE_LOCAL_CONFIG", 1)
@@ -271,12 +289,12 @@ def test_create_opensafely_job_concurrent(monkeypatch):
     workspace = "test_workspace"
     opensafely_job_name = "test_job_name"
     jobs1, ws_pv_1, ws_pvc_1, job_pv_1, job_pvc_1 = create_opensafely_job(workspace, "test_job_id_1", opensafely_job_name,
-                                                                          "https://github.com/opensafely-core/test-public-repository.git",
+                                                                          "https://github.com/opensafely-core/test-public-repository.git", '',
                                                                           "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
                                                                           execute_job_command, execute_job_arg, execute_job_env)
     
     jobs2, ws_pv_2, ws_pvc_2, job_pv_2, job_pvc_2 = create_opensafely_job(workspace, "test_job_id_2", opensafely_job_name,
-                                                                          "https://github.com/opensafely-core/test-public-repository.git",
+                                                                          "https://github.com/opensafely-core/test-public-repository.git", '',
                                                                           "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
                                                                           execute_job_command, execute_job_arg, execute_job_env)
     
@@ -287,12 +305,14 @@ def test_create_opensafely_job_concurrent(monkeypatch):
     assert job_pvc_1 != job_pvc_2
     
     for job_name_1 in jobs1:
-        assert_job_status(job_name_1, namespace, JobStatus.SUCCEEDED)
+        status = await_job_status(job_name_1, namespace)
         log_k8s_job(job_name_1, namespace)
+        assert status == JobStatus.SUCCEEDED
     
     for job_name_2 in jobs2:
-        assert_job_status(job_name_2, namespace, JobStatus.SUCCEEDED)
+        status = await_job_status(job_name_2, namespace)
         log_k8s_job(job_name_2, namespace)
+        assert status == JobStatus.SUCCEEDED
     
     # clean up
     delete_namespace(namespace)
@@ -305,7 +325,7 @@ def test_create_opensafely_job_concurrent(monkeypatch):
 
 @pytest.mark.slow_test
 @pytest.mark.needs_local_k8s
-def test_create_opensafely_job_duplicated(monkeypatch):
+def test_create_duplicated_job(monkeypatch):
     namespace = "opensafely-test"
     
     monkeypatch.setattr("jobrunner.config.K8S_USE_LOCAL_CONFIG", 1)
@@ -327,23 +347,25 @@ def test_create_opensafely_job_duplicated(monkeypatch):
     opensafely_job_name = "test_job_name"
     opensafely_job_id = "test_job_id"
     jobs1, ws_pv_1, ws_pvc_1, job_pv_1, job_pvc_1 = create_opensafely_job(workspace, opensafely_job_id, opensafely_job_name,
-                                                                          "https://github.com/opensafely-core/test-public-repository.git",
+                                                                          "https://github.com/opensafely-core/test-public-repository.git", '',
                                                                           "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
                                                                           execute_job_command, execute_job_arg, execute_job_env)
     
     # should not return error
     jobs2, ws_pv_2, ws_pvc_2, job_pv_2, job_pvc_2 = create_opensafely_job(workspace, opensafely_job_id, opensafely_job_name,
-                                                                          "https://github.com/opensafely-core/test-public-repository.git",
+                                                                          "https://github.com/opensafely-core/test-public-repository.git", '',
                                                                           "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
                                                                           execute_job_command, execute_job_arg, execute_job_env)
     
     for job_name_1 in jobs1:
-        assert_job_status(job_name_1, namespace, JobStatus.SUCCEEDED)
+        status = await_job_status(job_name_1, namespace)
+        assert status == JobStatus.SUCCEEDED
         log_k8s_job(job_name_1, namespace)
     
     for job_name_2 in jobs2:
-        assert_job_status(job_name_2, namespace, JobStatus.SUCCEEDED)
+        status = await_job_status(job_name_2, namespace)
         log_k8s_job(job_name_2, namespace)
+        assert status == JobStatus.SUCCEEDED
     
     # clean up
     delete_namespace(namespace)
@@ -353,15 +375,14 @@ def test_create_opensafely_job_duplicated(monkeypatch):
     delete_persistent_volume(job_pv_2)
 
 
-def assert_job_status(job_name, namespace, expected_status):
+def await_job_status(job_name, namespace):
     # describe: read the status of the job until succeeded or failed
     while True:
         status = read_k8s_job_status(job_name, namespace)
         if status.completed():
             print("job completed")
-            break
+            return status
         time.sleep(.5)
-    assert status == expected_status
 
 
 def delete_persistent_volume(pv_name):
@@ -398,8 +419,8 @@ def log_k8s_job(job_name: str, namespace: str):
     print("-" * 10, "start of log", job_name, "-" * 10, "\n")
     logs = read_log(job_name, namespace)
     for (pod_name, c), log in logs.items():
-        print(f"--start of log for container {c} in {pod_name}")
+        print(f"--Log {pod_name}/{c} start:")
         print(log)
-        print(f"--end of log for container {c} in {pod_name}")
+        print(f"--Log {pod_name}/{c} end\n")
     
     print("-" * 10, "end of log", job_name, "-" * 10, "\n")

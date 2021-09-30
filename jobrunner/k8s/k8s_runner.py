@@ -31,8 +31,8 @@ def init_k8s_config():
 
 
 # TODO to be split into multiple functions: prepare / execute / finalize
-def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name, repo_url, commit_sha, inputs, allow_network_access, execute_job_image,
-                          execute_job_command, execute_job_arg, execute_job_env):
+def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name, repo_url, private_repo_access_token, commit_sha, inputs, allow_network_access,
+                          execute_job_image, execute_job_command, execute_job_arg, execute_job_env):
     """
     1. create pv and pvc (ws_pvc) for the workspace if not exist
     2. check if the job exists, skip the job if already created
@@ -46,6 +46,7 @@ def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name
     namespace = config.K8S_NAMESPACE
     jobrunner_image = config.K8S_JOB_RUNNER_IMAGE
     size = config.K8S_STORAGE_SIZE
+    whitelist = config.K8S_EXECUTION_HOST_WHITELIST
     
     ws_pv = convert_k8s_name(workspace_name, "pv")
     ws_pvc = convert_k8s_name(workspace_name, "pvc")
@@ -60,44 +61,52 @@ def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name
     create_pvc(ws_pv, ws_pvc, storage_class, namespace, size)
     create_pvc(job_pv, job_pvc, storage_class, namespace, size)
     
+    whitelist_network_labels = create_network_policy(namespace, [ip_port.split(":") for ip_port in whitelist.split(",")] if len(whitelist.strip()) > 0 else [])
+    deny_all_network_labels = create_network_policy(namespace, [])
+    
     ws_dir = "/ws_volume"
     job_dir = "/workspace"
     
     jobs = []
+    
+    image_pull_policy = "Never" if config.K8S_USE_LOCAL_CONFIG else "Always"
     
     # Prepare
     prepare_job_name = convert_k8s_name(opensafely_job_name, "prepare", additional_hash=opensafely_job_id)
     repos_dir = ws_dir + "/repos"
     command = ['python', '-m', 'jobrunner.k8s.pre']
     args = [repo_url, commit_sha, repos_dir, job_dir, inputs]
+    env = {'PRIVATE_REPO_ACCESS_TOKEN': private_repo_access_token}
     storages = [
         (ws_pvc, ws_dir, False),
         (job_pvc, job_dir, True),
     ]
-    create_k8s_job(prepare_job_name, namespace, jobrunner_image, command, args, {}, storages, {}, image_pull_policy="Never" if config.K8S_USE_LOCAL_CONFIG else "Always")
+    create_k8s_job(prepare_job_name, namespace, jobrunner_image, command, args, env, storages, {}, image_pull_policy=image_pull_policy)
     jobs.append(prepare_job_name)
     
-    # TODO Execute
+    # Execute
     execute_job_name = convert_k8s_name(opensafely_job_name, "execute", additional_hash=opensafely_job_id)
-    command = ['/bin/sh', '-c']
-    args = [f"echo job; ls -R -a {job_dir};"]
+    command = execute_job_command
+    args = execute_job_arg
     storages = [
         (job_pvc, job_dir, True),
     ]
-    create_k8s_job(execute_job_name, namespace, 'busybox', command, args, {}, storages, {}, depends_on=prepare_job_name,
-                   image_pull_policy="Never" if config.K8S_USE_LOCAL_CONFIG else "Always")
+    env = execute_job_env
+    network_labels = whitelist_network_labels if allow_network_access else deny_all_network_labels
+    create_k8s_job(execute_job_name, namespace, execute_job_image, command, args, env, storages, network_labels, depends_on=prepare_job_name,
+                   image_pull_policy=image_pull_policy)
     jobs.append(execute_job_name)
     
     # TODO Finalize
     finalize_job_name = convert_k8s_name(opensafely_job_name, "finalize", additional_hash=opensafely_job_id)
     command = ['/bin/sh', '-c']
-    args = [f"echo job; ls -R -a {job_dir}; echo ws; ls -R -a {ws_dir}; echo done"]
+    args = [f"echo finalize; ls -R -a {job_dir}; echo ws; ls -R -a {ws_dir}; echo done"]
     storages = [
         (ws_pvc, ws_dir, False),
         (job_pvc, job_dir, True),
     ]
     create_k8s_job(finalize_job_name, namespace, 'busybox', command, args, {}, storages, {}, depends_on=execute_job_name,
-                   image_pull_policy="Never" if config.K8S_USE_LOCAL_CONFIG else "Always")
+                   image_pull_policy=image_pull_policy)
     jobs.append(finalize_job_name)
     
     return jobs, ws_pv, ws_pvc, job_pv, job_pvc
@@ -428,7 +437,7 @@ def read_k8s_job_status(job_name: str, namespace: str) -> JobStatus:
     # Active
     pods = core_v1.list_namespaced_pod(namespace=namespace)
     job_pods_status = [p.status for p in pods.items if p.metadata.labels.get('job-name') == job_name]  # get must be used to avoid error when key not found
-
+    
     init_container_statuses = job_pods_status[-1].init_container_statuses
     if init_container_statuses and len(init_container_statuses) > 0:
         waiting = init_container_statuses[-1].state.waiting
@@ -465,14 +474,10 @@ def read_log(job_name: str, namespace: str) -> Mapping[Tuple[str, str], str]:
     logs = {}
     for pod_name in job_pod_names:
         for c in all_containers:
-            print(f"--log for container {c} in {pod_name}")
             try:
                 log = core_v1.read_namespaced_pod_log(pod_name, namespace=namespace, container=c)
                 logs[(pod_name, c)] = log
-                print(log)
             except Exception as e:
                 print(e)
-            print(f"--end")
     
-    print("-" * 10, "end of log", job_name, "-" * 10, "\n")
     return logs

@@ -23,3 +23,4 @@ private-*
 .env*
 /job_volume/
 /tmp/
+/tests/k8s/private_test_config.ini

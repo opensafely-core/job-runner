@@ -188,3 +188,6 @@ K8S_JOB_RUNNER_IMAGE = os.environ.get("K8S_JOB_RUNNER_IMAGE", "ghcr.io/opensafel
 
 # Location of the image of the job runner
 K8S_STORAGE_SIZE = os.environ.get("K8S_STORAGE_SIZE", "20Gi")
+
+# The comma separated list of IP:PORT to be whitelisted by the execution job when `allow_database_access` is True
+K8S_EXECUTION_HOST_WHITELIST = os.environ.get("K8S_EXECUTION_HOST_WHITELIST", "")
