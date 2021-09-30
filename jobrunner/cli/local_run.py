@@ -200,11 +200,7 @@ def create_and_run_jobs(
     # It's more helpful in this context to have things consistent
     config.RANDOMISE_JOB_ORDER = False
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
-    # Append a random value so that multiple runs in the same process will each
-    # get their own unique in-memory database. This is only really relevant
-    # during testing as we never do mutliple runs in the same process
-    # otherwise.
-    config.DATABASE_FILE = f":memory:{random.randrange(sys.maxsize)}"
+    config.DATABASE_FILE = project_dir / "metadata" / "db.sqlite"
     config.TMP_DIR = temp_dir
     config.JOB_LOG_DIR = temp_dir / "logs"
     config.BACKEND = "expectations"
