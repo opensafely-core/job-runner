@@ -278,19 +278,22 @@ def handle_job_api(job, api):
 
 
 def save_results(job, results):
-    """Example the results of the execution and update the job accordingly."""
+    """Extract the results of the execution and update the job accordingly."""
 
     # this logic is adapted directly from jobrunner.manage_jobs.finalize_job()
     job.outputs = results.outputs
 
+    message = None
+    code = None
+
     # Set the final state of the job
     if results.exit_code != 0:
         job.state = State.FAILED
-        job.status_message = "Job exited with an error code"
-        job.status_code = StatusCode.NONZERO_EXIT
+        message = "Job exited with an error code"
+        code = StatusCode.NONZERO_EXIT
     elif results.unmatched_patterns:
         job.state = State.FAILED
-        job.status_message = "No outputs found matching patterns:\n - {}".format(
+        message = "No outputs found matching patterns:\n - {}".format(
             "\n - ".join(results.unmatched_patterns)
         )
         # If the job fails because an output was missing its very useful to
@@ -300,9 +303,9 @@ def save_results(job, results):
         # TODO:  job.unmatched_outputs = ???
     else:
         job.state = State.SUCCEEDED
-        job.status_message = "Completed successfully"
+        message = "Completed successfully"
 
-    set_message(job, results.status_message, results.status_code)
+    set_message(job, message, code)
 
 
 def job_to_job_definition(job):
