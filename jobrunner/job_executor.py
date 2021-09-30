@@ -34,14 +34,13 @@ class JobDefinition:
 
 
 class ExecutorState(Enum):
-    PENDING = "pending"
     PREPARING = "preparing"
     PREPARED = "prepared"
     EXECUTING = "executing"
     EXECUTED = "executed"
     FINALIZING = "finalizing"
     FINALIZED = "finalized"
-    GONE = "gone"
+    UNKNOWN = "unknown"
     ERROR = "error"
 
 
@@ -81,11 +80,11 @@ class JobAPI:
 
     def prepare(self, job: JobDefinition) -> JobStatus:
         """
-        Launch a prepare task for a job, transitioning from PENDING to PREPARING.
+        Launch a prepare task for a job, transitioning to the initial PREPARING state.
 
         1. Validate the JobDefinition. If there are errors, return an ERROR state with message.
 
-        2. Check the resources are available to prepare the job. If not, return the PENDING state with an appropriate
+        2. Check the resources are available to prepare the job. If not, return the UNKNOWN state with an appropriate
            message.
 
         3. Create an ephemeral workspace to use for executing this job. This is expected to be a volume mounted into the
@@ -180,15 +179,15 @@ class JobAPI:
 
     def cleanup(self, job: JobDefinition) -> JobStatus:
         """
-        Clean up any remaining state for a finished job, transitioning to the GONE state.
+        Clean up any remaining state for a finished job, transitioning to the UNKNOWN state.
 
         1. Initiate the cleanup, do not wait for it to complete.
 
-        2. Return the GONE status.
+        2. Return the UNKNOWN status.
 
         This method must be idempotent; it will be called at least once for every finished job. The implementation
         may defer resource cleanup to this method if necessary in order to correctly implement idempotency of
-        get_status() or get_results(). If the job is unknown, it should still return GONE successfully.
+        get_status() or get_results(). If the job is unknown, it should still return UNKNOWN successfully.
 
         This method will not be called for a job that raises an unexpected exception from JobAPI in order
         to facilitate debugging of unexpected failures. It may therefore be necessary for the backend to provide
@@ -199,7 +198,7 @@ class JobAPI:
         """
         Return the current status of a job.
 
-        1. Check the job is known to the system. If not, return the PENDING state.
+        1. Check the job is known to the system. If not, return the UNKNOWN state.
 
         2. Return the current state of the job from the executors perspective.
 

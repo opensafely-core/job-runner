@@ -209,8 +209,8 @@ def handle_job_api(job, api):
         return
 
     # ok, handle the state transitions that are our responsibility
-    if old_status.state == ExecutorState.PENDING:
-        # new job
+    if old_status.state == ExecutorState.UNKNOWN:
+        # a new job
 
         # check dependencies
         awaited_states = get_states_of_awaited_jobs(job)
@@ -240,7 +240,7 @@ def handle_job_api(job, api):
         new_status = api.finalize(definition)
 
     elif old_status.state == ExecutorState.FINALIZED:
-        # final state - we have we have finished!
+        # final state - we have finished!
         results = api.get_results(definition)
         # TODO: implement workspace API
         # delete_obsolete_files(job, results)
@@ -251,7 +251,7 @@ def handle_job_api(job, api):
         return
 
 
-    # following logic is common to all non final transitions
+    # following logic is common to all non-final transitions
 
     if new_status.state == old_status.state:
         # no change in state, i.e. back pressure
@@ -281,31 +281,31 @@ def save_results(job, results):
     """Extract the results of the execution and update the job accordingly."""
 
     # this logic is adapted directly from jobrunner.manage_jobs.finalize_job()
-    job.outputs = results.outputs
-
-    message = None
-    code = None
 
     # Set the final state of the job
     if results.exit_code != 0:
         job.state = State.FAILED
-        message = "Job exited with an error code"
-        code = StatusCode.NONZERO_EXIT
+        job.status_message = "Job exited with an error code"
+        job.status_code = StatusCode.NONZERO_EXIT
     elif results.unmatched_patterns:
         job.state = State.FAILED
-        message = "No outputs found matching patterns:\n - {}".format(
+        job.status_message = "No outputs found matching patterns:\n - {}".format(
             "\n - ".join(results.unmatched_patterns)
         )
         # If the job fails because an output was missing its very useful to
         # show the user what files were created as often the issue is just a
         # typo
 
+        # Can we figure these out from job.outputs and project.yaml? Do we do
+        # it here or just in local run?  
         # TODO:  job.unmatched_outputs = ???
     else:
         job.state = State.SUCCEEDED
-        message = "Completed successfully"
+        job.status_message = "Completed successfully"
 
-    set_message(job, message, code)
+    job.outputs = results.outputs
+    job.updated_at = int(time.time())
+    update(job)
 
 
 def job_to_job_definition(job):
