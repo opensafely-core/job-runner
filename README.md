@@ -128,11 +128,11 @@ environment variables:
 ```sh
 # A location where cohort CSVs (one row per patient) should be
 # stored. This folder must exist.
-OPENSAFELY_HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
+HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
 
 # A location where script outputs (some for publication) should be
 # stored
-OPENSAFELY_MEDIUM_PRIVACY_STORAGE_BASE=/tmp/outputs/medium_security
+MEDIUM_PRIVACY_STORAGE_BASE=/tmp/outputs/medium_security
 ```
 ## Project.yaml
 
