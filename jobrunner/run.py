@@ -14,6 +14,8 @@ from pathlib import Path
 from jobrunner import config
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
+from jobrunner import job_executor
+from jobrunner.job_executor import ExecutorState
 from jobrunner.manage_jobs import (
     BrokenContainerError,
     JobError,
@@ -172,9 +174,10 @@ def handle_active_jobs_api(api, active_jobs):
                 # might recover better.
                 raise
 
+
 # we do not control the tranisition from these states, the executor does
 STABLE_STATES = [
-    ExecutorState.PREPARING, 
+    ExecutorState.PREPARING,
     ExecutorState.EXECUTING,
     ExecutorState.FINALIZING,
 ]
@@ -211,6 +214,8 @@ def handle_job_api(job, api):
     # ok, handle the state transitions that are our responsibility
     if old_status.state == ExecutorState.UNKNOWN:
         # a new job
+        if job.state == State.RUNNING:
+            log.warning("Got UNKNOWN state for a job we thought was RUNNING")
 
         # check dependencies
         awaited_states = get_states_of_awaited_jobs(job)
@@ -250,21 +255,22 @@ def handle_job_api(job, api):
         # we are done here
         return
 
-
     # following logic is common to all non-final transitions
 
     if new_status.state == old_status.state:
         # no change in state, i.e. back pressure
-        set_message(job, new_status.message, code=StatusCode.WAITING_ON_WORKERS)
+        set_message(
+            job, "Waiting on available resources", code=StatusCode.WAITING_ON_WORKERS
+        )
 
     elif new_status.state == next_state:
         # successful state change to the expected next state
-        message = new_status.state.value.title()
-        if old_status == ExecutorState.PENDING:
-            # we have started!
-            mark_job_as_running(job, message)
-        else:
-            set_message(job, message)
+        if new_status.state == ExecutorState.PREPARING:
+            job.state = State.RUNNING
+        elif job.state != State.RUNNING:
+            # got an ExecutorState that should mean the job.state is RUNNING, but it is not
+            log.warning("Got {new_status.state} for job we thought was {job.state}")
+        set_message(job, new_status.state.value.title())
 
     elif new_status.state == ExecutorState.ERROR:
         # all transitions can go straight to error
@@ -273,7 +279,7 @@ def handle_job_api(job, api):
 
     else:
         raise Exception(
-            f"unexpected state transition from {old_status.state} to {new_status.state}"
+            f"unexpected state transition from {old_status.state} to {new_status.state}: {new_status.message}"
         )
 
 
@@ -297,7 +303,7 @@ def save_results(job, results):
         # typo
 
         # Can we figure these out from job.outputs and project.yaml? Do we do
-        # it here or just in local run?  
+        # it here or just in local run?
         # TODO:  job.unmatched_outputs = ???
     else:
         job.state = State.SUCCEEDED

@@ -47,7 +47,7 @@ class ExecutorState(Enum):
 @dataclass
 class JobStatus:
     state: ExecutorState
-    message: Optional[str]
+    message: Optional[str] = None
 
 
 @dataclass
@@ -67,8 +67,9 @@ class JobAPI:
 
     They should return either:
      - the next state if successful
-     - the current state to indicate back pressure and to retry later
      - the ERROR state with an appropriate message if something has gone wrong.
+     - the current state if is different from the expected state, with a message
+     - the initial state to indicate back pressure and to retry later.
 
     Given the long running nature of jobs, it is an asychronous API, and calls should not block for a more than a few
     seconds.
@@ -84,13 +85,16 @@ class JobAPI:
 
         1. Validate the JobDefinition. If there are errors, return an ERROR state with message.
 
-        2. Check the resources are available to prepare the job. If not, return the UNKNOWN state with an appropriate
+        2. Check the job is currently in UNKNOWN state. IF not return its current state with a message indicated invalid
+           state.
+
+        3. Check the resources are available to prepare the job. If not, return the UNKNOWN state with an appropriate
            message.
 
-        3. Create an ephemeral workspace to use for executing this job. This is expected to be a volume mounted into the
+        4. Create an ephemeral workspace to use for executing this job. This is expected to be a volume mounted into the
            container, but other implementations are allowed.
 
-        4. Launch a prepare task asynchronously. If launched successfully, return the PREPARING state. If not, return an
+        5. Launch a prepare task asynchronously. If launched successfully, return the PREPARING state. If not, return an
            ERROR state with message.
 
         The prepare task must do the following:
@@ -111,13 +115,15 @@ class JobAPI:
         """
         Launch the execution of a job that has been prepared, transitioning from PREPARED to EXECUTING.
 
-        1. Validate the the ephememeral workspace created by prepare for this job exists.  If not, return an ERROR
+        1. Check the job is in the PREPARED state. If not, return its current state with a message.
+
+        2. Validate the the ephememeral workspace created by prepare for this job exists.  If not, return an ERROR
            state with message.
 
-        2. Check there are resources availabe to execute the job. If not, return PREPARED status with an appropriate
+        3. Check there are resources availabe to execute the job. If not, return PREPARED status with an appropriate
            message.
 
-        3. Launch the job execution task asynchronously. If launched successfully, return the EXECUTING state. If not,
+        4. Launch the job execution task asynchronously. If launched successfully, return the EXECUTING state. If not,
            return an ERROR state with message.
 
         The execution task must do the following:
@@ -142,9 +148,11 @@ class JobAPI:
         """
         Launch the finalization of a job, transitioning from EXECUTED to FINALIZING.
 
-        1. Validate that the job's ephemeral workspace exists. If not, return an ERROR state with message.
+        1. Check the job is in the EXECUTED state. If not, return its current state with a message.
 
-        2. Launch the finalize task asynchronously. If launched successfully, return the FINALIZING state. If not,
+        2. Validate that the job's ephemeral workspace exists. If not, return an ERROR state with message.
+
+        3. Launch the finalize task asynchronously. If launched successfully, return the FINALIZING state. If not,
            return an ERROR state with message.
 
         The finalize task should do the following:
