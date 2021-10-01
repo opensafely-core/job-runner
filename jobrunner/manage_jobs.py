@@ -300,6 +300,12 @@ def finalise_job(job):
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
 
+    # If a job was cancelled we bail out before making any changes to the
+    # workspace, but after having written the log and metadata files to the
+    # long-term logs directory for debugging purposes.
+    if job.cancelled:
+        raise JobError("Cancelled by user")
+
     # Copy logs to workspace
     workspace_dir = get_high_privacy_workspace(job.workspace)
     metadata_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
