@@ -38,6 +38,10 @@ from jobrunner.project import (
 log = logging.getLogger(__name__)
 
 
+class InvalidTransition(Exception):
+    pass
+
+
 def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
 
@@ -278,7 +282,7 @@ def handle_job_api(job, api):
         api.cleanup(definition)
 
     else:
-        raise Exception(
+        raise InvalidTransition(
             f"unexpected state transition from {old_status.state} to {new_status.state}: {new_status.message}"
         )
 
