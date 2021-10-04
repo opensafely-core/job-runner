@@ -1,0 +1,5 @@
+# list ubuntu packages needed in production, one per line
+docker.io
+sqlite3
+git
+openssh-client

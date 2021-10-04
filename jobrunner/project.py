@@ -255,8 +255,8 @@ def is_generate_cohort_command(args, require_version=None):
     """
     assert not isinstance(args, str)
     version_found = None
-    if len(args) > 1:
-        if args[0].startswith("cohortextractor:") and args[1] == "generate_cohort":
+    if len(args) > 1 and args[1] == "generate_cohort":
+        if args[0].startswith("cohortextractor:"):
             version_found = 1
         if args[0].startswith("cohortextractor-v2:"):
             version_found = 2

@@ -74,14 +74,23 @@ jobs:
         # Minimal check that it has actually built correctly
         test-sdist/bin/python -m jobrunner.cli.local_run --help
 
-  test-docker-build:
+  test-docker:
     runs-on: ubuntu-latest
-    name: Test we can build the docker image
+    name: Test docker image
     steps:
     - name: Checkout
       uses: actions/checkout@v1
     - name: Build image
-      run: docker build . --file Dockerfile --build-arg=pythonversion=3.8.3
+      run: make docker-build
+    - name: Setup self-SSH
+      run: |
+        # ensure local user is set up to ssh in to the runner
+        chmod 700 ~
+        mkdir ~/.ssh -m 700
+        touch ~/.ssh/authorized_keys
+        chmod 600 ~/.ssh/authorized_keys
+    - name: Run tests in docker-image
+      run: make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
 
   test-github-workflow-output:
     runs-on: ubuntu-latest

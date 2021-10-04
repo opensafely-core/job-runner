@@ -76,7 +76,7 @@ class Job:
     repo_url: str = None
     # Full commit sha
     commit: str = None
-    # Name of workspace (effictively, the output directory)
+    # Name of workspace (effectively, the output directory)
     workspace: str = None
     # Only applicable to "generate_cohort" jobs: the name of the database to
     # query against
@@ -97,6 +97,8 @@ class Job:
     wait_for_job_ids: list = None
     # The docker run arguments to execute
     run_command: str = None
+    # The specific docker image that was actually run
+    image_id: str = None
     # The specification of what outputs this job expects to produce, as a bunch
     # of named glob patterns organised by privacy level
     output_spec: dict = None

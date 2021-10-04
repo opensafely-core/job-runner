@@ -1,5 +1,7 @@
 # Developer notes
 
+## Dependencies
+
 Install the development dependencies with:
 ```
 pip install -r requirements.dev.txt
@@ -7,12 +9,16 @@ pip install -r requirements.dev.txt
 This includes the production dependencies in `requirements.txt` which
 are intentionally kept minimal.
 
+You will also need an up-to-date version of Docker Compose. Instructions to install it are [here](https://docs.docker.com/compose/install/).
+
+## Architecture
+
 The package has two main entrypoints:
 [jobrunner.sync](./jobrunner/sync.py) and
 [jobrunner.run](./jobrunner/run.py). Both are implemented as infinite
 loops with a fixed sleep period and are designed to be run as services.
 
-## jobrunner.sync
+### jobrunner.sync
 
 This handles all communication between the job-server and the
 job-runner. It polls the job-server for active JobRequests, updates its
@@ -22,7 +28,7 @@ Jobs associated with the active JobRequests it received.
 The bulk of the work here is done by the
 [create_or_update_jobs](./jobrunner/create_or_update_jobs.py) module.
 
-## jobrunner.run
+### jobrunner.run
 
 This runs Docker containers based on the contents of the Jobs table.
 It's implemented as a synchronous loop which polls the database for
@@ -53,6 +59,32 @@ with:
 ```
 python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
 ```
+
+### Testing in docker
+
+To run tests in docker, simply run:
+
+    make docker-test
+
+This will build the docker image and run tests. You can run job-runner with:
+
+    make docker-serve
+
+Or run a command inside the docker image:
+
+    make docker-run ARGS=command  # bash by default
+
+Note: we use ssh for authenticated network access to the host's docker in
+development. The above commands will automatically generate a local ed25519
+dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
+`make docker-clean` to remove this.  If you wish to use a different user/host,
+you can do so:
+
+1. Specify `DOCKER_USER` and `DOCKER_ADDR` environment variables.
+2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
+3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
+   set up.
+
 
 ### Testing on Windows
 

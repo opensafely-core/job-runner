@@ -21,10 +21,10 @@ DATABASE_FILE = WORK_DIR / "db.sqlite"
 DATABASE_SCHEMA_FILE = Path(__file__).parent / "schema.sql"
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORK_DIR / "high_privacy")
+        os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORK_DIR / "high_privacy")
 )
 MEDIUM_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", WORK_DIR / "medium_privacy")
+        os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", WORK_DIR / "medium_privacy")
 )
 
 HIGH_PRIVACY_WORKSPACES_DIR = HIGH_PRIVACY_STORAGE_BASE / "workspaces"
@@ -33,7 +33,7 @@ MEDIUM_PRIVACY_WORKSPACES_DIR = MEDIUM_PRIVACY_STORAGE_BASE / "workspaces"
 JOB_LOG_DIR = HIGH_PRIVACY_STORAGE_BASE / "logs"
 
 JOB_SERVER_ENDPOINT = os.environ.get(
-    "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/v2/"
+        "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/v2/"
 )
 JOB_SERVER_TOKEN = os.environ.get("JOB_SERVER_TOKEN", "token")
 
@@ -66,7 +66,7 @@ ALLOWED_IMAGES = {
 DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "")
 
 DATABASE_URLS = {
-    "full": os.environ.get("FULL_DATABASE_URL"),
+    "full" : os.environ.get("FULL_DATABASE_URL"),
     "slice": os.environ.get("SLICE_DATABASE_URL"),
     "dummy": os.environ.get("DUMMY_DATABASE_URL"),
 }
@@ -80,7 +80,7 @@ PRESTO_TLS_KEY_PATH = os.environ.get("PRESTO_TLS_KEY_PATH")
 
 if bool(PRESTO_TLS_KEY_PATH) != bool(PRESTO_TLS_CERT_PATH):
     raise ConfigException(
-        "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined if either are"
+            "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined if either are"
     )
 
 if PRESTO_TLS_KEY_PATH:
@@ -89,7 +89,7 @@ if PRESTO_TLS_KEY_PATH:
         PRESTO_TLS_KEY = key_path.read_text()
     else:
         raise ConfigException(
-            f"PRESTO_TLS_KEY_PATH={key_path}, but file does not exist"
+                f"PRESTO_TLS_KEY_PATH={key_path}, but file does not exist"
         )
 
 if PRESTO_TLS_CERT_PATH:
@@ -98,9 +98,8 @@ if PRESTO_TLS_CERT_PATH:
         PRESTO_TLS_CERT = cert_path.read_text()
     else:
         raise ConfigException(
-            f"PRESTO_TLS_CERT_PATH={cert_path}, but file does not exist"
+                f"PRESTO_TLS_CERT_PATH={cert_path}, but file does not exist"
         )
-
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 
@@ -118,10 +117,9 @@ ENABLE_PERMISSIONS_WORKAROUND = bool(os.environ.get("ENABLE_PERMISSIONS_WORKAROU
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
-    "STATA_LICENSE_REPO",
-    "https://github.com/opensafely/server-instructions.git",
+        "STATA_LICENSE_REPO",
+        "https://github.com/opensafely/server-instructions.git",
 )
-
 
 ACTIONS_GITHUB_ORG = "opensafely-actions"
 ACTIONS_GITHUB_ORG_URL = f"https://github.com/{ACTIONS_GITHUB_ORG}"
@@ -166,12 +164,14 @@ def parse_job_resource_weights(config_file):
 
 JOB_RESOURCE_WEIGHTS = parse_job_resource_weights("job-resource-weights.ini")
 
-
 STATS_DATABASE_FILE = os.environ.get("STATS_DATABASE_FILE")
 if STATS_DATABASE_FILE:
     STATS_DATABASE_FILE = Path(STATS_DATABASE_FILE)
 
 STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
+
+# feature flag to enable new API abstraction
+EXECUTION_API = os.environ.get("EXECUTION_API", "false").lower() == "true"
 
 # k8s configurations:
 # 1 if want to run the k8s_runner in a local environment, e.g. minikube

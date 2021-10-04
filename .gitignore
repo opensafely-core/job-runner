@@ -24,3 +24,6 @@ private-*
 /job_volume/
 /tmp/
 /tests/k8s/private_test_config.ini
+docker/ssh/id_*
+docker/ssh/known_hosts
+/.idea/

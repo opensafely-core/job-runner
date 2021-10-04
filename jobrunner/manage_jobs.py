@@ -269,6 +269,7 @@ def finalise_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
     job.outputs = outputs
+    job.image_id = container_metadata["Image"]
 
     # Set the final state of the job
     if container_metadata["State"]["ExitCode"] != 0:
@@ -298,6 +299,12 @@ def finalise_job(job):
     write_log_file(job, job_metadata, log_dir / "logs.txt")
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
+
+    # If a job was cancelled we bail out before making any changes to the
+    # workspace, but after having written the log and metadata files to the
+    # long-term logs directory for debugging purposes.
+    if job.cancelled:
+        raise JobError("Cancelled by user")
 
     # Copy logs to workspace
     workspace_dir = get_high_privacy_workspace(job.workspace)

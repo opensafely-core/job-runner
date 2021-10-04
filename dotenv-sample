@@ -1,5 +1,5 @@
 # The name of this backend
-BACKEND=tpp
+BACKEND=expectations
 
 # The endpoint to poll for jobs
 JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/
@@ -9,13 +9,13 @@ JOB_SERVER_TOKEN=pass
 
 # A location where cohort CSVs (one row per patient) should be
 # stored. This folder must exist.
-HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
+HIGH_PRIVACY_STORAGE_BASE=/workdir/workspaces
 # Or in Windows:
 # HIGH_PRIVACY_STORAGE_BASE=/e/Users/opensafely/high_security
 
 # A location where script outputs (some for publication) should be
 # stored
-MEDIUM_PRIVACY_STORAGE_BASE=/tmp/outputs/medium_security
+MEDIUM_PRIVACY_STORAGE_BASE=/workdir/workspaces
 
 # A Github developer token that has read access to private repos
 PRIVATE_REPO_ACCESS_TOKEN=xxxx

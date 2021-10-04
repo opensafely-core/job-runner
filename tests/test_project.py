@@ -133,7 +133,7 @@ def test_get_action_specification_for_cohortextractor_v2_action():
         "expectations": {"population_size": 1_000},
         "actions": {
             "generate_cohort_v2": {
-                "run": "cohortextractor-v2:latest --output=output/cohort.csv --dummy-data-file dummy.csv",
+                "run": "cohortextractor-v2:latest generate_cohort --output=output/cohort.csv --dummy-data-file dummy.csv",
                 "outputs": {"highly_sensitive": {"cohort": "output/cohort.csv"}},
             }
         },
@@ -142,7 +142,7 @@ def test_get_action_specification_for_cohortextractor_v2_action():
     action_spec = project.get_action_specification(project_dict, action_id)
     assert (
         action_spec.run
-        == """cohortextractor-v2:latest --output=output/cohort.csv --dummy-data-file dummy.csv"""
+        == """cohortextractor-v2:latest generate_cohort --output=output/cohort.csv --dummy-data-file dummy.csv"""
     )
 
 
@@ -164,7 +164,7 @@ def test_get_action_specification_for_cohortextractor_v2_errors(args, error):
         "expectations": {"population_size": 1_000},
         "actions": {
             "generate_cohort_v2": {
-                "run": f"cohortextractor-v2:latest {args}",
+                "run": f"cohortextractor-v2:latest generate_cohort {args}",
                 "outputs": {"highly_sensitive": {"cohort": "output/cohort.csv"}},
             }
         },
