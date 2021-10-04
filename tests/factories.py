@@ -2,7 +2,7 @@ import base64
 import secrets
 from copy import deepcopy
 
-from jobrunner import job_executor
+from jobrunner.job_executor import ExecutorState, JobStatus, JobResults
 from jobrunner.models import Job, JobRequest, SavedJobRequest, State
 from jobrunner.lib.database import insert
 from jobrunner.manage_jobs import JobError
@@ -55,66 +55,109 @@ def job_factory(job_request=None, **kwargs):
 
 
 class StubJobAPI:
-    def __init__(self):
-        self.jobs_run = {}
-        self.jobs_status = {}
-        self.jobs_terminated = {}
-        self.jobs_cleaned = {}
-        self.results = {}
-        self.errors = {}
+    """Dummy implementation of the JobAPI, for use in tests.
 
-    def add_test_job(self, *args, **kwargs):
+    It tracks the current state of any jobs based the calls to the various API
+    methods, and get_status() will return the current state.
+
+    You can inject new jobs to the executor with add_test_job(), for which you
+    must supply a current ExecutorState and also job State.
+
+    By default, transition methods successfully move to the next state. If you
+    want to change that, call set_job_transition(job, state), and the next
+    transition method call for that job will instead return that state.
+
+    It also tracks which methods were called with which job ids to check the
+    correct series of methods was invoked.
+
+    """
+
+    def __init__(self):
+
+        self.tracker = {
+            "prepare": set(),
+            "execute": set(),
+            "finalize": set(),
+            "terminate": set(),
+            "cleanup": set(),
+        }
+        self.transitions = {}
+        self.results = {}
+        self.state = {}
+
+    def add_test_job(self, exec_state, job_state, **kwargs):
         """Create and track a db job object."""
-        job = job_factory(*args, **kwargs)
-        if job.state == State.RUNNING:
-            self.jobs_run[job.id] = job
+        job = job_factory(state=job_state, **kwargs)
+        if exec_state != ExecutorState.UNKNOWN:
+            self.state[job.id] = exec_state
         return job
 
-    def add_job_exception(self, job_id, exc):
-        self.errors[job_id] = exc
+    def set_job_state(self, definition, state):
+        """Directly set a job state."""
+        self.state[definition.id] = state
 
-    def add_job_result(
-        self,
-        job_id,
-        state,
-        code=None,
-        message=None,
-        outputs={},
-        exit_code=0,
-        image_id="image_id",
+    def set_job_transition(self, definition, state, message="executor message"):
+        """Set the next transition for this job when called"""
+        self.transitions[definition.id] = (state, message)
+
+    def set_job_result(
+        self, definition, outputs={}, unmatched=[], exit_code=0, image_id="image_id"
     ):
-        self.results[job_id] = job_executor.JobResults(
-            state, code, message, outputs, exit_code, image_id
+
+        self.results[definition.id] = JobResults(
+            outputs,
+            unmatched,
+            exit_code,
+            image_id,
         )
 
-    def run(self, definition):
-        """Track this definition."""
-        self.jobs_run[definition.id] = definition
-        if definition.id in self.errors:
-            raise self.errors[definition.id]
+    def do_transition(self, definition, expected, next_state):
+        current = self.get_status(definition)
+        if current.state != expected:
+            state = current.state
+            message = f"Invalid transition to {next_state}, currently state is {current.state}"
+        elif definition.id in self.transitions:
+            state, message = self.transitions[definition.id]
+        else:
+            state = next_state
+            message = "executor message"
+
+        self.set_job_state(definition, state)
+        return JobStatus(state, message)
+
+    def prepare(self, definition):
+        self.tracker["prepare"].add(definition.id)
+        return self.do_transition(
+            definition, ExecutorState.UNKNOWN, ExecutorState.PREPARING
+        )
+
+    def execute(self, definition):
+        self.tracker["execute"].add(definition.id)
+        return self.do_transition(
+            definition, ExecutorState.PREPARED, ExecutorState.EXECUTING
+        )
+
+    def finalize(self, definition):
+        self.tracker["finalize"].add(definition.id)
+        return self.do_transition(
+            definition, ExecutorState.EXECUTED, ExecutorState.FINALIZING
+        )
 
     def terminate(self, definition):
-        if definition.id not in self.jobs_run:
-            return
-        self.jobs_terminated[definition.id] = definition
-
-        # automatically mark this job as having failed
-        self.add_job_result(definition.id, State.FAILED)
-
-    def get_status(self, definition):
-        if definition.id not in self.jobs_run:
-            raise JobError(f"unknown job {definition.id}")
-
-        if definition.id in self.errors:
-            raise self.errors[definition.id]
-        elif definition.id in self.results:
-            result = self.results[definition.id]
-            return result.state, result
-        else:
-            return State.RUNNING, None
+        self.tracker["terminate"].add(definition.id)
+        return JobStatus(ExecutorState.ERROR)
 
     def cleanup(self, definition):
-        self.jobs_cleaned[definition.id] = definition
+        self.tracker["cleanup"].add(definition.id)
+        self.state.pop(definition.id, None)
+        return JobStatus(ExecutorState.UNKNOWN)
+
+    def get_status(self, definition):
+        state = self.state.get(definition.id, ExecutorState.UNKNOWN)
+        return JobStatus(state)
+
+    def get_results(self, definition):
+        return self.results.get(definition.id)
 
 
 class TestWorkspaceAPI:

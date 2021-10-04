@@ -14,6 +14,8 @@ from pathlib import Path
 from jobrunner import config
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
+from jobrunner import job_executor
+from jobrunner.job_executor import ExecutorState
 from jobrunner.manage_jobs import (
     BrokenContainerError,
     JobError,
@@ -28,7 +30,6 @@ from jobrunner.manage_jobs import (
     update_manifest,
 )
 from jobrunner.models import Job, State, StatusCode
-from jobrunner import job_executor
 from jobrunner.project import (
     is_generate_cohort_command,
 )
@@ -37,12 +38,19 @@ from jobrunner.project import (
 log = logging.getLogger(__name__)
 
 
+class InvalidTransition(Exception):
+    pass
+
+
 def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
+
     if config.EXECUTION_API:
         log.info("using new EXECUTION_API")
+
     while True:
         active_jobs = handle_jobs()
+
         if exit_callback(active_jobs):
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
@@ -58,20 +66,21 @@ def handle_jobs():
     # is preferable
     if config.RANDOMISE_JOB_ORDER:
         random.shuffle(active_jobs)
+
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            if job.state == State.PENDING:
-                if config.EXECUTION_API:
-                    handle_pending_job_api(job, job_executor.get_job_api())
-                else:
+            # new way
+            if config.EXECUTION_API:
+                handle_job_api(job, job_executor.get_job_api())
+            # old way
+            else:
+                if job.state == State.PENDING:
                     handle_pending_job(job)
-            elif job.state == State.RUNNING:
-                if config.EXECUTION_API:
-                    handle_running_job_api(job, job_executor.get_job_api())
-                else:
+                elif job.state == State.RUNNING:
                     handle_running_job(job)
+
     return active_jobs
 
 
@@ -118,46 +127,6 @@ def handle_pending_job(job):
                 mark_job_as_running(job)
 
 
-def handle_pending_job_api(job, api):
-    if job.cancelled:
-        # Mark the job as running and then immediately invoke
-        # `handle_running_job` to deal with the cancellation. This slightly
-        # counterintuitive appraoch allows us to keep a simple, consistent set
-        # of state transitions and to consolidate all the kill/cleanup code
-        # together. It also means that there aren't edge cases where we could
-        # lose track of jobs completely after losing database state
-        mark_job_as_running(job)
-        handle_running_job_api(job, api)
-        return
-
-    awaited_states = get_states_of_awaited_jobs(job)
-    if State.FAILED in awaited_states:
-        mark_job_as_failed(
-            job, "Not starting as dependency failed", code=StatusCode.DEPENDENCY_FAILED
-        )
-    elif any(state != State.SUCCEEDED for state in awaited_states):
-        set_message(
-            job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
-        )
-    else:
-        not_started_reason = get_reason_job_not_started(job)
-        if not_started_reason:
-            set_message(job, not_started_reason, code=StatusCode.WAITING_ON_WORKERS)
-        else:
-            try:
-                set_message(job, "Preparing")
-                api.run(job_to_job_definition(job))
-            except JobError as exception:
-                mark_job_as_failed(job, exception)
-                # support any clean up needed
-                api.cleanup(job_to_job_definition(job))
-            except Exception:
-                mark_job_as_failed(job, "Internal error when starting job")
-                raise
-            else:
-                mark_job_as_running(job)
-
-
 def handle_running_job(job):
     if job.cancelled:
         log.info("Cancellation requested, killing job")
@@ -195,28 +164,160 @@ def handle_running_job(job):
             cleanup_job(job)
 
 
-def handle_running_job_api(job, api):
+def handle_active_jobs_api(api, active_jobs):
+    for job in active_jobs:
+        # `set_log_context` ensures that all log messages triggered anywhere
+        # further down the stack will have `job` set on them
+        with set_log_context(job=job):
+            try:
+                handle_job_api(job, api)
+            except Exception:
+                mark_job_as_failed(job, f"Internal error")
+                # Do not clean up, as we may want to debug
+                #
+                # Raising will kill the main loop, by design. The service manager
+                # will restart, and this job will be ignored when it does, as
+                # it has failed. If we have an internal error, a full restart
+                # might recover better.
+                raise
+
+
+# we do not control the tranisition from these states, the executor does
+STABLE_STATES = [
+    ExecutorState.PREPARING,
+    ExecutorState.EXECUTING,
+    ExecutorState.FINALIZING,
+]
+
+
+def handle_job_api(job, api):
+    """Handle an active job.
+
+    This contains the main state machine logic for a job. For the most part,
+    state transitions follow the same logic, which is abstracted. Some
+    transitions require special logic, mainly the initial and final states, as
+    well as supporting cancellation.
+    """
+    assert job.state in (State.PENDING, State.RUNNING)
+    definition = job_to_job_definition(job)
+
     if job.cancelled:
-        log.info("Cancellation requested, killing job")
-        api.terminate(job_to_job_definition(job))
+        # cancelled is driven by user request, so is handled explicitly first
+        # regardless of executor state.
+        api.terminate(definition)
+        mark_job_as_failed(job, "Cancelled by user", StatusCode.CANCELLED_BY_USER)
+        api.cleanup(definition)
+        return
 
-    try:
-        is_running = sync_job_status(job, api)
+    initial_status = api.get_status(definition)
 
-        if is_running:
-            set_message(job, "Running")
-        else:
-            mark_job_as_completed(job)
-            api.cleanup(job_to_job_definition(job))
-    except JobError as exception:
-        set_message(job, "Failed")
-        mark_job_as_failed(job, exception)
-        api.cleanup(job_to_job_definition(job))
-    except Exception:
-        set_message(job, "Failed")
-        mark_job_as_failed(job, "Internal error when finalising job")
-        # We don't clean up here, to facilitate with debugging this unexpected error
-        raise
+    # handle the simple no change needed states.
+    if initial_status.state in STABLE_STATES:
+        if job.state == State.PENDING:
+            log.warning("state ereror: got {initial_status.state} for a job we thought was PENDING")
+        # no action needed, simply update job message and timestamp
+        message = initial_status.state.value.title()
+        set_message(job, message)
+        return
+
+    # ok, handle the state transitions that are our responsibility
+    if initial_status.state == ExecutorState.UNKNOWN:
+        # a new job
+        if job.state == State.RUNNING:
+            log.warning("state error: got UNKNOWN state for a job we thought was RUNNING")
+
+        # check dependencies
+        awaited_states = get_states_of_awaited_jobs(job)
+        if State.FAILED in awaited_states:
+            mark_job_as_failed(
+                job,
+                "Not starting as dependency failed",
+                code=StatusCode.DEPENDENCY_FAILED,
+            )
+            return
+
+        if any(state != State.SUCCEEDED for state in awaited_states):
+            set_message(
+                job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
+            )
+            return
+
+        expected_state = ExecutorState.PREPARING
+        new_status = api.prepare(definition)
+
+    elif initial_status.state == ExecutorState.PREPARED:
+        expected_state = ExecutorState.EXECUTING
+        new_status = api.execute(definition)
+
+    elif initial_status.state == ExecutorState.EXECUTED:
+        expected_state = ExecutorState.FINALIZING
+        new_status = api.finalize(definition)
+
+    elif initial_status.state == ExecutorState.FINALIZED:
+        # final state - we have finished!
+        results = api.get_results(definition)
+        # TODO: implement workspace API
+        # delete_obsolete_files(job, results)
+        save_results(job, results)
+        mark_job_as_completed(job)
+        api.cleanup(definition)
+        # we are done here
+        return
+
+    # following logic is common to all non-final transitions
+
+    if new_status.state == initial_status.state:
+        # no change in state, i.e. back pressure
+        set_message(
+            job, "Waiting on available resources", code=StatusCode.WAITING_ON_WORKERS
+        )
+
+    elif new_status.state == expected_state:
+        # successful state change to the expected next state
+        if new_status.state == ExecutorState.PREPARING:
+            job.state = State.RUNNING
+        elif job.state != State.RUNNING:
+            # got an ExecutorState that should mean the job.state is RUNNING, but it is not
+            log.warning("state error: got {new_status.state} for job we thought was {job.state}")
+        set_message(job, new_status.state.value.title())
+
+    elif new_status.state == ExecutorState.ERROR:
+        # all transitions can go straight to error
+        mark_job_as_failed(job, new_status.message)
+        api.cleanup(definition)
+
+    else:
+        raise InvalidTransition(
+            f"unexpected state transition of job {job.id} from {initial_status.state} to {new_status.state}: {new_status.message}"
+        )
+
+
+def save_results(job, results):
+    """Extract the results of the execution and update the job accordingly."""
+    # set the final state of the job
+    if results.exit_code != 0:
+        job.state = State.FAILED
+        job.status_message = "Job exited with an error code"
+        job.status_code = StatusCode.NONZERO_EXIT
+    elif results.unmatched_patterns:
+        job.state = State.FAILED
+        job.status_message = "No outputs found matching patterns:\n - {}".format(
+            "\n - ".join(results.unmatched_patterns)
+        )
+        # If the job fails because an output was missing its very useful to
+        # show the user what files were created as often the issue is just a
+        # typo
+
+        # Can we figure these out from job.outputs and project.yaml? Do we do
+        # it here or just in local run?
+        # TODO:  job.unmatched_outputs = ???
+    else:
+        job.state = State.SUCCEEDED
+        job.status_message = "Completed successfully"
+
+    job.outputs = results.outputs
+    job.updated_at = int(time.time())
+    update(job)
 
 
 def job_to_job_definition(job):
@@ -273,40 +374,6 @@ def job_to_job_definition(job):
     )
 
 
-def sync_job_status(job, api):
-    """Query API for job status."""
-    state, results = api.get_status(job_to_job_definition(job))
-
-    if state == State.RUNNING:
-        return True
-    assert state != State.PENDING
-
-    # TODO: implement workspace state tracking
-    # delete_obsolete_files(job, results)
-
-    job.state = state
-    job.image_id = results.image_id
-    job.outputs = results.outputs
-    set_message(job, results.status_message, results.status_code)
-    update(job)
-
-    workspace_dir = Path(config.HIGH_PRIVACY_STORAGE_BASE, job.workspace)
-
-    # fake a Docker container metadata just enough for now
-    container_metadata = {
-        "State": {"ExitCode": results.exit_code},
-        "Image": results.image_id,
-    }
-
-    job_metadata = get_job_metadata(job, container_metadata)
-
-    manifest = read_manifest_file(workspace_dir)
-    update_manifest(manifest, job_metadata)
-    write_manifest_file(workspace_dir, manifest)
-
-    return False
-
-
 def get_states_of_awaited_jobs(job):
     job_ids = job.wait_for_job_ids
     if not job_ids:
@@ -329,8 +396,8 @@ def mark_job_as_failed(job, error, code=None):
     set_state(job, State.FAILED, message, code=code)
 
 
-def mark_job_as_running(job):
-    set_state(job, State.RUNNING, "Running")
+def mark_job_as_running(job, message="Running"):
+    set_state(job, State.RUNNING, message)
 
 
 def mark_job_as_completed(job):

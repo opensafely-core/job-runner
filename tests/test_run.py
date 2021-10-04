@@ -2,6 +2,7 @@ import random
 import pytest
 
 from jobrunner.models import State, StatusCode
+from jobrunner.job_executor import ExecutorState
 from jobrunner.manage_jobs import JobError
 from jobrunner import config
 from jobrunner.lib.database import transaction
@@ -18,46 +19,81 @@ def db(monkeypatch):
     )
 
 
-def test_handle_pending_job_success(db):
-    api = StubJobAPI()
-    job = api.add_test_job(state=State.PENDING)
-
-    run.handle_pending_job_api(job, api)
-
-    assert job.id in api.jobs_run
-
-    assert job.status_message == "Running"
-    assert job.state == State.RUNNING
-
-
 def test_handle_pending_job_cancelled(db):
     api = StubJobAPI()
-    job = api.add_test_job(state=State.PENDING, cancelled=True)
+    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, cancelled=True)
 
-    run.handle_pending_job_api(job, api)
+    run.handle_job_api(job, api)
 
-    assert job.id not in api.jobs_run
-    assert job.id not in api.jobs_terminated
+    # executor state
+    assert job.id in api.tracker["terminate"]
+    assert job.id in api.tracker["cleanup"]
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
 
+    # our state
     assert job.state == State.FAILED
     assert job.status_message == "Cancelled by user"
     assert job.status_code == StatusCode.CANCELLED_BY_USER
 
 
-def test_handle_pending_job_dependency_failed(db):
+@pytest.mark.parametrize(
+    "state,message",
+    [
+        (ExecutorState.PREPARING, "Preparing"),
+        (ExecutorState.EXECUTING, "Executing"),
+        (ExecutorState.FINALIZING, "Finalizing"),
+    ],
+)
+def test_handle_job_stable_states(state, message, db):
     api = StubJobAPI()
-    dependency = api.add_test_job(state=State.FAILED)
+    job = api.add_test_job(state, State.RUNNING)
+
+    run.handle_job_api(job, api)
+
+    # executor state
+    assert job.id not in api.tracker["prepare"]
+    assert job.id not in api.tracker["execute"]
+    assert job.id not in api.tracker["finalize"]
+    assert api.get_status(job).state == state
+
+    # our state
+    assert job.state == State.RUNNING
+    assert job.status_message == message
+
+
+def test_handle_job_pending_to_preparing(db):
+    api = StubJobAPI()
+    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
+
+    run.handle_job_api(job, api)
+
+    # executor state
+    assert job.id in api.tracker["prepare"]
+    assert api.get_status(job).state == ExecutorState.PREPARING
+
+    # our state
+    assert job.status_message == "Preparing"
+    assert job.state == State.RUNNING
+
+
+def test_handle_job_pending_dependency_failed(db):
+    api = StubJobAPI()
+    dependency = api.add_test_job(ExecutorState.UNKNOWN, State.FAILED)
     job = api.add_test_job(
+        ExecutorState.UNKNOWN,
+        State.PENDING,
         job_request_id=dependency.job_request_id,
         action="action2",
-        state=State.PENDING,
         wait_for_job_ids=[dependency.id],
     )
 
-    run.handle_pending_job_api(job, api)
+    run.handle_job_api(job, api)
 
-    assert job.id not in api.jobs_run
+    # executor state
+    assert job.id not in api.tracker["prepare"]
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
 
+    # our state
     assert job.state == State.FAILED
     assert job.status_message == "Not starting as dependency failed"
     assert job.status_code == StatusCode.DEPENDENCY_FAILED
@@ -65,147 +101,186 @@ def test_handle_pending_job_dependency_failed(db):
 
 def test_handle_pending_job_waiting_on_dependency(db):
     api = StubJobAPI()
-    dependency = api.add_test_job(state=State.RUNNING)
+    dependency = api.add_test_job(ExecutorState.EXECUTING, State.RUNNING)
 
     job = api.add_test_job(
+        ExecutorState.UNKNOWN,
+        State.PENDING,
         job_request_id=dependency.job_request_id,
         action="action2",
-        state=State.PENDING,
         wait_for_job_ids=[dependency.id],
     )
 
-    run.handle_pending_job_api(job, api)
+    run.handle_job_api(job, api)
 
-    assert job.id not in api.jobs_run
+    # executor state
+    assert job.id not in api.tracker["prepare"]
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
 
+    # our state
     assert job.state == State.PENDING
     assert job.status_message == "Waiting on dependencies"
     assert job.status_code == StatusCode.WAITING_ON_DEPENDENCIES
 
 
-def test_handle_pending_job_waiting_on_workers(db, monkeypatch):
-    # hack to ensure no workers available
-    monkeypatch.setattr(config, "MAX_WORKERS", 0)
+@pytest.mark.parametrize(
+    "exec_state,job_state,tracker",
+    [
+        (ExecutorState.UNKNOWN, State.PENDING, "prepare"),
+        (ExecutorState.PREPARED, State.RUNNING, "execute"),
+        (ExecutorState.EXECUTED, State.RUNNING, "finalize"),
+    ],
+)
+def test_handle_job_waiting_on_workers(exec_state, job_state, tracker, db):
     api = StubJobAPI()
-    job = api.add_test_job(state=State.PENDING)
+    job = api.add_test_job(exec_state, job_state)
+    api.set_job_transition(job, exec_state)
 
-    run.handle_pending_job_api(job, api)
+    run.handle_job_api(job, api)
 
-    assert job.id not in api.jobs_run
+    assert job.id in api.tracker[tracker]
+    assert api.get_status(job).state == exec_state
 
-    assert job.state == State.PENDING
-    assert job.status_message == "Waiting on available workers"
+    assert job.state == job_state
+    assert job.status_message == "Waiting on available resources"
     assert job.status_code == StatusCode.WAITING_ON_WORKERS
 
 
-def test_handle_pending_job_run_job_error(db, monkeypatch):
-    # GH runners default to 1, which causes this test to fail
-    monkeypatch.setattr(config, "MAX_WORKERS", 4)
-
+def test_handle_job_pending_to_error(db):
     api = StubJobAPI()
 
-    job = api.add_test_job(state=State.PENDING)
-    api.add_job_exception(job.id, JobError("test"))
+    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
+    api.set_job_transition(job, ExecutorState.ERROR, "it is b0rked")
 
-    run.handle_pending_job_api(job, api)
+    run.handle_job_api(job, api)
 
-    assert job.id in api.jobs_run
-    assert job.id in api.jobs_cleaned
+    # executor state
+    assert job.id in api.tracker["prepare"]
+    assert job.id in api.tracker["cleanup"]
+    # its been cleaned up and is now unknown
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
 
+    # our state
     assert job.state == State.FAILED
-    assert job.status_message == "JobError: test"
+    assert job.status_message == "it is b0rked"
     assert job.status_code is None
 
 
-def test_handle_pending_job_run_exception(db, monkeypatch):
-    # GH runners default to 1, which causes this test to fail
-    monkeypatch.setattr(config, "MAX_WORKERS", 4)
+def test_handle_job_prepared_to_executing(db):
     api = StubJobAPI()
+    job = api.add_test_job(ExecutorState.PREPARED, State.RUNNING)
 
-    job = api.add_test_job(state=State.PENDING)
-    api.add_job_exception(job.id, Exception("test"))
+    run.handle_job_api(job, api)
 
-    with pytest.raises(Exception):
-        run.handle_pending_job_api(job, api)
+    # executor state
+    assert job.id in api.tracker["execute"]
+    assert api.get_status(job).state == ExecutorState.EXECUTING
 
-    assert job.id in api.jobs_run
-    # we don't clean up on unknown exceptions
-    assert job.id not in api.jobs_cleaned
-
-    assert job.state == State.FAILED
-    assert job.status_message == "Internal error when starting job"
-    assert job.status_code is None
-
-
-def test_handle_running_job_success(db, tmp_work_dir):
-    api = StubJobAPI()
-    job = api.add_test_job(state=State.RUNNING)
-    api.add_job_result(job.id, State.SUCCEEDED, None, "Finished")
-
-    # temporary setup until we get the new metadata implementation
-    workspace_dir = config.HIGH_PRIVACY_STORAGE_BASE / job.workspace / "metadata"
-    workspace_dir.mkdir(parents=True, exist_ok=True)
-
-    run.handle_running_job_api(job, api)
-
-    assert job.status_message == "Finished"
-    assert job.state == State.SUCCEEDED
-    assert job.id in api.jobs_cleaned
-
-
-def test_handle_running_job_still_running(db):
-    api = StubJobAPI()
-    job = api.add_test_job(state=State.RUNNING)
-
-    run.handle_running_job_api(job, api)
-
-    assert job.status_message == "Running"
+    # our state
     assert job.state == State.RUNNING
+    assert job.status_message == "Executing"
 
 
-def test_handle_running_job_failed(db, tmp_work_dir):
+def test_handle_job_executed_to_finalizing(db):
     api = StubJobAPI()
-    job = api.add_test_job(state=State.RUNNING)
-    api.add_job_result(
-        job.id,
-        State.FAILED,
-        StatusCode.NONZERO_EXIT,
-        "Job exited with an error code",
-    )
-    # temporary until we get the new metadata implementation
-    workspace_dir = config.HIGH_PRIVACY_STORAGE_BASE / job.workspace / "metadata"
-    workspace_dir.mkdir(parents=True, exist_ok=True)
+    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING)
 
-    run.handle_running_job_api(job, api)
+    run.handle_job_api(job, api)
 
+    # executor state
+    assert job.id in api.tracker["finalize"]
+    assert api.get_status(job).state == ExecutorState.FINALIZING
+
+    # our state
+    assert job.state == State.RUNNING
+    assert job.status_message == "Finalizing"
+
+
+def test_handle_job_finalized_success(db):
+    api = StubJobAPI()
+    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
+    api.set_job_result(job, {"output/file.csv": "medium"})
+
+    run.handle_job_api(job, api)
+
+    # executor state
+    assert job.id in api.tracker["cleanup"]
+    # its been cleaned up and is now unknown
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
+    assert job.state == State.SUCCEEDED
+    assert job.status_message == "Completed successfully"
+    assert job.outputs == {"output/file.csv": "medium"}
+
+
+def test_handle_job_finalized_failed_exit_code(db):
+    api = StubJobAPI()
+    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
+    api.set_job_result(job, {"output/file.csv": "medium"}, exit_code=1)
+
+    run.handle_job_api(job, api)
+
+    # executor state
+    assert job.id in api.tracker["cleanup"]
+    # its been cleaned up and is now unknown
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.NONZERO_EXIT
     assert job.status_message == "Job exited with an error code"
-    assert job.id in api.jobs_cleaned
+    assert job.outputs == {"output/file.csv": "medium"}
 
 
-def test_handle_running_job_joberror(db):
+def test_handle_job_finalized_failed_unmatched(db):
     api = StubJobAPI()
-    job = api.add_test_job(state=State.RUNNING)
-    api.add_job_exception(job.id, JobError("job error"))
+    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
+    api.set_job_result(job, {"output/file.csv": "medium"}, unmatched=["badfile.csv"])
 
-    run.handle_running_job_api(job, api)
+    run.handle_job_api(job, api)
 
+    # executor state
+    assert job.id in api.tracker["cleanup"]
+    # its been cleaned up and is now unknown
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
     assert job.state == State.FAILED
-    assert job.status_code is None
-    assert job.status_message == "JobError: job error"
-    assert job.id in api.jobs_cleaned
+    assert job.status_message == "No outputs found matching patterns:\n - badfile.csv"
+    assert job.outputs == {"output/file.csv": "medium"}
 
 
-def test_handle_running_job_exception(db):
+def invalid_transitions():
+    """Enumerate all invalid transistions by inverting valid transitions"""
+    def invalid(current, next_state):
+        # the only valid transitions are:
+        # - no transition
+        # - the next state
+        # - error
+        valid = (current, next_state, ExecutorState.ERROR)
+        for state in list(ExecutorState):
+            if state not in valid:
+                # this is an invalid transition
+                yield current, state
+    
+    yield from invalid(ExecutorState.UNKNOWN, ExecutorState.PREPARING)
+    yield from invalid(ExecutorState.PREPARED, ExecutorState.EXECUTING)
+    yield from invalid(ExecutorState.EXECUTED, ExecutorState.FINALIZING)
+
+    
+@pytest.mark.parametrize("current, invalid", invalid_transitions())
+def test_bad_transition(current, invalid, db):
     api = StubJobAPI()
-    job = api.add_test_job(state=State.RUNNING)
-    api.add_job_exception(job.id, Exception("unknown error"))
+    job = api.add_test_job(
+        current, 
+        State.PENDING if current == ExecutorState.UNKNOWN else State.RUNNING,
+    )
+    # this will cause any call to prepare/execute/finalize to return that state
+    api.set_job_transition(job, invalid)
 
-    with pytest.raises(Exception):
-        run.handle_running_job_api(job, api)
+    with pytest.raises(run.InvalidTransition):
+        run.handle_job_api(job, api)
 
-    assert job.state == State.FAILED
-    assert job.status_code is None
-    assert job.status_message == "Internal error when finalising job"
-    assert job.id not in api.jobs_cleaned
+
+

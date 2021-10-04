@@ -33,26 +33,100 @@ class JobDefinition:
     allow_database_access: bool  # whether this job should have access to the database
 
 
+class ExecutorState(Enum):
+    PREPARING = "preparing"
+    PREPARED = "prepared"
+    EXECUTING = "executing"
+    EXECUTED = "executed"
+    FINALIZING = "finalizing"
+    FINALIZED = "finalized"
+    UNKNOWN = "unknown"
+    ERROR = "error"
+
+
+@dataclass
+class JobStatus:
+    state: ExecutorState
+    message: Optional[str] = None
+
+
 @dataclass
 class JobResults:
-    state: State
-    status_code: Optional[StatusCode]
-    status_message: str
-    outputs: Mapping[str, str]
+    outputs: Mapping[str, str]  # mapping of outputs to privacy levels
+    unmatched_patterns: List[str]  # list of patterns that matched no outputs
     exit_code: int
     image_id: str
 
 
 class JobAPI:
-    def run(self, job: JobDefinition) -> None:
-        """
-        Run a job.
+    """
+    API for managing job execution.
 
-        This method must be idempotent; it may be called more than once with the same job_id, in which case only one
-        job should be created. It must also be idempotent in the face of errors; if it throws an exception because
-        job creation has failed due to a transient error it may be called again to retry the operation and this
-        should succeed if possible. (The implementation may provide a configuration option which breaks this
-        idempotency by preserving resources after a failure to aid debugging.)
+    This API is called by the job-runner to manage each job it is tracking. It models the running of a job as a state
+    machine, and the methods below are the transitions between states.
+
+    They should return either:
+     - the next state if successful
+     - the ERROR state with an appropriate message if something has gone wrong.
+     - the current state if is different from the expected state, with a message
+     - the initial state to indicate back pressure and to retry later.
+
+    Given the long running nature of jobs, it is an asychronous API, and calls should not block for a more than a few
+    seconds.
+
+    All the state transition methods (prepare(), execute(), finalize(), terminate(), cleanup()) must be idempotent. If
+    the relevent task they are responsible for is already running for that job, they must not start a new task, and
+    instead return successfully the current state.
+    """
+
+    def prepare(self, job: JobDefinition) -> JobStatus:
+        """
+        Launch a prepare task for a job, transitioning to the initial PREPARING state.
+
+        1. Validate the JobDefinition. If there are errors, return an ERROR state with message.
+
+        2. Check the job is currently in UNKNOWN state. If not return its current state with a message indicated invalid
+           state.
+
+        3. Check the resources are available to prepare the job. If not, return the UNKNOWN state with an appropriate
+           message.
+
+        4. Create an ephemeral workspace to use for executing this job. This is expected to be a volume mounted into the
+           container, but other implementations are allowed.
+
+        5. Launch a prepare task asynchronously. If launched successfully, return the PREPARING state. If not, return an
+           ERROR state with message.
+
+        The prepare task must do the following:
+
+          - check out the supplied study repo via the OpenSAFELY github proxy into the ephemeral workspace, erroring if
+            there are any failures.
+          - copying the supplied file inputs from the long-term workspace storage into the ephermal workspace, erroring
+            if there are any missing.
+
+        When the prepare task finishes, the get_status() call should now return PREPARED for this job.
+
+        This method must be idempotent. If called with a job that is already running a prepare task, it must not
+        launch a new task, and simply return succesfully with PREPARING.
+
+        """
+
+    def execute(self, job: JobDefinition) -> JobStatus:
+        """
+        Launch the execution of a job that has been prepared, transitioning from PREPARED to EXECUTING.
+
+        1. Check the job is in the PREPARED state. If not, return its current state with a message.
+
+        2. Validate that the ephememeral workspace created by prepare for this job exists.  If not, return an ERROR
+           state with message.
+
+        3. Check there are resources availabe to execute the job. If not, return PREPARED status with an appropriate
+           message.
+
+        4. Launch the job execution task asynchronously. If launched successfully, return the EXECUTING state. If not,
+           return an ERROR state with message.
+
+        The execution task must do the following:
 
         The specified image must be run, with the provided arguments and environment variables. The implementation
         may add environment variables to those in the job definition as necessary for the backend.
@@ -61,15 +135,31 @@ class JobAPI:
         in which case it should be run with a network allowing access to the database and any configuration needed to
         contact and authenticate with the database should be provided as environment variables.
 
-        The job must be run with a workspace directory at /workspace in the filesystem (this is expected to be a
-        volume mounted into the container, but other implementations are allowed). The workspace must contain a
-        checkout of the study and any inputs specified in the job definition, copied from the workspace in long-term
-        storage. If any of the specified inputs is not present in long-term storage then a JobError must be raised with
-        details of the missing file.
+        The job must be run with the ephemeral workspace for this job at /workspace in the filesystem.
 
-        Any files that the job produces that match the output spec in the definition must be copied to the workspace
-        long-term storage. Anything written by the container to stdout or stderr must be captured and written to a
-        log file, metadata/{action}.log, in the workspace in long-term storage.
+        When the execute task finishes, the get_status() call must now return EXECUTED for this job.
+
+        This method must be idempotent. If called with a job that is already running an execute task, it must not
+        launch a new task, and simply return succesfully with EXECUTING.
+
+        """
+
+    def finalize(self, job: JobDefinition) -> JobStatus:
+        """
+        Launch the finalization of a job, transitioning from EXECUTED to FINALIZING.
+
+        1. Check the job is in the EXECUTED state. If not, return its current state with a message.
+
+        2. Validate that the job's ephemeral workspace exists. If not, return an ERROR state with message.
+
+        3. Launch the finalize task asynchronously. If launched successfully, return the FINALIZING state. If not,
+           return an ERROR state with message.
+
+        The finalize task should do the following:
+
+        Any files that the job produced that match the output spec in the definition must be copied from the ephemeral
+        workspace to the workspace long-term storage. Anything written by the container to stdout or stderr must be
+        captured and written to a log file, metadata/{action}.log, in the workspace in long-term storage.
 
         The action log file and any files in the output spec marked as medium privacy must also be made available in the
         medium privacy view of the workspace in long-term storage.
@@ -77,59 +167,70 @@ class JobAPI:
         The action log file and any useful metadata from the job run should also be written to a separate log storage
         area in long-term storage.
 
-            Raises:
-                JobError: if the job definition is invalid or job creation fails
-        """
-        ...
+        When the finalize task finishes, the get_status() call should now return FINALIZED for this job, and
+        get_results() call should return the JobResults for this job.
 
-    def terminate(self, job: JobDefinition) -> None:
-        """
-        Terminate a running job.
+        This method must be idempotent. If called with a job that is already running an finalize task, it must not
+        launch a new task, and simply return successfully with FINALIZING.
 
-        This method must be idempotent; it may be called for a job that doesn't exist or which has already been
-        terminated in which case it must return silently.
-
-            Raises:
-                JobError: if job termination fails
         """
-        ...
 
-    def get_status(self, job: JobDefinition) -> Tuple[State, Optional[JobResults]]:
+    def terminate(self, job: JobDefinition) -> JobStatus:
         """
-        Return the status of a job and the results if it has finished.
+        Terminate a running job, tranisitioning to the ERROR state.
+
+        1. If any task for this job is running, terminate it, do not wait for it to complete.
+
+        2. Return ERROR state with a message.
+
+        """
+
+    def cleanup(self, job: JobDefinition) -> JobStatus:
+        """
+        Clean up any remaining state for a finished job, transitioning to the UNKNOWN state.
+
+        1. Initiate the cleanup, do not wait for it to complete.
+
+        2. Return the UNKNOWN status.
+
+        This method must be idempotent; it will be called at least once for every finished job. The implementation
+        may defer resource cleanup to this method if necessary in order to correctly implement idempotency of
+        get_status() or get_results(). If the job is unknown, it should still return UNKNOWN successfully.
+
+        This method will not be called for a job that raises an unexpected exception from JobAPI in order
+        to facilitate debugging of unexpected failures. It may therefore be necessary for the backend to provide
+        out-of-band mechanisms for cleaning up resources associated with such failures.
+        """
+
+    def get_status(self, job: JobDefinition) -> JobStatus:
+        """
+        Return the current status of a job.
+
+        1. Check the job is known to the system. If not, return the UNKNOWN state.
+
+        2. Return the current state of the job from the executors perspective.
+
+        This should return a JobStatus with the appropriate state for the job. It is polled by job-runner to track the
+        completion of the various tasks.
 
         This method must be idempotent; it may be called more than once for a job even after it has finished, so any
         irreversible cleanup which loses information about must be deferred to JobAPI.cleanup() which will only be
         called once the results have been persisted.
 
-        If no matching job can be found, it should raise a JobError exception.
+        """
+
+    def get_results(self, job: JobDefinition) -> JobResults:
+        """
+        Return the finalized results for a job.
 
         The results must include a list of output files that the job produced which matched its output spec. It
-        should also include a list of files that it produced but which did not match the output spec,
-        to aid in debugging during study development.
+        should also include a list of files that it produced but which did not match the output spec, to aid in
+        debugging during study development.
 
-            Returns:
-                state (State): the state of the job
-                results (Optional[JobResults]): the results, if the job has finished
-
-            Raises:
-                JobError: if there is a problem retrieving the status of the job
+        This method must be idempotent; it may be called more than once for a job even after it has finished, so any
+        irreversible cleanup which loses information about must be deferred to JobAPI.cleanup() which will only be
+        called once the results have been persisted.
         """
-        ...
-
-    def cleanup(self, job: JobDefinition) -> None:
-        """
-        Clean up any remaining state for a finished job.
-
-        This method must be idempotent; it will be called at least once for every finished job. The implementation
-        may defer resource cleanup to this method if necessary in order to correctly implement idempotency of
-        JobAPI.get_status().
-
-        This method will not be called for a job that raises an unexpected exception from JobAPI.get_status() (anything
-        other than JobError), in order to facilitate debugging of unexpected failures. It may therefore be necessary
-        for the backend to provide out-of-band mechanisms for cleaning up resources associated with such failures.
-        """
-        ...
 
 
 class WorkspaceAPI:
@@ -145,22 +246,31 @@ class WorkspaceAPI:
 class NullJobAPI(JobAPI):
     """Null implementation of JobAPI."""
 
-    def run(self, job: JobDefinition) -> None:
-        raise NotImplemented
+    def prepare(self, job):
+        raise NotImplementedError
 
-    def terminate(self, job: JobDefinition) -> None:
-        raise NotImplemented
+    def execute(self, job):
+        raise NotImplementedError
 
-    def get_status(self, job: JobDefinition) -> Tuple[State, Optional[JobResults]]:
-        raise NotImplemented
+    def finalize(self, job):
+        raise NotImplementedError
 
-    def cleanup(self, job: JobDefinition) -> None:
-        raise NotImplemented
+    def terminate(self, job):
+        raise NotImplementedError
+
+    def get_status(self, job):
+        raise NotImplementedError
+
+    def get_results(self, job):
+        raise NotImplementedError
+
+    def cleanup(self, job):
+        raise NotImplementedError
 
 
 class NullWorkspaceAPI:
     def delete_files(self, workspace: str, privacy: Privacy, paths: [str]):
-        raise NotImplemented
+        raise NotImplementedError
 
 
 def get_job_api():
