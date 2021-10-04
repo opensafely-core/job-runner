@@ -47,38 +47,41 @@ def main(exit_callback=lambda _: False):
 
     if config.EXECUTION_API:
         log.info("using new EXECUTION_API")
-        api = job_executor.get_job_api()
 
     while True:
-        log.debug("Querying database for active jobs")
-        active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
-        log.debug("Done query")
-        # Randomising the job order is a crude but effective way to ensure that a
-        # single large job request doesn't hog all the workers. We make this
-        # optional as, when running locally, having jobs run in a predictable order
-        # is preferable
-        if config.RANDOMISE_JOB_ORDER:
-            random.shuffle(active_jobs)
-
-        if config.EXECUTION_API:
-            handle_active_jobs_api(active_jobs, api)
-        else:
-            handle_jobs(active_jobs)
+        active_jobs = handle_jobs()
 
         if exit_callback(active_jobs):
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(active_jobs):
+def handle_jobs():
+    log.debug("Querying database for active jobs")
+    active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
+    log.debug("Done query")
+    # Randomising the job order is a crude but effective way to ensure that a
+    # single large job request doesn't hog all the workers. We make this
+    # optional as, when running locally, having jobs run in a predictable order
+    # is preferable
+    if config.RANDOMISE_JOB_ORDER:
+        random.shuffle(active_jobs)
+
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            if job.state == State.PENDING:
-                handle_pending_job(job)
-            elif job.state == State.RUNNING:
-                handle_running_job(job)
+            # new way
+            if config.EXECUTION_API:
+                handle_job_api(job, job_executor.get_job_api())
+            # old way
+            else:
+                if job.state == State.PENDING:
+                    handle_pending_job(job)
+                elif job.state == State.RUNNING:
+                    handle_running_job(job)
+
+    return active_jobs
 
 
 def handle_pending_job(job):
