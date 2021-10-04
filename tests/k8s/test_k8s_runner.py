@@ -15,7 +15,8 @@ from jobrunner.k8s.k8s_runner import (
     create_namespace,
     create_network_policy,
     read_k8s_job_status,
-    JobStatus
+    JobStatus,
+    read_job_status
 )
 
 
@@ -219,7 +220,7 @@ def test_job_sequence(monkeypatch):
 
 @pytest.mark.slow_test
 @pytest.mark.needs_local_k8s
-def test_corhortextraction(monkeypatch):
+def test_generate_cohort(monkeypatch):
     namespace = "opensafely-test"
     
     monkeypatch.setattr("jobrunner.config.K8S_USE_LOCAL_CONFIG", 1)
@@ -242,6 +243,7 @@ def test_corhortextraction(monkeypatch):
     commit_sha = "8cfdfbaadbc63c7b5023609731f4a591e3e279fa"
     private_repo_access_token = config.get('git', 'PRIVATE_REPO_ACCESS_TOKEN')
     inputs = ""
+    output_spec = {'highly_sensitive': {'cohort': 'output/input_*.csv'}}
     
     allow_network_access = True
     execute_job_image = 'ghcr.io/opensafely-core/cohortextractor:latest'
@@ -250,20 +252,23 @@ def test_corhortextraction(monkeypatch):
                        '--output-dir=output', '--expectations-population=1']
     execute_job_env = {'OPENSAFELY_BACKEND': 'graphnet', 'DATABASE_URL': 'mssql://dummy_user:dummy_password@127.0.0.1:1433/dummy_db'}
     
-    jobs, ws_pv, _, job_pv, _ = create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name,
-                                                      repo_url, private_repo_access_token, commit_sha, inputs,
-                                                      allow_network_access, execute_job_image, execute_job_command, execute_job_arg, execute_job_env)
+    jobs, ws_pv, _, job_pv, _ = create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name, repo_url, private_repo_access_token, commit_sha, inputs,
+                                                      allow_network_access, execute_job_image, execute_job_command, execute_job_arg, execute_job_env, output_spec)
     
     for job_name in jobs:
         status = await_job_status(job_name, namespace)
         log_k8s_job(job_name, namespace)
         assert status == JobStatus.SUCCEEDED
     
+    job_status = read_job_status(opensafely_job_name, opensafely_job_id, namespace)
+    print(job_status)
+    assert job_status == {'outputs': {'output/input_2021-01-01.csv': 'highly_sensitive', 'output/input_2021-02-01.csv': 'highly_sensitive'}, 'unmatched': []}
+    
     # clean up
-    # delete_namespace(namespace)
-    #
-    # delete_persistent_volume(ws_pv)
-    # delete_persistent_volume(job_pv)
+    delete_namespace(namespace)
+    
+    delete_persistent_volume(ws_pv)
+    delete_persistent_volume(job_pv)
 
 
 @pytest.mark.slow_test
@@ -291,12 +296,12 @@ def test_create_concurrent_jobs(monkeypatch):
     jobs1, ws_pv_1, ws_pvc_1, job_pv_1, job_pvc_1 = create_opensafely_job(workspace, "test_job_id_1", opensafely_job_name,
                                                                           "https://github.com/opensafely-core/test-public-repository.git", '',
                                                                           "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
-                                                                          execute_job_command, execute_job_arg, execute_job_env)
+                                                                          execute_job_command, execute_job_arg, execute_job_env, {})
     
     jobs2, ws_pv_2, ws_pvc_2, job_pv_2, job_pvc_2 = create_opensafely_job(workspace, "test_job_id_2", opensafely_job_name,
                                                                           "https://github.com/opensafely-core/test-public-repository.git", '',
                                                                           "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
-                                                                          execute_job_command, execute_job_arg, execute_job_env)
+                                                                          execute_job_command, execute_job_arg, execute_job_env, {})
     
     assert set(jobs1) != set(jobs2)
     assert ws_pv_1 == ws_pv_2
@@ -349,13 +354,13 @@ def test_create_duplicated_job(monkeypatch):
     jobs1, ws_pv_1, ws_pvc_1, job_pv_1, job_pvc_1 = create_opensafely_job(workspace, opensafely_job_id, opensafely_job_name,
                                                                           "https://github.com/opensafely-core/test-public-repository.git", '',
                                                                           "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
-                                                                          execute_job_command, execute_job_arg, execute_job_env)
+                                                                          execute_job_command, execute_job_arg, execute_job_env, {})
     
     # should not return error
     jobs2, ws_pv_2, ws_pvc_2, job_pv_2, job_pvc_2 = create_opensafely_job(workspace, opensafely_job_id, opensafely_job_name,
                                                                           "https://github.com/opensafely-core/test-public-repository.git", '',
                                                                           "c1ef0e676ec448b0a49e0073db364f36f6d6d078", "", allow_network_access, execute_job_image,
-                                                                          execute_job_command, execute_job_arg, execute_job_env)
+                                                                          execute_job_command, execute_job_arg, execute_job_env, {})
     
     for job_name_1 in jobs1:
         status = await_job_status(job_name_1, namespace)

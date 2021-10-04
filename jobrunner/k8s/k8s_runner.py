@@ -1,6 +1,8 @@
 from __future__ import print_function, unicode_literals, division, absolute_import
 
+import datetime
 import hashlib
+import json
 import re
 import socket
 import time
@@ -12,9 +14,14 @@ from kubernetes import client
 from kubernetes import config as k8s_config
 from typing import Mapping, List, Tuple, Optional
 
+from pathlib import Path
+from jobrunner.k8s.post import JOB_RESULTS_TAG
+
 batch_v1 = client.BatchV1Api()
 core_v1 = client.CoreV1Api()
 networking_v1 = client.NetworkingV1Api()
+
+JOB_CONTAINER_NAME = "job"
 
 
 def init_k8s_config():
@@ -32,7 +39,7 @@ def init_k8s_config():
 
 # TODO to be split into multiple functions: prepare / execute / finalize
 def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name, repo_url, private_repo_access_token, commit_sha, inputs, allow_network_access,
-                          execute_job_image, execute_job_command, execute_job_arg, execute_job_env):
+                          execute_job_image, execute_job_command, execute_job_arg, execute_job_env, output_spec):
     """
     1. create pv and pvc (ws_pvc) for the workspace if not exist
     2. check if the job exists, skip the job if already created
@@ -48,23 +55,23 @@ def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name
     size = config.K8S_STORAGE_SIZE
     whitelist = config.K8S_EXECUTION_HOST_WHITELIST
     
-    ws_pv = convert_k8s_name(workspace_name, "pv")
-    ws_pvc = convert_k8s_name(workspace_name, "pvc")
+    work_pv = convert_k8s_name(workspace_name, "pv")
+    work_pvc = convert_k8s_name(workspace_name, "pvc")
     job_pv = convert_k8s_name(opensafely_job_id, "pv")
     job_pvc = convert_k8s_name(opensafely_job_id, "pvc")
     
-    create_pv(ws_pv, storage_class, size)
+    create_pv(work_pv, storage_class, size)
     create_pv(job_pv, storage_class, size)
     
     create_namespace(namespace)
     
-    create_pvc(ws_pv, ws_pvc, storage_class, namespace, size)
+    create_pvc(work_pv, work_pvc, storage_class, namespace, size)
     create_pvc(job_pv, job_pvc, storage_class, namespace, size)
     
     whitelist_network_labels = create_network_policy(namespace, [ip_port.split(":") for ip_port in whitelist.split(",")] if len(whitelist.strip()) > 0 else [])
     deny_all_network_labels = create_network_policy(namespace, [])
     
-    ws_dir = "/ws_volume"
+    work_dir = "/workdir"
     job_dir = "/workspace"
     
     jobs = []
@@ -72,19 +79,89 @@ def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name
     image_pull_policy = "Never" if config.K8S_USE_LOCAL_CONFIG else "Always"
     
     # Prepare
-    prepare_job_name = convert_k8s_name(opensafely_job_name, "prepare", additional_hash=opensafely_job_id)
-    repos_dir = ws_dir + "/repos"
-    command = ['python', '-m', 'jobrunner.k8s.pre']
-    args = [repo_url, commit_sha, repos_dir, job_dir, inputs]
-    env = {'PRIVATE_REPO_ACCESS_TOKEN': private_repo_access_token}
-    storages = [
-        (ws_pvc, ws_dir, False),
-        (job_pvc, job_dir, True),
-    ]
-    create_k8s_job(prepare_job_name, namespace, jobrunner_image, command, args, env, storages, {}, image_pull_policy=image_pull_policy)
+    prepare_job_name = prepare(commit_sha, image_pull_policy, inputs, job_dir, job_pvc, jobrunner_image, namespace, opensafely_job_id, opensafely_job_name,
+                               private_repo_access_token, repo_url, work_dir, work_pvc)
     jobs.append(prepare_job_name)
     
     # Execute
+    execute_job_name = execute(allow_network_access, deny_all_network_labels, execute_job_arg, execute_job_command, execute_job_env, execute_job_image, image_pull_policy,
+                               job_dir, job_pvc, namespace, opensafely_job_id, opensafely_job_name, prepare_job_name, whitelist_network_labels)
+    jobs.append(execute_job_name)
+    
+    # Finalize
+    # wait for execute job finished before
+    while True:
+        status = read_k8s_job_status(execute_job_name, namespace)
+        if status.completed():
+            break
+        time.sleep(.5)
+    
+    finalize_job_name = finalize(execute_job_arg, execute_job_name, image_pull_policy, job_dir, job_pvc, jobrunner_image, namespace, opensafely_job_id,
+                                 opensafely_job_name, output_spec, work_dir, work_pvc, workspace_name)
+    
+    jobs.append(finalize_job_name)
+    
+    return jobs, work_pv, work_pvc, job_pv, job_pvc
+
+
+def finalize(execute_job_arg, execute_job_name, image_pull_policy, job_dir, job_pvc, jobrunner_image, namespace, opensafely_job_id, opensafely_job_name, output_spec,
+             work_dir, work_pvc, workspace_name):
+    # read the log of the execute job
+    pod_name = None
+    container_log = None
+    logs = read_log(execute_job_name, namespace)
+    for (pod_name, container_name), container_log in logs.items():
+        if container_name == JOB_CONTAINER_NAME:
+            break
+    
+    # get the metadata of the execute job
+    pods = list_pod_of_job(execute_job_name, namespace)
+    print(pods)
+    
+    job = batch_v1.read_namespaced_job(execute_job_name, namespace)
+    job_metadata = extract_k8s_api_values(job, ['env'])  # env contains sql server login
+    
+    job_status = read_k8s_job_status(execute_job_name, namespace)
+    
+    high_privacy_storage_base = Path(work_dir) / "high_privacy"
+    medium_privacy_storage_base = Path(work_dir) / "medium_privacy"
+    action = execute_job_arg[0]
+    high_privacy_workspace_dir = high_privacy_storage_base / 'workspaces' / workspace_name
+    high_privacy_metadata_dir = high_privacy_workspace_dir / "metadata"
+    high_privacy_log_dir = high_privacy_storage_base / 'logs' / datetime.date.today().strftime("%Y-%m") / pod_name
+    high_privacy_action_log_path = high_privacy_metadata_dir / f"{action}.log"
+    medium_privacy_workspace_dir = medium_privacy_storage_base / 'workspaces' / workspace_name
+    medium_privacy_metadata_dir = medium_privacy_workspace_dir / "metadata"
+    
+    execute_logs = container_log
+    output_spec_json = json.dumps(output_spec)
+    job_metadata = {
+        # TODO add fields from JobDefinition
+        "state"       : job_status.name,
+        "created_at"  : "",  # TODO
+        "started_at"  : str(job.status.start_time),
+        "completed_at": str(job.status.completion_time),
+        "job_metadata": job_metadata
+    }
+    job_metadata_json = json.dumps(job_metadata)
+    
+    finalize_job_name = convert_k8s_name(opensafely_job_name, "finalize", additional_hash=opensafely_job_id)
+    command = ['python', '-m', 'jobrunner.k8s.post']
+    args = [job_dir, high_privacy_workspace_dir, high_privacy_metadata_dir, high_privacy_log_dir, high_privacy_action_log_path, medium_privacy_workspace_dir,
+            medium_privacy_metadata_dir, execute_logs, output_spec_json, job_metadata_json]
+    args = [str(a) for a in args]
+    env = {}
+    storages = [
+        (work_pvc, work_dir, False),
+        (job_pvc, job_dir, True),
+    ]
+    create_k8s_job(finalize_job_name, namespace, jobrunner_image, command, args, env, storages, {}, image_pull_policy=image_pull_policy)
+    
+    return finalize_job_name
+
+
+def execute(allow_network_access, deny_all_network_labels, execute_job_arg, execute_job_command, execute_job_env, execute_job_image, image_pull_policy, job_dir, job_pvc,
+            namespace, opensafely_job_id, opensafely_job_name, prepare_job_name, whitelist_network_labels):
     execute_job_name = convert_k8s_name(opensafely_job_name, "execute", additional_hash=opensafely_job_id)
     command = execute_job_command
     args = execute_job_arg
@@ -95,21 +172,22 @@ def create_opensafely_job(workspace_name, opensafely_job_id, opensafely_job_name
     network_labels = whitelist_network_labels if allow_network_access else deny_all_network_labels
     create_k8s_job(execute_job_name, namespace, execute_job_image, command, args, env, storages, network_labels, depends_on=prepare_job_name,
                    image_pull_policy=image_pull_policy)
-    jobs.append(execute_job_name)
-    
-    # TODO Finalize
-    finalize_job_name = convert_k8s_name(opensafely_job_name, "finalize", additional_hash=opensafely_job_id)
-    command = ['/bin/sh', '-c']
-    args = [f"echo finalize; ls -R -a {job_dir}; echo ws; ls -R -a {ws_dir}; echo done"]
+    return execute_job_name
+
+
+def prepare(commit_sha, image_pull_policy, inputs, job_dir, job_pvc, jobrunner_image, namespace, opensafely_job_id, opensafely_job_name, private_repo_access_token,
+            repo_url, work_dir, work_pvc):
+    prepare_job_name = convert_k8s_name(opensafely_job_name, "prepare", additional_hash=opensafely_job_id)
+    repos_dir = work_dir + "/repos"
+    command = ['python', '-m', 'jobrunner.k8s.pre']
+    args = [repo_url, commit_sha, repos_dir, job_dir, inputs]
+    env = {'PRIVATE_REPO_ACCESS_TOKEN': private_repo_access_token}
     storages = [
-        (ws_pvc, ws_dir, False),
+        (work_pvc, work_dir, False),
         (job_pvc, job_dir, True),
     ]
-    create_k8s_job(finalize_job_name, namespace, 'busybox', command, args, {}, storages, {}, depends_on=execute_job_name,
-                   image_pull_policy=image_pull_policy)
-    jobs.append(finalize_job_name)
-    
-    return jobs, ws_pv, ws_pvc, job_pv, job_pvc
+    create_k8s_job(prepare_job_name, namespace, jobrunner_image, command, args, env, storages, {}, image_pull_policy=image_pull_policy)
+    return prepare_job_name
 
 
 def convert_k8s_name(text: str, suffix: Optional[str] = None, hash_len: int = 7, additional_hash: str = None) -> str:
@@ -281,7 +359,7 @@ def create_k8s_job(
     k8s_env = [client.V1EnvVar(str(k), str(v)) for (k, v) in env.items()]
     
     job_container = client.V1Container(
-            name="job",
+            name=JOB_CONTAINER_NAME,
             image=image,
             image_pull_policy=image_pull_policy,
             command=command,
@@ -453,31 +531,91 @@ def read_k8s_job_status(job_name: str, namespace: str) -> JobStatus:
     return JobStatus.RUNNING
 
 
-def read_log(job_name: str, namespace: str) -> Mapping[Tuple[str, str], str]:
-    from kubernetes import client
-    
-    core_v1 = client.CoreV1Api()
-    
+def list_pod_of_job(job_name: str, namespace: str) -> List:
     # logs: read logs of the job
     pods = core_v1.list_namespaced_pod(namespace=namespace)
-    job_pod_names = [p.metadata.name for p in pods.items if p.metadata.labels.get('job-name') == job_name]  # get must be used to avoid error when key not found
-    
-    all_containers = []
-    for p in pods.items:
-        if p.metadata.labels.get('job-name') == job_name:
-            if p.spec.init_containers:
-                for c in p.spec.init_containers:
-                    all_containers.append(c.name)
-            for c in p.spec.containers:
-                all_containers.append(c.name)
+    pods = [p for p in pods.items if p.metadata.labels.get('job-name') == job_name]  # get must be used to avoid error when key not found
+    return pods
+
+
+def read_log(job_name: str, namespace: str) -> Mapping[Tuple[str, str], str]:
+    # logs: read logs of the job
+    pods = list_pod_of_job(job_name, namespace)
     
     logs = {}
-    for pod_name in job_pod_names:
-        for c in all_containers:
+    for pod in pods:
+        pod_name = pod.metadata.name
+        
+        all_containers = []
+        if pod.spec.init_containers:
+            for container in pod.spec.init_containers:
+                all_containers.append(container.name)
+        for container in pod.spec.containers:
+            all_containers.append(container.name)
+        
+        for container_name in all_containers:
             try:
-                log = core_v1.read_namespaced_pod_log(pod_name, namespace=namespace, container=c)
-                logs[(pod_name, c)] = log
+                log = core_v1.read_namespaced_pod_log(pod_name, namespace=namespace, container=container_name)
+                logs[(pod_name, container_name)] = log
             except Exception as e:
                 print(e)
     
     return logs
+
+
+def extract_k8s_api_values(data, removed_fields):
+    if isinstance(data, list):
+        if len(data) == 0:
+            return None
+        else:
+            return [extract_k8s_api_values(d, removed_fields) for d in data]
+    elif isinstance(data, dict):
+        if len(data) == 0:
+            return None
+        else:
+            result = {}
+            for key, value in data.items():
+                if key in removed_fields:
+                    result[key] = '<removed>'
+                else:
+                    extracted = extract_k8s_api_values(value, removed_fields)
+                    if extracted is not None:
+                        result[key] = extracted
+            if len(result) == 0:
+                return None
+            else:
+                return result
+    elif hasattr(data, 'attribute_map'):
+        result = {}
+        attrs = data.attribute_map.keys()
+        for key in attrs:
+            if key in removed_fields:
+                result[key] = '<removed>'
+            else:
+                value = getattr(data, key)
+                if value is not None:
+                    extracted = extract_k8s_api_values(value, removed_fields)
+                    if extracted is not None:
+                        result[key] = extracted
+        if len(result) == 0:
+            return None
+        else:
+            return result
+    elif data is None:
+        return None
+    else:
+        return str(data)
+
+
+def read_job_status(opensafely_job_name, opensafely_job_id, namespace):
+    finalize_job_name = convert_k8s_name(opensafely_job_name, "finalize", additional_hash=opensafely_job_id)
+    logs = read_log(finalize_job_name, namespace)
+    container_log = ""
+    for (_, container_name), container_log in logs.items():
+        if container_name == JOB_CONTAINER_NAME:
+            break
+    for line in container_log.split('\n'):
+        if line.startswith(JOB_RESULTS_TAG):
+            job_result = line[len(JOB_RESULTS_TAG):]
+            return json.loads(job_result)
+    return None

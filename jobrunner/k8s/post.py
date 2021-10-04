@@ -13,6 +13,8 @@ import shutil
 from jobrunner.manage_jobs import delete_files, ActionNotRunError, ActionFailedError, MissingOutputError, read_manifest_file, update_manifest
 from jobrunner.models import State
 
+JOB_RESULTS_TAG = "__JobResults__:"
+
 
 def main():
     """
@@ -29,15 +31,6 @@ def main():
     )
     
     parser.add_argument("job_dir", type=str, help="")
-    
-    #     high_privacy_storage_base = work_dir / "high_privacy"
-    #     high_privacy_workspace_dir = high_privacy_storage_base / 'workspaces' / workspace_name
-    #     high_privacy_metadata_dir = high_privacy_workspace_dir / "metadata"
-    #     high_privacy_log_dir = high_privacy_storage_base / 'logs' / datetime.date.today().strftime("%Y-%m") / pod_name
-    #     high_privacy_action_log_path = high_privacy_metadata_dir / f"{action}.log"
-    #     medium_privacy_storage_base = work_dir / "medium_privacy"
-    #     medium_privacy_workspace_dir = medium_privacy_storage_base / 'workspaces' / workspace_name
-    #     medium_privacy_metadata_dir = medium_privacy_workspace_dir / "metadata"
     
     parser.add_argument("high_privacy_workspace_dir", type=str, help='workdir/high_privacy/workspaces/{workspace_name}')
     parser.add_argument("high_privacy_metadata_dir", type=str, help='workdir/high_privacy/workspaces/{workspace_name}/metadata')
@@ -62,12 +55,13 @@ def main():
     medium_privacy_metadata_dir = args.medium_privacy_metadata_dir
     
     execute_logs = args.execute_logs
-    output_spec = json.load(args.output_spec_json)
-    job_metadata = json.load(args.job_metadata_json)
+    output_spec = json.loads(args.output_spec_json)
+    job_metadata = json.loads(args.job_metadata_json)
     
     job_result = finalize(execute_logs, high_privacy_action_log_path, high_privacy_log_dir, high_privacy_metadata_dir, high_privacy_workspace_dir, job_dir, job_metadata,
                           medium_privacy_metadata_dir, medium_privacy_workspace_dir, output_spec)
-    print("__JobResults:__", json.dumps(job_result))
+    
+    print(JOB_RESULTS_TAG, json.dumps(job_result).replace('\n', ''))
 
 
 def finalize(execute_logs, high_privacy_action_log_path, high_privacy_log_dir, high_privacy_metadata_dir, high_privacy_workspace_dir, job_dir, job_metadata,
@@ -81,6 +75,13 @@ def finalize(execute_logs, high_privacy_action_log_path, high_privacy_log_dir, h
     medium_privacy_metadata_dir = Path(medium_privacy_metadata_dir)
     
     outputs, unmatched_patterns = find_matching_outputs(job_dir, output_spec)
+    job_result = {
+        'outputs'  : {str(filename): privacy_level for filename, privacy_level in outputs.items()},
+        'unmatched': unmatched_patterns,
+    }
+    
+    job_metadata['outputs'] = job_result['outputs']
+    job_metadata['status_message'] = job_result['unmatched']
     
     # high privacy
     high_privacy_log_dir.mkdir(parents=True, exist_ok=True)
@@ -98,7 +99,7 @@ def finalize(execute_logs, high_privacy_action_log_path, high_privacy_log_dir, h
     
     with open(high_privacy_action_log_path, 'w+') as f:
         f.write(execute_logs)
-
+    
     copy_files(job_dir, outputs.keys(), high_privacy_workspace_dir)
     
     # medium privacy
@@ -107,10 +108,6 @@ def finalize(execute_logs, high_privacy_action_log_path, high_privacy_log_dir, h
     medium_privacy_files = [filename for filename, privacy_level in outputs.items() if privacy_level == "moderately_sensitive"]
     copy_files(high_privacy_workspace_dir, medium_privacy_files, medium_privacy_workspace_dir)
     
-    job_result = {
-        'outputs'  : outputs,
-        'unmatched': unmatched_patterns,
-    }
     return job_result
 
 
