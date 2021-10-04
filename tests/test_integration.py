@@ -6,8 +6,6 @@ import pytest
 
 import jobrunner.run
 import jobrunner.sync
-from jobrunner.lib.database import find_where
-from jobrunner.models import Job, State
 from jobrunner import config
 from jobrunner.lib import docker
 from jobrunner.lib.subprocess_utils import subprocess_run
@@ -67,8 +65,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == ["pending"] * 7
     # Exectue one tick of the run loop and then sync
-    active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
-    jobrunner.run.handle_jobs(active_jobs)
+    jobrunner.run.handle_jobs()
     jobrunner.sync.sync()
     # We should now have one running job and all others waiting on dependencies
     jobs = get_posted_jobs(requests_mock)

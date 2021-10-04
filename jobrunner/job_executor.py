@@ -85,7 +85,7 @@ class JobAPI:
 
         1. Validate the JobDefinition. If there are errors, return an ERROR state with message.
 
-        2. Check the job is currently in UNKNOWN state. IF not return its current state with a message indicated invalid
+        2. Check the job is currently in UNKNOWN state. If not return its current state with a message indicated invalid
            state.
 
         3. Check the resources are available to prepare the job. If not, return the UNKNOWN state with an appropriate
