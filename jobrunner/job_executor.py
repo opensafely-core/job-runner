@@ -117,7 +117,7 @@ class JobAPI:
 
         1. Check the job is in the PREPARED state. If not, return its current state with a message.
 
-        2. Validate the the ephememeral workspace created by prepare for this job exists.  If not, return an ERROR
+        2. Validate that the ephememeral workspace created by prepare for this job exists.  If not, return an ERROR
            state with message.
 
         3. Check there are resources availabe to execute the job. If not, return PREPARED status with an appropriate
@@ -137,7 +137,7 @@ class JobAPI:
 
         The job must be run with the ephemeral workspace for this job at /workspace in the filesystem.
 
-        When the prepare task finishes, the get_status() call must now return EXECUTED for this job.
+        When the execute task finishes, the get_status() call must now return EXECUTED for this job.
 
         This method must be idempotent. If called with a job that is already running an execute task, it must not
         launch a new task, and simply return succesfully with EXECUTING.

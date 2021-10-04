@@ -202,24 +202,26 @@ def handle_job_api(job, api):
         # cancelled is driven by user request, so is handled explicitly first
         # regardless of executor state.
         api.terminate(definition)
-        api.cleanup(definition)
         mark_job_as_failed(job, "Cancelled by user", StatusCode.CANCELLED_BY_USER)
+        api.cleanup(definition)
         return
 
-    old_status = api.get_status(definition)
+    initial_status = api.get_status(definition)
 
     # handle the simple no change needed states.
-    if old_status.state in STABLE_STATES:
+    if initial_status.state in STABLE_STATES:
+        if job.state == State.PENDING:
+            log.warning("state ereror: got {initial_status.state} for a job we thought was PENDING")
         # no action needed, simply update job message and timestamp
-        message = old_status.state.value.title()
+        message = initial_status.state.value.title()
         set_message(job, message)
         return
 
     # ok, handle the state transitions that are our responsibility
-    if old_status.state == ExecutorState.UNKNOWN:
+    if initial_status.state == ExecutorState.UNKNOWN:
         # a new job
         if job.state == State.RUNNING:
-            log.warning("Got UNKNOWN state for a job we thought was RUNNING")
+            log.warning("state error: got UNKNOWN state for a job we thought was RUNNING")
 
         # check dependencies
         awaited_states = get_states_of_awaited_jobs(job)
@@ -237,18 +239,18 @@ def handle_job_api(job, api):
             )
             return
 
-        next_state = ExecutorState.PREPARING
+        expected_state = ExecutorState.PREPARING
         new_status = api.prepare(definition)
 
-    elif old_status.state == ExecutorState.PREPARED:
-        next_state = ExecutorState.EXECUTING
+    elif initial_status.state == ExecutorState.PREPARED:
+        expected_state = ExecutorState.EXECUTING
         new_status = api.execute(definition)
 
-    elif old_status.state == ExecutorState.EXECUTED:
-        next_state = ExecutorState.FINALIZING
+    elif initial_status.state == ExecutorState.EXECUTED:
+        expected_state = ExecutorState.FINALIZING
         new_status = api.finalize(definition)
 
-    elif old_status.state == ExecutorState.FINALIZED:
+    elif initial_status.state == ExecutorState.FINALIZED:
         # final state - we have finished!
         results = api.get_results(definition)
         # TODO: implement workspace API
@@ -261,19 +263,19 @@ def handle_job_api(job, api):
 
     # following logic is common to all non-final transitions
 
-    if new_status.state == old_status.state:
+    if new_status.state == initial_status.state:
         # no change in state, i.e. back pressure
         set_message(
             job, "Waiting on available resources", code=StatusCode.WAITING_ON_WORKERS
         )
 
-    elif new_status.state == next_state:
+    elif new_status.state == expected_state:
         # successful state change to the expected next state
         if new_status.state == ExecutorState.PREPARING:
             job.state = State.RUNNING
         elif job.state != State.RUNNING:
             # got an ExecutorState that should mean the job.state is RUNNING, but it is not
-            log.warning("Got {new_status.state} for job we thought was {job.state}")
+            log.warning("state error: got {new_status.state} for job we thought was {job.state}")
         set_message(job, new_status.state.value.title())
 
     elif new_status.state == ExecutorState.ERROR:
@@ -283,16 +285,13 @@ def handle_job_api(job, api):
 
     else:
         raise InvalidTransition(
-            f"unexpected state transition from {old_status.state} to {new_status.state}: {new_status.message}"
+            f"unexpected state transition of job {job.id} from {initial_status.state} to {new_status.state}: {new_status.message}"
         )
 
 
 def save_results(job, results):
     """Extract the results of the execution and update the job accordingly."""
-
-    # this logic is adapted directly from jobrunner.manage_jobs.finalize_job()
-
-    # Set the final state of the job
+    # set the final state of the job
     if results.exit_code != 0:
         job.state = State.FAILED
         job.status_message = "Job exited with an error code"
