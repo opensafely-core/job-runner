@@ -104,6 +104,20 @@ def create_volume(volume_name):
             raise
 
 
+def volume_exists(volume_name):
+    """Does the given volume exist?"""
+    try:
+        docker(
+            ["volume", "inspect", volume_name],
+            check=True,
+            capture_output=True
+        )
+    except subprocess.CalledProcessError:
+        return False
+    else:
+        return True
+
+
 def delete_volume(volume_name):
     """
     Deletes the named volume and its manager container
@@ -309,15 +323,19 @@ def container_inspect(name, key="", none_if_not_exists=False):
     return json.loads(response.stdout)
 
 
-def run(name, args, volume=None, env=None, allow_network_access=False, label=None):
+def run(name, args, volume=None, env=None, allow_network_access=False, labels=None):
     run_args = ["run", "--init", "--detach", "--label", LABEL, "--name", name]
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
         run_args.extend(["--volume", f"{volume[0]}:{volume[1]}"])
     # This is in addition to the default LABEL which is always applied
-    if label is not None:
-        run_args.extend(["--label", label])
+    if labels is not None:
+        for k, v in labels.items():
+            if v:
+                run_args.extend(["--label", f"{k}={v}"])
+            else:
+                run_args.extend(["--label", k])
     # To avoid leaking the values into the command line arguments we set them
     # in the evnironment and tell Docker to fetch them from there
     if env is None:

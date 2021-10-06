@@ -135,7 +135,7 @@ def start_job(job):
         volume=(volume, "/workspace"),
         env=env,
         allow_network_access=allow_network_access,
-        label=JOB_LABEL,
+        labels={JOB_LABEL:""},
     )
     log.info("Started")
     log.info(f"View live logs using: docker logs -f {container_name(job)}")
