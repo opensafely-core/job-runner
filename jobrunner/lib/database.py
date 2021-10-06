@@ -60,6 +60,19 @@ def find_where(itemclass, **query_params):
     return [itemclass(*decode_field_values(fields, row)) for row in cursor]
 
 
+def find_one(itemclass, **query_params):
+    results = find_where(itemclass, **query_params)
+    if len(results) == 0:
+        raise ValueError(
+            f"Found no {itemclass.__name__}s matching {query_params}, expecting one"
+        )
+    if len(results) > 1:
+        raise ValueError(
+            f"Found {len(results)} {itemclass.__name__}s matching {query_params}, expecting only one"
+        )
+    return results[0]
+
+
 def exists_where(itemclass, **query_params):
     table = itemclass.__tablename__
     where, params = query_params_to_sql(query_params)

@@ -19,7 +19,7 @@ from pathlib import Path
 
 from jobrunner import config
 from jobrunner.lib import docker
-from jobrunner.lib.database import find_where
+from jobrunner.lib.database import find_one, find_where
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
@@ -433,7 +433,7 @@ def get_job_metadata(job, container_metadata):
     # of time to put in the metadata
     job.completed_at = int(time.time())
     job_metadata = job.asdict()
-    job_request = find_where(SavedJobRequest, id=job.job_request_id)[0]
+    job_request = find_one(SavedJobRequest, id=job.job_request_id)
     # The original job_request, exactly as received from the job-server
     job_metadata["job_request"] = job_request.original
     job_metadata["job_id"] = job_metadata["id"]
