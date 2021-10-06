@@ -2,10 +2,9 @@ import base64
 import secrets
 from copy import deepcopy
 
-from jobrunner.job_executor import ExecutorState, JobStatus, JobResults
+from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from jobrunner.lib.database import insert
-from jobrunner.manage_jobs import JobError
-from jobrunner.models import Job, JobRequest, SavedJobRequest, State
+from jobrunner.models import Job, JobRequest, SavedJobRequest
 
 JOB_REQUEST_DEFAULTS = {
     "repo_url": "repo",

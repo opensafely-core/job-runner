@@ -11,10 +11,9 @@ import sys
 import time
 
 from jobrunner import config, job_executor
+from jobrunner.job_executor import ExecutorState
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner import job_executor
-from jobrunner.job_executor import ExecutorState
 from jobrunner.manage_jobs import (
     BrokenContainerError,
     JobError,
@@ -207,7 +206,9 @@ def handle_job_api(job, api):
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
         if job.state == State.PENDING:
-            log.warning("state ereror: got {initial_status.state} for a job we thought was PENDING")
+            log.warning(
+                "state ereror: got {initial_status.state} for a job we thought was PENDING"
+            )
         # no action needed, simply update job message and timestamp
         message = initial_status.state.value.title()
         set_message(job, message)
@@ -217,7 +218,9 @@ def handle_job_api(job, api):
     if initial_status.state == ExecutorState.UNKNOWN:
         # a new job
         if job.state == State.RUNNING:
-            log.warning("state error: got UNKNOWN state for a job we thought was RUNNING")
+            log.warning(
+                "state error: got UNKNOWN state for a job we thought was RUNNING"
+            )
 
         # check dependencies
         awaited_states = get_states_of_awaited_jobs(job)
@@ -271,7 +274,9 @@ def handle_job_api(job, api):
             job.state = State.RUNNING
         elif job.state != State.RUNNING:
             # got an ExecutorState that should mean the job.state is RUNNING, but it is not
-            log.warning("state error: got {new_status.state} for job we thought was {job.state}")
+            log.warning(
+                "state error: got {new_status.state} for job we thought was {job.state}"
+            )
         set_message(job, new_status.state.value.title())
 
     elif new_status.state == ExecutorState.ERROR:
