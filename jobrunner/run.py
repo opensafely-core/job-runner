@@ -164,7 +164,7 @@ def handle_active_jobs_api(api, active_jobs):
             try:
                 handle_job_api(job, api)
             except Exception:
-                mark_job_as_failed(job, f"Internal error")
+                mark_job_as_failed(job, "Internal error")
                 # Do not clean up, as we may want to debug
                 #
                 # Raising will kill the main loop, by design. The service manager
