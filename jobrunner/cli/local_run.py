@@ -35,7 +35,7 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from jobrunner import config
+from jobrunner import config, manifest_to_database_migration
 from jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,
@@ -222,6 +222,9 @@ def create_and_run_jobs(
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
+
+    # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
+    manifest_to_database_migration.migrate_one(project_dir, batch_size=1000)
 
     try:
         job_request, jobs = create_job_request_and_jobs(

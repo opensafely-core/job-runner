@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import shutil
 from datetime import datetime, timedelta
@@ -7,7 +8,10 @@ from pathlib import Path
 import pytest
 
 from jobrunner.cli import local_run
+from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
+from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
+from jobrunner.models import Job
 
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
 
@@ -37,6 +41,30 @@ def test_local_run_stata(tmp_path, monkeypatch):
     local_run.main(project_dir=project_dir, actions=["stata"])
     env_file = project_dir / "output/env.txt"
     assert "Bennett Institute" in env_file.read_text()
+
+
+@pytest.mark.slow_test
+@pytest.mark.needs_docker
+def test_local_run_triggers_a_manifest_migration(tmp_path):
+    project_dir = tmp_path / "project"
+    shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
+
+    # This action doesn't exist in the project.yaml, but the migration doesn't care. We use this instead of an action
+    # that does exist so that it's unambiguous that the database record had been created by the migration rather than
+    # as a side-effect of running the action we specify.
+    manifest = {
+        "workspace": "the-workspace",
+        "repo": "the-repo-url",
+        "actions": {"the-action": {"job_id": "job-id-from-manifest"}},
+        "files": {},
+    }
+    manifest_file = project_dir / METADATA_DIR / MANIFEST_FILE
+    manifest_file.parent.mkdir(parents=True)
+    manifest_file.write_text(json.dumps(manifest))
+
+    local_run.main(project_dir=project_dir, actions=["generate_cohort"])
+
+    assert database.exists_where(Job, id="job-id-from-manifest")
 
 
 @pytest.fixture
