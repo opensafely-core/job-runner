@@ -194,3 +194,11 @@ def timestamp_to_isoformat(ts):
     if ts is None:
         return None
     return datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"
+
+
+def isoformat_to_timestamp(string):
+    return int(
+        datetime.datetime.fromisoformat(string.rstrip("Z") + "+00:00")
+        .astimezone(datetime.timezone.utc)
+        .timestamp()
+    )

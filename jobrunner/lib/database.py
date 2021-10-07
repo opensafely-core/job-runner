@@ -60,6 +60,10 @@ def find_where(itemclass, **query_params):
     return [itemclass(*decode_field_values(fields, row)) for row in cursor]
 
 
+def find_all(itemclass):
+    return find_where(itemclass)
+
+
 def find_one(itemclass, **query_params):
     results = find_where(itemclass, **query_params)
     if len(results) == 0:
