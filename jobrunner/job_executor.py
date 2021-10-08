@@ -1,9 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Mapping, List, Tuple, Optional
-
-from jobrunner.models import State, StatusCode
-from jobrunner import config
+from typing import List, Mapping, Optional
 
 
 class Privacy(Enum):
@@ -71,11 +68,11 @@ class JobAPI:
      - the current state if is different from the expected state, with a message
      - the initial state to indicate back pressure and to retry later.
 
-    Given the long running nature of jobs, it is an asychronous API, and calls should not block for a more than a few
+    Given the long running nature of jobs, it is an asynchronous API, and calls should not block for a more than a few
     seconds.
 
     All the state transition methods (prepare(), execute(), finalize(), terminate(), cleanup()) must be idempotent. If
-    the relevent task they are responsible for is already running for that job, they must not start a new task, and
+    the relevant task they are responsible for is already running for that job, they must not start a new task, and
     instead return successfully the current state.
     """
 
@@ -101,13 +98,13 @@ class JobAPI:
 
           - check out the supplied study repo via the OpenSAFELY github proxy into the ephemeral workspace, erroring if
             there are any failures.
-          - copying the supplied file inputs from the long-term workspace storage into the ephermal workspace, erroring
+          - copying the supplied file inputs from the long-term workspace storage into the ephemeral workspace, erroring
             if there are any missing.
 
         When the prepare task finishes, the get_status() call should now return PREPARED for this job.
 
         This method must be idempotent. If called with a job that is already running a prepare task, it must not
-        launch a new task, and simply return succesfully with PREPARING.
+        launch a new task, and simply return successfully with PREPARING.
 
         """
 
@@ -117,10 +114,10 @@ class JobAPI:
 
         1. Check the job is in the PREPARED state. If not, return its current state with a message.
 
-        2. Validate that the ephememeral workspace created by prepare for this job exists.  If not, return an ERROR
+        2. Validate that the ephemeral workspace created by prepare for this job exists.  If not, return an ERROR
            state with message.
 
-        3. Check there are resources availabe to execute the job. If not, return PREPARED status with an appropriate
+        3. Check there are resources available to execute the job. If not, return PREPARED status with an appropriate
            message.
 
         4. Launch the job execution task asynchronously. If launched successfully, return the EXECUTING state. If not,
@@ -140,7 +137,7 @@ class JobAPI:
         When the execute task finishes, the get_status() call must now return EXECUTED for this job.
 
         This method must be idempotent. If called with a job that is already running an execute task, it must not
-        launch a new task, and simply return succesfully with EXECUTING.
+        launch a new task, and simply return successfully with EXECUTING.
 
         """
 
@@ -177,7 +174,7 @@ class JobAPI:
 
     def terminate(self, job: JobDefinition) -> JobStatus:
         """
-        Terminate a running job, tranisitioning to the ERROR state.
+        Terminate a running job, transitioning to the ERROR state.
 
         1. If any task for this job is running, terminate it, do not wait for it to complete.
 

@@ -10,7 +10,7 @@ from jobrunner.create_or_update_jobs import (
     create_or_update_jobs,
     validate_job_request,
 )
-from jobrunner.lib.database import find_where
+from jobrunner.lib.database import find_one
 from jobrunner.models import Job, JobRequest, State
 
 
@@ -35,27 +35,25 @@ def test_create_or_update_jobs(tmp_work_dir):
         original={},
     )
     create_or_update_jobs(job_request)
-    jobs = find_where(Job)
-    assert len(jobs) == 1
-    j = jobs[0]
-    assert j.job_request_id == "123"
-    assert j.state == State.PENDING
-    assert j.repo_url == repo_url
-    assert j.commit == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
-    assert j.workspace == "1"
-    assert j.action == "generate_cohort"
-    assert j.wait_for_job_ids == []
-    assert j.requires_outputs_from == []
-    assert j.run_command == (
+    old_job = find_one(Job)
+    assert old_job.job_request_id == "123"
+    assert old_job.state == State.PENDING
+    assert old_job.repo_url == repo_url
+    assert old_job.commit == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+    assert old_job.workspace == "1"
+    assert old_job.action == "generate_cohort"
+    assert old_job.wait_for_job_ids == []
+    assert old_job.requires_outputs_from == []
+    assert old_job.run_command == (
         "cohortextractor:latest generate_cohort --expectations-population=1000"
         " --output-dir=."
     )
-    assert j.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
-    assert j.status_message == None
+    assert old_job.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
+    assert old_job.status_message is None
     # Check no new jobs created from same JobRequest
     create_or_update_jobs(job_request)
-    new_jobs = find_where(Job)
-    assert jobs == new_jobs
+    new_job = find_one(Job)
+    assert old_job == new_job
 
 
 # Basic smoketest to test the error path
@@ -74,18 +72,16 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
         original={},
     )
     create_or_update_jobs(job_request)
-    jobs = find_where(Job)
-    assert len(jobs) == 1
-    j = jobs[0]
+    j = find_one(Job)
     assert j.job_request_id == "123"
     assert j.state == State.FAILED
     assert j.repo_url == repo_url
     assert j.commit == bad_commit
     assert j.workspace == "1"
-    assert j.wait_for_job_ids == None
-    assert j.requires_outputs_from == None
-    assert j.run_command == None
-    assert j.output_spec == None
+    assert j.wait_for_job_ids is None
+    assert j.requires_outputs_from is None
+    assert j.run_command is None
+    assert j.output_spec is None
     assert (
         j.status_message
         == f"GitError: Error fetching commit {bad_commit} from {repo_url}"
@@ -126,10 +122,10 @@ actions:
 
 def test_adding_job_creates_dependencies(tmp_work_dir):
     create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
-    analyse_job = find_where(Job, action="analyse_data")[0]
-    prepare_1_job = find_where(Job, action="prepare_data_1")[0]
-    prepare_2_job = find_where(Job, action="prepare_data_2")[0]
-    generate_job = find_where(Job, action="generate_cohort")[0]
+    analyse_job = find_one(Job, action="analyse_data")
+    prepare_1_job = find_one(Job, action="prepare_data_1")
+    prepare_2_job = find_one(Job, action="prepare_data_2")
+    generate_job = find_one(Job, action="generate_cohort")
     assert set(analyse_job.wait_for_job_ids) == {prepare_1_job.id, prepare_2_job.id}
     assert prepare_1_job.wait_for_job_ids == [generate_job.id]
     assert prepare_2_job.wait_for_job_ids == [generate_job.id]
@@ -140,14 +136,14 @@ def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_
     create_jobs_with_project_file(
         make_job_request(action="prepare_data_1"), TEST_PROJECT
     )
-    prepare_1_job = find_where(Job, action="prepare_data_1")[0]
-    generate_job = find_where(Job, action="generate_cohort")[0]
+    prepare_1_job = find_one(Job, action="prepare_data_1")
+    generate_job = find_one(Job, action="generate_cohort")
     assert prepare_1_job.wait_for_job_ids == [generate_job.id]
     # Now schedule a job which has the above jobs as dependencies
     create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
     # Check that it's waiting on the existing jobs
-    analyse_job = find_where(Job, action="analyse_data")[0]
-    prepare_2_job = find_where(Job, action="prepare_data_2")[0]
+    analyse_job = find_one(Job, action="analyse_data")
+    prepare_2_job = find_one(Job, action="prepare_data_2")
     assert set(analyse_job.wait_for_job_ids) == {prepare_1_job.id, prepare_2_job.id}
     assert prepare_2_job.wait_for_job_ids == [generate_job.id]
 
@@ -157,14 +153,14 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     create_jobs_with_project_file(job_request, TEST_PROJECT)
     job_request.cancelled_actions = ["prepare_data_1", "prepare_data_2"]
     create_or_update_jobs(job_request)
-    analyse_job = find_where(Job, action="analyse_data")[0]
-    prepare_1_job = find_where(Job, action="prepare_data_1")[0]
-    prepare_2_job = find_where(Job, action="prepare_data_2")[0]
-    generate_job = find_where(Job, action="generate_cohort")[0]
-    assert analyse_job.cancelled == False
-    assert prepare_1_job.cancelled == True
-    assert prepare_2_job.cancelled == True
-    assert generate_job.cancelled == False
+    analyse_job = find_one(Job, action="analyse_data")
+    prepare_1_job = find_one(Job, action="prepare_data_1")
+    prepare_2_job = find_one(Job, action="prepare_data_2")
+    generate_job = find_one(Job, action="generate_cohort")
+    assert analyse_job.cancelled == 0
+    assert prepare_1_job.cancelled == 1
+    assert prepare_2_job.cancelled == 1
+    assert generate_job.cancelled == 0
 
 
 @pytest.mark.parametrize(

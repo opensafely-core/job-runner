@@ -64,7 +64,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     # Check that expected number of pending jobs are created
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == ["pending"] * 7
-    # Exectue one tick of the run loop and then sync
+    # Execute one tick of the run loop and then sync
     jobrunner.run.handle_jobs()
     jobrunner.sync.sync()
     # We should now have one running job and all others waiting on dependencies
@@ -121,44 +121,44 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     assert jobs["test_reusable_action"]["status"] == "succeeded"
     assert jobs["test_cancellation"]["status"] == "failed"
 
-    # Check that the manfiest contains what we expect
-    manifest_file = (
-        tmp_work_dir
-        / "medium_privacy_workspaces_dir"
-        / "testing"
-        / "metadata"
-        / "manifest.json"
+    high_privacy_workspace = tmp_work_dir / "high_privacy_workspaces_dir" / "testing"
+    medium_privacy_workspace = (
+        tmp_work_dir / "medium_privacy_workspaces_dir" / "testing"
     )
+
+    # Check that the manifest contains what we expect. This is a subset of what used to be in the manifest, to support
+    # nicer UX for osrelease. See the comment in manage_jobs.finalize_job().
+    manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.load(manifest_file.open())
     assert manifest["workspace"] == "testing"
     assert manifest["repo"] == str(repo_path)
-    assert set(manifest["actions"]) == set(
-        [
-            "generate_cohort",
-            "generate_cohort_with_dummy_data",
-            "prepare_data_f",
-            "prepare_data_m",
-            "prepare_data_with_quote_in_filename",
-            "analyse_data",
-            "test_reusable_action",
-        ]
-    )
 
-    assert set(manifest["files"]) == set(
-        [
-            "counts.txt",
-            "male.csv",
-            "female.csv",
-            "qu'ote.csv",
-            "output/input.csv",
-            "output/input.backup.csv",
-            "output/extra/input.csv",
-        ]
-    )
+    # Check that all the outputs have been produced
+    for highly_sensitive_output in [
+        "output/input.csv",  # the cohort
+        "output/extra/input.csv",  # extracted from dummy data
+        "male.csv",  # intermediate analysis
+        "female.csv",  # intermediate analysis
+        "qu'ote.csv",  # checking handling of problematic characters in filenames
+        "output/input.backup.csv",  # from the reusable action
+    ]:
+        assert (high_privacy_workspace / highly_sensitive_output).exists()
+
+    for moderately_sensitive_output in [
+        "counts.txt",  # the study's actual output
+    ]:
+        assert (medium_privacy_workspace / moderately_sensitive_output).exists()
+
+    # Check that we don't produce outputs for cancelled jobs
+    assert not (high_privacy_workspace / "somefile.csv").exists()
 
 
 def commit_directory_contents(repo_path, directory):
-    env = {"GIT_WORK_TREE": directory, "GIT_DIR": repo_path}
+    env = {
+        "GIT_WORK_TREE": directory,
+        "GIT_DIR": repo_path,
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+    }
     subprocess_run(["git", "init", "--bare", "--quiet", repo_path], check=True)
     subprocess_run(
         ["git", "config", "user.email", "test@example.com"], check=True, env=env

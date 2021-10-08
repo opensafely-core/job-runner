@@ -14,16 +14,17 @@ import shlex
 import shutil
 import tempfile
 import time
+from operator import attrgetter
 from pathlib import Path
 
 from jobrunner import config
 from jobrunner.lib import docker
-from jobrunner.lib.database import find_where
+from jobrunner.lib.database import find_one, find_where
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.models import SavedJobRequest, State, StatusCode
+from jobrunner.models import Job, SavedJobRequest, State, StatusCode
 from jobrunner.project import (
     get_all_output_patterns_from_project_file,
     is_generate_cohort_command,
@@ -165,7 +166,7 @@ def create_and_populate_volume(job):
         copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs)
     else:
         # We only encounter jobs without a repo or commit when using the
-        # "local_run" command to execute uncommited local code
+        # "local_run" command to execute uncommitted local code
         copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
 
     for filename, action in input_files.items():
@@ -313,9 +314,9 @@ def finalise_job(job):
     log.info(f"Logs written to: {metadata_log_file}")
 
     # Extract outputs to workspace
-    ensure_overwritable(*[workspace_dir / f for f in job.outputs.keys()])
+    ensure_overwritable(*[workspace_dir / f for f in job.output_files])
     volume = volume_name(job)
-    for filename in job.outputs.keys():
+    for filename in job.output_files:
         log.info(f"Extracting output file: {filename}")
         docker.copy_from_volume(volume, filename, workspace_dir / filename)
 
@@ -323,14 +324,8 @@ def finalise_job(job):
     # all existing outputs and then copy over the new ones, but this way we
     # don't delete anything until after we've copied the new outputs which is
     # safer in case anything goes wrong.
-    existing_files = list_outputs_from_action(
-        job.workspace, job.action, ignore_errors=True
-    )
-    delete_files(workspace_dir, existing_files, files_to_keep=job.outputs.keys())
-
-    # Update manifest
-    manifest = read_manifest_file(workspace_dir)
-    update_manifest(manifest, job_metadata)
+    existing_files = list_outputs_from_action(job.workspace, job.action)
+    delete_files(workspace_dir, existing_files, files_to_keep=job.output_files)
 
     # Copy out logs and medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
@@ -345,12 +340,17 @@ def finalise_job(job):
                 copy_file(workspace_dir / filename, medium_privacy_dir / filename)
                 new_files.append(filename)
         delete_files(medium_privacy_dir, existing_files, files_to_keep=new_files)
-        write_manifest_file(medium_privacy_dir, manifest)
 
-    # Don't update the primary manifest until after we've deleted old files
-    # from both the high and medium privacy directories, else we risk losing
-    # track of old files if we get interrupted
-    write_manifest_file(workspace_dir, manifest)
+        # osrelease needs to be able to read the workspace name and repo URL from somewhere, in order to avoid the
+        # person doing the release having to enter all the details. So we write this rump manifest just into the
+        # medium privacy workspace. release-hatch is launched with this information already provided, so when osrelease
+        # has been removed we can stop doing this.
+        #
+        # We only really need to write this the first time that an action is run in a workspace, but it's easier to do
+        # it here every time than try to detect that.
+        write_manifest_file(
+            medium_privacy_dir, {"repo": job.repo_url, "workspace": job.workspace}
+        )
 
     return job
 
@@ -425,7 +425,7 @@ def get_job_metadata(job, container_metadata):
     # of time to put in the metadata
     job.completed_at = int(time.time())
     job_metadata = job.asdict()
-    job_request = find_where(SavedJobRequest, id=job.job_request_id)[0]
+    job_request = find_one(SavedJobRequest, id=job.job_request_id)
     # The original job_request, exactly as received from the job-server
     job_metadata["job_request"] = job_request.original
     job_metadata["job_id"] = job_metadata["id"]
@@ -504,7 +504,7 @@ def copy_file(source, dest):
 def delete_files(directory, filenames, files_to_keep=()):
     ensure_overwritable(*[directory.joinpath(f) for f in filenames])
     # We implement the "files to keep" logic using inodes rather than names so
-    # we can safely handle case-insenstiive filesystems
+    # we can safely handle case-insensitive filesystems
     inodes_to_keep = set()
     for filename in files_to_keep:
         try:
@@ -523,93 +523,17 @@ def delete_files(directory, filenames, files_to_keep=()):
             path.unlink()
 
 
-def get_states_for_actions(workspace):
-    """
-    Return a dictionary mapping action IDs to their current state (if any)
-    """
-    directory = get_high_privacy_workspace(workspace)
-    manifest = read_manifest_file(directory)
-    states_by_action = {
-        action_id: State(action_details["state"])
-        for action_id, action_details in manifest["actions"].items()
-    }
-    for filename, file_details in manifest["files"].items():
-        # If the file has been manually deleted from disk...
-        if not directory.joinpath(filename).exists():
-            source_action = file_details["created_by_action"]
-            # ... remove the action's state as if it hadn't been run
-            states_by_action.pop(source_action, None)
-    return states_by_action
+def list_outputs_from_action(workspace, action):
+    all_jobs = find_where(Job, workspace=workspace, action=action)
 
+    if not all_jobs:
+        # The action has never been run before
+        return []
 
-def list_outputs_from_action(workspace, action, ignore_errors=False):
-    directory = get_high_privacy_workspace(workspace)
-    files = {}
-    try:
-        manifest = read_manifest_file(directory)
-        files = manifest["files"]
-        state = manifest["actions"][action]["state"]
-    except KeyError:
-        state = None
-    if not ignore_errors:
-        if state is None:
-            raise ActionNotRunError(f"{action} has not been run")
-        if state != State.SUCCEEDED.value:
-            raise ActionFailedError(f"{action} failed")
-    output_files = []
-    for filename, details in files.items():
-        if details["created_by_action"] == action:
-            output_files.append(filename)
-            # This would only happen if files were manually deleted from disk
-            if not ignore_errors and not directory.joinpath(filename).exists():
-                raise MissingOutputError(f"Output {filename} missing from {action}")
-    return output_files
+    ordered_jobs = sorted(all_jobs, key=attrgetter("created_at"), reverse=True)
+    latest_job = ordered_jobs[0]
 
-
-def read_manifest_file(workspace_dir):
-    """
-    Read the manifest of a given workspace, returning an empty manifest if none
-    found
-    """
-    try:
-        with open(workspace_dir / METADATA_DIR / MANIFEST_FILE) as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {"files": {}, "actions": {}}
-
-
-def update_manifest(manifest, job_metadata):
-    action = job_metadata["action"]
-    new_outputs = job_metadata["outputs"]
-    # Remove all files created by previous runs of this action, and any files
-    # created by other actions which are being overwritten by this action. This
-    # latter case should never occur during a "clean" run of a project because
-    # each output file should be unique across the project. However when
-    # iterating during development it's possible to move outputs between
-    # actions and hit this condition.
-    files = [
-        (name, details)
-        for (name, details) in manifest["files"].items()
-        if details["created_by_action"] != action and name not in new_outputs
-    ]
-    # Add newly created files
-    for filename, privacy_level in new_outputs.items():
-        files.append(
-            (
-                filename,
-                {"created_by_action": action, "privacy_level": privacy_level},
-            )
-        )
-    files.sort()
-    manifest["workspace"] = job_metadata["workspace"]
-    manifest["repo"] = job_metadata["repo_url"]
-    manifest["files"] = dict(files)
-    # Popping and re-adding means the action gets moved to the end of the dict
-    # so actions end up in the order they were run
-    manifest["actions"].pop(action, None)
-    manifest["actions"][action] = {
-        key: job_metadata[key] for key in KEYS_TO_LOG if job_metadata[key] is not None
-    }
+    return latest_job.output_files
 
 
 def write_manifest_file(workspace_dir, manifest):

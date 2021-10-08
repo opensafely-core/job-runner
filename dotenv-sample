@@ -18,7 +18,7 @@ HIGH_PRIVACY_STORAGE_BASE=/workdir/workspaces
 MEDIUM_PRIVACY_STORAGE_BASE=/workdir/workspaces
 
 # A Github developer token that has read access to private repos
-PRIVATE_REPO_ACCESS_TOKEN=xxxx
+PRIVATE_REPO_ACCESS_TOKEN=
 
 # A database containing dummy data; results from this could be freely
 # published without review

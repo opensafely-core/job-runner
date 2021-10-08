@@ -6,16 +6,14 @@ updates its state as appropriate.
 import datetime
 import logging
 import random
-import sys
 import shlex
+import sys
 import time
-from pathlib import Path
 
-from jobrunner import config
+from jobrunner import config, job_executor
+from jobrunner.job_executor import ExecutorState
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner import job_executor
-from jobrunner.job_executor import ExecutorState
 from jobrunner.manage_jobs import (
     BrokenContainerError,
     JobError,
@@ -23,17 +21,11 @@ from jobrunner.manage_jobs import (
     finalise_job,
     job_still_running,
     kill_job,
+    list_outputs_from_action,
     start_job,
-    get_job_metadata,
-    read_manifest_file,
-    write_manifest_file,
-    update_manifest,
 )
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.project import (
-    is_generate_cohort_command,
-)
-
+from jobrunner.project import is_generate_cohort_command
 
 log = logging.getLogger(__name__)
 
@@ -88,7 +80,7 @@ def handle_pending_job(job):
     if job.cancelled:
         # Mark the job as running and then immediately invoke
         # `handle_running_job` to deal with the cancellation. This slightly
-        # counterintuitive appraoch allows us to keep a simple, consistent set
+        # counterintuitive approach allows us to keep a simple, consistent set
         # of state transitions and to consolidate all the kill/cleanup code
         # together. It also means that there aren't edge cases where we could
         # lose track of jobs completely after losing database state
@@ -172,7 +164,7 @@ def handle_active_jobs_api(api, active_jobs):
             try:
                 handle_job_api(job, api)
             except Exception:
-                mark_job_as_failed(job, f"Internal error")
+                mark_job_as_failed(job, "Internal error")
                 # Do not clean up, as we may want to debug
                 #
                 # Raising will kill the main loop, by design. The service manager
@@ -214,7 +206,9 @@ def handle_job_api(job, api):
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
         if job.state == State.PENDING:
-            log.warning("state ereror: got {initial_status.state} for a job we thought was PENDING")
+            log.warning(
+                "state ereror: got {initial_status.state} for a job we thought was PENDING"
+            )
         # no action needed, simply update job message and timestamp
         message = initial_status.state.value.title()
         set_message(job, message)
@@ -224,7 +218,9 @@ def handle_job_api(job, api):
     if initial_status.state == ExecutorState.UNKNOWN:
         # a new job
         if job.state == State.RUNNING:
-            log.warning("state error: got UNKNOWN state for a job we thought was RUNNING")
+            log.warning(
+                "state error: got UNKNOWN state for a job we thought was RUNNING"
+            )
 
         # check dependencies
         awaited_states = get_states_of_awaited_jobs(job)
@@ -278,7 +274,9 @@ def handle_job_api(job, api):
             job.state = State.RUNNING
         elif job.state != State.RUNNING:
             # got an ExecutorState that should mean the job.state is RUNNING, but it is not
-            log.warning("state error: got {new_status.state} for job we thought was {job.state}")
+            log.warning(
+                "state error: got {new_status.state} for job we thought was {job.state}"
+            )
         set_message(job, new_status.state.value.title())
 
     elif new_status.state == ExecutorState.ERROR:
@@ -352,7 +350,7 @@ def job_to_job_definition(job):
 
     input_files = []
     for action in job.requires_outputs_from:
-        for filename in list_outputs_from_action(action):
+        for filename in list_outputs_from_action(job.workspace, action):
             input_files.append(filename)
 
     outputs = {}
@@ -410,7 +408,7 @@ def mark_job_as_completed(job):
         job.status_code = StatusCode.CANCELLED_BY_USER
     job.completed_at = int(time.time())
     log.debug("Updating full job record")
-    update(job)
+    update_job(job)
     log.debug("Update done")
     log.info(job.status_message, extra={"status_code": job.status_code})
 
@@ -426,18 +424,7 @@ def set_state(job, state, message, code=None):
     job.status_code = code
     job.updated_at = timestamp
     log.debug("Updating job status and timestamps")
-    update(
-        job,
-        update_fields=[
-            "image_id",
-            "state",
-            "status_message",
-            "status_code",
-            "updated_at",
-            "started_at",
-            "completed_at",
-        ],
-    )
+    update_job(job)
     log.debug("Update done")
     log.info(job.status_message, extra={"status_code": job.status_code})
 
@@ -449,7 +436,7 @@ def set_message(job, message, code=None):
         job.status_message = message
         job.status_code = code
         job.updated_at = timestamp
-        update(job, update_fields=["status_message", "status_code", "updated_at"])
+        update_job(job)
         log.info(job.status_message, extra={"status_code": job.status_code})
     # If the status message hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
@@ -457,7 +444,7 @@ def set_message(job, message, code=None):
     elif timestamp - job.updated_at >= 60:
         job.updated_at = timestamp
         log.debug("Updating job timestamp")
-        update(job, update_fields=["updated_at"])
+        update_job(job)
         log.debug("Update done")
         # For long running jobs we don't want to fill the logs up with "Job X
         # is still running" messages, but it is useful to have semi-regular
@@ -493,6 +480,12 @@ def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):
             if pattern.fullmatch(job.action):
                 return weight
     return 1
+
+
+def update_job(job):
+    # The cancelled field is written by the sync thread and we should never update it. The sync thread never updates
+    # any other fields after it has created the job, so we're always safe to modify them.
+    update(job, exclude_fields=["cancelled"])
 
 
 if __name__ == "__main__":

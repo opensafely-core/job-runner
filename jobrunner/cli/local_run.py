@@ -35,7 +35,7 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from jobrunner import config
+from jobrunner import config, manifest_to_database_migration
 from jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,
@@ -200,11 +200,7 @@ def create_and_run_jobs(
     # It's more helpful in this context to have things consistent
     config.RANDOMISE_JOB_ORDER = False
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
-    # Append a random value so that multiple runs in the same process will each
-    # get their own unique in-memory database. This is only really relevant
-    # during testing as we never do mutliple runs in the same process
-    # otherwise.
-    config.DATABASE_FILE = f":memory:{random.randrange(sys.maxsize)}"
+    config.DATABASE_FILE = project_dir / "metadata" / "db.sqlite"
     config.TMP_DIR = temp_dir
     config.JOB_LOG_DIR = temp_dir / "logs"
     config.BACKEND = "expectations"
@@ -226,6 +222,9 @@ def create_and_run_jobs(
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
+
+    # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
+    manifest_to_database_migration.migrate_one(project_dir, write_medium_privacy_manifest=False, batch_size=1000)
 
     try:
         job_request, jobs = create_job_request_and_jobs(
@@ -406,12 +405,26 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     # changes below then consider what, if any, the appropriate corresponding
     # changes might be for production jobs.
     project = parse_and_validate_project_file(project_file_path.read_bytes())
-    current_jobs = get_latest_job_for_each_action(job_request.workspace)
-    new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
-    assert_new_jobs_created(new_jobs, current_jobs)
+    latest_jobs = get_latest_job_for_each_action(job_request.workspace)
+
+    # On the server out-of-band deletion of an existing output is considered an error, so we ignore that case when
+    # scheduling and allow jobs with missing dependencies to fail loudly when they are actually run. However for local
+    # running we should allow researchers to delete outputs on disk and automatically rerun the actions that create
+    # if they are needed. So here we check whether any files are missing for completed actions and, if so, treat them
+    # as though they had not been run -- this will automatically trigger a rerun.
+    latest_jobs_with_files_present = [
+        job for job in latest_jobs if all_output_files_present(project_dir, job)
+    ]
+
+    new_jobs = get_new_jobs_to_run(job_request, project, latest_jobs_with_files_present)
+    assert_new_jobs_created(new_jobs, latest_jobs_with_files_present)
     resolve_reusable_action_references(new_jobs)
     insert_into_database(job_request, new_jobs)
     return job_request, new_jobs
+
+
+def all_output_files_present(project_dir, job):
+    return all(project_dir.joinpath(f).exists() for f in job.output_files)
 
 
 def no_jobs_remaining(active_jobs):
@@ -504,7 +517,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
     def git_clone(repo_url, cwd):
         cmd = ["git", "clone", "--depth=1", repo_url, "repo"]
         # GIT_TERMINAL_PROMPT=0 means it will fail if it requires auth. This
-        # alows us to retry with an ssh url on linux/mac, as they would
+        # allows us to retry with an ssh url on linux/mac, as they would
         # generally prompt given an https url.
         result = subprocess_run(
             cmd,

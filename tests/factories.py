@@ -2,11 +2,9 @@ import base64
 import secrets
 from copy import deepcopy
 
-from jobrunner.job_executor import ExecutorState, JobStatus, JobResults
-from jobrunner.models import Job, JobRequest, SavedJobRequest, State
+from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from jobrunner.lib.database import insert
-from jobrunner.manage_jobs import JobError
-
+from jobrunner.models import Job, JobRequest, SavedJobRequest
 
 JOB_REQUEST_DEFAULTS = {
     "repo_url": "repo",
@@ -25,7 +23,7 @@ JOB_DEFAULTS = {
     "action": "action_name",
     "repo_url": "opensafely/study",
     "workspace": "workspace",
-    "requires_outputs_from": [],
+    "requires_outputs_from": ["some-earlier-action"],
     "run_command": "python myscript.py",
     "output_spec": {},
 }
@@ -162,4 +160,4 @@ class StubJobAPI:
 
 class TestWorkspaceAPI:
     def delete_files(self, workspace, privacy, paths):
-        raise NotImplemented
+        raise NotImplementedError

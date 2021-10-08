@@ -5,10 +5,11 @@ It handles all logic connected with creating or updating Jobs in response to
 JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
-import dataclasses
 import logging
 import re
 import time
+from itertools import groupby
+from operator import attrgetter
 
 from jobrunner import config
 from jobrunner.lib.database import (
@@ -24,7 +25,6 @@ from jobrunner.lib.github_validators import (
     validate_branch_and_commit,
     validate_repo_url,
 )
-from jobrunner.manage_jobs import get_states_for_actions
 from jobrunner.models import Job, SavedJobRequest, State
 from jobrunner.project import (
     RUN_ALL_COMMAND,
@@ -39,14 +39,6 @@ from jobrunner.reusable_actions import (
 )
 
 log = logging.getLogger(__name__)
-
-
-# Minimal representation of a Job, containing just the fields necessary for the
-# dependency resolution algorithm (see `get_completed_jobs_from_disk`).
-@dataclasses.dataclass
-class JobPlaceholder:
-    action: str
-    state: State
 
 
 class JobRequestError(Exception):
@@ -101,9 +93,9 @@ def create_jobs(job_request):
     validate_job_request(job_request)
     project_file = get_project_file(job_request)
     project = parse_and_validate_project_file(project_file)
-    current_jobs = get_latest_job_for_each_action(job_request.workspace)
-    new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
-    assert_new_jobs_created(new_jobs, current_jobs)
+    latest_jobs = get_latest_job_for_each_action(job_request.workspace)
+    new_jobs = get_new_jobs_to_run(job_request, project, latest_jobs)
+    assert_new_jobs_created(new_jobs, latest_jobs)
     resolve_reusable_action_references(new_jobs)
     # There is a delay between getting the current jobs (which we fetch from
     # the database and the disk) and inserting our new jobs below. This means
@@ -173,39 +165,16 @@ def get_latest_job_for_each_action(workspace):
     Return a list containing the most recent job (if any) for each action in
     the workspace
     """
-    # We treat the files on disk as the canonical source for the state of
-    # completed jobs.
-    completed_jobs = get_completed_jobs_from_disk(workspace)
-    # However active jobs aren't represented on disk so if we want to know what
-    # jobs are currently running we have to ask the database.
-    active_jobs = get_active_jobs_from_database(workspace)
-    # Combine the two sources of jobs. Where there is an active job and a
-    # completed job for the same action we prefer the active job as that is
-    # necessarily the more recent.
-    combined = {job.action: job for job in completed_jobs + active_jobs}
-    return list(combined.values())
+    all_jobs = find_where(Job, workspace=workspace)
+    latest_jobs = []
+    for _, jobs in group_by(all_jobs, attrgetter("action")):
+        ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
+        latest_jobs.append(ordered_jobs[0])
+    return latest_jobs
 
 
-def get_active_jobs_from_database(workspace):
-    return find_where(
-        Job,
-        workspace=workspace,
-        state__in=[State.PENDING, State.RUNNING],
-    )
-
-
-def get_completed_jobs_from_disk(workspace):
-    # This is slightly inelegant but helps keep the rest of the code simple:
-    # the `manifest.json` file in the workspace directory on disk stores the
-    # final state of completed jobs, but doesn't store the full set of Job
-    # object fields because they aren't generally needed. This means we can't
-    # reconstruct Job instances to return so instead we create a JobPlaceholder
-    # containing just the two fields we care about in this context: the action
-    # and the final state.
-    return [
-        JobPlaceholder(action=action, state=state)
-        for action, state in get_states_for_actions(workspace).items()
-    ]
+def group_by(iterable, key):
+    return groupby(sorted(iterable, key=key), key=key)
 
 
 def get_new_jobs_to_run(job_request, project, current_jobs):
@@ -374,6 +343,9 @@ def related_jobs_exist(job_request):
 
 
 def set_cancelled_flag_for_actions(job_request_id, actions):
+    # It's important that we modify the Jobs in-place in the database rather than retrieving, updating and re-writing
+    # them. If we did the latter then we would risk dirty writes if the run thread modified a Job while we were
+    # working.
     update_where(
         Job,
         {"cancelled": True},

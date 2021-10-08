@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import shutil
 from datetime import datetime, timedelta
@@ -7,7 +8,10 @@ from pathlib import Path
 import pytest
 
 from jobrunner.cli import local_run
+from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
+from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
+from jobrunner.models import Job
 
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
 
@@ -20,8 +24,8 @@ def test_local_run(tmp_path):
     local_run.main(project_dir=project_dir, actions=["analyse_data"])
     assert (project_dir / "output/input.csv").exists()
     assert (project_dir / "counts.txt").exists()
-    assert (project_dir / "metadata/manifest.json").exists()
     assert (project_dir / "metadata/analyse_data.log").exists()
+    assert (project_dir / "metadata" / "db.sqlite").exists()
     assert not (project_dir / "metadata/.logs").exists()
 
 
@@ -39,6 +43,30 @@ def test_local_run_stata(tmp_path, monkeypatch):
     assert "Bennett Institute" in env_file.read_text()
 
 
+@pytest.mark.slow_test
+@pytest.mark.needs_docker
+def test_local_run_triggers_a_manifest_migration(tmp_path):
+    project_dir = tmp_path / "project"
+    shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
+
+    # This action doesn't exist in the project.yaml, but the migration doesn't care. We use this instead of an action
+    # that does exist so that it's unambiguous that the database record had been created by the migration rather than
+    # as a side-effect of running the action we specify.
+    manifest = {
+        "workspace": "the-workspace",
+        "repo": "the-repo-url",
+        "actions": {"the-action": {"job_id": "job-id-from-manifest"}},
+        "files": {},
+    }
+    manifest_file = project_dir / METADATA_DIR / MANIFEST_FILE
+    manifest_file.parent.mkdir(parents=True)
+    manifest_file.write_text(json.dumps(manifest))
+
+    local_run.main(project_dir=project_dir, actions=["generate_cohort"])
+
+    assert database.exists_where(Job, id="job-id-from-manifest")
+
+
 @pytest.fixture
 def systmpdir(monkeypatch, tmp_path):
     """Set the system tempdir to tmp_path for this test, for isolation."""
@@ -53,10 +81,13 @@ def license_repo(tmp_path):
     license = repo / "stata.lic"
     license.write_text("repo-license")
     git = ["git", "-c", "user.name=test", "-c", "user.email=test@example.com"]
+    env = {"GIT_CONFIG_GLOBAL": "/dev/null"}
     repo_path = str(repo)
-    subprocess_run(git + ["init"], cwd=repo_path)
-    subprocess_run(git + ["add", "stata.lic"], cwd=repo_path)
-    subprocess_run(git + ["commit", "-m", "test"], cwd=repo_path)
+    subprocess_run(git + ["init"], cwd=repo_path, env=env)
+    subprocess_run(git + ["add", "stata.lic"], cwd=repo_path, env=env)
+    subprocess_run(
+        git + ["commit", "--no-gpg-sign", "-m", "test"], cwd=repo_path, env=env
+    )
     return repo_path
 
 

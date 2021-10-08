@@ -1,13 +1,8 @@
-import random
 import pytest
 
-from jobrunner.models import State, StatusCode
+from jobrunner import config, run
 from jobrunner.job_executor import ExecutorState
-from jobrunner.manage_jobs import JobError
-from jobrunner import config
-from jobrunner.lib.database import transaction
-from jobrunner import run
-
+from jobrunner.models import State, StatusCode
 from tests.factories import StubJobAPI
 
 
@@ -253,6 +248,7 @@ def test_handle_job_finalized_failed_unmatched(db):
 
 def invalid_transitions():
     """Enumerate all invalid transistions by inverting valid transitions"""
+
     def invalid(current, next_state):
         # the only valid transitions are:
         # - no transition
@@ -263,17 +259,17 @@ def invalid_transitions():
             if state not in valid:
                 # this is an invalid transition
                 yield current, state
-    
+
     yield from invalid(ExecutorState.UNKNOWN, ExecutorState.PREPARING)
     yield from invalid(ExecutorState.PREPARED, ExecutorState.EXECUTING)
     yield from invalid(ExecutorState.EXECUTED, ExecutorState.FINALIZING)
 
-    
+
 @pytest.mark.parametrize("current, invalid", invalid_transitions())
 def test_bad_transition(current, invalid, db):
     api = StubJobAPI()
     job = api.add_test_job(
-        current, 
+        current,
         State.PENDING if current == ExecutorState.UNKNOWN else State.RUNNING,
     )
     # this will cause any call to prepare/execute/finalize to return that state
@@ -281,6 +277,3 @@ def test_bad_transition(current, invalid, db):
 
     with pytest.raises(run.InvalidTransition):
         run.handle_job_api(job, api)
-
-
-
