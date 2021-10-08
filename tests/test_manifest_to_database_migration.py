@@ -331,7 +331,7 @@ def action(
     job_ = {
         action_: {
             "job_id": job_id,
-            "state": state.name,
+            "state": state.value,
             "commit": commit,
             "docker_image_id": image_id,
             "created_at": timestamp_to_isoformat(created_at),
