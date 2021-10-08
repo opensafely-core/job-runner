@@ -20,14 +20,7 @@ class ProjectValidationError(Exception):
 
 
 class UnknownActionError(ProjectValidationError):
-    """
-    Exception which carries with it the list of valid action names for display
-    to the user
-    """
-
-    def __init__(self, message, project):
-        super().__init__(message)
-        self.valid_actions = [RUN_ALL_COMMAND] + get_all_actions(project)
+    pass
 
 
 class InvalidPatternError(ProjectValidationError):
@@ -167,9 +160,7 @@ def get_action_specification(project, action_id):
     try:
         action_spec = project["actions"][action_id]
     except KeyError:
-        raise UnknownActionError(
-            f"Action '{action_id}' not found in project.yaml", project
-        )
+        raise UnknownActionError(f"Action '{action_id}' not found in project.yaml")
     run_command = action_spec["run"]
     if "config" in action_spec:
         run_command = add_config_to_run_command(run_command, action_spec["config"])
