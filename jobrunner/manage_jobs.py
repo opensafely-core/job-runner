@@ -252,14 +252,14 @@ def job_still_running(job):
     return docker.container_is_running(container_name(job))
 
 
-# We use the slug (which is the ID with some human-readable stuff prepended)
-# rather than just the opaque ID to make for easier debugging
+# note: we redefine these functions to user a different name than
+# the current implementation in manage_jobs.py, to separate them
 def container_name(job):
-    return f"job-{job.slug}"
+    return f"os-job-{job.id}" if config.EXECUTION_API else f"job-{job.slug}"
 
 
 def volume_name(job):
-    return f"volume-{job.slug}"
+    return f"os-volume-{job.id}" if config.EXECUTION_API else f"volume-{job.slug}"
 
 
 def finalise_job(job):

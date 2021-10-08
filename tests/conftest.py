@@ -45,6 +45,7 @@ def docker_cleanup():
     label_for_tests = "jobrunner-test-R5o1iLu"
     monkeypatch = MonkeyPatch()
     monkeypatch.setattr("jobrunner.lib.docker.LABEL", label_for_tests)
+    monkeypatch.setattr("jobrunner.executors.local.LABEL", label_for_tests)
     yield
     delete_docker_entities("container", label_for_tests)
     delete_docker_entities("volume", label_for_tests)

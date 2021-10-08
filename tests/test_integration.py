@@ -18,9 +18,13 @@ log = logging.getLogger(__name__)
 # Big integration test that creates a basic project in a git repo, mocks out a
 # JobRequest from the job-server to run it, and then exercises the sync and run
 # loops to run entire pipeline
+@pytest.mark.parametrize("executor_api", [True, False])
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo):
+def test_integration(
+    executor_api, tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
+):
+    monkeypatch.setattr("jobrunner.config.EXECUTION_API", executor_api)
     monkeypatch.setattr(
         "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )

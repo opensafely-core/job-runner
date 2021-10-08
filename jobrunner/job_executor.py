@@ -270,9 +270,3 @@ class NullWorkspaceAPI:
         raise NotImplementedError
 
 
-def get_job_api():
-    return NullJobAPI()
-
-
-def get_workspace_api():
-    return NullWorkspaceAPI()

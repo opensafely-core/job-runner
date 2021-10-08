@@ -10,10 +10,12 @@ import shlex
 import sys
 import time
 
-from jobrunner import config, job_executor
 from jobrunner.job_executor import ExecutorState
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
+from jobrunner.job_executor import ExecutorState, Study, JobDefinition
+from jobrunner.executors import get_job_api
+from jobrunner import config
 from jobrunner.manage_jobs import (
     BrokenContainerError,
     JobError,
@@ -23,6 +25,8 @@ from jobrunner.manage_jobs import (
     kill_job,
     list_outputs_from_action,
     start_job,
+    get_job_metadata,
+    list_outputs_from_action,
 )
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.project import is_generate_cohort_command
@@ -65,7 +69,7 @@ def handle_jobs():
         with set_log_context(job=job):
             # new way
             if config.EXECUTION_API:
-                handle_job_api(job, job_executor.get_job_api())
+                handle_job_api(job, get_job_api())
             # old way
             else:
                 if job.state == State.PENDING:
@@ -319,6 +323,7 @@ def save_results(job, results):
 
 
 def job_to_job_definition(job):
+
     action_args = shlex.split(job.run_command)
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
@@ -342,9 +347,7 @@ def job_to_job_definition(job):
 
     # Jobs which are running reusable actions pull their code from the reusable
     # action repo, all other jobs pull their code from the study repo
-    study = job_executor.Study(
-        job.action_repo_url or job.repo_url, job.action_commit or job.commit
-    )
+    study = Study(job.action_repo_url or job.repo_url, job.action_commit or job.commit)
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
@@ -358,7 +361,7 @@ def job_to_job_definition(job):
         for name, pattern in named_patterns.items():
             outputs[pattern] = privacy_level
 
-    return job_executor.JobDefinition(
+    return JobDefinition(
         job.id,
         study,
         job.workspace,

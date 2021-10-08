@@ -173,5 +173,4 @@ def ensure_docker_images_present(*images):
     for image in images:
         full_image = f"{config.DOCKER_REGISTRY}/{image}"
         if not docker.image_exists_locally(full_image):
-            log.info(f"Pulling Docker image {full_image}")
             subprocess_run(["docker", "pull", "--quiet", full_image], check=True)
