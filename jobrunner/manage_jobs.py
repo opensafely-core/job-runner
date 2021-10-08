@@ -347,18 +347,10 @@ def finalise_job(job):
         # has been removed we can stop doing this.
         #
         # We only really need to write this the first time that an action is run in a workspace, but it's easier to do
-        # it here every time than try to detect that. Writing this here every time also ensures that we get rid of old
-        # versions of the manifest that have no-longer-used-and-soon-to-be-out-of-date data in them (see the comment
-        # below).
+        # it here every time than try to detect that.
         write_manifest_file(
             medium_privacy_dir, {"repo": job.repo_url, "workspace": job.workspace}
         )
-
-    # We no longer use the manifest file in the high privacy workspace. Delete any old instances of it so that we're
-    # not left with an out-of-date version sitting around.
-    manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
-    if manifest_file.exists():
-        manifest_file.unlink()
 
     return job
 

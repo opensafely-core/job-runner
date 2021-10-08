@@ -73,14 +73,8 @@ def test_copes_with_a_manifest_with_values_missing(tmp_work_dir):
         "workspace": "the-workspace",
         "actions": {"the-action": {"job_id": "the-job-id"}},
     }
-    manifest_file = (
-        config.HIGH_PRIVACY_WORKSPACES_DIR
-        / "the-workspace"
-        / METADATA_DIR
-        / MANIFEST_FILE
-    )
-    manifest_file.parent.mkdir(parents=True)
-    manifest_file.write_text(json.dumps(manifest))
+    high_privacy_manifest("the-workspace").parent.mkdir(parents=True)
+    high_privacy_manifest("the-workspace").write_text(json.dumps(manifest))
 
     migrate_all()
 
@@ -154,7 +148,7 @@ def test_migrates_a_single_one_of_several_workspaces(tmp_work_dir):
         actions_=actions(action(job_id="job2")),
     )
 
-    migrate_one(config.HIGH_PRIVACY_WORKSPACES_DIR / "workspace1")
+    migrate_one(config.HIGH_PRIVACY_WORKSPACES_DIR / "workspace1", write_medium_privacy_manifest=False)
 
     assert_job_exists(job_id="job1", workspace="workspace1", repo_url="repo1")
     assert not database.find_where(Job, job_id="job2")
@@ -212,6 +206,86 @@ def test_ignores_a_file_in_the_workspaces_dir(tmp_work_dir):
     errant_file.touch()
 
     migrate_all()
+
+
+def test_renames_the_manifest(tmp_work_dir):
+    write_manifest(workspace="the-workspace")
+
+    migrate_all()
+
+    assert not high_privacy_manifest("the-workspace").exists()
+    assert (
+        high_privacy_manifest("the-workspace")
+        .with_name(f".deprecated.{MANIFEST_FILE}")
+        .exists()
+    )
+
+
+def test_doesnt_rename_the_manifest_until_all_jobs_are_migrated(tmp_work_dir):
+    write_manifest(
+        workspace=f"the-workspace",
+        actions_=actions(
+            *[action(job_id=f"job-{j}", action_=f"action-{j}") for j in range(10)]
+        ),
+    )
+
+    migrate_all(batch_size=5)
+    assert high_privacy_manifest("the-workspace").exists()
+    migrate_all(batch_size=5)
+    assert not high_privacy_manifest("the-workspace").exists()
+
+
+def test_writes_a_slimmed_down_manifest_to_medium_privacy_workspace(tmp_work_dir):
+    medium_privacy_manifest("the-workspace").parent.mkdir(parents=True)
+    medium_privacy_manifest("the-workspace").write_text(
+        "something-that-will-get-overwritten"
+    )
+
+    write_manifest(workspace="the-workspace", repo_url="the-repo")
+
+    migrate_all()
+
+    assert json.loads(medium_privacy_manifest("the-workspace").read_text()) == {
+        "repo": "the-repo",
+        "workspace": "the-workspace",
+    }
+
+
+def test_doesnt_write_medium_privacy_manifest_until_all_jobs_are_migrated(tmp_work_dir):
+    write_manifest(
+        workspace=f"the-workspace",
+        actions_=actions(
+            *[action(job_id=f"job-{j}", action_=f"action-{j}") for j in range(10)]
+        ),
+    )
+
+    migrate_all(batch_size=5)
+    assert not medium_privacy_manifest("the-workspace").exists()
+    migrate_all(batch_size=5)
+    assert medium_privacy_manifest("the-workspace").exists()
+
+
+def test_writes_the_medium_privacy_manifest_even_if_the_workspace_doesnt_yet_exist(
+    tmp_work_dir,
+):
+    write_manifest(workspace="the-workspace")
+    assert not (config.MEDIUM_PRIVACY_WORKSPACES_DIR / "the-workspace").exists()
+
+    migrate_all()
+
+    assert medium_privacy_manifest("the-workspace").exists()
+
+
+def test_doesnt_try_to_write_medium_privacy_manifest_for_local_run(tmp_work_dir):
+    # There is only one workspace when running locally, and we don't want any manifest at all there.
+    write_manifest(workspace="the-workspace")
+
+    migrate_one(
+        config.HIGH_PRIVACY_WORKSPACES_DIR / "the-workspace",
+        write_medium_privacy_manifest=False,
+    )
+
+    assert not medium_privacy_manifest("the-workspace").exists()
 
 
 def job(
@@ -291,10 +365,18 @@ def write_manifest(
         "files": dict(ChainMap(*outputs)),
     }
 
-    workspace_dir = config.HIGH_PRIVACY_WORKSPACES_DIR / workspace
-    manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
-    manifest_file.parent.mkdir(parents=True)
-    manifest_file.write_text(json.dumps(manifest))
+    high_privacy_manifest(workspace).parent.mkdir(parents=True)
+    high_privacy_manifest(workspace).write_text(json.dumps(manifest))
+
+
+def high_privacy_manifest(workspace):
+    return config.HIGH_PRIVACY_WORKSPACES_DIR / workspace / METADATA_DIR / MANIFEST_FILE
+
+
+def medium_privacy_manifest(workspace):
+    return (
+        config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace / METADATA_DIR / MANIFEST_FILE
+    )
 
 
 def assert_job_exists(job_id=None, **kwargs):

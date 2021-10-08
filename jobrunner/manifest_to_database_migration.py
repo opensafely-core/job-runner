@@ -8,17 +8,21 @@ from jobrunner.models import Job, State, isoformat_to_timestamp
 
 
 def migrate_all(batch_size=10):
-    _migrate(config.HIGH_PRIVACY_WORKSPACES_DIR.iterdir(), batch_size)
+    _migrate(
+        config.HIGH_PRIVACY_WORKSPACES_DIR.iterdir(),
+        batch_size,
+        write_medium_privacy_manifest=True,
+    )
 
 
-def migrate_one(workspace_dir, batch_size=10):
-    _migrate([workspace_dir], batch_size)
+def migrate_one(workspace_dir, write_medium_privacy_manifest, batch_size=10):
+    _migrate([workspace_dir], batch_size, write_medium_privacy_manifest)
 
 
-def _migrate(workspace_dirs, batch_size):
+def _migrate(workspace_dirs, batch_size, write_medium_privacy_manifest):
     count = 0
 
-    for job in _jobs_from_workspaces(workspace_dirs):
+    for job in _jobs_from_workspaces(workspace_dirs, write_medium_privacy_manifest):
         if count >= batch_size:
             _log(
                 f"Reached batch size of {batch_size}. There are more jobs to be migrated."
@@ -36,20 +40,21 @@ def _migrate(workspace_dirs, batch_size):
         _log("There were no jobs to migrate.")
 
 
-def _jobs_from_workspaces(workspace_dirs):
+def _jobs_from_workspaces(workspace_dirs, write_medium_privacy_manifest):
     for workspace_dir in workspace_dirs:
-        yield from _jobs_from_workspace(workspace_dir)
+        yield from _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest)
 
 
-def _jobs_from_workspace(workspace_dir):
+def _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
     if not manifest_file.exists():
         return
 
     manifest = json.load(manifest_file.open())
     workspace_name = manifest["workspace"]
+    repo = manifest.get("repo")
     all_files = manifest.get("files", {}).items()
-    _log(f"Migrating workspace {workspace_name} in directory {workspace_dir.name}.")
+    _log(f"Migrating workspace {workspace_name} in directory {workspace_dir}.")
 
     for action, action_details in manifest["actions"].items():
         files = {
@@ -57,9 +62,32 @@ def _jobs_from_workspace(workspace_dir):
             for file, file_details in all_files
             if file_details["created_by_action"] == action
         }
-        yield _action_to_job(
-            workspace_name, manifest.get("repo"), files, action, action_details
-        )
+        yield _action_to_job(workspace_name, repo, files, action, action_details)
+
+    _migrate_manifest_files(
+        manifest_file, repo, workspace_name, write_medium_privacy_manifest
+    )
+
+
+def _migrate_manifest_files(manifest, repo, workspace, write_medium_privacy_manifest):
+    if write_medium_privacy_manifest:
+        _migrate_medium_privacy_manifest(repo, workspace)
+
+    # We're done with this manifest. Move it out of the way so it doesn't cause confusion -- it's no longer being
+    # updated, so soon it will be out of date.
+    manifest.rename(manifest.with_name(f".deprecated.{MANIFEST_FILE}"))
+
+
+def _migrate_medium_privacy_manifest(repo, workspace):
+    # osrelease needs to be able to read the workspace name and repo URL from somewhere, in order to avoid the
+    # person doing the release having to enter all the details. So we write this rump manifest just into the
+    # medium privacy workspace. release-hatch is launched with this information already provided, so when osrelease
+    # has been removed we can remove these files.
+    manifest = (
+        config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace / METADATA_DIR / MANIFEST_FILE
+    )
+    manifest.parent.mkdir(exist_ok=True, parents=True)
+    manifest.write_text(json.dumps({"workspace": workspace, "repo": repo}))
 
 
 def _action_to_job(workspace, repo, files, action, details):
