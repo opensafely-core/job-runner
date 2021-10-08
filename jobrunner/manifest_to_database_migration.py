@@ -96,7 +96,7 @@ def _action_to_job(workspace, repo, files, action, details):
         workspace=workspace,
         repo_url=repo,
         action=action,
-        state=_map_get(details, "state", State.__getitem__, None),
+        state=_map_get(details, "state", State, None),
         commit=details.get("commit"),
         image_id=details.get("docker_image_id"),
         created_at=_map_get(details, "created_at", isoformat_to_timestamp, 0),
