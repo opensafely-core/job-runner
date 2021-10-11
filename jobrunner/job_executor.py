@@ -73,7 +73,10 @@ class JobAPI:
 
     All the state transition methods (prepare(), execute(), finalize(), terminate(), cleanup()) must be idempotent. If
     the relevant task they are responsible for is already running for that job, they must not start a new task, and
-    instead return successfully the current state.
+    instead return successfully the current state. This is best acheived by a guard to check the job's state, and
+    return its current state if in the state you would expect. It's the responsibility of the job-runner scheduler to
+    figure out what to do in this case.
+
     """
 
     def prepare(self, job: JobDefinition) -> JobStatus:
@@ -82,8 +85,8 @@ class JobAPI:
 
         1. Validate the JobDefinition. If there are errors, return an ERROR state with message.
 
-        2. Check the job is currently in UNKNOWN state. If not return its current state with a message indicated invalid
-           state.
+        2. Check the job is currently in UNKNOWN state. If not return its current state, and the job-runner will handle
+           the unexpected transition.
 
         3. Check the resources are available to prepare the job. If not, return the UNKNOWN state with an appropriate
            message.
@@ -112,7 +115,8 @@ class JobAPI:
         """
         Launch the execution of a job that has been prepared, transitioning from PREPARED to EXECUTING.
 
-        1. Check the job is in the PREPARED state. If not, return its current state with a message.
+        1. Check the job is in the PREPARED state. If not, return its current state, and the job-runner will handle the
+           unexpected transition.
 
         2. Validate that the ephemeral workspace created by prepare for this job exists.  If not, return an ERROR
            state with message.
@@ -145,7 +149,8 @@ class JobAPI:
         """
         Launch the finalization of a job, transitioning from EXECUTED to FINALIZING.
 
-        1. Check the job is in the EXECUTED state. If not, return its current state with a message.
+        1. Check the job is in the EXECUTED state. If not, return its current state, and the job-runner will handle the
+           unexpected transition.
 
         2. Validate that the job's ephemeral workspace exists. If not, return an ERROR state with message.
 
@@ -270,9 +275,3 @@ class NullWorkspaceAPI:
         raise NotImplementedError
 
 
-def get_job_api():
-    return NullJobAPI()
-
-
-def get_workspace_api():
-    return NullWorkspaceAPI()

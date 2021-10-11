@@ -54,10 +54,13 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     except subprocess.TimeoutExpired as e:
         raise DockerTimeoutError from e
     except subprocess.CalledProcessError as e:
+        stderr = e.stderr
+        if isinstance(e.stderr, bytes):
+            stderr = stderr.decode("utf8")
         if (
             e.returncode == 1
-            and e.stderr.startswith(b"Error response from daemon: ")
-            and e.stderr.endswith(b": no space left on device")
+            and stderr.startswith("Error response from daemon: ")
+            and stderr.endswith(": no space left on device")
         ):
             raise DockerDiskSpaceError from e
         else:
@@ -102,6 +105,20 @@ def create_volume(volume_name):
         # handle this manually here.
         if e.returncode != 1 or b"is already in use by container" not in e.stderr:
             raise
+
+
+def volume_exists(volume_name):
+    """Does the given volume exist?"""
+    try:
+        docker(
+            ["volume", "inspect", volume_name],
+            check=True,
+            capture_output=True
+        )
+    except subprocess.CalledProcessError:
+        return False
+    else:
+        return True
 
 
 def delete_volume(volume_name):
@@ -309,15 +326,20 @@ def container_inspect(name, key="", none_if_not_exists=False):
     return json.loads(response.stdout)
 
 
-def run(name, args, volume=None, env=None, allow_network_access=False, label=None):
+def run(name, args, volume=None, env=None, allow_network_access=False, label=None, labels=None):
     run_args = ["run", "--init", "--detach", "--label", LABEL, "--name", name]
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
         run_args.extend(["--volume", f"{volume[0]}:{volume[1]}"])
-    # This is in addition to the default LABEL which is always applied
+    # These lables are in addition to the default LABEL which is always applied
+    # Single unary label
     if label is not None:
         run_args.extend(["--label", label])
+    # multiple labels
+    if labels is not None:
+        for k, v in labels.items():
+            run_args.extend(["--label", f"{k}={v}"])
     # To avoid leaking the values into the command line arguments we set them
     # in the evnironment and tell Docker to fetch them from there
     if env is None:

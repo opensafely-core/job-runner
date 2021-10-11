@@ -1,4 +1,9 @@
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+from jobrunner.lib.subprocess_utils import subprocess_run
+from jobrunner.job_executor import Study
 
 import pytest
 
@@ -30,20 +35,14 @@ def tmp_work_dir(monkeypatch, tmp_path):
     return tmp_path
 
 
-@pytest.fixture(scope="module")
-def docker_cleanup():
-    # Workaround for the fact that `monkeypatch` is only function-scoped.
-    # Hopefully will be unnecessary soon. See:
-    # https://github.com/pytest-dev/pytest/issues/363
-    from _pytest.monkeypatch import MonkeyPatch
-
-    label_for_tests = "jobrunner-test-R5o1iLu"
-    monkeypatch = MonkeyPatch()
+@pytest.fixture
+def docker_cleanup(monkeypatch):
+    label_for_tests = "jobrunner-pytest"
     monkeypatch.setattr("jobrunner.lib.docker.LABEL", label_for_tests)
+    monkeypatch.setattr("jobrunner.executors.local.LABEL", label_for_tests)
     yield
     delete_docker_entities("container", label_for_tests)
     delete_docker_entities("volume", label_for_tests)
-    monkeypatch.undo()
 
 
 def delete_docker_entities(entity, label, ignore_errors=False):
@@ -64,3 +63,41 @@ def delete_docker_entities(entity, label, ignore_errors=False):
     if ids and response.returncode == 0:
         rm_args = ["docker", entity, "rm", "--force"] + ids
         subprocess.run(rm_args, capture_output=True, check=not ignore_errors)
+
+
+@dataclass
+class TestRepo:
+    source: str
+    path: str
+    commit: str
+    study: Study
+
+
+@pytest.fixture
+def test_repo(tmp_work_dir):
+    """Take our test project fixture and commit it to a temporary git repo"""
+    directory = Path(__file__).parent.resolve() / "fixtures/full_project"
+    repo_path = tmp_work_dir / "test-repo"
+
+    env = {"GIT_WORK_TREE": str(directory), "GIT_DIR": repo_path}
+    subprocess_run(["git", "init", "--bare", "--quiet", repo_path], check=True)
+    subprocess_run(
+        ["git", "config", "user.email", "test@example.com"], check=True, env=env
+    )
+    subprocess_run(["git", "config", "user.name", "Test"], check=True, env=env)
+    subprocess_run(["git", "add", "."], check=True, env=env)
+    subprocess_run(["git", "commit", "--quiet", "-m", "initial"], check=True, env=env)
+    response = subprocess_run(
+        ["git", "rev-parse", "HEAD"],
+        check=True,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    commit = response.stdout.strip()
+    return TestRepo(
+        source=directory,
+        path=repo_path,
+        commit=commit,
+        study=Study(git_repo_url=str(repo_path), commit=commit),
+    )

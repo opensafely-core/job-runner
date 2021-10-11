@@ -1,10 +1,16 @@
 import base64
+from pathlib import Path
 import secrets
 from copy import deepcopy
 
 from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from jobrunner.lib.database import insert
 from jobrunner.models import Job, JobRequest, SavedJobRequest
+from jobrunner.lib.subprocess_utils import subprocess_run
+from jobrunner.manage_jobs import JobError
+from jobrunner import config
+from jobrunner.lib import docker
+
 
 JOB_REQUEST_DEFAULTS = {
     "repo_url": "repo",
@@ -161,3 +167,10 @@ class StubJobAPI:
 class TestWorkspaceAPI:
     def delete_files(self, workspace, privacy, paths):
         raise NotImplementedError
+
+
+def ensure_docker_images_present(*images):
+    for image in images:
+        full_image = f"{config.DOCKER_REGISTRY}/{image}"
+        if not docker.image_exists_locally(full_image):
+            subprocess_run(["docker", "pull", "--quiet", full_image], check=True)

@@ -10,15 +10,21 @@ from jobrunner import config
 from jobrunner.lib import docker
 from jobrunner.lib.subprocess_utils import subprocess_run
 
+from tests.factories import ensure_docker_images_present
+
 log = logging.getLogger(__name__)
 
 
 # Big integration test that creates a basic project in a git repo, mocks out a
 # JobRequest from the job-server to run it, and then exercises the sync and run
 # loops to run entire pipeline
+@pytest.mark.parametrize("executor_api", [True, False])
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
+def test_integration(
+    executor_api, tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
+):
+    monkeypatch.setattr("jobrunner.config.EXECUTION_API", executor_api)
     monkeypatch.setattr(
         "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
@@ -27,11 +33,6 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     # Make job execution order deterministic
     monkeypatch.setattr("jobrunner.config.RANDOMISE_JOB_ORDER", False)
     ensure_docker_images_present("cohortextractor", "python")
-
-    # Take our test project fixture and commit it to a temporary git repo
-    project_fixture = str(Path(__file__).parent.resolve() / "fixtures/full_project")
-    repo_path = tmp_work_dir / "test-repo"
-    commit = commit_directory_contents(repo_path, project_fixture)
 
     # Set up a mock job-server with a single job request
     job_request_1 = {
@@ -45,11 +46,11 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
         "force_run_dependencies": False,
         "workspace": {
             "name": "testing",
-            "repo": str(repo_path),
+            "repo": str(test_repo.path),
             "branch": "HEAD",
             "db": "dummy",
         },
-        "sha": commit,
+        "sha": test_repo.commit,
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
@@ -92,11 +93,11 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
         "force_run_dependencies": False,
         "workspace": {
             "name": "testing",
-            "repo": str(repo_path),
+            "repo": str(test_repo.path),
             "branch": "HEAD",
             "db": "dummy",
         },
-        "sha": commit,
+        "sha": test_repo.commit,
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
@@ -131,7 +132,7 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.load(manifest_file.open())
     assert manifest["workspace"] == "testing"
-    assert manifest["repo"] == str(repo_path)
+    assert manifest["repo"] == str(test_repo.path)
 
     # Check that all the outputs have been produced
     for highly_sensitive_output in [
@@ -151,37 +152,6 @@ def test_integration(tmp_work_dir, docker_cleanup, requests_mock, monkeypatch):
 
     # Check that we don't produce outputs for cancelled jobs
     assert not (high_privacy_workspace / "somefile.csv").exists()
-
-
-def commit_directory_contents(repo_path, directory):
-    env = {
-        "GIT_WORK_TREE": directory,
-        "GIT_DIR": repo_path,
-        "GIT_CONFIG_GLOBAL": "/dev/null",
-    }
-    subprocess_run(["git", "init", "--bare", "--quiet", repo_path], check=True)
-    subprocess_run(
-        ["git", "config", "user.email", "test@example.com"], check=True, env=env
-    )
-    subprocess_run(["git", "config", "user.name", "Test"], check=True, env=env)
-    subprocess_run(["git", "add", "."], check=True, env=env)
-    subprocess_run(["git", "commit", "--quiet", "-m", "initial"], check=True, env=env)
-    response = subprocess_run(
-        ["git", "rev-parse", "HEAD"],
-        check=True,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    return response.stdout.strip()
-
-
-def ensure_docker_images_present(*images):
-    for image in images:
-        full_image = f"{config.DOCKER_REGISTRY}/{image}"
-        if not docker.image_exists_locally(full_image):
-            log.info(f"Pulling Docker image {full_image}")
-            subprocess_run(["docker", "pull", "--quiet", full_image], check=True)
 
 
 def get_posted_jobs(requests_mock):

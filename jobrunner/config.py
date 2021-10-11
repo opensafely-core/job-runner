@@ -173,3 +173,5 @@ STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
 
 # feature flag to enable new API abstraction
 EXECUTION_API = os.environ.get("EXECUTION_API", "false").lower() == "true"
+EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerJobAPI")
+
