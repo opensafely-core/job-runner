@@ -31,8 +31,8 @@ from jobrunner.manage_jobs import (
 )
 
 
-FINALIZED_JOBS = set()
-RESULTS_CACHE = {}
+# cache of result objects
+RESULTS = {}
 LABEL = "jobrunner-local"
 
 log = logging.getLogger(__name__)
@@ -109,14 +109,10 @@ class LocalDockerJobAPI:
             # This should trigger an InvalidTransition
             return current
 
-        # protect against double finalization as an optimisation
-        if job.id not in FINALIZED_JOBS:
-            try:
-                results = self.get_results(job)
-                persist_outputs(job, results.outputs)
-                FINALIZED_JOBS.add(job.id)
-            except LocalDockerError as exc:
-                return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
+        try:
+            finalize_job(job)
+        except LocalDockerError as exc:
+            return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
         return JobStatus(ExecutorState.FINALIZING)
 
@@ -126,8 +122,7 @@ class LocalDockerJobAPI:
 
     def cleanup(self, job):
         cleanup_job(job)
-        FINALIZED_JOBS.discard(job.id)
-        RESULTS_CACHE.pop(job.id, None)
+        RESULTS.pop(job.id, None)
 
     def get_status(self, job):
         name = container_name(job)
@@ -145,25 +140,17 @@ class LocalDockerJobAPI:
 
         elif job_running:
             return JobStatus(ExecutorState.EXECUTING)
-        elif job.id in FINALIZED_JOBS:
+        elif job.id in RESULTS:
             return JobStatus(ExecutorState.FINALIZED)
         else:  # container present but not running, i.e. finished
             return JobStatus(ExecutorState.EXECUTED)
 
     def get_results(self, job):
         container_metadata = get_container_metadata(job)
-        if job.id in RESULTS_CACHE:
-            return RESULTS_CACHE[job.id]
+        if job.id not in RESULTS:
+            return JobStatus(ExecutorState.ERROR, "job has not been finalized")
 
-        outputs, unmatched_patterns = find_matching_outputs(job)
-        results = JobResults(
-            outputs,
-            unmatched_patterns,
-            container_metadata["State"]["ExitCode"],
-            container_metadata["Image"],
-        )
-        RESULTS_CACHE[job.id] = results
-        return results
+        return RESULTS[job.id]
 
 
 def prepare_job(job):
@@ -201,11 +188,23 @@ def prepare_job(job):
     return volume
 
 
-def persist_outputs(job, outputs):
+def finalize_job(job):
+    container_metadata = get_container_metadata(job)
+    outputs, unmatched_patterns = find_matching_outputs(job)
+    results = JobResults(
+        outputs,
+        unmatched_patterns,
+        container_metadata["State"]["ExitCode"],
+        container_metadata["Image"],
+    )
+    persist_outputs(job, results.outputs, container_metadata)
+    RESULTS[job.id] = results
+
+
+def persist_outputs(job, outputs, container_metadata):
     """Copy logs and generated outputs to persistant storage."""
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
-    container_metadata = get_container_metadata(job)
     job_metadata = dict()
     job_metadata["id"] = job.id
     job_metadata["docker_image_id"] = container_metadata["Image"]

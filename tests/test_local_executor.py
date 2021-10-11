@@ -57,8 +57,7 @@ def list_repo_files(path):
 def use_api(monkeypatch):
     monkeypatch.setattr(config, "EXECUTION_API", True)
     yield
-    local.FINALIZED_JOBS.clear()
-    local.RESULTS_CACHE.clear()
+    local.RESULTS.clear()
 
 
 @pytest.mark.needs_docker
@@ -287,7 +286,7 @@ def test_finalize_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED
-    assert job.id in local.FINALIZED_JOBS
+    assert job.id in local.RESULTS
 
     # for test debugging if any asserts fail
     print(get_log(job))
@@ -336,7 +335,7 @@ def test_finalize_failed(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED
-    assert job.id in local.FINALIZED_JOBS
+    assert job.id in local.RESULTS
 
     # for test debugging if any asserts fail
     print(get_log(job))
@@ -382,7 +381,7 @@ def test_finalize_unmatched(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED
-    assert job.id in local.FINALIZED_JOBS
+    assert job.id in local.RESULTS
 
     # for test debugging if any asserts fail
     print(get_log(job))
