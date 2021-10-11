@@ -7,25 +7,29 @@ from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
 from jobrunner.models import Job, State, isoformat_to_timestamp
 
 
-def migrate_all(batch_size=10):
+def migrate_all(batch_size=10, log=True):
     _migrate(
         config.HIGH_PRIVACY_WORKSPACES_DIR.iterdir(),
         batch_size,
         write_medium_privacy_manifest=True,
+        log=log,
     )
 
 
-def migrate_one(workspace_dir, write_medium_privacy_manifest, batch_size=10):
-    _migrate([workspace_dir], batch_size, write_medium_privacy_manifest)
+def migrate_one(workspace_dir, write_medium_privacy_manifest, batch_size=10, log=True):
+    _migrate([workspace_dir], batch_size, write_medium_privacy_manifest, log)
 
 
-def _migrate(workspace_dirs, batch_size, write_medium_privacy_manifest):
+def _migrate(workspace_dirs, batch_size, write_medium_privacy_manifest, log):
     count = 0
 
-    for job in _jobs_from_workspaces(workspace_dirs, write_medium_privacy_manifest):
+    for job in _jobs_from_workspaces(
+        workspace_dirs, write_medium_privacy_manifest, log
+    ):
         if count >= batch_size:
             _log(
-                f"Reached batch size of {batch_size}. There are more jobs to be migrated."
+                f"Reached batch size of {batch_size}. There are more jobs to be migrated.",
+                log,
             )
             break
 
@@ -33,19 +37,21 @@ def _migrate(workspace_dirs, batch_size, write_medium_privacy_manifest):
             continue
 
         database.insert(job)
-        _log(f"Inserted Job(id={job.id}, action={job.action}).")
+        _log(f"Inserted Job(id={job.id}, action={job.action}).", log)
         count += 1
 
     if count == 0:
-        _log("There were no jobs to migrate.")
+        _log("There were no jobs to migrate.", log)
 
 
-def _jobs_from_workspaces(workspace_dirs, write_medium_privacy_manifest):
+def _jobs_from_workspaces(workspace_dirs, write_medium_privacy_manifest, log):
     for workspace_dir in workspace_dirs:
-        yield from _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest)
+        yield from _jobs_from_workspace(
+            workspace_dir, write_medium_privacy_manifest, log
+        )
 
 
-def _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest):
+def _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest, log):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
     if not manifest_file.exists():
         return
@@ -54,7 +60,7 @@ def _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest):
     workspace_name = manifest["workspace"]
     repo = manifest.get("repo")
     all_files = manifest.get("files", {}).items()
-    _log(f"Migrating workspace {workspace_name} in directory {workspace_dir}.")
+    _log(f"Migrating workspace {workspace_name} in directory {workspace_dir}.", log)
 
     for action, action_details in manifest["actions"].items():
         files = {
@@ -107,8 +113,9 @@ def _action_to_job(workspace, repo, files, action, details):
     )
 
 
-def _log(message):
-    print(message, file=sys.stderr)
+def _log(message, log):
+    if log:
+        print(message, file=sys.stderr)
 
 
 def _map_get(mapping, key, func, default):

@@ -148,7 +148,10 @@ def test_migrates_a_single_one_of_several_workspaces(tmp_work_dir):
         actions_=actions(action(job_id="job2")),
     )
 
-    migrate_one(config.HIGH_PRIVACY_WORKSPACES_DIR / "workspace1", write_medium_privacy_manifest=False)
+    migrate_one(
+        config.HIGH_PRIVACY_WORKSPACES_DIR / "workspace1",
+        write_medium_privacy_manifest=False,
+    )
 
     assert_job_exists(job_id="job1", workspace="workspace1", repo_url="repo1")
     assert not database.find_where(Job, job_id="job2")
@@ -223,7 +226,7 @@ def test_renames_the_manifest(tmp_work_dir):
 
 def test_doesnt_rename_the_manifest_until_all_jobs_are_migrated(tmp_work_dir):
     write_manifest(
-        workspace=f"the-workspace",
+        workspace="the-workspace",
         actions_=actions(
             *[action(job_id=f"job-{j}", action_=f"action-{j}") for j in range(10)]
         ),
@@ -253,7 +256,7 @@ def test_writes_a_slimmed_down_manifest_to_medium_privacy_workspace(tmp_work_dir
 
 def test_doesnt_write_medium_privacy_manifest_until_all_jobs_are_migrated(tmp_work_dir):
     write_manifest(
-        workspace=f"the-workspace",
+        workspace="the-workspace",
         actions_=actions(
             *[action(job_id=f"job-{j}", action_=f"action-{j}") for j in range(10)]
         ),

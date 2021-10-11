@@ -225,7 +225,9 @@ def create_and_run_jobs(
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
 
     # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
-    manifest_to_database_migration.migrate_one(project_dir, write_medium_privacy_manifest=False, batch_size=1000)
+    manifest_to_database_migration.migrate_one(
+        project_dir, write_medium_privacy_manifest=False, batch_size=1000, log=False
+    )
 
     try:
         job_request, jobs = create_job_request_and_jobs(
