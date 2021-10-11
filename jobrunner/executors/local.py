@@ -89,8 +89,8 @@ class LocalDockerJobAPI:
                 volume=(volume_name(job), "/workspace"),
                 env=job.env,
                 allow_network_access=job.allow_database_access,
+                label=LABEL,
                 labels={
-                    LABEL: "",
                     # make it easier to find stuff
                     "workspace": job.workspace,
                     "action": job.action,
@@ -244,6 +244,7 @@ def persist_outputs(job, outputs, container_metadata):
             if privacy_level == "moderately_sensitive":
                 copy_file(workspace_dir / filename, medium_privacy_dir / filename)
 
+        # this can be removed once osrelease is dead
         write_manifest_file(
             medium_privacy_dir,
             {"repo": job.study.git_repo_url, "workspace": job.workspace},
@@ -277,7 +278,6 @@ def write_log_file(job, job_metadata, filename):
     outputs = sorted(job_metadata["outputs"].items())
     with open(filename, "a") as f:
         f.write("\n\n")
-        # TODO Some of these keys are not be available here, inside the job-executor.
         for key in KEYS_TO_LOG:
             if not job_metadata[key]:
                 continue

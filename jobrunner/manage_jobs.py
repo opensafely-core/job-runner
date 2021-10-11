@@ -135,7 +135,7 @@ def start_job(job):
         volume=(volume, "/workspace"),
         env=env,
         allow_network_access=allow_network_access,
-        labels={JOB_LABEL:""},
+        label=JOB_LABEL,
     )
     log.info("Started")
     log.info(f"View live logs using: docker logs -f {container_name(job)}")
@@ -252,8 +252,7 @@ def job_still_running(job):
     return docker.container_is_running(container_name(job))
 
 
-# note: we redefine these functions to user a different name than
-# the current implementation in manage_jobs.py, to separate them
+# note: these functions use different naming logic for to isolate the state between the old/new worlds
 def container_name(job):
     return f"os-job-{job.id}" if config.EXECUTION_API else f"job-{job.slug}"
 
