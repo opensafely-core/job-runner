@@ -246,7 +246,8 @@ def persist_outputs(job, outputs):
                 copy_file(workspace_dir / filename, medium_privacy_dir / filename)
 
         write_manifest_file(
-            medium_privacy_dir, {"repo": job.study.git_repo_url, "workspace": job.workspace}
+            medium_privacy_dir,
+            {"repo": job.study.git_repo_url, "workspace": job.workspace},
         )
 
 
@@ -293,4 +294,3 @@ KEYS_TO_LOG = [
     "docker_image_id",
     "exit_code",
 ]
-
