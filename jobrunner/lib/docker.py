@@ -54,10 +54,13 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     except subprocess.TimeoutExpired as e:
         raise DockerTimeoutError from e
     except subprocess.CalledProcessError as e:
+        stderr = e.stderr
+        if isinstance(e.stderr, bytes):
+            stderr = stderr.decode("utf8")
         if (
             e.returncode == 1
-            and e.stderr.startswith(b"Error response from daemon: ")
-            and e.stderr.endswith(b": no space left on device")
+            and stderr.startswith("Error response from daemon: ")
+            and stderr.endswith(": no space left on device")
         ):
             raise DockerDiskSpaceError from e
         else:
