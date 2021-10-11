@@ -48,7 +48,6 @@ class LocalDockerJobAPI:
     def prepare(self, job):
         current = self.get_status(job)
         if current.state != ExecutorState.UNKNOWN:
-            # This should trigger an InvalidTransition
             return current
 
         # Check the image exists locally and error if not. Newer versions of
@@ -79,7 +78,6 @@ class LocalDockerJobAPI:
     def execute(self, job):
         current = self.get_status(job)
         if current.state != ExecutorState.PREPARED:
-            # This should trigger an InvalidTransition
             return current
 
         try:
@@ -106,7 +104,6 @@ class LocalDockerJobAPI:
     def finalize(self, job):
         current = self.get_status(job)
         if current.state != ExecutorState.EXECUTED:
-            # This should trigger an InvalidTransition
             return current
 
         try:
@@ -146,7 +143,6 @@ class LocalDockerJobAPI:
             return JobStatus(ExecutorState.EXECUTED)
 
     def get_results(self, job):
-        container_metadata = get_container_metadata(job)
         if job.id not in RESULTS:
             return JobStatus(ExecutorState.ERROR, "job has not been finalized")
 
