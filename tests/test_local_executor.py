@@ -56,6 +56,9 @@ def list_repo_files(path):
 @pytest.fixture
 def use_api(monkeypatch):
     monkeypatch.setattr(config, "EXECUTION_API", True)
+    yield
+    local.FINALIZED_JOBS.clear()
+    local.RESULTS_CACHE.clear()
 
 
 @pytest.mark.needs_docker

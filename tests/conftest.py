@@ -35,21 +35,14 @@ def tmp_work_dir(monkeypatch, tmp_path):
     return tmp_path
 
 
-@pytest.fixture(scope="module")
-def docker_cleanup():
-    # Workaround for the fact that `monkeypatch` is only function-scoped.
-    # Hopefully will be unnecessary soon. See:
-    # https://github.com/pytest-dev/pytest/issues/363
-    from _pytest.monkeypatch import MonkeyPatch
-
-    label_for_tests = "jobrunner-test-R5o1iLu"
-    monkeypatch = MonkeyPatch()
+@pytest.fixture
+def docker_cleanup(monkeypatch):
+    label_for_tests = "jobrunner-pytest"
     monkeypatch.setattr("jobrunner.lib.docker.LABEL", label_for_tests)
     monkeypatch.setattr("jobrunner.executors.local.LABEL", label_for_tests)
     yield
     delete_docker_entities("container", label_for_tests)
     delete_docker_entities("volume", label_for_tests)
-    monkeypatch.undo()
 
 
 def delete_docker_entities(entity, label, ignore_errors=False):
