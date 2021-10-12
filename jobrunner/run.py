@@ -380,6 +380,7 @@ def cleanup_job_api(api, job):
     else:
         log.info("Leaving container and volume in place for debugging")
 
+
 def get_states_of_awaited_jobs(job):
     job_ids = job.wait_for_job_ids
     if not job_ids:

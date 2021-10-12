@@ -25,7 +25,7 @@ def use_api(request, monkeypatch):
     monkeypatch.setattr(config, "EXECUTION_API", request.param)
 
 
-@pytest.mark.parametrize("use_api", [True,False], indirect=True)
+@pytest.mark.parametrize("use_api", [True, False], indirect=True)
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_local_run_success(use_api, tmp_path, docker_cleanup):
@@ -39,7 +39,7 @@ def test_local_run_success(use_api, tmp_path, docker_cleanup):
     assert not (project_dir / "metadata/.logs").exists()
 
 
-@pytest.mark.parametrize("use_api", [True,False], indirect=True)
+@pytest.mark.parametrize("use_api", [True, False], indirect=True)
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 @pytest.mark.skipif(
@@ -54,7 +54,7 @@ def test_local_run_stata(use_api, tmp_path, monkeypatch, docker_cleanup):
     assert "Bennett Institute" in env_file.read_text()
 
 
-@pytest.mark.parametrize("use_api", [True,False], indirect=True)
+@pytest.mark.parametrize("use_api", [True, False], indirect=True)
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_local_run_triggers_a_manifest_migration(use_api, tmp_path, docker_cleanup):
