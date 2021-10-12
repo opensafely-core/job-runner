@@ -10,6 +10,7 @@ import pytest
 
 from jobrunner import config
 from jobrunner.cli import local_run
+from jobrunner import config
 from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
@@ -19,9 +20,15 @@ from jobrunner.project import get_action_specification, parse_and_validate_proje
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
 
 
+@pytest.fixture
+def use_api(request, monkeypatch):
+    monkeypatch.setattr(config, "EXECUTION_API", request.param)
+
+
+@pytest.mark.parametrize("use_api", [True,False], indirect=True)
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_local_run(tmp_path):
+def test_local_run_success(use_api, tmp_path, docker_cleanup):
     project_dir = tmp_path / "project"
     shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
     local_run.main(project_dir=project_dir, actions=["analyse_data"])
@@ -32,12 +39,13 @@ def test_local_run(tmp_path):
     assert not (project_dir / "metadata/.logs").exists()
 
 
+@pytest.mark.parametrize("use_api", [True,False], indirect=True)
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 @pytest.mark.skipif(
     not os.environ.get("STATA_LICENSE"), reason="No STATA_LICENSE env var"
 )
-def test_local_run_stata(tmp_path, monkeypatch):
+def test_local_run_stata(use_api, tmp_path, monkeypatch, docker_cleanup):
     project_dir = tmp_path / "project"
     shutil.copytree(str(FIXTURE_DIR / "stata_project"), project_dir)
     monkeypatch.setattr("jobrunner.config.STATA_LICENSE", os.environ["STATA_LICENSE"])
@@ -46,9 +54,10 @@ def test_local_run_stata(tmp_path, monkeypatch):
     assert "Bennett Institute" in env_file.read_text()
 
 
+@pytest.mark.parametrize("use_api", [True,False], indirect=True)
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_local_run_triggers_a_manifest_migration(tmp_path):
+def test_local_run_triggers_a_manifest_migration(use_api, tmp_path, docker_cleanup):
     project_dir = tmp_path / "project"
     shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
 
