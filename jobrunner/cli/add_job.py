@@ -3,10 +3,8 @@ Development utility for creating and submitting a JobRequest without having a
 job-server
 """
 import argparse
-import base64
 import dataclasses
 import pprint
-import secrets
 import textwrap
 from pathlib import Path
 from urllib.parse import urlparse
@@ -15,7 +13,7 @@ from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where
 from jobrunner.lib.git import get_sha_from_remote_ref
 from jobrunner.lib.log_utils import configure_logging
-from jobrunner.models import Job
+from jobrunner.models import Job, random_id
 from jobrunner.sync import job_request_from_remote_format
 
 
@@ -57,17 +55,6 @@ def display_obj(obj):
     output = pprint.pformat(data)
     print(textwrap.indent(output, "  "))
     print()
-
-
-def random_id():
-    """
-    Return a random 16 character lowercase alphanumeric string
-
-    We used to use UUID4's but they are unnecessarily long for our purposes
-    (particularly the hex representation) and shorter IDs make debugging
-    and inspecting the job-runner a bit more ergonomic.
-    """
-    return base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
 
 def run():

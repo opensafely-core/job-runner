@@ -11,6 +11,7 @@ import base64
 import dataclasses
 import datetime
 import hashlib
+import secrets
 from enum import Enum
 
 from jobrunner.lib.string_utils import project_name_from_url, slugify
@@ -133,10 +134,7 @@ class Job:
         # with Job IDs altogether and just use the action name directly, but
         # doing things this way is a less invasive change.
         if not self.id and self.job_request_id and self.action:
-            hash_input = f"{self.job_request_id}\n{self.action}"
-            hash_bytes = hashlib.sha1(hash_input.encode("utf-8")).digest()
-            hash_token = base64.b32encode(hash_bytes[:10]).decode("ascii").lower()
-            self.id = hash_token
+            self.id = deterministic_id(f"{self.job_request_id}\n{self.action}")
 
     def asdict(self):
         data = dataclasses.asdict(self)
@@ -188,6 +186,15 @@ class Job:
             return self.outputs.keys()
         else:
             return []
+
+
+def deterministic_id(seed):
+    digest = hashlib.sha1(seed.encode("utf-8")).digest()
+    return base64.b32encode(digest[:10]).decode("ascii").lower()
+
+
+def random_id():
+    return secrets.token_hex(5)
 
 
 def timestamp_to_isoformat(ts):

@@ -53,7 +53,7 @@ from jobrunner.lib.log_utils import configure_logging
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import METADATA_DIR
-from jobrunner.models import Job, JobRequest, State, StatusCode
+from jobrunner.models import Job, JobRequest, State, StatusCode, random_id
 from jobrunner.project import UnknownActionError, get_all_actions
 from jobrunner.reusable_actions import (
     ReusableActionError,
@@ -319,7 +319,7 @@ def create_and_run_jobs(
         if format_output_for_github:
             print("::endgroup::")
 
-    final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED])
+    final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED], job_request_id=job_request.id)
     # Always show failed jobs last, otherwise show in order run
     final_jobs.sort(
         key=lambda job: (
@@ -386,7 +386,7 @@ def create_and_run_jobs(
 
 def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     job_request = JobRequest(
-        id="local",
+        id=random_id(),
         repo_url=str(project_dir),
         commit=None,
         requested_actions=actions,
@@ -400,6 +400,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         branch="",
         original={"created_by": getpass.getuser()},
     )
+
     project_file_path = project_dir / "project.yaml"
     if not project_file_path.exists():
         raise ProjectValidationError(f"No project.yaml file found in {project_dir}")
