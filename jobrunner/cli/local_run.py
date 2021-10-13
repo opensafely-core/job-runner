@@ -46,7 +46,7 @@ from jobrunner.create_or_update_jobs import (
     insert_into_database,
     parse_and_validate_project_file,
 )
-from jobrunner.lib import docker
+from jobrunner.lib import database, docker
 from jobrunner.lib.database import find_where
 from jobrunner.lib.log_utils import configure_logging
 from jobrunner.lib.string_utils import tabulate
@@ -227,6 +227,19 @@ def create_and_run_jobs(
     # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
     manifest_to_database_migration.migrate_one(
         project_dir, write_medium_privacy_manifest=False, batch_size=1000, log=False
+    )
+
+    # Any jobs that are running or pending must be left over from a previous run that was aborted either by an
+    # unexpected and unhandled exception or by the researcher abruptly terminating the process. We can't reasonably
+    # recover them (and the researcher may not want to -- maybe that's why they terminated), so we mark them as
+    # cancelled. This causes the rest of the system to effectively ignore them.
+    #
+    # We do this here at the beginning rather than trying to catch these cases when the process exits because the
+    # latter couldn't ever completely guarantee to catch every possible termination case correctly.
+    database.update_where(
+        Job,
+        {"cancelled": True, "state": State.FAILED},
+        state__in=[State.RUNNING, State.PENDING],
     )
 
     try:

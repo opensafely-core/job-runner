@@ -2,16 +2,19 @@ import argparse
 import json
 import os
 import shutil
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
+from jobrunner import config
 from jobrunner.cli import local_run
 from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
-from jobrunner.models import Job
+from jobrunner.models import Job, SavedJobRequest, State
+from jobrunner.project import get_action_specification, parse_and_validate_project_file
 
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
 
@@ -65,6 +68,53 @@ def test_local_run_triggers_a_manifest_migration(tmp_path):
     local_run.main(project_dir=project_dir, actions=["generate_cohort"])
 
     assert database.exists_where(Job, id="job-id-from-manifest")
+
+
+@pytest.mark.slow_test
+@pytest.mark.needs_docker
+def test_local_run_copes_with_detritus_of_earlier_interrupted_run(tmp_path):
+    # This test simulates the case where an earlier run has been interrupted (for example by the user pressing ctrl-c).
+    # In particular we put a couple of jobs in unfinished states, which they could never be left in under normal
+    # operation. The correct behaviour of the local run, which this tests for, is for such unfinished jobs to be marked
+    # as cancelled on the next run.
+    project_dir = tmp_path / "project"
+    shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
+    config.DATABASE_FILE = project_dir / "metadata" / "db.sqlite"
+
+    project = parse_and_validate_project_file(
+        (project_dir / "project.yaml").read_bytes()
+    )
+    database.insert(SavedJobRequest(id="previous-request", original={}))
+
+    def job(job_id, action, state):
+        spec = get_action_specification(project, action)
+        return Job(
+            id=job_id,
+            job_request_id="previous-request",
+            state=state,
+            status_message="",
+            repo_url=str(project_dir),
+            workspace=project_dir.name,
+            database_name="a-database",
+            action=action,
+            wait_for_job_ids=[],
+            requires_outputs_from=spec.needs,
+            run_command=spec.run,
+            output_spec=spec.outputs,
+            created_at=int(time.time()),
+            updated_at=int(time.time()),
+            outputs={},
+        )
+
+    database.insert(job(job_id="123", action="generate_cohort", state=State.RUNNING))
+    database.insert(job(job_id="456", action="prepare_data_m", state=State.PENDING))
+
+    assert local_run.main(project_dir=project_dir, actions=["prepare_data_m"])
+
+    assert database.find_one(Job, id="123").cancelled
+    assert database.find_one(Job, id="123").state == State.FAILED
+    assert database.find_one(Job, id="456").cancelled
+    assert database.find_one(Job, id="456").state == State.FAILED
 
 
 @pytest.fixture
