@@ -10,7 +10,7 @@ from jobrunner.create_or_update_jobs import (
     create_or_update_jobs,
     validate_job_request,
 )
-from jobrunner.lib.database import find_one
+from jobrunner.lib.database import find_one, update_where
 from jobrunner.models import Job, JobRequest, State
 
 
@@ -146,6 +146,29 @@ def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_
     prepare_2_job = find_one(Job, action="prepare_data_2")
     assert set(analyse_job.wait_for_job_ids) == {prepare_1_job.id, prepare_2_job.id}
     assert prepare_2_job.wait_for_job_ids == [generate_job.id]
+
+
+def test_existing_cancelled_jobs_are_ignored_up_when_checking_dependencies(
+    tmp_work_dir,
+):
+    create_jobs_with_project_file(
+        make_job_request(action="generate_cohort"), TEST_PROJECT
+    )
+    cancelled_generate_job = find_one(Job, action="generate_cohort")
+    update_where(Job, {"cancelled": True}, id=cancelled_generate_job.id)
+
+    # Now schedule a job which has the above job as a dependency
+    create_jobs_with_project_file(
+        make_job_request(action="prepare_data_1"), TEST_PROJECT
+    )
+
+    # Check that it's spawned a new instance of the cancelled job and wired up the dependencies correctly
+    prepare_job = find_one(Job, action="prepare_data_1")
+    new_generate_job = find_one(Job, action="generate_cohort", cancelled=0)
+    assert new_generate_job.id != cancelled_generate_job.id
+
+    assert len(prepare_job.wait_for_job_ids) == 1
+    assert prepare_job.wait_for_job_ids[0] == new_generate_job.id
 
 
 def test_cancelled_jobs_are_flagged(tmp_work_dir):
