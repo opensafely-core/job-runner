@@ -162,10 +162,10 @@ def get_project_file(job_request):
 
 def get_latest_job_for_each_action(workspace):
     """
-    Return a list containing the most recent job (if any) for each action in
+    Return a list containing the most recent uncancelled job (if any) for each action in
     the workspace
     """
-    all_jobs = find_where(Job, workspace=workspace)
+    all_jobs = find_where(Job, workspace=workspace, cancelled=False)
     latest_jobs = []
     for _, jobs in group_by(all_jobs, attrgetter("action")):
         ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)

@@ -1,9 +1,9 @@
 import pytest
 
 from jobrunner import config, run
-from jobrunner.job_executor import ExecutorState
+from jobrunner.job_executor import ExecutorState, JobAPI, JobDefinition, JobStatus
 from jobrunner.models import State, StatusCode
-from tests.factories import StubJobAPI
+from tests.factories import StubJobAPI, job_factory
 
 
 @pytest.fixture()
@@ -277,3 +277,41 @@ def test_bad_transition(current, invalid, db):
 
     with pytest.raises(run.InvalidTransition):
         run.handle_job_api(job, api)
+
+
+def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
+    job_factory(
+        id="1",
+        action="other-action",
+        state=State.SUCCEEDED,
+        created_at=1000,
+        outputs={"output-from-completed-run": "highly_sensitive_output"},
+    )
+    job_factory(
+        id="2",
+        action="other-action",
+        state=State.SUCCEEDED,
+        created_at=2000,
+        cancelled=True,
+        outputs={"output-from-cancelled-run": "highly_sensitive_output"},
+    )
+
+    api = RecordingJobAPI()
+    run.handle_job_api(
+        job_factory(
+            id="3", requires_outputs_from=["other-action"], state=State.PENDING
+        ),
+        api,
+    )
+
+    assert api.job.inputs == ["output-from-completed-run"]
+
+
+class RecordingJobAPI(JobAPI):
+    def get_status(self, job: JobDefinition) -> JobStatus:
+        self.job = job
+        return JobStatus(ExecutorState.UNKNOWN)
+
+    def prepare(self, job: JobDefinition) -> JobStatus:
+        self.job = job
+        return JobStatus(ExecutorState.PREPARING)

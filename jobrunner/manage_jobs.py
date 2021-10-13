@@ -523,7 +523,8 @@ def delete_files(directory, filenames, files_to_keep=()):
 
 
 def list_outputs_from_action(workspace, action):
-    all_jobs = find_where(Job, workspace=workspace, action=action)
+    # We always ignore cancelled jobs when considering historical runs.
+    all_jobs = find_where(Job, workspace=workspace, action=action, cancelled=False)
 
     if not all_jobs:
         # The action has never been run before

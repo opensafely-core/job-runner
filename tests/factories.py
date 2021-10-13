@@ -32,6 +32,7 @@ JOB_DEFAULTS = {
     "requires_outputs_from": ["some-earlier-action"],
     "run_command": "python myscript.py",
     "output_spec": {},
+    "created_at": 0,
 }
 
 
