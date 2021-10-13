@@ -42,7 +42,6 @@ from jobrunner.create_or_update_jobs import (
     NothingToDoError,
     ProjectValidationError,
     assert_new_jobs_created,
-    get_latest_job_for_each_action,
     get_new_jobs_to_run,
     insert_into_database,
     parse_and_validate_project_file,
@@ -55,6 +54,7 @@ from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import METADATA_DIR
 from jobrunner.models import Job, JobRequest, State, StatusCode, random_id
 from jobrunner.project import UnknownActionError, get_all_actions
+from jobrunner.queries import get_latest_job_for_each_action
 from jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,

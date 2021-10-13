@@ -14,21 +14,21 @@ import shlex
 import shutil
 import tempfile
 import time
-from operator import attrgetter
 from pathlib import Path
 
 from jobrunner import config
 from jobrunner.lib import docker
-from jobrunner.lib.database import find_one, find_where
+from jobrunner.lib.database import find_one
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.models import Job, SavedJobRequest, State, StatusCode
+from jobrunner.models import SavedJobRequest, State, StatusCode
 from jobrunner.project import (
     get_all_output_patterns_from_project_file,
     is_generate_cohort_command,
 )
+from jobrunner.queries import get_latest_job_for_each_action
 
 log = logging.getLogger(__name__)
 
@@ -523,17 +523,12 @@ def delete_files(directory, filenames, files_to_keep=()):
 
 
 def list_outputs_from_action(workspace, action):
-    # We always ignore cancelled jobs when considering historical runs.
-    all_jobs = find_where(Job, workspace=workspace, action=action, cancelled=False)
+    for job in get_latest_job_for_each_action(workspace):
+        if job.action == action:
+            return job.output_files
 
-    if not all_jobs:
-        # The action has never been run before
-        return []
-
-    ordered_jobs = sorted(all_jobs, key=attrgetter("created_at"), reverse=True)
-    latest_job = ordered_jobs[0]
-
-    return latest_job.output_files
+    # The action has never been run before
+    return []
 
 
 def write_manifest_file(workspace_dir, manifest):

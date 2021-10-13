@@ -8,17 +8,9 @@ and doing the necessary dependency resolution.
 import logging
 import re
 import time
-from itertools import groupby
-from operator import attrgetter
 
 from jobrunner import config
-from jobrunner.lib.database import (
-    exists_where,
-    find_where,
-    insert,
-    transaction,
-    update_where,
-)
+from jobrunner.lib.database import exists_where, insert, transaction, update_where
 from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
 from jobrunner.lib.github_validators import (
     GithubValidationError,
@@ -33,6 +25,7 @@ from jobrunner.project import (
     get_all_actions,
     parse_and_validate_project_file,
 )
+from jobrunner.queries import get_latest_job_for_each_action
 from jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
@@ -158,23 +151,6 @@ def get_project_file(job_request):
         )
     except GitFileNotFoundError:
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
-
-
-def get_latest_job_for_each_action(workspace):
-    """
-    Return a list containing the most recent uncancelled job (if any) for each action in
-    the workspace
-    """
-    all_jobs = find_where(Job, workspace=workspace, cancelled=False)
-    latest_jobs = []
-    for _, jobs in group_by(all_jobs, attrgetter("action")):
-        ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
-        latest_jobs.append(ordered_jobs[0])
-    return latest_jobs
-
-
-def group_by(iterable, key):
-    return groupby(sorted(iterable, key=key), key=key)
 
 
 def get_new_jobs_to_run(job_request, project, current_jobs):
