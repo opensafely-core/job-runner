@@ -319,7 +319,9 @@ def create_and_run_jobs(
         if format_output_for_github:
             print("::endgroup::")
 
-    final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED], job_request_id=job_request.id)
+    final_jobs = find_where(
+        Job, state__in=[State.FAILED, State.SUCCEEDED], job_request_id=job_request.id
+    )
     # Always show failed jobs last, otherwise show in order run
     final_jobs.sort(
         key=lambda job: (
