@@ -54,7 +54,7 @@ from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import METADATA_DIR
 from jobrunner.models import Job, JobRequest, State, StatusCode, random_id
 from jobrunner.project import UnknownActionError, get_all_actions
-from jobrunner.queries import get_latest_job_for_each_action
+from jobrunner.queries import calculate_workspace_state
 from jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
@@ -424,7 +424,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     # changes below then consider what, if any, the appropriate corresponding
     # changes might be for production jobs.
     project = parse_and_validate_project_file(project_file_path.read_bytes())
-    latest_jobs = get_latest_job_for_each_action(job_request.workspace)
+    latest_jobs = calculate_workspace_state(job_request.workspace)
 
     # On the server out-of-band deletion of an existing output is considered an error, so we ignore that case when
     # scheduling and allow jobs with missing dependencies to fail loudly when they are actually run. However for local

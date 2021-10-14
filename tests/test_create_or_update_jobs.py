@@ -6,6 +6,7 @@ import pytest
 
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
+    NothingToDoError,
     create_jobs,
     create_or_update_jobs,
     validate_job_request,
@@ -171,6 +172,30 @@ def test_existing_cancelled_jobs_are_ignored_up_when_checking_dependencies(
     assert prepare_job.wait_for_job_ids[0] == new_generate_job.id
 
 
+def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
+    # Long ago there was an useless action that failed and then was rightly expunged from the study pipeline
+    obsolete_action_def = """
+  obsolete_action:
+    run: python:latest -c pass
+    outputs: {}
+    """
+    create_jobs_with_project_file(
+        make_job_request(action="obsolete_action"), TEST_PROJECT + obsolete_action_def
+    )
+    update_where(Job, {"state": State.FAILED}, action="obsolete_action")
+
+    # Since then all the healthy, vigorous actions have been successfully run individually
+    request = make_job_request(
+        actions=["generate_cohort", "prepare_data_1", "prepare_data_2", "analyse_data"]
+    )
+    create_jobs_with_project_file(request, TEST_PROJECT)
+    update_where(Job, {"state": State.SUCCEEDED}, job_request_id=request.id)
+
+    with pytest.raises(NothingToDoError):
+        # Now this should be a no-op because all the actions that are still part of the study have succeeded
+        create_jobs_with_project_file(make_job_request(action="run_all"), TEST_PROJECT)
+
+
 def test_cancelled_jobs_are_flagged(tmp_work_dir):
     job_request = make_job_request(action="analyse_data")
     create_jobs_with_project_file(job_request, TEST_PROJECT)
@@ -216,14 +241,20 @@ def test_validate_job_request(params, exc_msg, monkeypatch):
         validate_job_request(job_request)
 
 
-def make_job_request(action="generate_cohort", **kwargs):
+def make_job_request(action=None, actions=None, **kwargs):
+    assert not (actions and action)
+    if not actions:
+        if action:
+            actions = [action]
+        else:
+            actions = ["generate_cohort"]
     job_request = JobRequest(
         id=str(uuid.uuid4()),
         repo_url="https://example.com/repo.git",
         commit="abcdef0123456789",
         workspace="1",
         database_name="full",
-        requested_actions=[action],
+        requested_actions=actions,
         cancelled_actions=[],
         original={},
     )
