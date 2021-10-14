@@ -28,7 +28,7 @@ from jobrunner.project import (
     get_all_output_patterns_from_project_file,
     is_generate_cohort_command,
 )
-from jobrunner.queries import get_latest_job_for_each_action
+from jobrunner.queries import calculate_workspace_state
 
 log = logging.getLogger(__name__)
 
@@ -523,7 +523,7 @@ def delete_files(directory, filenames, files_to_keep=()):
 
 
 def list_outputs_from_action(workspace, action):
-    for job in get_latest_job_for_each_action(workspace):
+    for job in calculate_workspace_state(workspace):
         if job.action == action:
             return job.output_files
 

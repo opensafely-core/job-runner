@@ -5,7 +5,7 @@ from jobrunner.lib.database import find_where
 from jobrunner.models import Job
 
 
-def get_latest_job_for_each_action(workspace):
+def calculate_workspace_state(workspace):
     """
     Return a list containing the most recent uncancelled job (if any) for each action in the workspace. We always
     ignore cancelled jobs when considering the historical state of the system.

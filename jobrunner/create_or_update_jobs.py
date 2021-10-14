@@ -25,7 +25,7 @@ from jobrunner.project import (
     get_all_actions,
     parse_and_validate_project_file,
 )
-from jobrunner.queries import get_latest_job_for_each_action
+from jobrunner.queries import calculate_workspace_state
 from jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
@@ -156,7 +156,7 @@ def get_project_file(job_request):
 def get_latest_jobs_for_actions_in_project(workspace, project):
     return [
         job
-        for job in get_latest_job_for_each_action(workspace)
+        for job in calculate_workspace_state(workspace)
         if job.action in get_all_actions(project)
     ]
 
