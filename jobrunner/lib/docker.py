@@ -110,11 +110,7 @@ def create_volume(volume_name):
 def volume_exists(volume_name):
     """Does the given volume exist?"""
     try:
-        docker(
-            ["volume", "inspect", volume_name],
-            check=True,
-            capture_output=True
-        )
+        docker(["volume", "inspect", volume_name], check=True, capture_output=True)
     except subprocess.CalledProcessError:
         return False
     else:
@@ -326,7 +322,15 @@ def container_inspect(name, key="", none_if_not_exists=False):
     return json.loads(response.stdout)
 
 
-def run(name, args, volume=None, env=None, allow_network_access=False, label=None, labels=None):
+def run(
+    name,
+    args,
+    volume=None,
+    env=None,
+    allow_network_access=False,
+    label=None,
+    labels=None,
+):
     run_args = ["run", "--init", "--detach", "--label", LABEL, "--name", name]
     if not allow_network_access:
         run_args.extend(["--network", "none"])

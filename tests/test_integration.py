@@ -9,7 +9,6 @@ import jobrunner.sync
 from jobrunner import config
 from jobrunner.lib import docker
 from jobrunner.lib.subprocess_utils import subprocess_run
-
 from tests.factories import ensure_docker_images_present
 
 log = logging.getLogger(__name__)
