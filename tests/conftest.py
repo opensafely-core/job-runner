@@ -108,6 +108,7 @@ def test_repo(tmp_work_dir):
 @pytest.fixture()
 def db(monkeypatch):
     """Create a throwaway db."""
-    monkeypatch.setattr(
-        config, "DATABASE_FILE", ":memory:{random.randrange(sys.maxsize)}"
-    )
+    database_file = ":memory:{random.randrange(sys.maxsize)}"
+    monkeypatch.setattr(config, "DATABASE_FILE", database_file)
+    yield
+    del database.CONNECTION_CACHE.__dict__[database_file]
