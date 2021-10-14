@@ -2,10 +2,12 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.job_executor import Study
-
 import pytest
+
+from jobrunner import config
+from jobrunner.job_executor import Study
+from jobrunner.lib import database
+from jobrunner.lib.subprocess_utils import subprocess_run
 
 
 def pytest_configure(config):
@@ -100,4 +102,12 @@ def test_repo(tmp_work_dir):
         path=repo_path,
         commit=commit,
         study=Study(git_repo_url=str(repo_path), commit=commit),
+    )
+
+
+@pytest.fixture()
+def db(monkeypatch):
+    """Create a throwaway db."""
+    monkeypatch.setattr(
+        config, "DATABASE_FILE", ":memory:{random.randrange(sys.maxsize)}"
     )

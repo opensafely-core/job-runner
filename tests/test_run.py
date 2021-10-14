@@ -1,17 +1,9 @@
 import pytest
 
-from jobrunner import config, run
+from jobrunner import run
 from jobrunner.job_executor import ExecutorState, JobAPI, JobDefinition, JobStatus
 from jobrunner.models import State, StatusCode
 from tests.factories import StubJobAPI, job_factory
-
-
-@pytest.fixture()
-def db(monkeypatch):
-    """Create a throwaway db."""
-    monkeypatch.setattr(
-        config, "DATABASE_FILE", ":memory:{random.randrange(sys.maxsize)}"
-    )
 
 
 def test_handle_pending_job_cancelled(db):
