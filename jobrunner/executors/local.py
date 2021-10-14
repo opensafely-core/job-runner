@@ -112,8 +112,7 @@ class LocalDockerJobAPI:
         return JobStatus(ExecutorState.ERROR, "terminated by api")
 
     def cleanup(self, job):
-        docker.delete_container(container_name(job))
-        docker.delete_volume(volume_name(job))
+        cleanup_job(job)
         RESULTS.pop(job.id, None)
 
     def get_status(self, job):

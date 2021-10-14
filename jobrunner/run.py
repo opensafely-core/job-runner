@@ -200,7 +200,7 @@ def handle_job_api(job, api):
         # regardless of executor state.
         api.terminate(definition)
         mark_job_as_failed(job, "Cancelled by user", StatusCode.CANCELLED_BY_USER)
-        cleanup_job_api(api, definition)
+        api.cleanup(definition)
         return
 
     initial_status = api.get_status(definition)
@@ -258,7 +258,7 @@ def handle_job_api(job, api):
         # delete_obsolete_files(job, results)
         save_results(job, results)
         mark_job_as_completed(job)
-        cleanup_job_api(api, definition)
+        api.cleanup(definition)
         # we are done here
         return
 
@@ -371,14 +371,6 @@ def job_to_job_definition(job):
         outputs,
         allow_database_access,
     )
-
-
-def cleanup_job_api(api, job):
-    if config.CLEAN_UP_DOCKER_OBJECTS:
-        log.info("Cleaning up container and volume")
-        api.cleanup(job)
-    else:
-        log.info("Leaving container and volume in place for debugging")
 
 
 def get_states_of_awaited_jobs(job):
