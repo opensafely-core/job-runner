@@ -57,7 +57,7 @@ def _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest, log):
         return
 
     manifest = json.load(manifest_file.open())
-    workspace_name = manifest["workspace"]
+    workspace_name = manifest.get("workspace", workspace_dir.name)
     repo = manifest.get("repo")
     all_files = manifest.get("files", {}).items()
     _log(f"Migrating workspace {workspace_name} in directory {workspace_dir}.", log)
@@ -81,6 +81,7 @@ def _migrate_manifest_files(manifest, repo, workspace, write_medium_privacy_mani
 
     # We're done with this manifest. Move it out of the way so it doesn't cause confusion -- it's no longer being
     # updated, so soon it will be out of date.
+    # TODO: permissions on TPP
     manifest.rename(manifest.with_name(f".deprecated.{MANIFEST_FILE}"))
 
 
@@ -97,6 +98,7 @@ def _migrate_medium_privacy_manifest(repo, workspace):
 
 
 def _action_to_job(workspace, repo, files, action, details):
+    # TODO: what to do with actions with "unknown" as job id?
     return Job(
         id=details["job_id"],
         workspace=workspace,
@@ -119,6 +121,7 @@ def _log(message, log):
 
 
 def _map_get(mapping, key, func, default):
-    if key not in mapping:
+    try:
+        return func(mapping[key])
+    except (KeyError, ValueError):
         return default
-    return func(mapping[key])
