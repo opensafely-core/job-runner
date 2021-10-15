@@ -1,22 +1,21 @@
-import pytest
-import time
 import subprocess
+import time
 
+import pytest
+
+from jobrunner import config
 from jobrunner.executors import local
-from jobrunner.lib import docker
 from jobrunner.job_executor import (
     ExecutorState,
-    JobStatus,
-    JobResults,
     JobDefinition,
+    JobResults,
+    JobStatus,
     Study,
 )
-from jobrunner.run import job_to_job_definition
-from jobrunner.manage_jobs import get_high_privacy_workspace, container_name
+from jobrunner.lib import docker
+from jobrunner.manage_jobs import container_name, get_high_privacy_workspace
 from jobrunner.models import State
-from jobrunner import config
-
-
+from jobrunner.run import job_to_job_definition
 from tests.factories import ensure_docker_images_present
 
 

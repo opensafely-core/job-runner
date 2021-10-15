@@ -10,23 +10,21 @@ import shlex
 import sys
 import time
 
-from jobrunner.job_executor import ExecutorState
+from jobrunner import config
+from jobrunner.executors import get_job_api
+from jobrunner.job_executor import ExecutorState, JobDefinition, Study
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.job_executor import ExecutorState, Study, JobDefinition
-from jobrunner.executors import get_job_api
-from jobrunner import config
 from jobrunner.manage_jobs import (
     BrokenContainerError,
     JobError,
     cleanup_job,
     finalise_job,
+    get_job_metadata,
     job_still_running,
     kill_job,
     list_outputs_from_action,
     start_job,
-    get_job_metadata,
-    list_outputs_from_action,
 )
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.project import is_generate_cohort_command

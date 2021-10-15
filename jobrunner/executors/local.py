@@ -1,35 +1,28 @@
-import logging
-from pathlib import Path
-import subprocess
 import json
+import logging
+import subprocess
+from pathlib import Path
 
-from jobrunner.job_executor import (
-    ExecutorState,
-    JobDefinition,
-    JobResults,
-    JobStatus,
-)
+from jobrunner.job_executor import ExecutorState, JobDefinition, JobResults, JobStatus
 from jobrunner.lib import docker
 from jobrunner.lib.string_utils import tabulate
-
 # ideally, these should be moved into this module when the old implementation
 # is removed
 from jobrunner.manage_jobs import (
     METADATA_DIR,
     TIMESTAMP_REFERENCE_FILE,
+    cleanup_job,
+    container_name,
+    copy_file,
     copy_git_commit_to_volume,
+    ensure_overwritable,
+    get_container_metadata,
     get_high_privacy_workspace,
+    get_log_dir,
     get_medium_privacy_workspace,
     volume_name,
-    get_container_metadata,
-    container_name,
-    cleanup_job,
-    ensure_overwritable,
-    get_log_dir,
     write_manifest_file,
-    copy_file,
 )
-
 
 # cache of result objects
 RESULTS = {}

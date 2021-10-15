@@ -57,3 +57,7 @@ docker-build docker-serve docker-run docker-test docker-clean: .env
 # required by docker-compose.yaml
 .env: 
 	cp dotenv-sample .env
+
+fix:
+	venv/bin/black jobrunner tests
+	venv/bin/isort jobrunner tests

@@ -1,16 +1,15 @@
 import base64
-from pathlib import Path
 import secrets
 from copy import deepcopy
+from pathlib import Path
 
+from jobrunner import config
 from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
+from jobrunner.lib import docker
 from jobrunner.lib.database import insert
-from jobrunner.models import Job, JobRequest, SavedJobRequest
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import JobError
-from jobrunner import config
-from jobrunner.lib import docker
-
+from jobrunner.models import Job, JobRequest, SavedJobRequest
 
 JOB_REQUEST_DEFAULTS = {
     "repo_url": "repo",

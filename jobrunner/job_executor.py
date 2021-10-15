@@ -273,5 +273,3 @@ class NullJobAPI(JobAPI):
 class NullWorkspaceAPI:
     def delete_files(self, workspace: str, privacy: Privacy, paths: [str]):
         raise NotImplementedError
-
-
