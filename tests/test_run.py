@@ -1,19 +1,18 @@
-import pytest
-
+import pytest 
 from jobrunner import run
 from jobrunner.job_executor import (
     ExecutorState,
-    JobAPI,
+    ExecutorAPI,
     JobDefinition,
     JobStatus,
     Privacy,
 )
 from jobrunner.models import State, StatusCode
-from tests.factories import StubJobAPI, job_factory
+from tests.factories import StubExecutorAPI, job_factory
 
 
 def test_handle_pending_job_cancelled(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, cancelled=True)
 
     run.handle_job_api(job, api)
@@ -38,7 +37,7 @@ def test_handle_pending_job_cancelled(db):
     ],
 )
 def test_handle_job_stable_states(state, message, db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     job = api.add_test_job(state, State.RUNNING)
 
     run.handle_job_api(job, api)
@@ -55,7 +54,7 @@ def test_handle_job_stable_states(state, message, db):
 
 
 def test_handle_job_pending_to_preparing(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
 
     run.handle_job_api(job, api)
@@ -70,7 +69,7 @@ def test_handle_job_pending_to_preparing(db):
 
 
 def test_handle_job_pending_dependency_failed(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     dependency = api.add_test_job(ExecutorState.UNKNOWN, State.FAILED)
     job = api.add_test_job(
         ExecutorState.UNKNOWN,
@@ -93,7 +92,7 @@ def test_handle_job_pending_dependency_failed(db):
 
 
 def test_handle_pending_job_waiting_on_dependency(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     dependency = api.add_test_job(ExecutorState.EXECUTING, State.RUNNING)
 
     job = api.add_test_job(
@@ -125,7 +124,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
     ],
 )
 def test_handle_job_waiting_on_workers(exec_state, job_state, tracker, db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     job = api.add_test_job(exec_state, job_state)
     api.set_job_transition(job, exec_state)
 
@@ -140,7 +139,7 @@ def test_handle_job_waiting_on_workers(exec_state, job_state, tracker, db):
 
 
 def test_handle_job_pending_to_error(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
 
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
     api.set_job_transition(job, ExecutorState.ERROR, "it is b0rked")
@@ -160,7 +159,7 @@ def test_handle_job_pending_to_error(db):
 
 
 def test_handle_job_prepared_to_executing(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.PREPARED, State.RUNNING)
 
     run.handle_job_api(job, api)
@@ -175,7 +174,7 @@ def test_handle_job_prepared_to_executing(db):
 
 
 def test_handle_job_executed_to_finalizing(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING)
 
     run.handle_job_api(job, api)
@@ -190,7 +189,7 @@ def test_handle_job_executed_to_finalizing(db):
 
 
 def test_handle_job_finalized_success_with_delete(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
 
     # insert previous outputs
     job_factory(
@@ -217,7 +216,7 @@ def test_handle_job_finalized_success_with_delete(db):
 
 
 def test_handle_job_finalized_failed_exit_code(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
     api.set_job_result(job, {"output/file.csv": "medium"}, exit_code=1)
 
@@ -236,7 +235,7 @@ def test_handle_job_finalized_failed_exit_code(db):
 
 
 def test_handle_job_finalized_failed_unmatched(db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
     api.set_job_result(job, {"output/file.csv": "medium"}, unmatched=["badfile.csv"])
 
@@ -274,7 +273,7 @@ def invalid_transitions():
 
 @pytest.mark.parametrize("current, invalid", invalid_transitions())
 def test_bad_transition(current, invalid, db):
-    api = StubJobAPI()
+    api = StubExecutorAPI()
     job = api.add_test_job(
         current,
         State.PENDING if current == ExecutorState.UNKNOWN else State.RUNNING,
@@ -303,7 +302,7 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
         outputs={"output-from-cancelled-run": "highly_sensitive_output"},
     )
 
-    api = RecordingJobAPI()
+    api = RecordingExecutorAPI()
     run.handle_job_api(
         job_factory(
             id="3", requires_outputs_from=["other-action"], state=State.PENDING
@@ -314,7 +313,7 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     assert api.job.inputs == ["output-from-completed-run"]
 
 
-class RecordingJobAPI(JobAPI):
+class RecordingExecutorAPI(ExecutorAPI):
     def get_status(self, job: JobDefinition) -> JobStatus:
         self.job = job
         return JobStatus(ExecutorState.UNKNOWN)

@@ -42,7 +42,7 @@ class LocalDockerError(Exception):
 
 
 class LocalDockerAPI:
-    """JobAPI implementation using local docker service."""
+    """ExecutorAPI implementation using local docker service."""
 
     def prepare(self, job):
         current = self.get_status(job)

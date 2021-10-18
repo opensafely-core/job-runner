@@ -55,7 +55,7 @@ class JobResults:
     image_id: str
 
 
-class JobAPI:
+class ExecutorAPI:
     """
     API for managing job execution.
 
@@ -199,7 +199,7 @@ class JobAPI:
         may defer resource cleanup to this method if necessary in order to correctly implement idempotency of
         get_status() or get_results(). If the job is unknown, it should still return UNKNOWN successfully.
 
-        This method will not be called for a job that raises an unexpected exception from JobAPI in order
+        This method will not be called for a job that raises an unexpected exception from ExecutorAPI in order
         to facilitate debugging of unexpected failures. It may therefore be necessary for the backend to provide
         out-of-band mechanisms for cleaning up resources associated with such failures.
         """
@@ -216,7 +216,7 @@ class JobAPI:
         completion of the various tasks.
 
         This method must be idempotent; it may be called more than once for a job even after it has finished, so any
-        irreversible cleanup which loses information about must be deferred to JobAPI.cleanup() which will only be
+        irreversible cleanup which loses information about must be deferred to ExecutorAPI.cleanup() which will only be
         called once the results have been persisted.
 
         """
@@ -230,7 +230,7 @@ class JobAPI:
         debugging during study development.
 
         This method must be idempotent; it may be called more than once for a job even after it has finished, so any
-        irreversible cleanup which loses information about must be deferred to JobAPI.cleanup() which will only be
+        irreversible cleanup which loses information about must be deferred to ExecutorAPI.cleanup() which will only be
         called once the results have been persisted.
         """
 
@@ -243,8 +243,8 @@ class JobAPI:
         ...
 
 
-class NullJobAPI(JobAPI):
-    """Null implementation of JobAPI."""
+class NullExecutorAPI(ExecutorAPI):
+    """Null implementation of ExecutorAPI."""
 
     def prepare(self, job):
         raise NotImplementedError

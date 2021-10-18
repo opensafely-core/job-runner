@@ -59,8 +59,8 @@ def job_factory(job_request=None, **kwargs):
     return job
 
 
-class StubJobAPI:
-    """Dummy implementation of the JobAPI, for use in tests.
+class StubExecutorAPI:
+    """Dummy implementation of the ExecutorAPI, for use in tests.
 
     It tracks the current state of any jobs based the calls to the various API
     methods, and get_status() will return the current state.
