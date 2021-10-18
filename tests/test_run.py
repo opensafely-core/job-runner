@@ -1,8 +1,9 @@
-import pytest 
+import pytest
+
 from jobrunner import run
 from jobrunner.job_executor import (
-    ExecutorState,
     ExecutorAPI,
+    ExecutorState,
     JobDefinition,
     JobStatus,
     Privacy,

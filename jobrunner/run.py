@@ -261,8 +261,16 @@ def handle_job_api(job, api):
         save_results(job, results)
         obsolete = get_obsolete_files(definition, results.outputs)
         if obsolete:
-            api.delete_files(definition.workspace, Privacy.HIGH, obsolete)
+            errors = api.delete_files(definition.workspace, Privacy.HIGH, obsolete)
+            if errors:
+                log.error(
+                    f"Failed to delete high privacy files from workspace {definition.workspace}: {errors}"
+                )
             api.delete_files(definition.workspace, Privacy.MEDIUM, obsolete)
+            if errors:
+                log.error(
+                    f"Failed to delete medium privacy files from workspace {definition.workspace}: {errors}"
+                )
         mark_job_as_completed(job)
         api.cleanup(definition)
         # we are done here

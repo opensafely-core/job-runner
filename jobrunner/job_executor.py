@@ -234,11 +234,13 @@ class ExecutorAPI:
         called once the results have been persisted.
         """
 
-    def delete_files(self, workspace: str, privacy: Privacy, paths: [str]):
+    def delete_files(self, workspace: str, privacy: Privacy, paths: [str]) -> List[str]:
         """
         Delete files from a workspace.
 
         This method must be idempotent; if any of the files specified doesn't exist then it must ignore them.
+
+        Returns a list of any files that were present but it errored trying to delete them.
         """
         ...
 

@@ -1,5 +1,6 @@
 import subprocess
 import time
+from pathlib import Path
 
 import pytest
 
@@ -410,13 +411,31 @@ def test_delete_files_success(tmp_work_dir):
     assert medium.exists()
 
     api = local.LocalDockerAPI()
-    api.delete_files("test", Privacy.HIGH, ["file.txt"])
+    errors = api.delete_files("test", Privacy.HIGH, ["file.txt"])
 
-    assert not high.exists()
+    # on windows, we cannot always delete, so check we tried to delete it
+    if errors:
+        assert errors == ["file.txt"]
+    else:
+        assert not high.exists()
     assert medium.exists()
 
-    api.delete_files("test", Privacy.MEDIUM, ["file.txt"])
-    assert not medium.exists()
+    errors = api.delete_files("test", Privacy.MEDIUM, ["file.txt"])
+    if errors:
+        assert errors == ["file.txt"]
+    else:
+        assert not medium.exists()
+
+
+def test_delete_files_error(tmp_work_dir):
+
+    # use the fact that unlink() on a director raises an error
+    high = populate_workspace("test", "bad/_")
+
+    api = local.LocalDockerAPI()
+    errors = api.delete_files("test", Privacy.HIGH, ["bad"])
+
+    assert errors == ["bad"]
 
 
 def test_delete_files_bad_privacy(tmp_work_dir):

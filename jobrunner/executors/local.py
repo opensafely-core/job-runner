@@ -155,12 +155,16 @@ class LocalDockerAPI:
         else:
             raise Exception(f"unknown privacy of {privacy}")
 
+        errors = []
         for name in files:
             path = root / name
             try:
                 path.unlink(missing_ok=True)
             except Exception:
                 log.exception(f"Could not delete {path}")
+                errors.append(name)
+
+        return errors
 
 
 def prepare_job(job):
