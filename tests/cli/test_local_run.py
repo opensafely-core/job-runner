@@ -10,7 +10,6 @@ import pytest
 
 from jobrunner import config
 from jobrunner.cli import local_run
-from jobrunner import config
 from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
