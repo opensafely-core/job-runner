@@ -10,19 +10,30 @@ from jobrunner.job_executor import (
     JobDefinition,
     JobResults,
     JobStatus,
+    Privacy,
     Study,
 )
 from jobrunner.lib import docker
-from jobrunner.manage_jobs import container_name, get_high_privacy_workspace
+from jobrunner.manage_jobs import (
+    container_name,
+    get_high_privacy_workspace,
+    get_medium_privacy_workspace,
+)
 from jobrunner.models import State
 from jobrunner.run import job_to_job_definition
 from tests.factories import ensure_docker_images_present
 
 
-def populate_workspace(workspace, filename, content=None):
-    path = get_high_privacy_workspace(workspace) / filename
+def populate_workspace(workspace, filename, content=None, privacy="high"):
+    assert privacy in ("high", "medium")
+    if privacy == "high":
+        path = get_high_privacy_workspace(workspace) / filename
+    else:
+        path = get_medium_privacy_workspace(workspace) / filename
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content or filename)
+    return path
 
 
 # used for tests and debugging
@@ -78,7 +89,7 @@ def test_prepare_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     populate_workspace(job.workspace, "output/input.csv")
 
-    api = local.LocalDockerJobAPI()
+    api = local.LocalDockerAPI()
     status = api.prepare(job)
 
     assert status.state == ExecutorState.PREPARING
@@ -120,7 +131,7 @@ def test_prepare_already_prepared(use_api, docker_cleanup, test_repo):
     # create the volume already
     docker.create_volume(local.volume_name(job))
 
-    api = local.LocalDockerJobAPI()
+    api = local.LocalDockerAPI()
     status = api.prepare(job)
 
     assert status.state == ExecutorState.PREPARED
@@ -141,7 +152,7 @@ def test_prepare_no_image(use_api, docker_cleanup, test_repo):
         allow_database_access=False,
     )
 
-    api = local.LocalDockerJobAPI()
+    api = local.LocalDockerAPI()
     status = api.prepare(job)
 
     assert status.state == ExecutorState.ERROR
@@ -209,7 +220,7 @@ def test_execute_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     populate_workspace(job.workspace, "output/input.csv")
 
-    api = local.LocalDockerJobAPI()
+    api = local.LocalDockerAPI()
 
     # use prepare step as test set up
     status = api.prepare(job)
@@ -242,7 +253,7 @@ def test_execute_not_prepared(use_api, docker_cleanup, test_repo, tmp_work_dir):
         allow_database_access=False,
     )
 
-    api = local.LocalDockerJobAPI()
+    api = local.LocalDockerAPI()
 
     status = api.execute(job)
     # this will be turned into an error by the loop
@@ -271,7 +282,7 @@ def test_finalize_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     populate_workspace(job.workspace, "output/input.csv")
 
-    api = local.LocalDockerJobAPI()
+    api = local.LocalDockerAPI()
 
     status = api.prepare(job)
     assert status.state == ExecutorState.PREPARING
@@ -320,7 +331,7 @@ def test_finalize_failed(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     populate_workspace(job.workspace, "output/input.csv")
 
-    api = local.LocalDockerJobAPI()
+    api = local.LocalDockerAPI()
 
     status = api.prepare(job)
     assert status.state == ExecutorState.PREPARING
@@ -366,7 +377,7 @@ def test_finalize_unmatched(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     populate_workspace(job.workspace, "output/input.csv")
 
-    api = local.LocalDockerJobAPI()
+    api = local.LocalDockerAPI()
 
     status = api.prepare(job)
     assert status.state == ExecutorState.PREPARING
@@ -388,3 +399,28 @@ def test_finalize_unmatched(use_api, docker_cleanup, test_repo, tmp_work_dir):
     assert results.exit_code == 0
     assert results.outputs == {}
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
+
+
+def test_delete_files_success(tmp_work_dir):
+
+    high = populate_workspace("test", "file.txt")
+    medium = populate_workspace("test", "file.txt", privacy="medium")
+
+    assert high.exists()
+    assert medium.exists()
+
+    api = local.LocalDockerAPI()
+    api.delete_files("test", Privacy.HIGH, ["file.txt"])
+
+    assert not high.exists()
+    assert medium.exists()
+
+    api.delete_files("test", Privacy.MEDIUM, ["file.txt"])
+    assert not medium.exists()
+
+
+def test_delete_files_bad_privacy(tmp_work_dir):
+    api = local.LocalDockerAPI()
+    high = populate_workspace("test", "file.txt")
+    with pytest.raises(Exception):
+        api.delete_files("test", None, ["file.txt"])

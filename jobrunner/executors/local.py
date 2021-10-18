@@ -3,7 +3,13 @@ import logging
 import subprocess
 from pathlib import Path
 
-from jobrunner.job_executor import ExecutorState, JobDefinition, JobResults, JobStatus
+from jobrunner.job_executor import (
+    ExecutorState,
+    JobDefinition,
+    JobResults,
+    JobStatus,
+    Privacy,
+)
 from jobrunner.lib import docker
 from jobrunner.lib.string_utils import tabulate
 # ideally, these should be moved into this module when the old implementation
@@ -35,7 +41,7 @@ class LocalDockerError(Exception):
     pass
 
 
-class LocalDockerJobAPI:
+class LocalDockerAPI:
     """JobAPI implementation using local docker service."""
 
     def prepare(self, job):
@@ -140,6 +146,21 @@ class LocalDockerJobAPI:
             return JobStatus(ExecutorState.ERROR, "job has not been finalized")
 
         return RESULTS[job.id]
+
+    def delete_files(self, workspace, privacy, files):
+        if privacy == Privacy.HIGH:
+            root = get_high_privacy_workspace(workspace)
+        elif privacy == Privacy.MEDIUM:
+            root = get_medium_privacy_workspace(workspace)
+        else:
+            raise Exception(f"unknown privacy of {privacy}")
+
+        for name in files:
+            path = root / name
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                log.exception(f"Could not delete {path}")
 
 
 def prepare_job(job):

@@ -234,8 +234,6 @@ class JobAPI:
         called once the results have been persisted.
         """
 
-
-class WorkspaceAPI:
     def delete_files(self, workspace: str, privacy: Privacy, paths: [str]):
         """
         Delete files from a workspace.
@@ -269,7 +267,5 @@ class NullJobAPI(JobAPI):
     def cleanup(self, job):
         raise NotImplementedError
 
-
-class NullWorkspaceAPI:
-    def delete_files(self, workspace: str, privacy: Privacy, paths: [str]):
+    def delete_files(self, workspace, privacy, paths):
         raise NotImplementedError
