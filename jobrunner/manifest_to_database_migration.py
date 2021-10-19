@@ -1,5 +1,6 @@
 import json
 import sys
+from contextlib import contextmanager
 
 from jobrunner import config
 from jobrunner.lib import database
@@ -7,24 +8,49 @@ from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
 from jobrunner.models import Job, State, isoformat_to_timestamp
 
 
-def migrate_all(batch_size=10, log=True):
+def migrate_all(batch_size=10, log=True, dry_run=False, ignore_errors=False):
     _migrate(
-        config.HIGH_PRIVACY_WORKSPACES_DIR.iterdir(),
+        sorted(
+            config.HIGH_PRIVACY_WORKSPACES_DIR.iterdir()
+        ),  # sorted to make testing easier
         batch_size,
         write_medium_privacy_manifest=True,
         log=log,
+        dry_run=dry_run,
+        ignore_errors=ignore_errors,
     )
 
 
-def migrate_one(workspace_dir, write_medium_privacy_manifest, batch_size=10, log=True):
-    _migrate([workspace_dir], batch_size, write_medium_privacy_manifest, log)
+def migrate_one(
+    workspace_dir,
+    write_medium_privacy_manifest,
+    batch_size=10,
+    log=True,
+    dry_run=False,
+    ignore_errors=False,
+):
+    _migrate(
+        [workspace_dir],
+        batch_size,
+        write_medium_privacy_manifest,
+        log,
+        dry_run,
+        ignore_errors,
+    )
 
 
-def _migrate(workspace_dirs, batch_size, write_medium_privacy_manifest, log):
+def _migrate(
+    workspace_dirs,
+    batch_size,
+    write_medium_privacy_manifest,
+    log,
+    dry_run,
+    ignore_errors,
+):
     count = 0
 
     for job in _jobs_from_workspaces(
-        workspace_dirs, write_medium_privacy_manifest, log
+        workspace_dirs, write_medium_privacy_manifest, log, dry_run, ignore_errors
     ):
         if count >= batch_size:
             _log(
@@ -36,22 +62,30 @@ def _migrate(workspace_dirs, batch_size, write_medium_privacy_manifest, log):
         if database.exists_where(Job, id=job.id):
             continue
 
-        database.insert(job)
-        _log(f"Inserted Job(id={job.id}, action={job.action}).", log)
+        _insert_in_database(job, log, dry_run)
         count += 1
 
     if count == 0:
         _log("There were no jobs to migrate.", log)
 
 
-def _jobs_from_workspaces(workspace_dirs, write_medium_privacy_manifest, log):
+def _jobs_from_workspaces(
+    workspace_dirs, write_medium_privacy_manifest, log, dry_run, ignore_errors
+):
     for workspace_dir in workspace_dirs:
-        yield from _jobs_from_workspace(
-            workspace_dir, write_medium_privacy_manifest, log
-        )
+        with _possibly_ignored_errors(log, ignore_errors, workspace=workspace_dir.name):
+            yield from _jobs_from_workspace(
+                workspace_dir,
+                write_medium_privacy_manifest,
+                log,
+                dry_run,
+                ignore_errors,
+            )
 
 
-def _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest, log):
+def _jobs_from_workspace(
+    workspace_dir, write_medium_privacy_manifest, log, dry_run, ignore_errors
+):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
     if not manifest_file.exists():
         return
@@ -63,19 +97,27 @@ def _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest, log):
     _log(f"Migrating workspace {workspace_name} in directory {workspace_dir}.", log)
 
     for action, action_details in manifest["actions"].items():
-        files = {
-            file: file_details
-            for file, file_details in all_files
-            if file_details["created_by_action"] == action
-        }
-        yield _action_to_job(workspace_name, repo, files, action, action_details)
+        with _possibly_ignored_errors(
+            log, ignore_errors, workspace=workspace_name, action=action
+        ):
+            files = {
+                file: file_details
+                for file, file_details in all_files
+                if file_details["created_by_action"] == action
+            }
+            yield _action_to_job(workspace_name, repo, files, action, action_details)
 
     _migrate_manifest_files(
-        manifest_file, repo, workspace_name, write_medium_privacy_manifest
+        manifest_file, repo, workspace_name, write_medium_privacy_manifest, dry_run
     )
 
 
-def _migrate_manifest_files(manifest, repo, workspace, write_medium_privacy_manifest):
+def _migrate_manifest_files(
+    manifest, repo, workspace, write_medium_privacy_manifest, dry_run
+):
+    if dry_run:
+        return
+
     if write_medium_privacy_manifest:
         _migrate_medium_privacy_manifest(repo, workspace)
 
@@ -111,6 +153,29 @@ def _action_to_job(workspace, repo, files, action, details):
             file: file_details["privacy_level"] for file, file_details in files.items()
         },
     )
+
+
+def _insert_in_database(job, log, dry_run):
+    if dry_run:
+        log_prefix = "Dry run. Would have inserted"
+    else:
+        database.insert(job)
+        log_prefix = "Inserted"
+    _log(f"{log_prefix} Job(id={job.id}, action={job.action}).", log)
+
+
+@contextmanager
+def _possibly_ignored_errors(log, ignore_errors, **context):
+    try:
+        yield
+    except Exception as e:
+        if ignore_errors:
+            _log(
+                f"Ignoring {e.__class__.__name__}({e}) in {context}.",
+                log,
+            )
+        else:
+            raise
 
 
 def _log(message, log):
