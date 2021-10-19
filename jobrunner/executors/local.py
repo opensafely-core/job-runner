@@ -21,6 +21,7 @@ from jobrunner.manage_jobs import (
     container_name,
     copy_file,
     copy_git_commit_to_volume,
+    copy_local_workspace_to_volume,
     ensure_overwritable,
     get_container_metadata,
     get_high_privacy_workspace,
@@ -179,9 +180,14 @@ def prepare_job(job):
     extra_dirs = set(Path(filename).parent for filename in job.inputs)
 
     try:
-        copy_git_commit_to_volume(
-            volume, job.study.git_repo_url, job.study.commit, extra_dirs
-        )
+        if job.study.git_repo_url and job.study.commit:
+            copy_git_commit_to_volume(
+                volume, job.study.git_repo_url, job.study.commit, extra_dirs
+            )
+        else:
+            # We only encounter jobs without a repo or commit when using the
+            # "local_run" command to execute uncommitted local code
+            copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
     except subprocess.CalledProcessError:
         raise LocalDockerError(
             f"Could not checkout commit {job.study.commit} from {job.study.git_repo_url}"
