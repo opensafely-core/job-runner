@@ -1,5 +1,6 @@
 import base64
 import secrets
+from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 
@@ -58,8 +59,8 @@ def job_factory(job_request=None, **kwargs):
     return job
 
 
-class StubJobAPI:
-    """Dummy implementation of the JobAPI, for use in tests.
+class StubExecutorAPI:
+    """Dummy implementation of the ExecutorAPI, for use in tests.
 
     It tracks the current state of any jobs based the calls to the various API
     methods, and get_status() will return the current state.
@@ -88,6 +89,7 @@ class StubJobAPI:
         self.transitions = {}
         self.results = {}
         self.state = {}
+        self.deleted = defaultdict(lambda: defaultdict(list))
 
     def add_test_job(self, exec_state, job_state, **kwargs):
         """Create and track a db job object."""
@@ -163,10 +165,8 @@ class StubJobAPI:
     def get_results(self, definition):
         return self.results.get(definition.id)
 
-
-class TestWorkspaceAPI:
-    def delete_files(self, workspace, privacy, paths):
-        raise NotImplementedError
+    def delete_files(self, workspace, privacy, files):
+        self.deleted[workspace][privacy].extend(files)
 
 
 def ensure_docker_images_present(*images):

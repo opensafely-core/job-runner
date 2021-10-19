@@ -11,8 +11,8 @@ import sys
 import time
 
 from jobrunner import config
-from jobrunner.executors import get_job_api
-from jobrunner.job_executor import ExecutorState, JobDefinition, Study
+from jobrunner.executors import get_executor_api
+from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.manage_jobs import (
@@ -61,13 +61,17 @@ def handle_jobs():
     if config.RANDOMISE_JOB_ORDER:
         random.shuffle(active_jobs)
 
+    api = None
+    if config.EXECUTION_API:
+        api = get_executor_api()
+
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             # new way
             if config.EXECUTION_API:
-                handle_job_api(job, get_job_api())
+                handle_job_api(job, api)
             # old way
             else:
                 if job.state == State.PENDING:
@@ -254,9 +258,19 @@ def handle_job_api(job, api):
     elif initial_status.state == ExecutorState.FINALIZED:
         # final state - we have finished!
         results = api.get_results(definition)
-        # TODO: implement workspace API
-        # delete_obsolete_files(job, results)
         save_results(job, results)
+        obsolete = get_obsolete_files(definition, results.outputs)
+        if obsolete:
+            errors = api.delete_files(definition.workspace, Privacy.HIGH, obsolete)
+            if errors:
+                log.error(
+                    f"Failed to delete high privacy files from workspace {definition.workspace}: {errors}"
+                )
+            api.delete_files(definition.workspace, Privacy.MEDIUM, obsolete)
+            if errors:
+                log.error(
+                    f"Failed to delete medium privacy files from workspace {definition.workspace}: {errors}"
+                )
         mark_job_as_completed(job)
         api.cleanup(definition)
         # we are done here
@@ -318,6 +332,25 @@ def save_results(job, results):
     job.outputs = results.outputs
     job.updated_at = int(time.time())
     update(job)
+
+
+def get_obsolete_files(definition, outputs):
+    """Get files that need to be deleted.
+
+    These are files that we previously output by this action but were not
+    output by the latest execution of it, so they've been removed or renamed.
+
+    It does case insenstive comparison, as we don't know the the filesystems
+    these will end up being stored on.
+    """
+    keep_files = {str(name).lower() for name in outputs}
+    obsolete = []
+
+    for existing in list_outputs_from_action(definition.workspace, definition.action):
+        name = str(existing).lower()
+        if name not in keep_files:
+            obsolete.append(str(existing))
+    return obsolete
 
 
 def job_to_job_definition(job):
