@@ -119,6 +119,7 @@ def _log(message, log):
 
 
 def _map_get(mapping, key, func, default):
-    if key not in mapping:
+    try:
+        return func(mapping[key])
+    except (ValueError, KeyError):
         return default
-    return func(mapping[key])

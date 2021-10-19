@@ -69,12 +69,13 @@ def test_migrates_a_job_with_no_outputs(tmp_work_dir):
 
 
 def test_copes_with_a_manifest_with_values_missing(tmp_work_dir):
-    manifest = {
-        "workspace": "the-workspace",
-        "actions": {"the-action": {"job_id": "the-job-id"}},
-    }
-    high_privacy_manifest("the-workspace").parent.mkdir(parents=True)
-    high_privacy_manifest("the-workspace").write_text(json.dumps(manifest))
+    write_raw_manifest(
+        "the-workspace",
+        {
+            "workspace": "the-workspace",
+            "actions": {"the-action": {"job_id": "the-job-id"}},
+        },
+    )
 
     migrate_all()
 
@@ -91,11 +92,12 @@ def test_copes_with_a_manifest_with_values_missing(tmp_work_dir):
 
 
 def test_uses_directory_name_if_workspace_is_missing_from_manifest(tmp_work_dir):
-    manifest = {
-        "actions": {"the-action": {"job_id": "the-job-id"}},
-    }
-    high_privacy_manifest("the-workspace-dir").parent.mkdir(parents=True)
-    high_privacy_manifest("the-workspace-dir").write_text(json.dumps(manifest))
+    write_raw_manifest(
+        "the-workspace-dir",
+        {
+            "actions": {"the-action": {"job_id": "the-job-id"}},
+        },
+    )
 
     migrate_all()
 
@@ -107,6 +109,36 @@ def test_uses_directory_name_if_workspace_is_missing_from_manifest(tmp_work_dir)
         repo_url=None,
         commit=None,
         image_id=None,
+        completed_at=0,
+    )
+
+
+def test_provides_default_for_invalid_timestamps(tmp_work_dir):
+    write_raw_manifest(
+        "the-workspace",
+        {
+            "workspace": "the-workspace",
+            "actions": {
+                "the-action": {
+                    "job_id": "the-job-id",
+                    "created_at": "unparseable-nonsense",
+                    "completed_at": "unparseable-nonsense",
+                }
+            },
+        },
+    )
+
+    migrate_all()
+
+    assert_job_exists(
+        job_id="the-job-id",
+        workspace="the-workspace",
+        action_="the-action",
+        state=None,
+        repo_url=None,
+        commit=None,
+        image_id=None,
+        created_at=0,
         completed_at=0,
     )
 
@@ -382,13 +414,18 @@ def write_manifest(
 ):
     jobs, outputs = actions_ or ([], [])
 
-    manifest = {
-        "workspace": workspace,
-        "repo": repo_url,
-        "actions": dict(ChainMap(*jobs)),
-        "files": dict(ChainMap(*outputs)),
-    }
+    write_raw_manifest(
+        workspace,
+        {
+            "workspace": workspace,
+            "repo": repo_url,
+            "actions": dict(ChainMap(*jobs)),
+            "files": dict(ChainMap(*outputs)),
+        },
+    )
 
+
+def write_raw_manifest(workspace, manifest):
     high_privacy_manifest(workspace).parent.mkdir(parents=True)
     high_privacy_manifest(workspace).write_text(json.dumps(manifest))
 
