@@ -90,6 +90,27 @@ def test_copes_with_a_manifest_with_values_missing(tmp_work_dir):
     )
 
 
+def test_uses_directory_name_if_workspace_is_missing_from_manifest(tmp_work_dir):
+    manifest = {
+        "actions": {"the-action": {"job_id": "the-job-id"}},
+    }
+    high_privacy_manifest("the-workspace-dir").parent.mkdir(parents=True)
+    high_privacy_manifest("the-workspace-dir").write_text(json.dumps(manifest))
+
+    migrate_all()
+
+    assert_job_exists(
+        job_id="the-job-id",
+        workspace="the-workspace-dir",
+        action_="the-action",
+        state=None,
+        repo_url=None,
+        commit=None,
+        image_id=None,
+        completed_at=0,
+    )
+
+
 def test_migrates_a_workspace_with_multiple_actions(tmp_work_dir):
     write_manifest(
         actions_=actions(

@@ -57,7 +57,7 @@ def _jobs_from_workspace(workspace_dir, write_medium_privacy_manifest, log):
         return
 
     manifest = json.load(manifest_file.open())
-    workspace_name = manifest["workspace"]
+    workspace_name = manifest.get("workspace", workspace_dir.name)
     repo = manifest.get("repo")
     all_files = manifest.get("files", {}).items()
     _log(f"Migrating workspace {workspace_name} in directory {workspace_dir}.", log)
