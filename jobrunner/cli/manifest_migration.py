@@ -20,10 +20,11 @@ import sys
 from jobrunner import manifest_to_database_migration
 
 
-def main(args):
+def main(args=None):
+    args = args or []
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument(
-        "--batch-size", type=int, help="maximum number of jobs to create"
+        "--batch-size", type=int, default=1, help="maximum number of jobs to create"
     )
     parser.add_argument(
         "--dry-run",

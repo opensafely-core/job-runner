@@ -18,7 +18,7 @@ def test_triggers_migration(tmp_work_dir):
         }
     )
 
-    manifest_migration.main(["--batch-size", "10"])
+    manifest_migration.main()
 
     assert database.exists_where(Job, id="job-id-from-manifest")
 
@@ -37,6 +37,20 @@ def test_passes_on_batch_size(tmp_work_dir):
     assert len(database.find_where(Job, workspace="the-workspace")) == 5
 
 
+def test_defaults_batch_size_to_one(tmp_work_dir):
+    write_manifest(
+        {
+            "workspace": "the-workspace",
+            "actions": {f"action-{i}": {"job_id": f"job-{i}"} for i in range(5)},
+            "files": {},
+        }
+    )
+
+    manifest_migration.main()
+
+    assert len(database.find_where(Job, workspace="the-workspace")) == 1
+
+
 def test_passes_on_dry_run(tmp_work_dir):
     write_manifest(
         {
@@ -46,7 +60,7 @@ def test_passes_on_dry_run(tmp_work_dir):
         }
     )
 
-    manifest_migration.main(["--batch-size", "5", "--dry-run"])
+    manifest_migration.main(["--dry-run"])
 
     assert not database.exists_where(Job, id="job-id-from-manifest")
 
@@ -63,10 +77,10 @@ def test_ignores_errors_for_dry_run(tmp_work_dir):
     # Future-proof the test against implementation changes. If this fails it's because the manifest above is no longer
     # invalid, so we need to reformulate the test.
     with pytest.raises(KeyError):
-        manifest_migration.main(["--batch-size", "5"])
+        manifest_migration.main()
 
     # No exception should be raised with --dry-run.
-    manifest_migration.main(["--batch-size", "5", "--dry-run"])
+    manifest_migration.main(["--dry-run"])
 
 
 def write_manifest(manifest):
