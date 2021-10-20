@@ -2,7 +2,7 @@ import json
 import sys
 from contextlib import contextmanager
 
-from jobrunner import config
+from jobrunner import config, models
 from jobrunner.lib import database
 from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
 from jobrunner.models import Job, State, isoformat_to_timestamp
@@ -139,8 +139,14 @@ def _migrate_medium_privacy_manifest(repo, workspace):
 
 
 def _action_to_job(workspace, repo, files, action, details):
+    job_id = details["job_id"]
+    if job_id == "unknown":
+        # There are lots of historical jobs with their id recorded in the manifest as literally "unknown". The id is a
+        # primary key, so we need unique values. But we don't need to join it to anything, so a random value is fine.
+        job_id = models.random_id()
+
     return Job(
-        id=details["job_id"],
+        id=job_id,
         workspace=workspace,
         repo_url=repo,
         action=action,
