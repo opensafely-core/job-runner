@@ -20,14 +20,24 @@ import sys
 from jobrunner import manifest_to_database_migration
 
 
-def main(args):
+def main(args=None):
+    args = args or []
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument(
-        "--batch-size", type=int, help="maximum number of jobs to create"
+        "--batch-size", type=int, default=1, help="maximum number of jobs to create"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="do a dry run migration without modifying data and carrying on if there is an error with a single job or workspace",
     )
     parsed = parser.parse_args(args)
 
-    manifest_to_database_migration.migrate_all(parsed.batch_size)
+    manifest_to_database_migration.migrate_all(
+        batch_size=parsed.batch_size,
+        dry_run=parsed.dry_run,
+        ignore_errors=parsed.dry_run,
+    )
 
 
 if __name__ == "__main__":
