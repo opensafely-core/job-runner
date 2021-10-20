@@ -3,6 +3,10 @@ import os
 import subprocess
 import sys
 
+import pytest
+
+from jobrunner.config import _is_valid_backend_name
+
 script = """
 from jobrunner import config;
 cfg = {k: str(v) for k, v in vars(config).items() if k.isupper()}
@@ -85,3 +89,16 @@ def test_config_presto_paths_not_exist(tmp_path):
         }
     )
     assert "PRESTO_TLS_CERT_PATH=cert.notexists" in err
+
+
+@pytest.mark.parametrize(
+    "name,is_valid",
+    [
+        ("foo_BAR-1", True),
+        ("foo_BAR-", False),
+        (" foo", False),
+        ("foo@bar", False),
+    ],
+)
+def test_is_valid_backend_name(name, is_valid):
+    assert _is_valid_backend_name(name) == is_valid
