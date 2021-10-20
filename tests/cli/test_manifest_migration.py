@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from jobrunner import config
 from jobrunner.cli import manifest_migration
 from jobrunner.lib import database
@@ -33,6 +35,38 @@ def test_passes_on_batch_size(tmp_work_dir):
     manifest_migration.main(["--batch-size", "5"])
 
     assert len(database.find_where(Job, workspace="the-workspace")) == 5
+
+
+def test_passes_on_dry_run(tmp_work_dir):
+    write_manifest(
+        {
+            "workspace": "the-workspace",
+            "actions": {"the-action": {"job_id": "job-id-from-manifest"}},
+            "files": {},
+        }
+    )
+
+    manifest_migration.main(["--batch-size", "5", "--dry-run"])
+
+    assert not database.exists_where(Job, id="job-id-from-manifest")
+
+
+def test_ignores_errors_for_dry_run(tmp_work_dir):
+    # This manifest is invalid because it doesn't contain an "actions" element.
+    write_manifest(
+        {
+            "workspace": "the-workspace",
+            "files": {},
+        }
+    )
+
+    # Future-proof the test against implementation changes. If this fails it's because the manifest above is no longer
+    # invalid, so we need to reformulate the test.
+    with pytest.raises(KeyError):
+        manifest_migration.main(["--batch-size", "5"])
+
+    # No exception should be raised with --dry-run.
+    manifest_migration.main(["--batch-size", "5", "--dry-run"])
 
 
 def write_manifest(manifest):
