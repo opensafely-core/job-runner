@@ -145,6 +145,25 @@ def test_provides_default_for_invalid_timestamps(tmp_work_dir):
     )
 
 
+def test_generates_a_job_id_if_it_is_unknown(tmp_work_dir):
+    # There are lots of historical jobs with their id recorded in the manifest as literally "unknown". The id is a
+    # primary key, so we need unique values.
+    write_manifest(
+        workspace="the-workspace",
+        actions_=actions(
+            action(action_="action1", job_id="unknown"),
+            action(action_="action2", job_id="unknown"),
+        ),
+    )
+
+    migrate_all()
+
+    assert not database.find_where(Job, id="unknown")
+    action1 = database.find_one(Job, workspace="the-workspace", action="action1")
+    action2 = database.find_one(Job, workspace="the-workspace", action="action2")
+    assert action1.id != action2.id
+
+
 def test_migrates_a_workspace_with_multiple_actions(tmp_work_dir):
     write_manifest(
         actions_=actions(
