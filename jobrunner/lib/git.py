@@ -319,8 +319,11 @@ def add_access_token_and_proxy(repo_url):
     # seems polite)
     if parsed.username or parsed.password:
         return repo_url
+    # Github accepts arbitrary usernames when using a PAT so this is just for
+    # easy identification in the proxy logs
+    username = f"jobrunner-{config.BACKEND}"
     # Add the token to the URL
-    return urlunparse(parsed._replace(netloc=f"{token}@{parsed.netloc}"))
+    return urlunparse(parsed._replace(netloc=f"{username}:{token}@{parsed.netloc}"))
 
 
 def redact_token_from_exception(exception):
