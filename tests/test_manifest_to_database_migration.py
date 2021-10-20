@@ -1,7 +1,9 @@
 import json
 from collections import ChainMap
 
-from jobrunner import config
+import pytest
+
+from jobrunner import config, manifest_to_database_migration
 from jobrunner.lib import database
 from jobrunner.lib.database import insert
 from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
@@ -69,12 +71,13 @@ def test_migrates_a_job_with_no_outputs(tmp_work_dir):
 
 
 def test_copes_with_a_manifest_with_values_missing(tmp_work_dir):
-    manifest = {
-        "workspace": "the-workspace",
-        "actions": {"the-action": {"job_id": "the-job-id"}},
-    }
-    high_privacy_manifest("the-workspace").parent.mkdir(parents=True)
-    high_privacy_manifest("the-workspace").write_text(json.dumps(manifest))
+    write_raw_manifest(
+        "the-workspace",
+        {
+            "workspace": "the-workspace",
+            "actions": {"the-action": {"job_id": "the-job-id"}},
+        },
+    )
 
     migrate_all()
 
@@ -86,6 +89,58 @@ def test_copes_with_a_manifest_with_values_missing(tmp_work_dir):
         repo_url=None,
         commit=None,
         image_id=None,
+        completed_at=0,
+    )
+
+
+def test_uses_directory_name_if_workspace_is_missing_from_manifest(tmp_work_dir):
+    write_raw_manifest(
+        "the-workspace-dir",
+        {
+            "actions": {"the-action": {"job_id": "the-job-id"}},
+        },
+    )
+
+    migrate_all()
+
+    assert_job_exists(
+        job_id="the-job-id",
+        workspace="the-workspace-dir",
+        action_="the-action",
+        state=None,
+        repo_url=None,
+        commit=None,
+        image_id=None,
+        completed_at=0,
+    )
+
+
+def test_provides_default_for_invalid_timestamps(tmp_work_dir):
+    write_raw_manifest(
+        "the-workspace",
+        {
+            "workspace": "the-workspace",
+            "actions": {
+                "the-action": {
+                    "job_id": "the-job-id",
+                    "created_at": "unparseable-nonsense",
+                    "completed_at": "unparseable-nonsense",
+                }
+            },
+        },
+    )
+
+    migrate_all()
+
+    assert_job_exists(
+        job_id="the-job-id",
+        workspace="the-workspace",
+        action_="the-action",
+        state=None,
+        repo_url=None,
+        commit=None,
+        image_id=None,
+        created_at=0,
         completed_at=0,
     )
 
@@ -291,6 +346,134 @@ def test_doesnt_try_to_write_medium_privacy_manifest_for_local_run(tmp_work_dir)
     assert not medium_privacy_manifest("the-workspace").exists()
 
 
+def test_doesnt_write_anything_during_dry_run(tmp_work_dir):
+    assert not medium_privacy_manifest(
+        "the-workspace"
+    ).exists()  # see long comment below
+
+    write_manifest(
+        workspace="the-workspace", actions_=actions(action(job_id="the-job-id"))
+    )
+
+    migrate_all(dry_run=True)
+
+    assert not database.find_where(Job, id="the-job-id")
+    assert high_privacy_manifest("the-workspace").exists()
+    assert not (
+        high_privacy_manifest("the-workspace")
+        .with_name(f".deprecated.{MANIFEST_FILE}")
+        .exists()
+    )
+
+    # This assertion is a bit unrealistic because in the real system there is a medium privacy manifest file here that
+    # the migration overwrites. However the test fixture doesn't bother with that because where we test for it elsewhere
+    # we only care what's in it, not what was there previously. That means that here we can just test that the file is
+    # absent as a proxy for testing that we won't overwrite the existing file in production. We assert the absence of
+    # the file at ths start of this test to future-proof ourselves against a change in the test fixture to include the
+    # old file, which would not break anything but would invalidate this assertion.
+    assert not medium_privacy_manifest("the-workspace").exists()
+
+
+def test_skips_unreadable_jobs_when_ignoring_errors(tmp_work_dir, monkeypatch):
+    # Monkey-patch an internal function so that it throws an exception for one specific action
+    old_function = manifest_to_database_migration._action_to_job
+
+    def fake_action_to_job(workspace_name, repo, files, action_, action_details):
+        if "error" in action_:
+            raise Exception("some error or other")
+        return old_function(workspace_name, repo, files, action_, action_details)
+
+    monkeypatch.setattr(
+        manifest_to_database_migration, "_action_to_job", fake_action_to_job
+    )
+
+    # Write a manifest that has the error-triggering action
+    write_manifest(
+        workspace="the-workspace",
+        actions_=actions(
+            action(action_="ok-action1", job_id="job1"),
+            action(action_="error-action", job_id="error-job"),
+        ),
+    )
+
+    # This test depends for its correctness on the "good" action getting written to the database after the
+    # error-triggering one -- that is, the migration needs to come across the error-triggering one first and the good
+    # one second. Otherwise the final assertion will pass even if we've got the error-handling implementation wrong. But
+    # the order in which they're encountered isn't predictable because we're dealing with dictionaries both in the test
+    # where the manifest is written and in the production code where it's parsed. So we've fiddled with the manifest
+    # definition above until we got the order we want and then this assertion checks that the order remains the same
+    # (from inside the migration code) -- if this assertion fails it'll be because the order changed and the good action
+    # was encountered first, causing its job to be written to the database before the error is hit.
+    #
+    # So if the assertion fails, it's because the test is broken not the production code. You need to fiddle with the
+    # ordering or naming in the manifest above to restore the correct ordering.
+    with pytest.raises(Exception):
+        migrate_all(ignore_errors=False)
+    assert not database.find_all(Job)
+
+    # Do the migration
+    migrate_all(ignore_errors=True)
+
+    # Check that the error-triggering action didn't make it to the database but others did
+    assert not database.find_where(Job, id="error-job")
+    assert_job_exists(job_id="job1", workspace="the-workspace", action_="ok-action1")
+
+
+def test_skips_unreadable_manifests_when_ignoring_errors(tmp_work_dir, monkeypatch):
+    # Monkey-patch an internal function so that it throws an exception for one specific workspace
+    old_function = manifest_to_database_migration._jobs_from_workspace
+
+    def fake_jobs_from_workspace(
+        workspace_dir, write_medium_privacy_manifest, log, dry_run, ignore_errors
+    ):
+        if "error" in workspace_dir.name:
+            raise Exception("some error or other")
+        return old_function(
+            workspace_dir, write_medium_privacy_manifest, log, dry_run, ignore_errors
+        )
+
+    monkeypatch.setattr(
+        manifest_to_database_migration, "_jobs_from_workspace", fake_jobs_from_workspace
+    )
+
+    # Write a good manifest and an error-triggering one
+    write_manifest(
+        workspace="1-error-workspace",
+        actions_=actions(
+            action(action_="action1", job_id="job1"),
+        ),
+    )
+    write_manifest(
+        workspace="2-good-workspace",
+        actions_=actions(
+            action(action_="action2", job_id="job2"),
+        ),
+    )
+
+    # This test depends for its correctness on the "good" workspace being handled after the
+    # error-triggering one -- that is, the migration needs to come across the error-triggering one first and the good
+    # one second. Otherwise the final assertion will pass even if we've got the error-handling implementation wrong. We
+    # sort the workspaces in the migration to make the order predictable (just for testing), so the numerical prefixes
+    # on the manifests above ensure the the order is correct.
+    #
+    # But the sorting isn't actually needed for any production, functionality, just to ensure the correctness of this
+    # test. So we add an assertion here to check that it is maintained. If this assertion fails it'll be because the
+    # order changed and the good workspace was encountered first, causing its job to be written to the database before
+    # the error is hit.
+    #
+    # So if the assertion fails, it's because the sorting has been removed, or something else has messed up the order.
+    with pytest.raises(Exception):
+        migrate_all(ignore_errors=False)
+    assert not database.find_all(Job)
+
+    # Do the migration
+    migrate_all(ignore_errors=True)
+
+    # Check that jobs from the error-triggering workspace didn't make it to the database but others did
+    assert not database.find_where(Job, workspace="1-error-workspace")
+    assert_job_exists(job_id="job2", workspace="2-good-workspace", action_="action2")
+
+
 def job(
     job_id=None,
     workspace="a-workspace",
@@ -361,13 +544,18 @@ def write_manifest(
 ):
     jobs, outputs = actions_ or ([], [])
 
-    manifest = {
-        "workspace": workspace,
-        "repo": repo_url,
-        "actions": dict(ChainMap(*jobs)),
-        "files": dict(ChainMap(*outputs)),
-    }
+    write_raw_manifest(
+        workspace,
+        {
+            "workspace": workspace,
+            "repo": repo_url,
+            "actions": dict(ChainMap(*jobs)),
+            "files": dict(ChainMap(*outputs)),
+        },
+    )
 
+
+def write_raw_manifest(workspace, manifest):
     high_privacy_manifest(workspace).parent.mkdir(parents=True)
     high_privacy_manifest(workspace).write_text(json.dumps(manifest))
 
