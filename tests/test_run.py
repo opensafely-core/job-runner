@@ -1,15 +1,10 @@
 import pytest
 
 from jobrunner import run
-from jobrunner.job_executor import (
-    ExecutorAPI,
-    ExecutorState,
-    JobDefinition,
-    JobStatus,
-    Privacy,
-)
+from jobrunner.job_executor import ExecutorState, JobStatus, Privacy
 from jobrunner.models import State, StatusCode
 from tests.factories import StubExecutorAPI, job_factory
+from tests.fakes import RecordingExecutor
 
 
 def test_handle_pending_job_cancelled(db):
@@ -303,7 +298,9 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
         outputs={"output-from-cancelled-run": "highly_sensitive_output"},
     )
 
-    api = RecordingExecutorAPI()
+    api = RecordingExecutor(
+        JobStatus(ExecutorState.UNKNOWN), JobStatus(ExecutorState.PREPARING)
+    )
     run.handle_job_api(
         job_factory(
             id="3", requires_outputs_from=["other-action"], state=State.PENDING
@@ -312,16 +309,6 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     )
 
     assert api.job.inputs == ["output-from-completed-run"]
-
-
-class RecordingExecutorAPI(ExecutorAPI):
-    def get_status(self, job: JobDefinition) -> JobStatus:
-        self.job = job
-        return JobStatus(ExecutorState.UNKNOWN)
-
-    def prepare(self, job: JobDefinition) -> JobStatus:
-        self.job = job
-        return JobStatus(ExecutorState.PREPARING)
 
 
 def test_get_obsolete_files_nothing_to_delete(db):

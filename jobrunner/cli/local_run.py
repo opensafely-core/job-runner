@@ -35,7 +35,7 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from jobrunner import config, manifest_to_database_migration
+from jobrunner import config, executors, manifest_to_database_migration
 from jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,
@@ -66,15 +66,6 @@ DESCRIPTION = __doc__.partition("\n\n")[0]
 
 # local run logging format
 LOCAL_RUN_FORMAT = "{action}{message}"
-
-# None of these status messages are particularly useful in local run
-# mode, and they can generate a lot of clutter in large dependency
-# trees
-STATUS_CODES_NOT_TO_LOG = {
-    StatusCode.WAITING_ON_DEPENDENCIES,
-    StatusCode.DEPENDENCY_FAILED,
-    StatusCode.WAITING_ON_WORKERS,
-}
 
 
 # Super-crude support for colourised/formatted output inside Github Actions. It
@@ -478,13 +469,25 @@ def filter_log_messages(record):
     Not all log messages are useful in the local run context so to avoid noise
     and make things clearer for the user we filter them out here
     """
-    status_code = getattr(record, "status_code", None)
-    if status_code in STATUS_CODES_NOT_TO_LOG:
+    # None of these status messages are particularly useful in local run
+    # mode, and they can generate a lot of clutter in large dependency
+    # trees
+    if getattr(record, "status_code", None) in {
+        StatusCode.WAITING_ON_DEPENDENCIES,
+        StatusCode.DEPENDENCY_FAILED,
+        StatusCode.WAITING_ON_WORKERS,
+    }:
         return False
+
     # We sometimes log caught exceptions for debugging purposes in production,
     # but we don't want to show these to the user when running locally
     if getattr(record, "exc_info", None):
         return False
+
+    # Executor state logging is pretty verbose and unlikely to be useful for local running
+    if record.name == executors.logging.LOGGER_NAME:
+        return False
+
     return True
 
 

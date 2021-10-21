@@ -4,8 +4,8 @@ import subprocess
 from pathlib import Path
 
 from jobrunner.job_executor import (
+    ExecutorAPI,
     ExecutorState,
-    JobDefinition,
     JobResults,
     JobStatus,
     Privacy,
@@ -42,7 +42,7 @@ class LocalDockerError(Exception):
     pass
 
 
-class LocalDockerAPI:
+class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
     def prepare(self, job):
