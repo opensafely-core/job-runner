@@ -19,6 +19,11 @@ pip-wheel-metadata/*
 /tests/fixtures/*/metadata
 service*.log
 tags
+private-*
+.env*
+/job_volume/
+/tmp/
+/tests/executor/graphnet/private_test_config.ini
 docker/ssh/id_*
 docker/ssh/known_hosts
 /.idea/

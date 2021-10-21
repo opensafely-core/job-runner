@@ -46,6 +46,8 @@ PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
 JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 
+DEBUG = os.environ.get("DEBUG", "0")
+
 BACKEND = os.environ.get("BACKEND", "expectations")
 if not _is_valid_backend_name(BACKEND):
     raise RuntimeError(f"BACKEND not in valid format: '{BACKEND}'")
@@ -66,7 +68,7 @@ ALLOWED_IMAGES = {
     "python",
 }
 
-DOCKER_REGISTRY = "ghcr.io/opensafely-core"
+DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")
 
 DATABASE_URLS = {
     "full": os.environ.get("FULL_DATABASE_URL"),
