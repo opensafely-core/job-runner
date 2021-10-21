@@ -172,3 +172,33 @@ RUN grep -q ":$DEV_GROUPID:" /etc/group || groupmod -g $DEV_GROUPID appuser
 
 # switch back to appuser
 USER appuser
+
+##################################################
+#
+# Graphnet image
+#
+# Copy code in, add proper metadata
+FROM job-runner-base as job-runner-tools-graphnet
+
+# Adjust this metadata to fit project. Note that the base-docker image does set
+# some basic metadata.
+LABEL org.opencontainers.image.title="job-runner-tools-graphnet" \
+      org.opencontainers.image.description="Image of Prepare and Finalize for the OpenSAFELY secure job-runner service" \
+      org.opencontainers.image.source="https://github.com/opensafely-core/job-runner"
+
+# copy application code
+COPY /jobrunner/lib/. /app/jobrunner/lib
+COPY /jobrunner/__init__.py /app/jobrunner/__init__.py
+COPY /jobrunner/config.py /app/jobrunner/config.py
+COPY /jobrunner/executors/graphnet/container/prepare.py /app/jobrunner/prepare.py
+COPY /jobrunner/executors/graphnet/container/finalize.py /app/jobrunner/finalize.py
+
+# finally, tag with build information. These will change regularly, therefore
+# we do them as the last action.
+ARG BUILD_DATE=unknown
+LABEL org.opencontainers.image.created=$BUILD_DATE
+ARG GITREF=unknown
+LABEL org.opencontainers.image.revision=$GITREF
+
+## changed to root in order to manage the files in the PV in k8s
+USER root

@@ -28,3 +28,9 @@ venv
 .venv
 workdir
 /lib
+private-*
+.env*
+/job_volume/
+/tmp/
+/tests/executor/graphnet/private_test_config.ini
+/.idea/

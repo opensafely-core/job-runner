@@ -17,6 +17,7 @@ dependencies = [
   "opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.1.2",
   "ruamel.yaml",
   "requests",
+  "kubernetes",
 ]
 dynamic = ["version"]
 

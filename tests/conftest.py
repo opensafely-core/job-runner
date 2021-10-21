@@ -20,6 +20,12 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "needs_docker: mark test as needing Docker daemon"
     )
+    config.addinivalue_line(
+        "markers", "needs_local_k8s: mark test as needing local k8s server, e.g. minikube. "
+                   "Image of the jobrunner is also needed in the local registry, call this to build it locally with minikube"
+                   "eval $(minikube docker-env)"
+                   "docker build -t opensafely-job-runner:latest ."
+    )
 
 
 @pytest.fixture(autouse=True)
