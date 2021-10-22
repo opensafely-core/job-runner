@@ -9,10 +9,17 @@ import random
 import shlex
 import sys
 import time
+from typing import Optional
 
 from jobrunner import config
 from jobrunner.executors import get_executor_api
-from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
+from jobrunner.job_executor import (
+    ExecutorAPI,
+    ExecutorState,
+    JobDefinition,
+    Privacy,
+    Study,
+)
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.manage_jobs import (
@@ -20,7 +27,6 @@ from jobrunner.manage_jobs import (
     JobError,
     cleanup_job,
     finalise_job,
-    get_job_metadata,
     job_still_running,
     kill_job,
     list_outputs_from_action,
@@ -39,18 +45,20 @@ class InvalidTransition(Exception):
 def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
 
+    api = None
     if config.EXECUTION_API:
         log.info("using new EXECUTION_API")
+        api = get_executor_api()
 
     while True:
-        active_jobs = handle_jobs()
+        active_jobs = handle_jobs(api)
 
         if exit_callback(active_jobs):
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs():
+def handle_jobs(api: Optional[ExecutorAPI]):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -61,19 +69,15 @@ def handle_jobs():
     if config.RANDOMISE_JOB_ORDER:
         random.shuffle(active_jobs)
 
-    api = None
-    if config.EXECUTION_API:
-        api = get_executor_api()
-
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            # new way
-            if config.EXECUTION_API:
+            if api:
+                # new way
                 handle_job_api(job, api)
-            # old way
             else:
+                # old way
                 if job.state == State.PENDING:
                     handle_pending_job(job)
                 elif job.state == State.RUNNING:
