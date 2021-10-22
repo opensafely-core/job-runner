@@ -120,6 +120,7 @@ class LocalDockerAPI:
     def cleanup(self, job):
         cleanup_job(job)
         RESULTS.pop(job.id, None)
+        return JobStatus(ExecutorState.UNKNOWN)
 
     def get_status(self, job):
         name = container_name(job)
