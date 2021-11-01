@@ -133,8 +133,9 @@ ALLOWED_GITHUB_ORGS = (
     os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely").strip().split(",")
 )
 
-# we hardcode this for now, as from a security perspective, we do not want it
-# to be run time configurable.
+# We hardcode this for now, as from a security perspective, we do not want it
+# to be run time configurable. Though we do override this in `local_run.py` as
+# we don't want to push traffic via the proxy when running locally.
 GIT_PROXY_DOMAIN = "github-proxy.opensafely.org"
 
 
