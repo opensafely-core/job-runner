@@ -479,7 +479,13 @@ def filter_log_messages(record):
     and make things clearer for the user we filter them out here
     """
     status_code = getattr(record, "status_code", None)
-    return status_code not in STATUS_CODES_NOT_TO_LOG
+    if status_code in STATUS_CODES_NOT_TO_LOG:
+        return False
+    # We sometimes log caught exceptions for debugging purposes in production,
+    # but we don't want to show these to the user when running locally
+    if getattr(record, "exc_info", None):
+        return False
+    return True
 
 
 # Copied from test/conftest.py to avoid a more complex dependency tree
