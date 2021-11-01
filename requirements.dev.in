@@ -8,6 +8,7 @@
 pytest
 pytest-cov
 requests_mock
+hypothesis
 
 # Dev tools
 pip-tools
