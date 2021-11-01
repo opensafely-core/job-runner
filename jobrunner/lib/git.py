@@ -132,7 +132,6 @@ def get_sha_from_remote_ref(repo_url, ref):
                 "git",
                 "ls-remote",
                 "--quiet",
-                "--exit-code",
                 add_access_token_and_proxy(repo_url),
                 ref,
                 deref_ref,

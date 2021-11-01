@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 from jobrunner.lib.git import (
+    GitRepoNotReachableError,
+    GitUnknownRefError,
     checkout_commit,
     commit_already_fetched,
     commit_reachable_from_ref,
@@ -53,6 +55,26 @@ def test_get_sha_from_remote_ref_annotated_tag():
         "test-annotated-tag-dont-delete",
     )
     assert sha == "3c15ff525001e039d4e27cfc62f652ecad09fde4"
+
+
+@pytest.mark.slow_test
+def test_get_sha_from_remote_ref_missing_ref(tmp_work_dir):
+    with pytest.raises(GitUnknownRefError):
+        get_sha_from_remote_ref(
+            "https://github.com/opensafely-core/test-public-repository.git",
+            "no-such-ref",
+        )
+
+
+@pytest.mark.slow_test
+def test_get_sha_from_remote_ref_missing_repo(tmp_work_dir):
+    with pytest.raises(GitRepoNotReachableError):
+        get_sha_from_remote_ref(
+            # We supply some deliberately invalid authentication details here
+            # just to prevent Github prompting us for them
+            "https://foo:bar@github.com/opensafely-core/no-such-repo.git",
+            "main",
+        )
 
 
 @pytest.mark.slow_test
@@ -127,6 +149,17 @@ def test_checkout_commit_local(tmp_work_dir, tmp_path):
 def test_get_sha_from_remote_ref_local(tmp_work_dir):
     sha = get_sha_from_remote_ref(REPO_FIXTURE, "v1")
     assert sha == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+
+
+def test_get_sha_from_remote_ref_local_missing_ref(tmp_work_dir):
+    with pytest.raises(GitUnknownRefError):
+        get_sha_from_remote_ref(REPO_FIXTURE, "no-such-ref")
+
+
+def test_get_sha_from_remote_ref_local_missing_repo(tmp_work_dir):
+    MISSING_REPO = REPO_FIXTURE + "-no-such-repo"
+    with pytest.raises(GitRepoNotReachableError):
+        get_sha_from_remote_ref(MISSING_REPO, "v1")
 
 
 def test_commit_already_fetched(tmp_path):
