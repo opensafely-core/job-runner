@@ -208,6 +208,9 @@ def create_and_run_jobs(
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
 
+    # We want to fetch any reusable actions code directly from Github so as to
+    # avoid pushing unnecessary traffic through the proxy
+    config.GIT_PROXY_DOMAIN = "github.com"
     # Rather than using the throwaway `temp_dir` to store git repos in we use a
     # consistent directory within the system tempdir. This means we don't have
     # to keep refetching commits and also avoids the complexity of deleting

@@ -70,10 +70,7 @@ def test_get_sha_from_remote_ref_missing_ref(tmp_work_dir):
 def test_get_sha_from_remote_ref_missing_repo(tmp_work_dir):
     with pytest.raises(GitRepoNotReachableError):
         get_sha_from_remote_ref(
-            # We supply some deliberately invalid authentication details here
-            # just to prevent Github prompting us for them
-            "https://foo:bar@github.com/opensafely-core/no-such-repo.git",
-            "main",
+            "https://github.com/opensafely-core/no-such-repo.git", "main"
         )
 
 
