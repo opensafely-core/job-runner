@@ -237,6 +237,15 @@ def create_and_run_jobs(
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
 
+    configure_logging(
+        fmt=log_format,
+        # All the other output we produce goes to stdout and it's a bit
+        # confusing if the log messages end up on a separate stream
+        stream=sys.stdout,
+        # Filter out log messages in the local run context
+        extra_filter=filter_log_messages,
+    )
+
     # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
     manifest_to_database_migration.migrate_one(
         project_dir, write_medium_privacy_manifest=False, batch_size=1000, log=False
@@ -312,15 +321,6 @@ def create_and_run_jobs(
 
     action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
-
-    configure_logging(
-        fmt=log_format,
-        # All the other output we produce goes to stdout and it's a bit
-        # confusing if the log messages end up on a separate stream
-        stream=sys.stdout,
-        # Filter out log messages in the local run context
-        extra_filter=filter_log_messages,
-    )
 
     # Wrap all the log output inside an expandable block when running inside
     # Github Actions
