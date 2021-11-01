@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 import os
 import shutil
 import time
@@ -195,3 +196,16 @@ def test_add_arguments():
     assert args.project_dir == "dir"
     assert args.timestamps
     assert args.debug
+
+
+def test_filter_log_messages():
+    record = logging.makeLogRecord({})
+    assert local_run.filter_log_messages(record)
+
+    record = logging.makeLogRecord({"status_code": "code"})
+    assert local_run.filter_log_messages(record)
+
+    record = logging.makeLogRecord(
+        {"status_code": local_run.StatusCode.WAITING_ON_DEPENDENCIES}
+    )
+    assert local_run.filter_log_messages(record) is False

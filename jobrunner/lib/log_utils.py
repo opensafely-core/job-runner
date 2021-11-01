@@ -17,12 +17,12 @@ import time
 DEFAULT_FORMAT = "{asctime} {message} {tags}"
 
 
-def configure_logging(fmt=DEFAULT_FORMAT, stream=None, status_codes_to_ignore=None):
+def configure_logging(fmt=DEFAULT_FORMAT, stream=None, extra_filter=None):
     formatter = JobRunnerFormatter(fmt, style="{")
     handler = logging.StreamHandler(stream=stream)
     handler.setFormatter(formatter)
-    if status_codes_to_ignore:
-        handler.addFilter(IgnoreStatusCodes(status_codes_to_ignore))
+    if extra_filter:
+        handler.addFilter(extra_filter)
     handler.addFilter(formatting_filter)
 
     log_level = os.environ.get("LOGLEVEL", "INFO")
@@ -112,19 +112,6 @@ def formatting_filter(record):
     record.action = f"{job.action}: " if job else ""
 
     return True
-
-
-class IgnoreStatusCodes:
-    """
-    Skip log lines which have certain status codes
-    """
-
-    def __init__(self, status_codes_to_ignore):
-        self.status_codes_to_ignore = set(status_codes_to_ignore)
-
-    def filter(self, record):
-        status_code = getattr(record, "status_code", None)
-        return status_code not in self.status_codes_to_ignore
 
 
 class SetLogContext(threading.local):
