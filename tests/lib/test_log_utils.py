@@ -68,22 +68,6 @@ def test_formatting_filter_with_context():
     assert record.tags == "project=project action=action id=id req=request"
 
 
-def test_ignore_status_code_filter():
-    ignore_filter = log_utils.IgnoreStatusCodes(["ignore"])
-
-    record = logging.makeLogRecord({})
-    assert log_utils.formatting_filter(record)
-    assert ignore_filter.filter(record)
-
-    record = logging.makeLogRecord({"status_code": "code"})
-    assert log_utils.formatting_filter(record)
-    assert ignore_filter.filter(record)
-
-    record = logging.makeLogRecord({"status_code": "ignore"})
-    assert log_utils.formatting_filter(record)
-    assert ignore_filter.filter(record) is False
-
-
 def test_jobrunner_formatter_default(monkeypatch):
     monkeypatch.setattr(time, "time", lambda: FROZEN_TIMESTAMP)
     record = logging.makeLogRecord(
