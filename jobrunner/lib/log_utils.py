@@ -17,7 +17,11 @@ import time
 DEFAULT_FORMAT = "{asctime} {message} {tags}"
 
 
-def configure_logging(fmt=DEFAULT_FORMAT, stream=None, extra_filter=None):
+def configure_logging(
+    fmt=DEFAULT_FORMAT,
+    stream=None,
+    extra_filter=None,
+):
     formatter = JobRunnerFormatter(fmt, style="{")
     handler = logging.StreamHandler(stream=stream)
     handler.setFormatter(formatter)

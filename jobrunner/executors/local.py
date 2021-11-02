@@ -4,8 +4,8 @@ import subprocess
 from pathlib import Path
 
 from jobrunner.job_executor import (
+    ExecutorAPI,
     ExecutorState,
-    JobDefinition,
     JobResults,
     JobStatus,
     Privacy,
@@ -42,7 +42,7 @@ class LocalDockerError(Exception):
     pass
 
 
-class LocalDockerAPI:
+class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
     def prepare(self, job):
@@ -120,6 +120,7 @@ class LocalDockerAPI:
     def cleanup(self, job):
         cleanup_job(job)
         RESULTS.pop(job.id, None)
+        return JobStatus(ExecutorState.UNKNOWN)
 
     def get_status(self, job):
         name = container_name(job)

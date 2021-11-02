@@ -5,7 +5,9 @@
 #    pip-compile requirements.dev.in
 #
 attrs==20.3.0
-    # via pytest
+    # via
+    #   hypothesis
+    #   pytest
 black==21.8b0
     # via -r requirements.dev.in
 certifi==2020.11.8
@@ -23,6 +25,8 @@ click==7.1.2
 coverage==5.3
     # via pytest-cov
 flake8==3.8.4
+    # via -r requirements.dev.in
+hypothesis==6.24.1
     # via -r requirements.dev.in
 idna==2.10
     # via
@@ -78,6 +82,8 @@ six==1.15.0
     # via
     #   packaging
     #   requests-mock
+sortedcontainers==2.4.0
+    # via hypothesis
 toml==0.10.2
     # via pytest
 tomli==1.2.1

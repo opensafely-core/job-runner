@@ -1,14 +1,11 @@
 import json
 import logging
-from pathlib import Path
 
 import pytest
 
 import jobrunner.run
 import jobrunner.sync
-from jobrunner import config
-from jobrunner.lib import docker
-from jobrunner.lib.subprocess_utils import subprocess_run
+from jobrunner.executors import get_executor_api
 from tests.factories import ensure_docker_images_present
 
 log = logging.getLogger(__name__)
@@ -24,6 +21,11 @@ def test_integration(
     executor_api, tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
 ):
     monkeypatch.setattr("jobrunner.config.EXECUTION_API", executor_api)
+    if executor_api:
+        api = get_executor_api()
+    else:
+        api = None
+
     monkeypatch.setattr(
         "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
@@ -65,7 +67,7 @@ def test_integration(
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == ["pending"] * 7
     # Execute one tick of the run loop and then sync
-    jobrunner.run.handle_jobs()
+    jobrunner.run.handle_jobs(api)
     jobrunner.sync.sync()
     # We should now have one running job and all others waiting on dependencies
     jobs = get_posted_jobs(requests_mock)

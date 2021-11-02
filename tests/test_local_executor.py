@@ -1,27 +1,16 @@
-import subprocess
 import time
-from pathlib import Path
 
 import pytest
 
 from jobrunner import config
 from jobrunner.executors import local
-from jobrunner.job_executor import (
-    ExecutorState,
-    JobDefinition,
-    JobResults,
-    JobStatus,
-    Privacy,
-    Study,
-)
+from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import docker
 from jobrunner.manage_jobs import (
     container_name,
     get_high_privacy_workspace,
     get_medium_privacy_workspace,
 )
-from jobrunner.models import State
-from jobrunner.run import job_to_job_definition
 from tests.factories import ensure_docker_images_present
 
 
@@ -400,6 +389,44 @@ def test_finalize_unmatched(use_api, docker_cleanup, test_repo, tmp_work_dir):
     assert results.exit_code == 0
     assert results.outputs == {}
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
+
+
+@pytest.mark.needs_docker
+def test_cleanup_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
+    ensure_docker_images_present("busybox")
+
+    job = JobDefinition(
+        id="test_cleanup_success",
+        study=test_repo.study,
+        workspace="test",
+        action="action",
+        image="ghcr.io/opensafely-core/busybox",
+        args=["/usr/bin/true"],
+        env={},
+        inputs=["output/input.csv"],
+        output_spec={},
+        allow_database_access=False,
+    )
+
+    populate_workspace(job.workspace, "output/input.csv")
+
+    api = local.LocalDockerAPI()
+    api.prepare(job)
+    api.execute(job)
+
+    volume = local.volume_name(job)
+    container = local.container_name(job)
+    assert docker.volume_exists(volume)
+    assert docker.container_exists(container)
+
+    status = api.cleanup(job)
+    assert status.state == ExecutorState.UNKNOWN
+
+    status = api.get_status(job)
+    assert status.state == ExecutorState.UNKNOWN
+
+    assert not docker.volume_exists(volume)
+    assert not docker.container_exists(container)
 
 
 def test_delete_files_success(tmp_work_dir):
