@@ -36,8 +36,9 @@ docker-build: export COMPOSE_DOCKER_CLI_BUILD=1
 docker-build: export BUILD_DATE=$(date -u +'%y-%m-%dT%H:%M:%SZ')
 docker-build: export GITREF=$(git rev-parse --short HEAD)
 docker-build: ENV ?= dev
+docker-build: ARGS ?= --pull
 docker-build:
-	docker-compose build --pull $(ENV) 
+	docker-compose build $(ARGS) $(ENV) 
 
 
 .PHONY: docker-test
@@ -47,23 +48,26 @@ docker-test: docker-build $(SSH_KEY).authorized
 
 
 .PHONY: docker-serve
-# run dev server in docker container
+# run server in docker container
+docker-serve: ENV ?= dev
 docker-serve: docker-build $(SSH_KEY).authorized
-	docker-compose up dev
+	docker-compose up $(ENV)
 
 
 .PHONY: docker-run
-# run command in dev container
+# run command in container
+docker-run: ENV ?= dev
 docker-run: CMD ?= bash
 docker-run: docker-build $(SSH_KEY).authorized
-	docker-compose run --rm $(ARGS) dev $(CMD)
+	docker-compose run --rm $(ARGS) $(ENV) $(CMD)
 
 
 .PHONY: docker-exec
 # exec command in existing dev container
+docker-run: ENV ?= dev
 docker-exec: CMD ?= bash
 docker-exec: docker-build $(SSH_KEY).authorized
-	docker-compose exec dev $(CMD)
+	docker-compose exec $(ENV) $(CMD)
 
 
 .PHONY: docker-clean

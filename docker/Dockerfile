@@ -91,6 +91,7 @@ ENV VIRTUAL_ENV=/opt/venv/ PATH="/opt/venv/bin:$PATH"
 RUN mkdir /app
 WORKDIR /app
 VOLUME /app
+VOLUME /workdir
 
 # We set command rather than entrypoint, to make it easier to run different
 # things from the cli
