@@ -15,20 +15,20 @@ def _is_valid_backend_name(name):
 
 default_work_dir = Path(__file__) / "../../workdir"
 
-WORK_DIR = Path(os.environ.get("WORK_DIR", default_work_dir)).resolve()
+WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()
 
-TMP_DIR = WORK_DIR / "temp"
+TMP_DIR = WORKDIR / "temp"
 
-GIT_REPO_DIR = WORK_DIR / "repos"
+GIT_REPO_DIR = WORKDIR / "repos"
 
-DATABASE_FILE = WORK_DIR / "db.sqlite"
+DATABASE_FILE = WORKDIR / "db.sqlite"
 DATABASE_SCHEMA_FILE = Path(__file__).parent / "schema.sql"
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORK_DIR / "high_privacy")
+    os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORKDIR / "high_privacy")
 )
 MEDIUM_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", WORK_DIR / "medium_privacy")
+    os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", WORKDIR / "medium_privacy")
 )
 
 HIGH_PRIVACY_WORKSPACES_DIR = HIGH_PRIVACY_STORAGE_BASE / "workspaces"

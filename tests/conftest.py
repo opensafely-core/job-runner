@@ -19,7 +19,7 @@ def pytest_configure(config):
 
 @pytest.fixture
 def tmp_work_dir(monkeypatch, tmp_path):
-    monkeypatch.setattr("jobrunner.config.WORK_DIR", tmp_path)
+    monkeypatch.setattr("jobrunner.config.WORKDIR", tmp_path)
     monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
     config_vars = [
         "TMP_DIR",

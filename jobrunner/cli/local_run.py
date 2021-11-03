@@ -223,7 +223,7 @@ def create_and_run_jobs(
     )
 
     # None of the below should be used when running locally
-    config.WORK_DIR = None
+    config.WORKDIR = None
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
