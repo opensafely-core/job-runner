@@ -62,6 +62,7 @@ def test_handle_job_pending_to_preparing(db):
     # our state
     assert job.status_message == "Preparing"
     assert job.state == State.RUNNING
+    assert job.started_at
 
 
 def test_handle_job_pending_dependency_failed(db):

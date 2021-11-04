@@ -292,6 +292,7 @@ def handle_job_api(job, api):
         # successful state change to the expected next state
         if new_status.state == ExecutorState.PREPARING:
             job.state = State.RUNNING
+            job.started_at = int(time.time())
         elif job.state != State.RUNNING:
             # got an ExecutorState that should mean the job.state is RUNNING, but it is not
             log.warning(
