@@ -200,9 +200,12 @@ def get_action_specification(project, action_id):
     elif is_generate_cohort_command(run_args, require_version=2):
         # cohortextractor Version 2 expects all command line arguments to be
         # specified in the run command
-        if config.USING_DUMMY_DATA_BACKEND and "--dummy-data-file" not in run_command:
+        local_run_options = ["--dummy-data-file", "--validate-backend"]
+        if config.USING_DUMMY_DATA_BACKEND and (
+            not any(option in run_command for option in local_run_options)
+            ):
             raise ProjectValidationError(
-                "--dummy-data-file is required for a local run"
+                "one of --dummy-data-file or --validate-backend is required for a local run"
             )
 
         # There is one and only one output file in the outputs spec (verified

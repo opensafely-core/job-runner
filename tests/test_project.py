@@ -154,8 +154,8 @@ def test_get_action_specification_for_cohortextractor_v2_action():
             "--output in run command and outputs must match",
         ),
         (
-            "--output=output/cohort1.csv",
-            "--dummy-data-file is required for a local run",
+            "--output=output/cohort.csv",
+            "one of --dummy-data-file or --validate-backend is required for a local run",
         ),
     ],
 )
