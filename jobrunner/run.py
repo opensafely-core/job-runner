@@ -74,8 +74,7 @@ def handle_jobs(api: Optional[ExecutorAPI]):
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             if api:
-                # new way
-                handle_job_api(job, api)
+                handle_active_job_api(job, api)
             else:
                 # old way
                 if job.state == State.PENDING:
@@ -166,30 +165,26 @@ def handle_running_job(job):
             cleanup_job(job)
 
 
-def handle_active_jobs_api(api, active_jobs):
-    for job in active_jobs:
-        # `set_log_context` ensures that all log messages triggered anywhere
-        # further down the stack will have `job` set on them
-        with set_log_context(job=job):
-            try:
-                handle_job_api(job, api)
-            except Exception:
-                mark_job_as_failed(job, "Internal error")
-                # Do not clean up, as we may want to debug
-                #
-                # Raising will kill the main loop, by design. The service manager
-                # will restart, and this job will be ignored when it does, as
-                # it has failed. If we have an internal error, a full restart
-                # might recover better.
-                raise
-
-
 # we do not control the tranisition from these states, the executor does
 STABLE_STATES = [
     ExecutorState.PREPARING,
     ExecutorState.EXECUTING,
     ExecutorState.FINALIZING,
 ]
+
+
+def handle_active_job_api(job, api):
+    try:
+        handle_job_api(job, api)
+    except Exception:
+        mark_job_as_failed(job, "Internal error")
+        # Do not clean up, as we may want to debug
+        #
+        # Raising will kill the main loop, by design. The service manager
+        # will restart, and this job will be ignored when it does, as
+        # it has failed. If we have an internal error, a full restart
+        # might recover better.
+        raise
 
 
 def handle_job_api(job, api):
@@ -244,7 +239,9 @@ def handle_job_api(job, api):
 
         if any(state != State.SUCCEEDED for state in awaited_states):
             set_message(
-                job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
+                job,
+                "Waiting on dependencies",
+                code=StatusCode.WAITING_ON_DEPENDENCIES,
             )
             return
 
@@ -285,7 +282,9 @@ def handle_job_api(job, api):
     if new_status.state == initial_status.state:
         # no change in state, i.e. back pressure
         set_message(
-            job, "Waiting on available resources", code=StatusCode.WAITING_ON_WORKERS
+            job,
+            "Waiting on available resources",
+            code=StatusCode.WAITING_ON_WORKERS,
         )
 
     elif new_status.state == expected_state:
