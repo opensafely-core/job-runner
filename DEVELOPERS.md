@@ -66,7 +66,8 @@ To run tests in docker, simply run:
 
     make docker-test
 
-This will build the docker image and run tests. You can run job-runner with:
+This will build the docker image and run tests. You can run job-runner as
+a service with:
 
     make docker-serve
 
@@ -74,16 +75,6 @@ Or run a command inside the docker image:
 
     make docker-run ARGS=command  # bash by default
 
-Note: we use ssh for authenticated network access to the host's docker in
-development. The above commands will automatically generate a local ed25519
-dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
-`make docker-clean` to remove this.  If you wish to use a different user/host,
-you can do so:
-
-1. Specify `DOCKER_USER` and `DOCKER_ADDR` environment variables.
-2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
-3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
-   set up.
 
 
 ### Testing on Windows
@@ -143,3 +134,38 @@ See the full set of options it accepts with:
 ```
 python -m jobrunner.cli.add_job --help
 ```
+
+## job-runner docker image
+
+Building the dev docker image:
+
+    make docker-build                   # build base and dev image
+    make docker-build ENV=prod          # build base and prod image
+    make docker-build ARGS=--no-cache   # build without cache
+
+
+### Exposing the host's docker service
+
+By default, running the docker container will mount your host's
+`/var/run/docker.sock` into the container and use that for job-runner to run
+jobs. It does some matching of docker GIDs to do so.
+
+However, it also supports accessing docker over ssh:
+
+    make -C docker enable-docker-over-ssh
+
+The docker-compose invocations will now talk to your host docker over SSH,
+possibly on a remote machine. You can disable with:
+
+    make -C docker disable-docker-over-ssh
+
+Note: The above commands will automatically generate a local ed25519
+dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
+`make docker-clean` to remove this.  If you wish to use a different user/host,
+you can do so:
+
+1. Specify `SSH_USER` and `SSH_HOST` environment variables.
+2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
+3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
+   set up.
+

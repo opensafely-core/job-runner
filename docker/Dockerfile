@@ -13,6 +13,12 @@ FROM ghcr.io/opensafely-core/base-docker:latest as base-python
 # docker clean up that deletes that cache on every apt install
 RUN rm -f /etc/apt/apt.conf.d/docker-clean
 
+# preemptively create a docker group using specific gid, before docker is
+# installed. This allows us to set the host docker gid to the same thing in
+# systems we control, and then we can just mount /var/run/docker.sock into the
+# container.
+RUN groupadd --gid 10010 docker
+
 # ensure fully working base python3 installation
 # see: https://gist.github.com/tiran/2dec9e03c6f901814f6d1e8dad09528e
 # use space efficient utility from base image
@@ -79,7 +85,7 @@ FROM base-python as job-runner-base
 # We currently use host bind mounts in production backends, which means if we
 # need to match the uid inside the container to the one on the host.  To do
 # this, we reserve uid/gid 10000 to use as our running user on the host.
-RUN useradd --create-home --user-group --uid 10000 appuser
+RUN useradd --create-home --user-group --uid 10000 -G docker appuser
 
 # copy venv over from builder image. These will have root:root ownership, but
 # are readable by all.
@@ -151,10 +157,15 @@ COPY requirements.dev.txt /tmp/requirements.dev.txt
 RUN --mount=type=cache,target=/root/.cache \
     python -m pip install --requirement /tmp/requirements.dev.txt
 
+# modify container docker gid to match host
+ARG DOCKER_HOST_GROUPID
+RUN groupmod -g $DOCKER_HOST_GROUPID docker
+
 # in dev, ensure appuser uid matches host user id
-ARG USERID=1000
-ARG GROUPID=1000
-RUN usermod -u $USERID appuser && groupmod -g $GROUPID appuser
+ARG DEV_USERID=1000
+ARG DEV_GROUPID=1000
+RUN usermod -u $DEV_USERID appuser
+RUN groupmod -g $DEV_GROUPID appuser
 
 # switch back to appuser
 USER appuser
