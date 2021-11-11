@@ -1,3 +1,5 @@
+import subprocess
+
 import pytest
 
 from jobrunner.lib import docker
@@ -23,3 +25,36 @@ def test_basic_volume_interaction(tmp_path, docker_cleanup):
     docker.delete_volume(volume)
     # Test no error is thrown if volume is already deleted
     docker.delete_volume(volume)
+
+
+def test_disk_space_detection(monkeypatch):
+    def error(stdout, stderr):
+        def run(args, timeout, **kwargs):
+            raise subprocess.CalledProcessError(
+                returncode=1,
+                cmd=args,
+                output=stdout,
+                stderr=stderr,
+            )
+
+        return run
+
+    msg = "Error response from daemon: no space left on device"
+
+    monkeypatch.setattr(docker, "subprocess_run", error(msg, None))
+    with pytest.raises(docker.DockerDiskSpaceError):
+        docker.docker([])
+
+    monkeypatch.setattr(docker, "subprocess_run", error(None, msg))
+    with pytest.raises(docker.DockerDiskSpaceError):
+        docker.docker([])
+
+    msg = msg.encode("utf8")
+
+    monkeypatch.setattr(docker, "subprocess_run", error(msg, None))
+    with pytest.raises(docker.DockerDiskSpaceError):
+        docker.docker([])
+
+    monkeypatch.setattr(docker, "subprocess_run", error(None, msg))
+    with pytest.raises(docker.DockerDiskSpaceError):
+        docker.docker([])
