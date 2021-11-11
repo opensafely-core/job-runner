@@ -165,7 +165,12 @@ RUN groupmod -g $DOCKER_HOST_GROUPID docker
 ARG DEV_USERID=1000
 ARG DEV_GROUPID=1000
 RUN usermod -u $DEV_USERID appuser
-RUN groupmod -g $DEV_GROUPID appuser
+# Modify appuse group only if group id does not already exist. We run dev
+# containers with an explicit group id anyway, so file permissions on the host
+# will be correct, and we do not actually rely on named appuser group access to
+# anything.
+RUN grep -q ":$DEV_GROUPID:" /etc/group || groupmod -g $DEV_GROUPID appuser
+
 
 # switch back to appuser
 USER appuser
