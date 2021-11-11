@@ -282,6 +282,21 @@ def test_bad_transition(current, invalid, db):
         run.handle_job_api(job, api)
 
 
+def test_handle_active_job_marks_as_failed(db, monkeypatch):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING)
+
+    def error(*args, **kwargs):
+        raise Exception("test")
+
+    monkeypatch.setattr(api, "get_status", error)
+
+    with pytest.raises(Exception):
+        run.handle_active_job_api(job, api)
+
+    assert job.state is State.FAILED
+
+
 def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     job_factory(
         id="1",
