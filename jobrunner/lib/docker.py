@@ -62,8 +62,8 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
         if (
             output is not None
             and e.returncode == 1
-            and output.startswith("Error response from daemon: ")
-            and output.endswith(": no space left on device")
+            and "Error response from daemon:" in output
+            and ": no space left on device" in output
         ):
             raise DockerDiskSpaceError from e
         else:
