@@ -98,7 +98,10 @@ def create_volume(volume_name, labels=None):
             volume=(volume_name, VOLUME_MOUNT_POINT),
             label=LABEL,
             labels=labels,
-            extra_args=["--interactive"],
+            extra_args=[
+                "--interactive",
+                "--restart=unless-stopped",
+            ],
         )
     except subprocess.CalledProcessError as e:
         # If a volume and its manager already exist we don't want to throw an
