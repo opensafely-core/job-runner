@@ -6,6 +6,7 @@ from pathlib import Path
 from jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorState,
+    JobDefinition,
     JobResults,
     JobStatus,
     Privacy,
@@ -40,6 +41,14 @@ log = logging.getLogger(__name__)
 
 class LocalDockerError(Exception):
     pass
+
+
+def get_job_labels(job: JobDefinition):
+    """Useful metadata to label docker objects with."""
+    return {
+        "workspace": job.workspace,
+        "action": job.action,
+    }
 
 
 class LocalDockerAPI(ExecutorAPI):
@@ -88,11 +97,7 @@ class LocalDockerAPI(ExecutorAPI):
                 env=job.env,
                 allow_network_access=job.allow_database_access,
                 label=LABEL,
-                labels={
-                    # make it easier to find stuff
-                    "workspace": job.workspace,
-                    "action": job.action,
-                },
+                labels=get_job_labels(job),
             )
         except Exception as exc:
             return JobStatus(
@@ -174,7 +179,7 @@ def prepare_job(job):
     workspace_dir = get_high_privacy_workspace(job.workspace)
 
     volume = volume_name(job)
-    docker.create_volume(volume)
+    docker.create_volume(volume, get_job_labels(job))
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
