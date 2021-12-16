@@ -392,6 +392,49 @@ def test_finalize_unmatched(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
+def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
+    ensure_docker_images_present("busybox")
+
+    job = JobDefinition(
+        id="test_finalize_failed",
+        study=test_repo.study,
+        workspace="test",
+        action="action",
+        image="ghcr.io/opensafely-core/busybox",
+        args=["sleep", "101"],
+        env={},
+        inputs=["output/input.csv"],
+        output_spec={
+            "output/output.*": "high_privacy",
+            "output/summary.*": "medium_privacy",
+        },
+        allow_database_access=False,
+    )
+
+    populate_workspace(job.workspace, "output/input.csv")
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job)
+    assert status.state == ExecutorState.PREPARING
+    status = api.execute(job)
+    assert status.state == ExecutorState.EXECUTING
+
+    # impersonate the OOM
+    docker.kill(container_name(job))
+
+    wait_for_state(api, job, ExecutorState.EXECUTED)
+
+    status = api.finalize(job)
+    assert status.state == ExecutorState.FINALIZING
+
+    # we don't need to wait
+    assert api.get_status(job).state == ExecutorState.FINALIZED
+    assert job.id in local.RESULTS
+    assert local.RESULTS[job.id].message == "likely means it ran out of memory"
+
+
+@pytest.mark.needs_docker
 def test_cleanup_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 

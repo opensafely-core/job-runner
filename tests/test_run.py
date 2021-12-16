@@ -227,7 +227,7 @@ def test_handle_job_finalized_failed_exit_code(db):
     # our state
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.NONZERO_EXIT
-    assert job.status_message == "Job exited with an error code"
+    assert job.status_message == "Job exited with error code 1"
     assert job.outputs == {"output/file.csv": "medium"}
 
 
