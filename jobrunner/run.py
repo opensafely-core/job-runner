@@ -315,8 +315,10 @@ def save_results(job, results):
     # set the final state of the job
     if results.exit_code != 0:
         job.state = State.FAILED
-        job.status_message = "Job exited with an error code"
+        job.status_message = f"Job exited with error code {results.exit_code}"
         job.status_code = StatusCode.NONZERO_EXIT
+        if results.message:
+            job.status_message += f": {results.message}"
     elif results.unmatched_patterns:
         job.state = State.FAILED
         job.status_message = "No outputs found matching patterns:\n - {}".format(

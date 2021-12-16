@@ -53,6 +53,7 @@ class JobResults:
     unmatched_patterns: List[str]  # list of patterns that matched no outputs
     exit_code: int
     image_id: str
+    message: str = None
 
 
 class ExecutorAPI:

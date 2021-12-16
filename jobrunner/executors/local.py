@@ -107,6 +107,7 @@ class LocalDockerAPI(ExecutorAPI):
         return JobStatus(ExecutorState.EXECUTING)
 
     def finalize(self, job):
+
         current = self.get_status(job)
         if current.state != ExecutorState.EXECUTED:
             return current
@@ -217,11 +218,18 @@ def prepare_job(job):
 def finalize_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
+    exit_code = container_metadata["State"]["ExitCode"]
+    message = None
+    if exit_code == 137:
+        # 137 = 128+9, which means was killed by signal 9, SIGKILL
+        # This usually happens because of OOM killer, or else manually
+        message = "likely means it ran out of memory"
     results = JobResults(
-        outputs,
-        unmatched_patterns,
-        container_metadata["State"]["ExitCode"],
-        container_metadata["Image"],
+        outputs=outputs,
+        unmatched_patterns=unmatched_patterns,
+        exit_code=container_metadata["State"]["ExitCode"],
+        image_id=container_metadata["Image"],
+        message=message,
     )
     persist_outputs(job, results.outputs, container_metadata)
     RESULTS[job.id] = results
