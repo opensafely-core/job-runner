@@ -31,12 +31,12 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v1
-    # Python 3.7 is what we currently require for running the cohortextractor
+    # Python 3.8 is what we currently require for running the cohortextractor
     #  locally so we need to make sure we can run with that
-    - name: Set up Python 3.7
+    - name: Set up Python 3.8
       uses: actions/setup-python@v1
       with:
-        python-version: 3.7
+        python-version: 3.8
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
