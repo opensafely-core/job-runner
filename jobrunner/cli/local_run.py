@@ -23,7 +23,6 @@ away afterwards.
 import argparse
 import getpass
 import os
-import platform
 import random
 import shlex
 import shutil
@@ -603,10 +602,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
         except Exception:
             pass
         finally:
-            # py3.7 on windows can't clean up TemporaryDirectory with git's read only
-            # files in them, so just don't bother.
-            if platform.system() != "Windows" or sys.version_info[:2] > (3, 7):
-                tmp.cleanup()
+            tmp.cleanup()
 
     if cached.exists():
         # if the refresh failed for some reason, update the last time it was

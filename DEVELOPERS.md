@@ -86,8 +86,8 @@ Windows installed in a VM and Docker running on the host. The steps are:
 
 1. Install git in the Windows VM: https://git-scm.com/download/win
 
-2. Install Python 3.7 in the Windows VM:
-   I used Python 3.7.9 [Windows x86-64 executable](https://www.python.org/ftp/python/3.7.9/python-3.7.9-amd64.exe) installer from:
+2. Install Python 3.8 in the Windows VM:
+   I used Python 3.8.12 [Windows x86-64 executable](https://www.python.org/ftp/python/3.8.12/python-3.8.12-amd64.exe) installer from:
    https://www.python.org/downloads/windows/
 
 3. On the host machine, navigate to your job-runner checkout and run

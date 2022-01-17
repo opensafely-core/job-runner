@@ -13,7 +13,7 @@ setup(
     url="https://github.com/opensafely-core/job-runner",
     author="OpenSAFELY",
     author_email="tech@opensafely.org",
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=["ruamel.yaml", "requests"],
     classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],
     entry_points=dict(
