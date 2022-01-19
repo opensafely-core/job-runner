@@ -183,7 +183,9 @@ def apply_reusable_action(run_args, reusable_action):
         if action_image not in config.ALLOWED_IMAGES:
             raise ReusableActionError(f"Unrecognised runtime: {action_image}")
         if is_generate_cohort_command(action_run_args):
-            raise ReusableActionError("Re-usable actions cannot invoke cohortextractor")
+            raise ReusableActionError(
+                "Re-usable actions cannot invoke cohortextractor/databuilder"
+            )
     except (YAMLError, ReusableActionError) as e:
         formatted_error = textwrap.indent(f"{type(e).__name__}: {e}", "  ")
         raise ReusableActionError(

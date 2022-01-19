@@ -249,7 +249,9 @@ def is_generate_cohort_command(args, require_version=None):
     if len(args) > 1 and args[1] == "generate_cohort":
         if args[0].startswith("cohortextractor:"):
             version_found = 1
-        if args[0].startswith("cohortextractor-v2:"):
+        # databuilder is a rebranded cohortextractor-v2.
+        # Retain cohortextractor-v2 for backwards compatibility for now.
+        elif args[0].startswith(("cohortextractor-v2:", "databuilder:")):
             version_found = 2
     # If we're not looking for a specific version then return True if any
     # version found
