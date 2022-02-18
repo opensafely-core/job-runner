@@ -214,11 +214,11 @@ def create_and_run_jobs(
     # Rather than using the throwaway `temp_dir` to store git repos in we use a
     # consistent directory within the system tempdir. This means we don't have
     # to keep refetching commits and also avoids the complexity of deleting
-    # git's read-only directories on Windows. We use `getpass.getuser()` as a
+    # git's read-only directories on Windows. We use the current username as a
     # crude means of scoping the directory to the user in order to avoid
     # potential permissions issues if multiple users share the same directory.
     config.GIT_REPO_DIR = Path(tempfile.gettempdir()).joinpath(
-        f"opensafely_{getpass.getuser()}"
+        f"opensafely_{getuser()}"
     )
 
     # None of the below should be used when running locally
@@ -410,7 +410,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         # makes for an awkward workflow when iterating in development
         force_run_failed=True,
         branch="",
-        original={"created_by": getpass.getuser()},
+        original={"created_by": getuser()},
     )
 
     project_file_path = project_dir / "project.yaml"
@@ -627,6 +627,16 @@ def docker_preflight_check():
         print("\nIt looks like you have Docker installed but have not started it.")
         return False
     return True
+
+
+def getuser():
+    # `getpass.getuser()` can fail on Windows under certain circumstances. It's never
+    # critical that we know the current username so we don't want to block execution if
+    # this happens
+    try:
+        return getpass.getuser()
+    except Exception:
+        return "unknown"
 
 
 def run():
