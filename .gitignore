@@ -5,6 +5,7 @@
 *~
 .#*
 .coverage
+.data
 .env
 .hypothesis/
 .idea/
