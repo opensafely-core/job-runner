@@ -246,7 +246,7 @@ def is_generate_cohort_command(args, require_version=None):
     """
     assert not isinstance(args, str)
     version_found = None
-    if len(args) > 1 and args[1] == "generate_cohort":
+    if len(args) > 1 and args[1] in ("generate_cohort", "generate_dataset"):
         if args[0].startswith("cohortextractor:"):
             version_found = 1
         # databuilder is a rebranded cohortextractor-v2.
