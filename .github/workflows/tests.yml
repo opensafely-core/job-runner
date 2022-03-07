@@ -8,15 +8,21 @@ env:
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
 jobs:
   test-job:
+    strategy:
+      matrix:
+        # Python 3.8 is what we currently support for running cohortextractor
+        # locally, and 3.9 is what we required for databuilder so we need to make
+        # sure we can run with those
+        python: [3.8, 3.9]
     runs-on: ubuntu-latest
     name: Run test suite
     steps:
     - name: Checkout
       uses: actions/checkout@v1
-    - name: Set up Python 3.8
+    - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v1
       with:
-        python-version: 3.8
+        python-version: ${{ matrix.python }}
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
