@@ -18,37 +18,37 @@ actions:
       highly_sensitive:
         cohort: output/extra/input.csv
 
-  prepare_data_m:
-    run: python:latest python analysis/filter_by_sex.py M output/input.csv male.csv
+  prepare_data_m_cohortextractor:
+    run: python:latest python analysis/filter_by_sex.py M output/input.csv cohortextractor-male.csv
     needs: [generate_cohort]
     outputs:
       highly_sensitive:
-        male_cohort: male.*
+        male_cohort: cohortextractor-male.*
 
-  prepare_data_f:
-    run: python:latest python analysis/filter_by_sex.py F output/input.csv female.csv
+  prepare_data_f_cohortextractor:
+    run: python:latest python analysis/filter_by_sex.py F output/input.csv cohortextractor-female.csv
     needs: [generate_cohort]
     outputs:
       highly_sensitive:
-        female_cohort: female.*
+        female_cohort: cohortextractor-female.*
 
-  prepare_data_with_quote_in_filename:
-    run: python:latest python analysis/filter_by_sex.py F output/input.csv "qu'ote.csv"
+  prepare_data_with_quote_in_filename_cohortextractor:
+    run: python:latest python analysis/filter_by_sex.py F output/input.csv "cohortextractor-qu'ote.csv"
     needs: [generate_cohort]
     outputs:
       highly_sensitive:
-        quote_cohort: "qu'ote.*"
+        quote_cohort: "cohortextractor-qu'ote.*"
 
-  analyse_data:
-    run: python:latest python analysis/count_lines.py counts.txt
+  analyse_data_cohortextractor:
+    run: python:latest python analysis/count_lines.py cohortextractor-counts.txt
     config:
-      files: ["male.csv", "female.csv", "qu'ote.csv"]
-    needs: [prepare_data_m, prepare_data_f, prepare_data_with_quote_in_filename]
+      files: ["cohortextractor-male.csv", "cohortextractor-female.csv", "cohortextractor-qu'ote.csv"]
+    needs: [prepare_data_m_cohortextractor, prepare_data_f_cohortextractor, prepare_data_with_quote_in_filename_cohortextractor]
     outputs:
       moderately_sensitive:
-        counts: counts.txt
+        counts: cohortextractor-counts.txt
 
-  test_reusable_action:
+  test_reusable_action_cohortextractor:
     run: minimal-action:v1.1.0 output/input.csv
     config:
       suffix: .backup
@@ -57,9 +57,36 @@ actions:
       highly_sensitive:
         cohort: output/input.backup.csv
 
-  test_cancellation:
-    run: python:latest python analysis/filter_by_sex.py F output/input.csv somefile.csv
+  test_cancellation_cohortextractor:
+    run: python:latest python analysis/filter_by_sex.py F output/input.csv cohortextractor-somefile.csv
     needs: [generate_cohort]
     outputs:
       highly_sensitive:
-        somefile: somefile.csv
+        somefile: cohortextractor-somefile.csv
+
+  generate_dataset:
+    run: databuilder:v0.36.0 generate_dataset --dataset-definition=analysis/dataset_definition.py --dataset=output/dataset.csv --dummy-data-file=test-data/databuilder-dummy-data.csv
+    outputs:
+      highly_sensitive:
+        cohort: output/dataset.csv
+
+  analyse_data_databuilder:
+    run: python:latest python analysis/count_by_year.py output/dataset.csv output/count_by_year.csv
+    needs: [generate_dataset]
+    outputs:
+      moderately_sensitive:
+        count: output/count_by_year.csv
+
+  derp_action:
+    run: python:latest python analysis/dummy_action.py output/dummy.txt
+    needs: [generate_dataset]
+    outputs:
+      moderately_sensitive:
+        dummy: output/dummy.txt
+
+  test_cancellation_databuilder:
+    run: python:latest python analysis/count_by_year.py output/dataset.csv output/count_by_year_cancelled.csv
+    needs: [generate_dataset]
+    outputs:
+      highly_sensitive:
+        count: output/count_by_year_cancelled.csv
