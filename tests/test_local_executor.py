@@ -8,6 +8,7 @@ from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import docker
 from jobrunner.manage_jobs import (
     container_name,
+    get_high_privacy_archive,
     get_high_privacy_workspace,
     get_medium_privacy_workspace,
 )
@@ -147,6 +148,31 @@ def test_prepare_no_image(use_api, docker_cleanup, test_repo):
 
     assert status.state == ExecutorState.ERROR
     assert job.image in status.message.lower()
+
+
+@pytest.mark.needs_docker
+def test_prepare_no_archived(use_api, docker_cleanup, test_repo):
+    job = JobDefinition(
+        id="test_prepare_no_image",
+        study=test_repo.study,
+        workspace="test",
+        action="action",
+        image="invalid-test-image",
+        args=["/usr/bin/true"],
+        env={},
+        inputs=["output/input.csv"],
+        output_spec={},
+        allow_database_access=False,
+    )
+
+    api = local.LocalDockerAPI()
+    archive = get_high_privacy_archive(job.workspace)
+    archive.parent.mkdir(parents=True)
+    archive.write_text("I exist")
+    status = api.prepare(job)
+
+    assert status.state == ExecutorState.ERROR
+    assert "has been archived"
 
 
 @pytest.mark.needs_docker

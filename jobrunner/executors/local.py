@@ -25,6 +25,7 @@ from jobrunner.manage_jobs import (
     copy_local_workspace_to_volume,
     ensure_overwritable,
     get_container_metadata,
+    get_high_privacy_archive,
     get_high_privacy_workspace,
     get_log_dir,
     get_medium_privacy_workspace,
@@ -58,6 +59,16 @@ class LocalDockerAPI(ExecutorAPI):
         current = self.get_status(job)
         if current.state != ExecutorState.UNKNOWN:
             return current
+
+        # Check the workspace is not archived
+        workspace_dir = get_high_privacy_workspace(job.workspace)
+        if not workspace_dir.exists():
+            archive = get_high_privacy_archive(job.workspace)
+            if archive.exists():
+                return JobStatus(
+                    ExecutorState.ERROR,
+                    f"Workspace {job.workspace} has been archived. Contact the OpenSAFELY tech team to resolve",
+                )
 
         # Check the image exists locally and error if not. Newer versions of
         # docker-cli support `--pull=never` as an argument to `docker run` which
