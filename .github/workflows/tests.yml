@@ -8,40 +8,31 @@ env:
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
 jobs:
   test-job:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-2019]
+        # Python 3.8 is what we currently support for running cohortextractor
+        # locally, and 3.9 is what we required for databuilder so we need to make
+        # sure we can run with those
+        python: [3.8, 3.9]
+    runs-on: ${{ matrix.os }}
     name: Run test suite
     steps:
     - name: Checkout
       uses: actions/checkout@v1
-    - name: Set up Python 3.8
+    - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v1
       with:
-        python-version: 3.8
+        python-version: ${{ matrix.python }}
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.dev.txt
-    - name: Run actual tests
+    - name: Run actual tests on ${{ matrix.os }}
+      if: ${{ matrix.os == 'ubuntu-latest' }}
       run: python -m pytest
-
-  # A bit of inelegant copy/paste here, just to see if this works
-  test-job-windows:
-    runs-on: windows-2019
-    name: "Run test suite on Windows"
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v1
-    # Python 3.8 is what we currently require for running the cohortextractor
-    #  locally so we need to make sure we can run with that
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.8
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.dev.txt
-    - name: Run actual tests
+    - name: Run actual tests on ${{ matrix.os }}
+      if: ${{ matrix.os == 'windows-2019' }}
       run: python -m pytest -m "not needs_docker"
 
   test-package-build:

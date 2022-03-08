@@ -295,7 +295,7 @@ def handle_job_api(job, api):
         elif job.state != State.RUNNING:
             # got an ExecutorState that should mean the job.state is RUNNING, but it is not
             log.warning(
-                "state error: got {new_status.state} for job we thought was {job.state}"
+                f"state error: got {new_status.state} for job we thought was {job.state}"
             )
         set_message(job, new_status.state.value.title())
 
