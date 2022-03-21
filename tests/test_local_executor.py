@@ -8,7 +8,6 @@ from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import docker
 from jobrunner.manage_jobs import (
     container_name,
-    get_high_privacy_archive,
     get_high_privacy_workspace,
     get_medium_privacy_workspace,
 )
@@ -150,14 +149,14 @@ def test_prepare_no_image(use_api, docker_cleanup, test_repo):
     assert job.image in status.message.lower()
 
 
-@pytest.mark.needs_docker
-def test_prepare_no_archived(use_api, docker_cleanup, test_repo):
+@pytest.mark.parametrize("ext", config.ARCHIVE_FORMATS)
+def test_prepare_archived(ext, use_api, test_repo):
     job = JobDefinition(
-        id="test_prepare_no_image",
+        id="test_prepare_archived",
         study=test_repo.study,
         workspace="test",
         action="action",
-        image="invalid-test-image",
+        image="ghcr.io/opensafely-core/busybox",
         args=["/usr/bin/true"],
         env={},
         inputs=["output/input.csv"],
@@ -166,8 +165,8 @@ def test_prepare_no_archived(use_api, docker_cleanup, test_repo):
     )
 
     api = local.LocalDockerAPI()
-    archive = get_high_privacy_archive(job.workspace)
-    archive.parent.mkdir(parents=True)
+    archive = (config.HIGH_PRIVACY_ARCHIVE_DIR / job.workspace).with_suffix(ext)
+    archive.parent.mkdir(parents=True, exist_ok=True)
     archive.write_text("I exist")
     status = api.prepare(job)
 
