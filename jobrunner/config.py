@@ -39,7 +39,7 @@ HIGH_PRIVACY_ARCHIVE_DIR = os.environ.get(
 )
 
 # valid archive formats
-ARCHIVE_FORMATS = (".tar.gz", ".tar.xz")
+ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
 
 
 JOB_LOG_DIR = HIGH_PRIVACY_STORAGE_BASE / "logs"
