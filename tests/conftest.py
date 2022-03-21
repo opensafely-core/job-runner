@@ -28,6 +28,7 @@ def tmp_work_dir(monkeypatch, tmp_path):
         "MEDIUM_PRIVACY_STORAGE_BASE",
         "HIGH_PRIVACY_WORKSPACES_DIR",
         "MEDIUM_PRIVACY_WORKSPACES_DIR",
+        "HIGH_PRIVACY_ARCHIVE_DIR",
         "JOB_LOG_DIR",
     ]
     for config_var in config_vars:

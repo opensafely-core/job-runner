@@ -543,11 +543,6 @@ def get_high_privacy_workspace(workspace):
     return config.HIGH_PRIVACY_WORKSPACES_DIR / workspace
 
 
-def get_high_privacy_archive(workspace):
-    name = config.HIGH_PRIVACY_STORAGE_BASE / "archives" / workspace
-    return name.with_suffix(".tar.xz")
-
-
 def get_medium_privacy_workspace(workspace):
     if config.MEDIUM_PRIVACY_WORKSPACES_DIR:
         return config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace

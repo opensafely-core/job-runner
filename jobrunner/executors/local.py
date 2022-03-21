@@ -3,6 +3,7 @@ import logging
 import subprocess
 from pathlib import Path
 
+from jobrunner import config
 from jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorState,
@@ -25,7 +26,6 @@ from jobrunner.manage_jobs import (
     copy_local_workspace_to_volume,
     ensure_overwritable,
     get_container_metadata,
-    get_high_privacy_archive,
     get_high_privacy_workspace,
     get_log_dir,
     get_medium_privacy_workspace,
@@ -52,6 +52,15 @@ def get_job_labels(job: JobDefinition):
     }
 
 
+def workspace_is_archived(workspace):
+    archive_dir = config.HIGH_PRIVACY_ARCHIVE_DIR
+    for ext in config.ARCHIVE_FORMATS:
+        path = (archive_dir / workspace).with_suffix(ext)
+        if path.exists():
+            return True
+    return False
+
+
 class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
@@ -63,8 +72,7 @@ class LocalDockerAPI(ExecutorAPI):
         # Check the workspace is not archived
         workspace_dir = get_high_privacy_workspace(job.workspace)
         if not workspace_dir.exists():
-            archive = get_high_privacy_archive(job.workspace)
-            if archive.exists():
+            if workspace_is_archived(job.workspace):
                 return JobStatus(
                     ExecutorState.ERROR,
                     f"Workspace {job.workspace} has been archived. Contact the OpenSAFELY tech team to resolve",
