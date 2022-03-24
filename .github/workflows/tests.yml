@@ -2,11 +2,27 @@ name: Tests
 
 on:
     pull_request:
+
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
+
 jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: "actions/setup-python@v2"
+        with:
+          python-version: "3.8"
+          cache: "pip"
+          cache-dependency-path: requirements.*.txt
+      - uses: extractions/setup-just@v1
+      - name: Check formatting, linting and import sorting
+        run: just check
+
   test-job:
     strategy:
       matrix:
@@ -20,20 +36,22 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v1
+
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.dev.txt
+
+    - uses: extractions/setup-just@v1
+
     - name: Run actual tests on ${{ matrix.os }}
       if: ${{ matrix.os == 'ubuntu-latest' }}
-      run: python -m pytest
+      run: just test
+
     - name: Run actual tests on ${{ matrix.os }}
       if: ${{ matrix.os == 'windows-2019' }}
-      run: python -m pytest -m "not needs_docker"
+      run: just test-no-docker
+      shell: cmd
 
   test-package-build:
     runs-on: ubuntu-latest
@@ -72,10 +90,12 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v1
+
     - name: Build image
-      run: make docker-build
+      run: make -C docker docker-build
+
     - name: Run tests in docker-image
-      run: make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
+      run: make -C docker docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
 
   test-github-workflow-output:
     runs-on: ubuntu-latest
@@ -87,10 +107,9 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: 3.8
+    - uses: extractions/setup-just@v1
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      run: just devenv
     - name: Run equivalent command used by test runner
       # We don't care if this command succeeds or not, we just want to be able
       # to look at the output

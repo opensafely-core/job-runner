@@ -1,21 +1,25 @@
+default_language_version:
+  python: python3.8
+
 repos:
   - repo: https://github.com/psf/black
     rev: 21.8b0
     hooks:
     - id: black
-      language_version: python3.8
 
   - repo: https://github.com/PyCQA/flake8
     rev: 3.8.4
     hooks:
     - id: flake8
-      language_version: python3.8
+      additional_dependencies:
+      - "flake8-builtins"
+      - "flake8-implicit-str-concat"
+      - "flake8-no-pep420"
 
   - repo: https://github.com/PyCQA/isort
     rev: 5.6.4
     hooks:
     - id: isort
-      language_version: python3.8
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.2.0
@@ -29,3 +33,8 @@ repos:
     - id: check-yaml
     - id: detect-private-key
     - id: detect-aws-credentials
+
+  - repo: https://github.com/stratasan/hadolint-pre-commit
+    rev: cdefcb0
+    hooks:
+    - id: hadolint

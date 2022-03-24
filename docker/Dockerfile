@@ -54,7 +54,7 @@ ENV VIRTUAL_ENV=/opt/venv/ PATH="/opt/venv/bin:$PATH"
 
 # The cache mount means a) /root/.cache is not in the image, and b) it's preserved
 # between docker builds locally, for faster dev rebuild.
-COPY requirements.txt /tmp/requirements.prod.txt
+COPY requirements.prod.txt /tmp/requirements.prod.txt
 
 # DL3042: using cache mount instead
 # DL3013: we always want latest pip/setuptools/wheel, at least for now
