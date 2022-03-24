@@ -41,39 +41,34 @@ containers and stores the appropriate outputs when they finish.
 ## Testing
 
 Tests can be run with:
-```
-python -m pytest
-```
-(Note that the `pytest` command is subtly different and won't work).
+
+    just test
 
 Some of these tests involve talking to GitHub and there is a big fat
 integration test which takes a while to run. You can run just the fast
 tests with:
-```
-python -m pytest -m "not slow_test"
-```
 
-The big integration test will sit there inscrutably for 30s-1min. If you
-want to know what it's up to you can get pytest to show the log output
-with:
-```
-python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
-```
+    just test-fast
+
+The big integration test will sit there inscrutably for 30s-1min.
+If you want to know what it's up to you can get pytest to show the log output with:
+
+    just test-verbose
 
 ### Testing in docker
 
 To run tests in docker, simply run:
 
-    make docker-test
+    make -C docker docker-test
 
 This will build the docker image and run tests. You can run job-runner as
 a service with:
 
-    make docker-serve
+    make -C docker docker-serve
 
 Or run a command inside the docker image:
 
-    make docker-run ARGS=command  # bash by default
+    make -C docker docker-run ARGS=command  # bash by default
 
 
 
@@ -139,9 +134,9 @@ python -m jobrunner.cli.add_job --help
 
 Building the dev docker image:
 
-    make docker-build                   # build base and dev image
-    make docker-build ENV=prod          # build base and prod image
-    make docker-build ARGS=--no-cache   # build without cache
+    make -C docker-build                   # build base and dev image
+    make -C docker-build ENV=prod          # build base and prod image
+    make -C docker-build ARGS=--no-cache   # build without cache
 
 
 ### Exposing the host's docker service
@@ -161,11 +156,10 @@ possibly on a remote machine. You can disable with:
 
 Note: The above commands will automatically generate a local ed25519
 dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
-`make docker-clean` to remove this.  If you wish to use a different user/host,
+`just docker-clean` to remove this.  If you wish to use a different user/host,
 you can do so:
 
 1. Specify `SSH_USER` and `SSH_HOST` environment variables.
 2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
 3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
    set up.
-

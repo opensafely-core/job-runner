@@ -1,6 +1,7 @@
 
 # local dev env file for docker-compose to use when building
 .env:
+	cp ../dotenv-sample ../.env
 	@echo "Generating local docker-compose .env file..."
 	@echo "# local dev docker-compose config" > $@
 	@echo "DEV_USERID=$(shell id -u)" >> $@
