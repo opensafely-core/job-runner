@@ -3,12 +3,12 @@ default_language_version:
 
 repos:
   - repo: https://github.com/psf/black
-    rev: 21.8b0
+    rev: 22.1.0
     hooks:
     - id: black
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 3.8.4
+    rev: 4.0.1
     hooks:
     - id: flake8
       additional_dependencies:
@@ -17,7 +17,7 @@ repos:
       - "flake8-no-pep420"
 
   - repo: https://github.com/PyCQA/isort
-    rev: 5.6.4
+    rev: 5.10.1
     hooks:
     - id: isort
 
