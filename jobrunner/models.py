@@ -41,7 +41,7 @@ class StatusCode(Enum):
 # never save to the database (hence no __tablename__ attribute)
 @dataclasses.dataclass
 class JobRequest:
-    id: str
+    id: str  # noqa: A003
     repo_url: str
     commit: str
     requested_actions: list
@@ -62,7 +62,7 @@ class JobRequest:
 class SavedJobRequest:
     __tablename__ = "job_request"
 
-    id: str
+    id: str  # noqa: A003
     original: dict
 
 
@@ -70,7 +70,7 @@ class SavedJobRequest:
 class Job:
     __tablename__ = "job"
 
-    id: str = None
+    id: str = None  # noqa: A003
     job_request_id: str = None
     state: State = None
     # Git repository URL
