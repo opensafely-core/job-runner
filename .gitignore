@@ -16,7 +16,7 @@ docker/.env
 docker/ssh/id_*
 docker/ssh/known_hosts
 htmlcov
-lib
+./lib
 model.log
 pip-wheel-metadata/*
 service*.log
