@@ -1,4 +1,4 @@
-from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
+from jobrunner.job_executor import ExecutorAPI, JobDefinition, JobStatus
 
 
 class RecordingExecutor(ExecutorAPI):

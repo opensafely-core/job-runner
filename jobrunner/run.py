@@ -35,6 +35,7 @@ from jobrunner.manage_jobs import (
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.project import is_generate_cohort_command
 
+
 log = logging.getLogger(__name__)
 
 

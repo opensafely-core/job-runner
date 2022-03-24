@@ -15,6 +15,7 @@ from jobrunner.lib.git import (
     read_file_from_repo,
 )
 
+
 REPO_FIXTURE = str(Path(__file__).parents[1].resolve() / "fixtures/git-repo")
 
 

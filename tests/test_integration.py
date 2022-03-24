@@ -13,6 +13,7 @@ import jobrunner.sync
 from jobrunner.executors import get_executor_api
 from tests.factories import ensure_docker_images_present
 
+
 log = logging.getLogger(__name__)
 
 

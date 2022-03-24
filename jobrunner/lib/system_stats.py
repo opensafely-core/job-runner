@@ -4,6 +4,7 @@ from jobrunner.lib.docker import (
     docker,
 )
 
+
 __all__ = ["get_system_stats", "DockerDiskSpaceError"]
 
 # Populated by calls to `register_command` below

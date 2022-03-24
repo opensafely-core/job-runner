@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from jobrunner import config
 from jobrunner.lib.yaml_utils import YAMLError, parse_yaml
 
+
 # The magic action name which means "run every action"
 RUN_ALL_COMMAND = "run_all"
 

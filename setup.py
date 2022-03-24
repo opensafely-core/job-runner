@@ -2,6 +2,7 @@ import os
 
 from setuptools import find_packages, setup
 
+
 with open(os.path.join("VERSION")) as f:
     version = f.read().strip()
 

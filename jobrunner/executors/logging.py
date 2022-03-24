@@ -10,6 +10,7 @@ from jobrunner.job_executor import (
 )
 from jobrunner.lib.lru_dict import LRUDict
 
+
 LOGGER_NAME = "executor"
 
 

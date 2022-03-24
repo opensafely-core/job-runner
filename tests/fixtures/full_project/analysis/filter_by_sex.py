@@ -1,6 +1,7 @@
 import csv
 import sys
 
+
 if __name__ == "__main__":
     sex, input_file, output_file = sys.argv[1:]
     with open(input_file) as f:
