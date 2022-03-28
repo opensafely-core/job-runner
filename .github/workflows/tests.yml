@@ -9,13 +9,13 @@ env:
 
 jobs:
   test-docker:
-    name: "Test docker with actions/checkout@722adc6"
+    name: "Test docker with actions/checkout sha"
 
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@722adc6
+        uses: actions/checkout@722adc63f1aa60a57ec37892e133b1d319cae598
 
       - name: Build image
         run: make -C docker docker-build
