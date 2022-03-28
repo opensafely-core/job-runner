@@ -16,8 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@e347bba93bdcadab0b55e4b333254f9bb40bdb0c
-        with:
-          persist-credentials: false
 
       - name: Debug git
         run: git config --list
