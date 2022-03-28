@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@5881116d181dc80f3ed5f395296a5579ee6fc6a4
+        uses: actions/checkout@7990b10a0ca6be1ddd27e4d84e6dbbe788d86662
 
       - name: Build image
         run: make -C docker docker-build
