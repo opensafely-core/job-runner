@@ -19,6 +19,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Debug git
+        run: git config --list
+
       - name: Build image
         run: make -C docker docker-build
 
