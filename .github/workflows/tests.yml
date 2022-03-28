@@ -19,7 +19,7 @@ jobs:
     name: Run test suite
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v1
       with:
@@ -40,7 +40,7 @@ jobs:
     name: Test we can build PyPI package
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
     - name: Set up Python 3.8
       uses: actions/setup-python@v1
       with:
@@ -71,7 +71,7 @@ jobs:
     name: Test docker image
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
     - name: Build image
       run: make docker-build
     - name: Run tests in docker-image
@@ -82,7 +82,7 @@ jobs:
     name: Inspect test runner output in the context of a Github Workflow
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
     - name: Set up Python 3.8
       uses: actions/setup-python@v1
       with:
