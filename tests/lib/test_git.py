@@ -118,6 +118,7 @@ def test_get_sha_from_remote_ref_private(tmp_work_dir):
         "https://github.com/opensafely/test-repository", "v1.0"
     )
     assert sha == "981ac62ec5620df90556bc18784f06b6e7db7e4d"
+    assert False
 
 
 # The below tests use a local git repo fixture rather than accessing GitHub
