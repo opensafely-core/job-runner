@@ -78,7 +78,7 @@ services:
       # test_create_or_update_jobs.py \
       # test_integration.py \
       # test_job_resource_weights.py \
-      # test_local_executor.py \
+      test_local_executor.py \
       test_logging_executor.py \
       test_manage_jobs.py \
       test_manifest_to_database_migration.py \
