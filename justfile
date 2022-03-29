@@ -2,16 +2,17 @@
 # so we shell out, as we need VIRTUAL_ENV in the justfile environment
 export VIRTUAL_ENV  := `echo ${VIRTUAL_ENV:-.venv}`
 
-# TODO: make it /scripts on windows?
-export BIN := VIRTUAL_ENV + "/bin"
-export PIP := BIN + "/python -m pip"
+export BIN := VIRTUAL_ENV + if os_family() == "unix" { "/bin" } else { "/Scripts" }
+export PIP := BIN + if os_family() == "unix" { "/python -m pip" } else { "/python.exe -m pip" }
 # enforce our chosen pip compile flags
 export COMPILE := BIN + "/pip-compile --allow-unsafe --generate-hashes"
+
+export DEFAULT_PYTHON := if os_family() == "unix" { "python3.8" } else { "python" }
 
 
 # list available commands
 default:
-    @{{ just_executable() }} --list
+    @"{{ just_executable() }}" --list
 
 
 # clean up temporary files
@@ -23,7 +24,7 @@ clean:
 virtualenv:
     #!/usr/bin/env bash
     # allow users to specify python version in .env
-    PYTHON_VERSION=${PYTHON_VERSION:-python3.8}
+    PYTHON_VERSION=${PYTHON_VERSION:-$DEFAULT_PYTHON}
 
     # create venv and upgrade pip
     test -d $VIRTUAL_ENV || { $PYTHON_VERSION -m venv $VIRTUAL_ENV && $PIP install --upgrade pip; }
@@ -41,12 +42,12 @@ _compile src dst *args: virtualenv
 
 # update requirements.prod.txt if setup.py has changed
 requirements-prod *args:
-    {{ just_executable() }} _compile setup.py requirements.prod.txt {{ args }}
+    "{{ just_executable() }}" _compile setup.py requirements.prod.txt {{ args }}
 
 
 # update requirements.dev.txt if requirements.dev.in has changed
 requirements-dev *args: requirements-prod
-    {{ just_executable() }} _compile requirements.dev.in requirements.dev.txt {{ args }}
+    "{{ just_executable() }}" _compile requirements.dev.in requirements.dev.txt {{ args }}
 
 
 # ensure prod requirements installed and up to date
@@ -84,7 +85,7 @@ upgrade env package="": virtualenv
     #!/usr/bin/env bash
     opts="--upgrade"
     test -z "{{ package }}" || opts="--upgrade-package {{ package }}"
-    FORCE=true {{ just_executable() }} requirements-{{ env }} $opts
+    FORCE=true "{{ just_executable() }}" requirements-{{ env }} $opts
 
 
 # *ARGS is variadic, 0 or more. This allows us to do `just test -k match`, for example.
