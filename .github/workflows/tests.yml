@@ -7,64 +7,6 @@ env:
   PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
 jobs:
-  test-job:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-2019]
-        # Python 3.8 is what we currently support for running cohortextractor
-        # locally, and 3.9 is what we required for databuilder so we need to make
-        # sure we can run with those
-        python: [3.8, 3.9]
-    runs-on: ${{ matrix.os }}
-    name: Run test suite
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v1
-      with:
-        python-version: ${{ matrix.python }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.dev.txt
-    - name: Run actual tests on ${{ matrix.os }}
-      if: ${{ matrix.os == 'ubuntu-latest' }}
-      run: python -m pytest
-    - name: Run actual tests on ${{ matrix.os }}
-      if: ${{ matrix.os == 'windows-2019' }}
-      run: python -m pytest -m "not needs_docker"
-
-  test-package-build:
-    runs-on: ubuntu-latest
-    name: Test we can build PyPI package
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.8
-    # We need to set this to a valid version string in order to keep pip happy,
-    # but it doesn't really matter what version we use
-    - name: Set version
-      run: echo '1.0' > VERSION
-    - name: Build package
-      run: |
-        pip install wheel
-        python setup.py sdist bdist_wheel
-    - name: Check that wheel installs and runs
-      run: |
-        python -m venv test-wheel
-        test-wheel/bin/pip install dist/*.whl
-        # Minimal check that it has actually built correctly
-        test-wheel/bin/python -m jobrunner.cli.local_run --help
-    - name: Check that sdist installs and runs
-      run: |
-        python -m venv test-sdist
-        test-sdist/bin/pip install dist/*.tar.gz
-        # Minimal check that it has actually built correctly
-        test-sdist/bin/python -m jobrunner.cli.local_run --help
 
   test-docker:
     runs-on: ubuntu-latest
@@ -75,27 +17,6 @@ jobs:
     - name: Build image
       run: make docker-build
     - name: Run tests in docker-image
-      run: make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
-
-  test-github-workflow-output:
-    runs-on: ubuntu-latest
-    name: Inspect test runner output in the context of a Github Workflow
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.8
-    - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    - name: Run equivalent command used by test runner
-      # We don't care if this command succeeds or not, we just want to be able
-      # to look at the output
-      run: |
-        python -m jobrunner.local_run run_all \
-          --project-dir=tests/fixtures/full_project \
-          --continue-on-error --timestamps --format-output-for-github \
-          || true
+        git config --list
+        make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
