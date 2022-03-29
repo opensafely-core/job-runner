@@ -71,4 +71,4 @@ services:
         service: dev
     container_name: job-runner-test
     # override command
-    command: /opt/venv/bin/pytest
+    command: /opt/venv/bin/pytest tests/lib/test_git.py
