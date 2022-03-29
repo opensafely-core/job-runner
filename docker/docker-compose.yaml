@@ -71,4 +71,4 @@ services:
         service: dev
     container_name: job-runner-test
     # override command
-    command: /opt/venv/bin/pytest tests/lib/ tests/test_config.py tests/test_create_or_update_jobs.py tests/test_integration.py tests/test_job_resource_weights.py tests/test_local_executor.py tests/test_logging_executor.py tests/test_manage_jobs.py tests/test_manifest_to_database_migration.py tests/test_project.py tests/test_reusable_actions.py #tests/test_run.py tests/test_service.py tests/test_sync.py tests/test_workspace_state.py
+    command: /opt/venv/bin/pytest tests/lib/ tests/test_config.py tests/test_create_or_update_jobs.py tests/test_integration.py tests/test_job_resource_weights.py tests/test_local_executor.py tests/test_logging_executor.py tests/test_manage_jobs.py tests/test_manifest_to_database_migration.py tests/test_project.py tests/test_reusable_actions.py tests/test_run.py #tests/test_service.py tests/test_sync.py tests/test_workspace_state.py
