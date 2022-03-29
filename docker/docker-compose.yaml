@@ -79,7 +79,7 @@ services:
       # test_integration.py \
       # test_job_resource_weights.py \
       # test_local_executor.py \
-      # test_logging_executor.py \
+      test_logging_executor.py \
       test_manage_jobs.py \
       test_manifest_to_database_migration.py \
       test_project.py \
