@@ -58,3 +58,38 @@ def test_disk_space_detection(monkeypatch):
     monkeypatch.setattr(docker, "subprocess_run", error(None, msg))
     with pytest.raises(docker.DockerDiskSpaceError):
         docker.docker([])
+
+
+@pytest.mark.needs_docker
+def test_copy_from_volume(tmp_path, docker_cleanup):
+    volume = __name__
+    src = tmp_path / "src.txt"
+    dst = tmp_path / "dst.txt"
+    src.write_text("I exist")
+    docker.create_volume(volume)
+    docker.copy_to_volume(volume, src, "src.txt")
+    docker.copy_from_volume(volume, "src.txt", dst)
+    assert dst.read_text() == "I exist"
+    assert len(list(tmp_path.glob(f"dst.txt*.tmp"))) == 0
+
+
+@pytest.mark.needs_docker
+def test_copy_from_volume_error(tmp_path, docker_cleanup, monkeypatch):
+    volume = __name__
+    src = tmp_path / "src.txt"
+    dst = tmp_path / "dst.txt"
+
+    src.write_text("I exist")
+    docker.create_volume(volume)
+    docker.copy_to_volume(volume, src, "src.txt")
+
+    def docker_error(*args, **kwards):
+        raise Exception("oh noes")
+
+    monkeypatch.setattr(docker, "docker", docker_error)
+
+    with pytest.raises(Exception):
+        docker.copy_from_volume(volume, "src.txt", dst)
+
+    assert not dst.exists()
+    assert len(list(tmp_path.glob(f"dst.txt*.tmp"))) == 0
