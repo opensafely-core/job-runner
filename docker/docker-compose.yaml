@@ -86,5 +86,5 @@ services:
       # test_reusable_actions.py \
       # test_run.py \
       # test_service.py \
-      # test_sync.py \
+      test_sync.py \
       test_workspace_state.py
