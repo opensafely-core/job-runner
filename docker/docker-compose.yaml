@@ -82,7 +82,7 @@ services:
       # test_logging_executor.py \
       # test_manage_jobs.py \
       # test_manifest_to_database_migration.py \
-      # test_project.py \
+      test_project.py \
       test_reusable_actions.py \
       test_run.py \
       test_service.py \
