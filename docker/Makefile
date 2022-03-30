@@ -24,7 +24,7 @@ docker-build: .env
 .PHONY: docker-test
 # run tests in docker container
 docker-test: docker-build
-	docker-compose run -e GIT_CONFIG_COUNT=4 $(ARGS) --rm test
+	docker-compose run -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_1="http.https://github.com/.extraheader" -e GIT_CONFIG_VALUE_1="" $(ARGS) --rm test
 
 
 .PHONY: docker-serve
