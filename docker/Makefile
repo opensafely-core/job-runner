@@ -24,7 +24,7 @@ docker-build: .env
 .PHONY: docker-test
 # run tests in docker container
 docker-test: docker-build
-	docker-compose run GIT_CONFIG_COUNT=6 $(ARGS) --rm test
+	docker-compose run -e GIT_CONFIG_COUNT=6 $(ARGS) --rm test
 
 
 .PHONY: docker-serve
