@@ -71,4 +71,4 @@ services:
         service: dev
     container_name: job-runner-test
     # override command
-    command: /opt/venv/bin/pytest tests/cli/test_local_run.py::test_local_run_copes_with_detritus_of_earlier_interrupted_run tests/lib/test_git.py::test_get_sha_from_remote_ref_private -vv
+    command: git config --list && /opt/venv/bin/pytest tests/cli/test_local_run.py::test_local_run_copes_with_detritus_of_earlier_interrupted_run tests/lib/test_git.py::test_get_sha_from_remote_ref_private -vv
