@@ -114,6 +114,8 @@ def test_read_file_from_private_repo(tmp_work_dir):
 )
 @pytest.mark.slow_test
 def test_get_sha_from_remote_ref_private(tmp_work_dir):
+    for k, v in sorted(os.environ.items()):
+        print(f"{k}: {v}")
     sha = get_sha_from_remote_ref(
         "https://github.com/opensafely/test-repository", "v1.0"
     )

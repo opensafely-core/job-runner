@@ -135,6 +135,8 @@ def get_sha_from_remote_ref(repo_url, ref):
     # If `ref` matches an annotated tag, then `deref_ref` will match the associated
     # commit.
     deref_ref = f"{ref}^{{}}"
+    for k, v in sorted(os.environ.items()):
+        print(f"{k}: {v}")
     try:
         response = subprocess_run(
             [
