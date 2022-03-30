@@ -144,7 +144,10 @@ def get_sha_from_remote_ref(repo_url, ref):
         encoding="utf-8",
         env=NEVER_PROMPT_FOR_AUTH_ENV,
     )
-    print(response)
+    print("git config --list via subprocess")
+    for line in response.stdout.split("\n"):
+        print(line)
+    print("")
 
     try:
         response = subprocess_run(
