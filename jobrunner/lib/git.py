@@ -137,7 +137,13 @@ def get_sha_from_remote_ref(repo_url, ref):
     deref_ref = f"{ref}^{{}}"
 
     response = subprocess_run(
-        ["git", "config", "--list"],
+        [
+            "git",
+            "-c",
+            "http.extraHeader=",
+            "config",
+            "--list",
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -153,6 +159,8 @@ def get_sha_from_remote_ref(repo_url, ref):
         response = subprocess_run(
             [
                 "git",
+                "-c",
+                "http.extraHeader=",
                 "ls-remote",
                 "--quiet",
                 add_access_token_and_proxy(repo_url),
