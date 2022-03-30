@@ -12,7 +12,6 @@ import pytest
 from jobrunner import config
 from jobrunner.cli import local_run
 from jobrunner.lib import database
-from jobrunner.lib.debug_tests import print_config
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
 from jobrunner.models import Job, SavedJobRequest, State
@@ -108,7 +107,6 @@ def test_local_run_copes_with_detritus_of_earlier_interrupted_run(
     project_dir = tmp_path / "project"
     shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
     config.DATABASE_FILE = project_dir / "metadata" / "db.sqlite"
-    print_config(config)
 
     project = parse_and_validate_project_file(
         (project_dir / "project.yaml").read_bytes()

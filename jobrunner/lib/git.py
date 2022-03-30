@@ -9,7 +9,6 @@ from pathlib import Path, PurePath
 from urllib.parse import urlparse, urlunparse
 
 from jobrunner import config
-from jobrunner.lib.debug_tests import print_config
 from jobrunner.lib.string_utils import project_name_from_url
 from jobrunner.lib.subprocess_utils import subprocess_run
 
@@ -136,9 +135,6 @@ def get_sha_from_remote_ref(repo_url, ref):
     # If `ref` matches an annotated tag, then `deref_ref` will match the associated
     # commit.
     deref_ref = f"{ref}^{{}}"
-
-    print_config(config)
-
     try:
         response = subprocess_run(
             [
