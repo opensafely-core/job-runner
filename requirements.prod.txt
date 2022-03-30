@@ -4,17 +4,15 @@
 #
 #    pip-compile --allow-unsafe --output-file=requirements.prod.txt setup.py
 #
-certifi==2021.10.8
+certifi==2020.11.8
     # via requests
-charset-normalizer==2.0.12
+chardet==3.0.4
     # via requests
-idna==3.3
+idna==2.10
     # via requests
-requests==2.27.1
+requests==2.25.0
     # via opensafely-jobrunner (setup.py)
-ruamel-yaml==0.17.21
+ruamel-yaml==0.16.12
     # via opensafely-jobrunner (setup.py)
-ruamel-yaml-clib==0.2.6
-    # via ruamel-yaml
-urllib3==1.26.9
+urllib3==1.26.5
     # via requests
