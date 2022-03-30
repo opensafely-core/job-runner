@@ -19,4 +19,4 @@ jobs:
     - name: Run tests in docker-image
       run: |
         git config --list
-        make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN -e GIT_CONFIG=/dev/null'
+        make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'

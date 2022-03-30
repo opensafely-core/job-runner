@@ -18,13 +18,13 @@ docker-build: export GITREF=$(git rev-parse --short HEAD)
 docker-build: ENV ?= dev
 docker-build: ARGS ?= --pull
 docker-build: .env
-	docker-compose --env-file .env build  $(ARGS) $(ENV) 
+	docker-compose --env-file .env build  $(ARGS) $(ENV)
 
 
 .PHONY: docker-test
 # run tests in docker container
 docker-test: docker-build
-	docker-compose run $(ARGS) --rm test
+	docker-compose run -e GIT_CONFIG_NOSYSTEM=1 $(ARGS) --rm test
 
 
 .PHONY: docker-serve
