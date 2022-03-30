@@ -24,7 +24,7 @@ docker-build: .env
 .PHONY: docker-test
 # run tests in docker container
 docker-test: docker-build
-	docker-compose run -e GIT_CONFIG_NOSYSTEM=1 $(ARGS) --rm test
+	docker-compose run -e GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null $(ARGS) --rm test
 
 
 .PHONY: docker-serve
