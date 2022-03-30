@@ -19,4 +19,8 @@ jobs:
     - name: Run tests in docker-image
       run: |
         git config --list
-        make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
+        make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN -e GIT_CONFIG_COUNT -e GIT_CONFIG_KEY_0 -e GIT_CONFIG_VALUE_0'
+      env:
+        GIT_CONFIG_COUNT: 1
+        GIT_CONFIG_KEY_0: http.https://github.com/.extraheader
+        GIT_CONFIG_VALUE_0:
