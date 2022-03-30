@@ -30,7 +30,7 @@ lib:
 
 requirements%.txt: requirements%.in
 	venv/bin/pip-compile $<
-    
+
 
 update-wheels: venv/ready requirements.txt requirements.tools.txt | lib
 	#git -C lib pull
@@ -38,7 +38,7 @@ update-wheels: venv/ready requirements.txt requirements.tools.txt | lib
 	cp requirements.txt requirements.tools.txt lib/
 	rm -rf lib/bin lib/*.dist-info
 	rm lib/_ruamel_yaml.*.so
-        
+
 
 # test the license shenanigins work when run from a console
 test-stata: venv/ready
@@ -51,11 +51,11 @@ test-stata: venv/ready
 # include docker commands in main Makefile
 # Assumption is that this will be replaced by justfile at some point
 docker-build docker-serve docker-run docker-test docker-clean: .env
-	$(MAKE) -C docker $@
+	$(MAKE) -C docker "$@"
 
 
 # required by docker-compose.yaml
-.env: 
+.env:
 	cp dotenv-sample .env
 
 fix:
