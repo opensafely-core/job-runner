@@ -127,6 +127,7 @@ def test_get_action_specification_for_cohortextractor_generate_cohort_action():
         == """cohortextractor:latest generate_cohort --expectations-population=1000 --output-dir=output"""
     )
 
+
 @pytest.mark.parametrize("image", ["cohortextractor-v2", "databuilder"])
 def test_get_action_specification_for_databuilder_action(image):
     project_dict = {
