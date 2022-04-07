@@ -280,6 +280,25 @@ def find_newer_files(volume_name, reference_file):
     return sorted(files)
 
 
+def get_file_size_bytes(volume_name, path):
+    """Return size in bytes of file at path."""
+    response = docker(
+        [
+            "container",
+            "exec",
+            manager_name(volume_name),
+            "stat",
+            "-c%s",
+            f"{VOLUME_MOUNT_POINT}/{path}",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    return int(response.stdout.strip())
+
+
 def manager_name(volume_name):
     return f"{volume_name}-manager"
 

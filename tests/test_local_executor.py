@@ -460,6 +460,45 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
+def test_finalize_failed_too_many_outputs(
+    use_api, docker_cleanup, test_repo, tmp_work_dir
+):
+    ensure_docker_images_present("busybox")
+
+    job = JobDefinition(
+        id="test_finalize_failed_too_many_outputs",
+        study=test_repo.study,
+        workspace="test",
+        action="action",
+        image="ghcr.io/opensafely-core/busybox",
+        args=["cp", "/workspace/output/input.csv", "/workspace/output/summary.csv"],
+        env={},
+        inputs=["output/input.csv"],
+        output_spec={"output/summary.csv": "moderately_sensitive"},
+        allow_database_access=False,
+    )
+
+    populate_workspace(job.workspace, "output/input.csv", content="X" * (33 * 2**20))
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job)
+    assert status.state == ExecutorState.PREPARING
+    status = api.execute(job)
+    assert status.state == ExecutorState.EXECUTING
+    wait_for_state(api, job, ExecutorState.EXECUTED)
+    status = api.finalize(job)
+    assert status.state == ExecutorState.FINALIZING
+
+    # we don't need to wait
+    assert api.get_status(job).state == ExecutorState.FINALIZED
+    assert job.id in local.RESULTS
+    results = api.get_results(job)
+    assert results.exit_code == 0
+    assert "outputs exceeded" in local.RESULTS[job.id].message
+
+
+@pytest.mark.needs_docker
 def test_cleanup_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 

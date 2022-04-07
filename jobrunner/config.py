@@ -38,6 +38,9 @@ HIGH_PRIVACY_ARCHIVE_DIR = os.environ.get(
     "HIGH_PRIVACY_ARCHIVE_DIR", HIGH_PRIVACY_STORAGE_BASE / "archives"
 )
 
+# The maximum size of all moderately-sensitive output files
+MAX_OUTPUT_SIZE_BYTES = 32 * 2**20  # 32MB
+
 # valid archive formats
 ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
 

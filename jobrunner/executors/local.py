@@ -252,8 +252,21 @@ def finalize_job(job):
         image_id=container_metadata["Image"],
         message=message,
     )
+    output_size_bytes = get_output_size_bytes(job, results.outputs)
+    if output_size_bytes > config.MAX_OUTPUT_SIZE_BYTES:
+        if results.message is None:
+            results.message = f"total size of moderately-sensitive outputs exceeded {config.MAX_OUTPUT_SIZE_BYTES}"
     persist_outputs(job, results.outputs, container_metadata)
     RESULTS[job.id] = results
+
+
+def get_output_size_bytes(job, outputs):
+    volume = volume_name(job)
+    return sum(
+        docker.get_file_size_bytes(volume, filename)
+        for filename, privacy_level in outputs.items()
+        if privacy_level == "moderately_sensitive"
+    )
 
 
 def persist_outputs(job, outputs, container_metadata):
