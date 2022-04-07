@@ -16,7 +16,7 @@ class Study:
 
 @dataclass
 class JobDefinition:
-    id: str  # a unique identifier for the job
+    id: str  # a unique identifier for the job  # noqa: A003
     study: Study  # the study defining the action for this job
     workspace: str  # the workspace to run the job in
     action: str  # the name of the action that the job is running

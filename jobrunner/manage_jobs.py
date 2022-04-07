@@ -30,6 +30,7 @@ from jobrunner.project import (
 )
 from jobrunner.queries import calculate_workspace_state
 
+
 log = logging.getLogger(__name__)
 
 # Directory inside working directory where manifest and logs are created

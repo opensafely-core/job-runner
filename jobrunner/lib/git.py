@@ -12,6 +12,7 @@ from jobrunner import config
 from jobrunner.lib.string_utils import project_name_from_url
 from jobrunner.lib.subprocess_utils import subprocess_run
 
+
 log = logging.getLogger(__name__)
 
 

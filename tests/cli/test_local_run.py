@@ -17,6 +17,7 @@ from jobrunner.manage_jobs import MANIFEST_FILE, METADATA_DIR
 from jobrunner.models import Job, SavedJobRequest, State
 from jobrunner.project import get_action_specification, parse_and_validate_project_file
 
+
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
 
 
@@ -160,7 +161,7 @@ def license_repo(tmp_path):
     # create a repo to clone the license from
     repo = tmp_path / "test-repo"
     repo.mkdir()
-    license = repo / "stata.lic"
+    license = repo / "stata.lic"  # noqa: A001
     license.write_text("repo-license")
     git = ["git", "-c", "user.name=test", "-c", "user.email=test@example.com"]
     env = {"GIT_CONFIG_GLOBAL": "/dev/null"}

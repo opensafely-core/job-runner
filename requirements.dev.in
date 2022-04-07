@@ -1,17 +1,18 @@
-# This contains the requirements for developing the job-runner, separate from
-# those required to run it in production
+--constraint requirements.prod.txt
 
-# Install the production requirements, exactly as specified
--r requirements.txt
+# Additional dev requirements
+# To generate a requirements file that includes both prod and dev requirements, run:
+# pip-compile --generate-hashes --output-file=requirements.dev.txt requirements.dev.in
 
-# Testing
+black
+flake8
+flake8-builtins
+flake8-implicit-str-concat
+flake8-no-pep420
+hypothesis
+isort
+pip-tools
+pre-commit
 pytest
 pytest-cov
 requests_mock
-hypothesis
-
-# Dev tools
-pip-tools
-black
-flake8
-isort

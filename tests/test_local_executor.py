@@ -525,7 +525,7 @@ def test_delete_files_success(tmp_work_dir):
 def test_delete_files_error(tmp_work_dir):
 
     # use the fact that unlink() on a director raises an error
-    high = populate_workspace("test", "bad/_")
+    populate_workspace("test", "bad/_")
 
     api = local.LocalDockerAPI()
     errors = api.delete_files("test", Privacy.HIGH, ["bad"])
@@ -535,6 +535,6 @@ def test_delete_files_error(tmp_work_dir):
 
 def test_delete_files_bad_privacy(tmp_work_dir):
     api = local.LocalDockerAPI()
-    high = populate_workspace("test", "file.txt")
+    populate_workspace("test", "file.txt")
     with pytest.raises(Exception):
         api.delete_files("test", None, ["file.txt"])

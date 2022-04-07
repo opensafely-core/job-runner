@@ -6,6 +6,7 @@ from jobrunner.cli import local_run
 from jobrunner.lib import log_utils
 from jobrunner.models import Job, JobRequest
 
+
 FROZEN_TIMESTAMP = 1608568119.1467905
 FROZEN_TIMESTRING = datetime.utcfromtimestamp(FROZEN_TIMESTAMP).isoformat()
 
