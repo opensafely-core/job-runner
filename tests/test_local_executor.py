@@ -289,8 +289,8 @@ def test_finalize_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
         env={},
         inputs=["output/input.csv"],
         output_spec={
-            "output/output.*": "high_privacy",
-            "output/summary.*": "medium_privacy",
+            "output/output.*": "highly_sensitive",
+            "output/summary.*": "moderately_sensitive",
         },
         allow_database_access=False,
     )
@@ -318,8 +318,8 @@ def test_finalize_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
     results = api.get_results(job)
     assert results.exit_code == 0
     assert results.outputs == {
-        "output/output.csv": "high_privacy",
-        "output/summary.csv": "medium_privacy",
+        "output/output.csv": "highly_sensitive",
+        "output/summary.csv": "moderately_sensitive",
     }
     assert results.unmatched_patterns == []
 
@@ -338,8 +338,8 @@ def test_finalize_failed(use_api, docker_cleanup, test_repo, tmp_work_dir):
         env={},
         inputs=["output/input.csv"],
         output_spec={
-            "output/output.*": "high_privacy",
-            "output/summary.*": "medium_privacy",
+            "output/output.*": "highly_sensitive",
+            "output/summary.*": "moderately_sensitive",
         },
         allow_database_access=False,
     )
@@ -384,8 +384,8 @@ def test_finalize_unmatched(use_api, docker_cleanup, test_repo, tmp_work_dir):
         env={},
         inputs=["output/input.csv"],
         output_spec={
-            "output/output.*": "high_privacy",
-            "output/summary.*": "medium_privacy",
+            "output/output.*": "highly_sensitive",
+            "output/summary.*": "moderately_sensitive",
         },
         allow_database_access=False,
     )
@@ -430,8 +430,8 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
         env={},
         inputs=["output/input.csv"],
         output_spec={
-            "output/output.*": "high_privacy",
-            "output/summary.*": "medium_privacy",
+            "output/output.*": "highly_sensitive",
+            "output/summary.*": "moderately_sensitive",
         },
         allow_database_access=False,
     )
