@@ -7,13 +7,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+from pipeline.legacy import get_action_specification, parse_and_validate_project_file
 
 from jobrunner import config
 from jobrunner.cli import local_run
 from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.models import Job, SavedJobRequest, State
-from jobrunner.project import get_action_specification, parse_and_validate_project_file
 
 
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"

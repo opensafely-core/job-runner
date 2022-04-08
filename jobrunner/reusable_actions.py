@@ -2,6 +2,8 @@ import dataclasses
 import shlex
 import textwrap
 
+from pipeline.legacy import is_generate_cohort_command
+
 from jobrunner import config
 from jobrunner.lib import git
 from jobrunner.lib.github_validators import (
@@ -10,7 +12,6 @@ from jobrunner.lib.github_validators import (
     validate_repo_url,
 )
 from jobrunner.lib.yaml_utils import YAMLError, parse_yaml
-from jobrunner.project import is_generate_cohort_command
 
 
 class ReusableActionError(Exception):

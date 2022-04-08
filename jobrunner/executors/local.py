@@ -7,6 +7,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from pipeline.legacy import get_all_output_patterns_from_project_file
+
 from jobrunner import config
 from jobrunner.job_executor import (
     ExecutorAPI,
@@ -20,7 +22,6 @@ from jobrunner.lib import atomic_writer, docker
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
-from jobrunner.project import get_all_output_patterns_from_project_file
 
 
 # Directory inside working directory where manifest and logs are created

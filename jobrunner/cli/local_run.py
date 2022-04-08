@@ -34,6 +34,8 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from pipeline.legacy import UnknownActionError, get_all_actions
+
 from jobrunner import config, executors
 from jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
@@ -52,7 +54,6 @@ from jobrunner.lib.log_utils import configure_logging
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.models import Job, JobRequest, State, StatusCode, random_id
-from jobrunner.project import UnknownActionError, get_all_actions
 from jobrunner.queries import calculate_workspace_state
 from jobrunner.reusable_actions import (
     ReusableActionError,

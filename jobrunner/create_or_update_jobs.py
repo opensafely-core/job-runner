@@ -9,6 +9,14 @@ import logging
 import re
 import time
 
+from pipeline.legacy import (
+    RUN_ALL_COMMAND,
+    ProjectValidationError,
+    get_action_specification,
+    get_all_actions,
+    parse_and_validate_project_file,
+)
+
 from jobrunner import config
 from jobrunner.lib.database import exists_where, insert, transaction, update_where
 from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
@@ -18,13 +26,6 @@ from jobrunner.lib.github_validators import (
     validate_repo_url,
 )
 from jobrunner.models import Job, SavedJobRequest, State
-from jobrunner.project import (
-    RUN_ALL_COMMAND,
-    ProjectValidationError,
-    get_action_specification,
-    get_all_actions,
-    parse_and_validate_project_file,
-)
 from jobrunner.queries import calculate_workspace_state
 from jobrunner.reusable_actions import (
     ReusableActionError,
