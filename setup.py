@@ -22,7 +22,11 @@ setup(
     author="OpenSAFELY",
     author_email="tech@opensafely.org",
     python_requires=">=3.8",
-    install_requires=["ruamel.yaml", "requests"],
+    install_requires=[
+        "opensafely-pipeline@https://github.com/opensafely-core/pipeline/archive/refs/tags/v0.1.1.zip#egg=opensafely-pipeline",
+        "ruamel.yaml",
+        "requests",
+    ],
     classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],
     entry_points=dict(
         console_scripts=[
