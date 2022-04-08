@@ -83,7 +83,11 @@ def test_local_run_copes_with_detritus_of_earlier_interrupted_run(
     database.insert(SavedJobRequest(id="previous-request", original={}))
 
     def job(job_id, action, state):
-        spec = get_action_specification(project, action)
+        spec = get_action_specification(
+            project,
+            action,
+            using_dummy_data_backend=config.USING_DUMMY_DATA_BACKEND,
+        )
         return Job(
             id=job_id,
             job_request_id="previous-request",

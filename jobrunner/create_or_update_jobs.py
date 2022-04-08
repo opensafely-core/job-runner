@@ -205,7 +205,11 @@ def recursively_build_jobs(jobs_by_action, job_request, project, action):
     if existing_job and not job_should_be_rerun(job_request, existing_job):
         return
 
-    action_spec = get_action_specification(project, action)
+    action_spec = get_action_specification(
+        project,
+        action,
+        using_dummy_data_backend=config.USING_DUMMY_DATA_BACKEND,
+    )
 
     # Walk over the dependencies of this action, creating any necessary jobs,
     # and ensure that this job waits for its dependencies to finish before it
