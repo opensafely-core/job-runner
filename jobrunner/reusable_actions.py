@@ -2,7 +2,7 @@ import dataclasses
 import shlex
 import textwrap
 
-from pipeline.legacy import is_generate_cohort_command
+from pipeline.extractors import is_extraction_command
 
 from jobrunner import config
 from jobrunner.lib import git
@@ -183,7 +183,7 @@ def apply_reusable_action(run_args, reusable_action):
         action_image, action_tag = action_run_args[0].split(":")
         if action_image not in config.ALLOWED_IMAGES:
             raise ReusableActionError(f"Unrecognised runtime: {action_image}")
-        if is_generate_cohort_command(action_run_args):
+        if is_extraction_command(action_run_args):
             raise ReusableActionError(
                 "Re-usable actions cannot invoke cohortextractor/databuilder"
             )
