@@ -34,18 +34,16 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from pipeline import RUN_ALL_COMMAND
+from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 from pipeline.legacy import UnknownActionError
 
 from jobrunner import config, executors
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
-    ProjectValidationError,
     assert_new_jobs_created,
     get_new_jobs_to_run,
     insert_into_database,
-    parse_and_validate_project_file,
 )
 from jobrunner.executors.local import METADATA_DIR
 from jobrunner.lib import database, docker
@@ -417,7 +415,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     # production in `jobrunner.create_or_update_jobs.create_jobs`. If you make
     # changes below then consider what, if any, the appropriate corresponding
     # changes might be for production jobs.
-    pipeline_config = parse_and_validate_project_file(project_file_path.read_bytes())
+    pipeline_config = load_pipeline(project_file_path)
     latest_jobs = calculate_workspace_state(job_request.workspace)
 
     # On the server out-of-band deletion of an existing output is considered an error, so we ignore that case when

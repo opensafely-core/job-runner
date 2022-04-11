@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
-from pipeline.legacy import get_action_specification, parse_and_validate_project_file
+from pipeline import load_pipeline
+from pipeline.legacy import get_action_specification
 
 from jobrunner import config
 from jobrunner.cli import local_run
@@ -77,9 +78,7 @@ def test_local_run_copes_with_detritus_of_earlier_interrupted_run(
     shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
     config.DATABASE_FILE = project_dir / "metadata" / "db.sqlite"
 
-    project = parse_and_validate_project_file(
-        (project_dir / "project.yaml").read_bytes()
-    )
+    project = load_pipeline(project_dir / "project.yaml")
     database.insert(SavedJobRequest(id="previous-request", original={}))
 
     def job(job_id, action, state):

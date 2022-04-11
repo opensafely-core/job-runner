@@ -10,12 +10,8 @@ import logging
 import re
 import time
 
-from pipeline import RUN_ALL_COMMAND
-from pipeline.legacy import (
-    ProjectValidationError,
-    get_action_specification,
-    parse_and_validate_project_file,
-)
+from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
+from pipeline.legacy import get_action_specification
 
 from jobrunner import config
 from jobrunner.lib.database import exists_where, insert, transaction, update_where
@@ -87,7 +83,7 @@ def create_jobs(job_request):
     # changes are for locally run jobs.
     validate_job_request(job_request)
     project_file = get_project_file(job_request)
-    pipeline_config = parse_and_validate_project_file(project_file)
+    pipeline_config = load_pipeline(project_file)
     latest_jobs = get_latest_jobs_for_actions_in_project(
         job_request.workspace, pipeline_config
     )
