@@ -34,11 +34,11 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from pipeline.legacy import UnknownActionError, get_all_actions
+from pipeline import RUN_ALL_COMMAND
+from pipeline.legacy import UnknownActionError
 
 from jobrunner import config, executors
 from jobrunner.create_or_update_jobs import (
-    RUN_ALL_COMMAND,
     JobRequestError,
     NothingToDoError,
     ProjectValidationError,
@@ -417,7 +417,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     # production in `jobrunner.create_or_update_jobs.create_jobs`. If you make
     # changes below then consider what, if any, the appropriate corresponding
     # changes might be for production jobs.
-    project = parse_and_validate_project_file(project_file_path.read_bytes())
+    pipeline_config = parse_and_validate_project_file(project_file_path.read_bytes())
     latest_jobs = calculate_workspace_state(job_request.workspace)
 
     # On the server out-of-band deletion of an existing output is considered an error, so we ignore that case when
@@ -433,12 +433,12 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         if not actions:
             raise UnknownActionError("At least one action must be supplied")
         new_jobs = get_new_jobs_to_run(
-            job_request, project, latest_jobs_with_files_present
+            job_request, pipeline_config, latest_jobs_with_files_present
         )
     except UnknownActionError as e:
         # Annotate the exception with a list of valid action names so we can
         # show them to the user
-        e.valid_actions = [RUN_ALL_COMMAND] + get_all_actions(project)
+        e.valid_actions = [RUN_ALL_COMMAND] + pipeline_config.all_actions
         raise e
     assert_new_jobs_created(new_jobs, latest_jobs_with_files_present)
     resolve_reusable_action_references(new_jobs)
