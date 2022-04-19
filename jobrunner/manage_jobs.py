@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 
 from jobrunner import config
-from jobrunner.lib import docker
+from jobrunner.lib import atomic_writer, docker
 from jobrunner.lib.database import find_one
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
@@ -493,11 +493,9 @@ def get_log_dir(job):
 def copy_file(source, dest):
     dest.parent.mkdir(parents=True, exist_ok=True)
     ensure_overwritable(dest)
-    # shutil.copy() should be reasonably efficient in Python 3.8+, but if we
-    # need to stick with 3.7 for some reason we could replace this with a
-    # shellout to `cp`. See:
-    # https://docs.python.org/3/library/shutil.html#shutil-platform-dependent-efficient-copy-operations
-    shutil.copy(source, dest)
+
+    with atomic_writer(dest) as tmp:
+        shutil.copy(source, tmp)
 
 
 def delete_files(directory, filenames, files_to_keep=()):

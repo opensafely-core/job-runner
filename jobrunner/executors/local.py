@@ -14,6 +14,7 @@ from jobrunner.job_executor import (
 )
 from jobrunner.lib import docker
 from jobrunner.lib.string_utils import tabulate
+
 # ideally, these should be moved into this module when the old implementation
 # is removed
 from jobrunner.manage_jobs import (
