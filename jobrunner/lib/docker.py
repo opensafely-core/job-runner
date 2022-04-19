@@ -4,10 +4,10 @@ Utility functions for interacting with Docker
 import json
 import os
 import re
-import secrets
 import subprocess
 
 from jobrunner import config
+from jobrunner.lib import atomic_writer
 from jobrunner.lib.subprocess_utils import subprocess_run
 
 
@@ -185,9 +185,7 @@ def copy_from_volume(volume_name, source, dest, timeout=None):
     As this command can potentially take a long time with large files it does
     not, by default, have any timeout.
     """
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_suffix(dest.suffix + f".{secrets.token_hex(8)}.tmp")
-    try:
+    with atomic_writer(dest) as tmp:
         docker(
             [
                 "cp",
@@ -198,11 +196,6 @@ def copy_from_volume(volume_name, source, dest, timeout=None):
             capture_output=True,
             timeout=timeout,
         )
-    except Exception:
-        tmp.unlink(missing_ok=True)
-        raise
-    else:
-        tmp.replace(dest)
 
 
 def glob_volume_files(volume_name, glob_patterns):
