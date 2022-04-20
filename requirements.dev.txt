@@ -9,7 +9,7 @@ attrs==21.4.0
     #   flake8-implicit-str-concat
     #   hypothesis
     #   pytest
-black==22.1.0
+black==22.3.0
     # via -r requirements.dev.in
 certifi==2021.10.8
     # via
