@@ -9,15 +9,15 @@ attrs==21.4.0
     #   flake8-implicit-str-concat
     #   hypothesis
     #   pytest
-black==22.1.0
+black==22.3.0
     # via -r requirements.dev.in
-certifi==2021.10.8
+certifi==2020.11.8
     # via
     #   -c requirements.prod.txt
     #   requests
 cfgv==3.3.1
     # via pre-commit
-charset-normalizer==2.0.12
+chardet==3.0.4
     # via
     #   -c requirements.prod.txt
     #   requests
@@ -46,7 +46,7 @@ hypothesis==6.39.4
     # via -r requirements.dev.in
 identify==2.4.12
     # via pre-commit
-idna==3.3
+idna==2.10
     # via
     #   -c requirements.prod.txt
     #   requests
@@ -94,7 +94,7 @@ pytest-cov==3.0.0
     # via -r requirements.dev.in
 pyyaml==6.0
     # via pre-commit
-requests==2.27.1
+requests==2.25.0
     # via
     #   -c requirements.prod.txt
     #   requests-mock
@@ -116,7 +116,7 @@ tomli==2.0.1
     #   pytest
 typing-extensions==4.1.1
     # via black
-urllib3==1.26.9
+urllib3==1.26.5
     # via
     #   -c requirements.prod.txt
     #   requests
