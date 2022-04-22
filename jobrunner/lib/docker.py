@@ -168,6 +168,7 @@ def copy_to_volume(volume_name, source, dest, timeout=None):
     docker(
         [
             "cp",
+            "--follow-link",
             source,
             f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{dest}",
         ],
@@ -189,6 +190,7 @@ def copy_from_volume(volume_name, source, dest, timeout=None):
         docker(
             [
                 "cp",
+                "--follow-link",
                 f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{source}",
                 tmp,
             ],
