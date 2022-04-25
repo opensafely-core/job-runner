@@ -221,6 +221,12 @@ def get_action_specification(project, action_id):
     elif is_generate_cohort_command(run_args):
         raise RuntimeError("Unhandled cohortextractor version")
 
+    elif is_generate_codelist_report_command(run_args):
+        if not args_include(run_args, "--output-dir"):
+            raise ProjectValidationError(
+                "generate_codelist_report command should specify an output directory:\n"
+            )
+
     return ActionSpecifiction(
         run=run_command,
         needs=action_spec.get("needs", []),
@@ -237,6 +243,13 @@ def add_config_to_run_command(run_command, config):
     """
     config_as_json = json.dumps(config).replace("'", r"\u0027")
     return f"{run_command} --config '{config_as_json}'"
+
+
+def requires_db_access(args):
+    """
+    By default actions do not have database access, but certain trusted actions require it
+    """
+    return is_generate_cohort_command(args) or is_generate_codelist_report_command(args)
 
 
 def is_generate_cohort_command(args, require_version=None):
@@ -261,6 +274,14 @@ def is_generate_cohort_command(args, require_version=None):
     # Otherwise return True only if specified version found
     else:
         return version_found == require_version
+
+
+def is_generate_codelist_report_command(args):
+    return (
+        len(args) > 1
+        and args[0].startswith("cohortextractor:")
+        and args[1] == "generate_codelist_report"
+    )
 
 
 def args_include(args, target_arg):

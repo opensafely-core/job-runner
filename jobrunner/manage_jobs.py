@@ -26,7 +26,7 @@ from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.models import SavedJobRequest, State, StatusCode
 from jobrunner.project import (
     get_all_output_patterns_from_project_file,
-    is_generate_cohort_command,
+    requires_db_access,
 )
 from jobrunner.queries import calculate_workspace_state
 
@@ -105,7 +105,7 @@ def start_job(job):
     allow_network_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
     # Check `is True` so we fail closed if we ever get anything else
-    if is_generate_cohort_command(action_args) is True:
+    if requires_db_access(action_args) is True:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_network_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
