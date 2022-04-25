@@ -185,3 +185,28 @@ def test_get_action_specification_for_databuilder_errors(args, error, image):
     action_id = "generate_cohort_v2"
     with pytest.raises(ProjectValidationError, match=error):
         project.get_action_specification(project_dict, action_id)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["cohortextractor:latest", "generate_cohort", "--output-dir=outputs"],
+        ["cohortextractor-v2:latest", "generate_dataset", "--output-dir=outputs"],
+        ["databuilder:latest", "generate_dataset", "--output-dir=outputs"],
+        ["cohortextractor:latest", "generate_codelist_report", "--output-dir=outputs"],
+    ],
+)
+def test_requires_db_access_privileged_commands_can_access_db(args):
+    assert project.requires_db_access(args)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["cohortextractor:latest"],
+        ["cohortextractor:latest", "generate_dataset", "--output-dir=outputs"],
+        ["python", "script.py", "--output-dir=outputs"],
+    ],
+)
+def test_requires_db_access_commands_cannot_access_db(args):
+    assert not project.requires_db_access(args)

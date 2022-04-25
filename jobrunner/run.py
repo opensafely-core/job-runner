@@ -33,7 +33,7 @@ from jobrunner.manage_jobs import (
     start_job,
 )
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.project import is_generate_cohort_command
+from jobrunner.project import requires_db_access
 
 
 log = logging.getLogger(__name__)
@@ -366,7 +366,7 @@ def job_to_job_definition(job):
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
     # Check `is True` so we fail closed if we ever get anything else
-    if is_generate_cohort_command(action_args) is True:
+    if requires_db_access(action_args) is True:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
