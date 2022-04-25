@@ -221,12 +221,6 @@ def get_action_specification(project, action_id):
     elif is_generate_cohort_command(run_args):
         raise RuntimeError("Unhandled cohortextractor version")
 
-    elif is_generate_codelist_report_command(run_args):
-        if not args_include(run_args, "--output-dir"):
-            raise ProjectValidationError(
-                "generate_codelist_report command should specify an output directory:\n"
-            )
-
     return ActionSpecifiction(
         run=run_command,
         needs=action_spec.get("needs", []),

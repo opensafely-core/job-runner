@@ -187,35 +187,25 @@ def test_get_action_specification_for_databuilder_errors(args, error, image):
         project.get_action_specification(project_dict, action_id)
 
 
-def test_get_action_specification_for_codelist_report():
-    project_dict = {
-        "actions": {
-            "generate_codelist_report": {
-                "run": "cohortextractor:latest generate_codelist_report --output-dir=outputs",
-                "outputs": {"moderately_sensitive": {"cohort": "output/reports_*.csv"}},
-            }
-        },
-    }
-    action_id = "generate_codelist_report"
-    action_spec = project.get_action_specification(project_dict, action_id)
-    assert (
-        action_spec.run
-        == """cohortextractor:latest generate_codelist_report --output-dir=outputs"""
-    )
+def test_is_generate_codelist_report_command_is_true_for_codelist_report():
+    args = [
+        "cohortextractor:latest",
+        "generate_codelist_report",
+        "--output-dir=outputs",
+    ]
+    assert project.is_generate_codelist_report_command(args)
 
 
-def test_get_action_specification_for_codelist_report_returns_validation_error():
-    project_dict = {
-        "actions": {
-            "generate_codelist_report": {
-                "run": "cohortextractor:latest generate_codelist_report",
-                "outputs": {"moderately_sensitive": {"cohort": "output/reports_*.csv"}},
-            }
-        },
-    }
-    action_id = "generate_codelist_report"
-    with pytest.raises(ProjectValidationError):
-        project.get_action_specification(project_dict, action_id)
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["cohortextractor:latest"],
+        ["databuilder:latest", "generate_codelist_report", "--output-dir=outputs"],
+        ["cohortextractor:latest", "generate_dataset", "--output-dir=outputs"],
+    ],
+)
+def test_is_generate_codelist_report_command_is_false_for_other_commands(args):
+    assert not project.is_generate_codelist_report_command(args)
 
 
 @pytest.mark.parametrize(
