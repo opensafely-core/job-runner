@@ -243,15 +243,17 @@ def requires_db_access(args):
     """
     By default actions do not have database access, but certain trusted actions require it
     """
-    return (
-        len(args) > 1
-        and [
-            args[0].startswith(image)
-            for image in ("cohortextractor:", "cohortextractor-v2:", "databuilder:")
-        ]
-        and args[1]
-        in ("generate_cohort", "generate_dataset", "generate_codelist_report")
-    )
+    valid_commands = {
+        "cohortextractor": ("generate_cohort", "generate_codelist_report"),
+        "cohortextractor-v2": ("generate_cohort", "generate_dataset"),
+        "databuilder": ("generate_dataset"),
+    }
+    if len(args) <= 1:
+        return False
+
+    image, command = args[0], args[1]
+    image = image.split(":")[0]
+    return True if command in valid_commands.get(image, []) else False
 
 
 def is_generate_cohort_command(args, require_version=None):
