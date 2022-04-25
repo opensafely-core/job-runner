@@ -243,7 +243,15 @@ def requires_db_access(args):
     """
     By default actions do not have database access, but certain trusted actions require it
     """
-    return is_generate_cohort_command(args) or is_generate_codelist_report_command(args)
+    return (
+        len(args) > 1
+        and [
+            args[0].startswith(image)
+            for image in ("cohortextractor:", "cohortextractor-v2:", "databuilder:")
+        ]
+        and args[1]
+        in ("generate_cohort", "generate_dataset", "generate_codelist_report")
+    )
 
 
 def is_generate_cohort_command(args, require_version=None):
@@ -268,14 +276,6 @@ def is_generate_cohort_command(args, require_version=None):
     # Otherwise return True only if specified version found
     else:
         return version_found == require_version
-
-
-def is_generate_codelist_report_command(args):
-    return (
-        len(args) > 1
-        and args[0].startswith("cohortextractor:")
-        and args[1] == "generate_codelist_report"
-    )
 
 
 def args_include(args, target_arg):

@@ -187,27 +187,6 @@ def test_get_action_specification_for_databuilder_errors(args, error, image):
         project.get_action_specification(project_dict, action_id)
 
 
-def test_is_generate_codelist_report_command_is_true_for_codelist_report():
-    args = [
-        "cohortextractor:latest",
-        "generate_codelist_report",
-        "--output-dir=outputs",
-    ]
-    assert project.is_generate_codelist_report_command(args)
-
-
-@pytest.mark.parametrize(
-    "args",
-    [
-        ["cohortextractor:latest"],
-        ["databuilder:latest", "generate_codelist_report", "--output-dir=outputs"],
-        ["cohortextractor:latest", "generate_dataset", "--output-dir=outputs"],
-    ],
-)
-def test_is_generate_codelist_report_command_is_false_for_other_commands(args):
-    assert not project.is_generate_codelist_report_command(args)
-
-
 @pytest.mark.parametrize(
     "args",
     [
@@ -216,12 +195,16 @@ def test_is_generate_codelist_report_command_is_false_for_other_commands(args):
         ["cohortextractor-v2:latest", "generate_cohort", "--output-dir=outputs"],
         ["databuilder:latest", "generate_cohort", "--output-dir=outputs"],
         ["cohortextractor:latest", "generate_codelist_report", "--output-dir=outputs"],
+        ["databuilder:latest", "generate_codelist_report", "--output-dir=outputs"],
     ],
 )
 def test_requires_db_access_privileged_commands_can_access_db(args):
     assert project.requires_db_access(args)
 
 
-def test_requires_db_access_commands_cannot_access_db():
-    args = ["python", "script.py", "--output-dir=outputs"]
+@pytest.mark.parametrize(
+    "args",
+    [["cohortextractor:latest"], ["python", "script.py", "--output-dir=outputs"]],
+)
+def test_requires_db_access_commands_cannot_access_db(args):
     assert not project.requires_db_access(args)
