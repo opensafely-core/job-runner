@@ -9,7 +9,7 @@ with open(os.path.join("VERSION")) as f:
 setup(
     name="opensafely-jobrunner",
     version=version,
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests"]),
     include_package_data=True,
     url="https://github.com/opensafely-core/job-runner",
     author="OpenSAFELY",
