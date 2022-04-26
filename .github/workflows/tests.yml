@@ -75,8 +75,8 @@ jobs:
         run: echo '1.0' > VERSION
       - name: Build package
         run: |
-          pip install wheel
-          python setup.py sdist bdist_wheel
+          pip install build wheel
+          python -m build
       - name: Check that wheel installs and runs
         run: |
           python -m venv test-wheel
