@@ -1,6 +1,6 @@
 import os
 
-from setuptools import find_packages, setup
+from setuptools import setup
 
 
 with open(os.path.join("VERSION")) as f:
@@ -9,7 +9,7 @@ with open(os.path.join("VERSION")) as f:
 setup(
     name="opensafely-jobrunner",
     version=version,
-    packages=find_packages(exclude=["tests"]),
+    packages=["jobrunner"],
     include_package_data=True,
     url="https://github.com/opensafely-core/job-runner",
     author="OpenSAFELY",
