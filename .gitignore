@@ -12,6 +12,7 @@
 .python-version
 __pycache__
 app.log
+build
 docker/.env
 docker/ssh/id_*
 docker/ssh/known_hosts

@@ -42,13 +42,12 @@ jobs:
         python-version: 3.8
     - name: Install wheel package
       run: |
-        pip install wheel
+        pip install build wheel
     - name: Generate correct value for VERSION file
       run: |
         echo ${{ needs.tag-new-version.outputs.tag }} > VERSION
     - name: Build package
-      run: |
-        python setup.py sdist bdist_wheel
+      run: python -m build
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@master
       if: needs.tag-new-version.outputs.tag
