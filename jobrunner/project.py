@@ -246,14 +246,14 @@ def requires_db_access(args):
     valid_commands = {
         "cohortextractor": ("generate_cohort", "generate_codelist_report"),
         "cohortextractor-v2": ("generate_cohort", "generate_dataset"),
-        "databuilder": ("generate_dataset"),
+        "databuilder": ("generate_dataset",),
     }
     if len(args) <= 1:
         return False
 
     image, command = args[0], args[1]
     image = image.split(":")[0]
-    return True if command in valid_commands.get(image, []) else False
+    return command in valid_commands.get(image, [])
 
 
 def is_generate_cohort_command(args, require_version=None):
