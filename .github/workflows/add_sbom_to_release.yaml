@@ -1,0 +1,27 @@
+on:
+  workflow_call:
+    inputs:
+      release-tag:
+        description: 'The tag to release'
+        required: true
+        type: string
+
+jobs:
+  add-sbom-to-release:
+    env:
+      SBOM_FILENAME: sbom-${{ inputs.release-tag }}.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Create and add software bill of materials to release
+        uses: anchore/sbom-action@v0
+        with:
+          format: cyclonedx-json
+          output-file: ${{ env.SBOM_FILENAME }}
+
+      - name: Create release from tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ inputs.release-tag }}" --generate-notes "${{ env.SBOM_FILENAME }}"

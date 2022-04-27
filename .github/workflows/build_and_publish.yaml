@@ -11,8 +11,13 @@ env:
   IMAGE_NAME: job-runner
 
 jobs:
+  security-scan-repository-files:
+    name: Scan project for vulnerabilities
+    uses: ./.github/workflows/grype.yaml
+
   tag-new-version:
     runs-on: ubuntu-latest
+    needs: security-scan-repository-files
     outputs:
       tag: ${{ steps.tag.outputs.new_tag }}
       version: ${{ steps.tag.outputs.new_version }}
@@ -78,3 +83,12 @@ jobs:
         IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
         docker tag $IMAGE_NAME $IMAGE_ID:latest
         docker push $IMAGE_ID:latest
+
+  create-release-from-tag:
+    name: Create release from tag
+    needs: [tag-new-version, build-and-publish-package, build-and-publish-docker-image]
+    if: needs.tag-new-version.outputs.tag
+
+    uses: ./.github/workflows/add_sbom_to_release.yaml
+    with:
+      release-tag: ${{ needs.tag-new-version.outputs.tag}}
