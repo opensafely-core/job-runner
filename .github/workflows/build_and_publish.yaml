@@ -46,8 +46,9 @@ jobs:
     - name: Generate correct value for VERSION file
       run: |
         echo ${{ needs.tag-new-version.outputs.tag }} > VERSION
+    - uses: extractions/setup-just@v1
     - name: Build package
-      run: python -m build
+      run: just package-build
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@master
       if: needs.tag-new-version.outputs.tag
