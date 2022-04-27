@@ -47,6 +47,7 @@ KEYS_TO_LOG = [
     "action_repo_url",
     "action_commit",
     "job_id",
+    "job_request_id",
     "run_by_user",
     "created_at",
     "completed_at",
@@ -429,6 +430,7 @@ def get_job_metadata(job, container_metadata):
     # The original job_request, exactly as received from the job-server
     job_metadata["job_request"] = job_request.original
     job_metadata["job_id"] = job_metadata["id"]
+    job_metadata["job_request_id"] = job_request.id
     job_metadata["run_by_user"] = job_metadata["job_request"].get("created_by")
     job_metadata["docker_image_id"] = container_metadata["Image"]
     job_metadata["exit_code"] = container_metadata["State"]["ExitCode"]
