@@ -73,22 +73,12 @@ jobs:
       # but it doesn't really matter what version we use
       - name: Set version
         run: echo '1.0' > VERSION
-      - name: Build package
-        run: |
-          pip install build wheel
-          python -m build
-      - name: Check that wheel installs and runs
-        run: |
-          python -m venv test-wheel
-          test-wheel/bin/pip install dist/*.whl
-          # Minimal check that it has actually built correctly
-          test-wheel/bin/python -m jobrunner.cli.local_run --help
-      - name: Check that sdist installs and runs
-        run: |
-          python -m venv test-sdist
-          test-sdist/bin/pip install dist/*.tar.gz
-          # Minimal check that it has actually built correctly
-          test-sdist/bin/python -m jobrunner.cli.local_run --help
+
+      - uses: extractions/setup-just@v1
+      - name: Check the wheel installs and runs
+        run: just package-test wheel
+      - name: Check the sdist installs and runs
+        run: just package-test sdist
 
   test-docker:
     runs-on: ubuntu-latest

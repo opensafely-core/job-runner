@@ -108,6 +108,40 @@ test-no-docker *ARGS: devenv
     $BIN/python -m pytest -m "not needs_docker" {{ ARGS }}
 
 
+package-build: virtualenv
+    rm -rf dist
+
+    $PIP install build
+    $BIN/python -m build
+
+
+package-test type: package-build
+    #!/usr/bin/env bash
+    VENV="test-{{ type }}"
+    distribution_suffix="{{ if type == "wheel" { "whl" } else { "tar.gz" } }}"
+
+    # build a fresh venv
+    python -m venv $VENV
+
+    # ensure a modern pip
+    $VENV/bin/pip install pip --upgrade
+
+    # install the wheel distribution
+    $VENV/bin/pip install dist/*."$distribution_suffix"
+
+    # Minimal check that it has actually built correctly
+    # Note: this uses the command installed into the virtualenv, not python -m,
+    # to make sure we test the installed package and don't accidentally rely on
+    # imports picking code on-disk.
+    $VENV/bin/local_run --help
+
+    # check we haven't packaged tests with it
+    unzip -Z -1 dist/*.whl | grep -vq "^tests/"
+
+    # clean up after ourselves
+    rm -rf $VENV
+
+
 # test the license shenanigins work when run from a console
 test-stata: devenv
     rm -f tests/fixtures/stata_project/output/env.txt
