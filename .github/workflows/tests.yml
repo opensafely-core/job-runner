@@ -75,6 +75,7 @@ jobs:
         run: echo '1.0' > VERSION
       - name: Build package
         run: |
+          pip install pip==22.0.4
           pip install build wheel
           python -m build
       - name: Check that wheel installs and runs
