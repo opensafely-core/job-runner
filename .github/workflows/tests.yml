@@ -9,53 +9,6 @@ env:
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: "actions/setup-python@v2"
-        with:
-          python-version: "3.8"
-          cache: "pip"
-          cache-dependency-path: requirements.*.txt
-      - uses: extractions/setup-just@v1
-      - name: Check formatting, linting and import sorting
-        run: just check
-
-  test-job:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-2019]
-        # Python 3.8 is what we currently support for running cohortextractor
-        # locally, and 3.9 is what we required for databuilder so we need to make
-        # sure we can run with those
-        python: [3.8, 3.9]
-    runs-on: ${{ matrix.os }}
-    name: Run test suite
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          persist-credentials: false
-
-      - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python }}
-          cache: "pip"
-          cache-dependency-path: requirements.*.txt
-
-      - uses: extractions/setup-just@v1
-
-      - name: Run actual tests on ${{ matrix.os }}
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: just test
-
-      - name: Run actual tests on ${{ matrix.os }}
-        if: ${{ matrix.os == 'windows-2019' }}
-        run: just test-no-docker
-
   test-package-build:
     runs-on: ubuntu-latest
     name: Test we can build PyPI package
@@ -90,42 +43,3 @@ jobs:
           test-sdist/bin/pip install dist/*.tar.gz
           # Minimal check that it has actually built correctly
           test-sdist/bin/add_job --help
-
-  test-docker:
-    runs-on: ubuntu-latest
-    name: Test docker image
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          persist-credentials: false
-
-      - name: Build image
-        run: make -C docker docker-build
-
-      - name: Run tests in docker-image
-        run: make -C docker docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
-
-  test-github-workflow-output:
-    runs-on: ubuntu-latest
-    name: Inspect test runner output in the context of a Github Workflow
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-          cache: "pip"
-          cache-dependency-path: requirements.*.txt
-      - uses: extractions/setup-just@v1
-      - name: Install dependencies
-        run: just devenv
-      - name: Run equivalent command used by test runner
-        # We don't care if this command succeeds or not, we just want to be able
-        # to look at the output
-        run: |
-          python -m jobrunner.local_run run_all \
-            --project-dir=tests/fixtures/full_project \
-            --continue-on-error --timestamps --format-output-for-github \
-            || true
