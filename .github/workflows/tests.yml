@@ -26,20 +26,8 @@ jobs:
       # but it doesn't really matter what version we use
       - name: Set version
         run: echo '1.0' > VERSION
-      - name: Build package
-        run: |
-          pip install pip==22.0.4
-          pip install build wheel
-          python -m build
+      - uses: extractions/setup-just@v1
       - name: Check that wheel installs and runs
-        run: |
-          python -m venv test-wheel
-          test-wheel/bin/pip install dist/*.whl
-          # Minimal check that it has actually built correctly
-          test-wheel/bin/add_job --help
+        run: just package-test wheel
       - name: Check that sdist installs and runs
-        run: |
-          python -m venv test-sdist
-          test-sdist/bin/pip install dist/*.tar.gz
-          # Minimal check that it has actually built correctly
-          test-sdist/bin/add_job --help
+        run: just package-test sdist
