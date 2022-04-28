@@ -414,9 +414,11 @@ def job_to_job_definition(job):
 
     return JobDefinition(
         job.id,
+        job.job_request_id,
         study,
         job.workspace,
         job.action,
+        job.created_at,
         full_image,
         action_args,
         env,

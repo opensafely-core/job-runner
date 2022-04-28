@@ -66,9 +66,11 @@ def test_prepare_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     job = JobDefinition(
         id="test-id",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["/usr/bin/true"],
         env={},
@@ -107,9 +109,11 @@ def test_prepare_already_prepared(use_api, docker_cleanup, test_repo):
 
     job = JobDefinition(
         id="test_prepare_already_prepared",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["/usr/bin/true"],
         env={},
@@ -131,9 +135,11 @@ def test_prepare_already_prepared(use_api, docker_cleanup, test_repo):
 def test_prepare_no_image(use_api, docker_cleanup, test_repo):
     job = JobDefinition(
         id="test_prepare_no_image",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="invalid-test-image",
         args=["/usr/bin/true"],
         env={},
@@ -153,9 +159,11 @@ def test_prepare_no_image(use_api, docker_cleanup, test_repo):
 def test_prepare_archived(ext, use_api, test_repo):
     job = JobDefinition(
         id="test_prepare_archived",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["/usr/bin/true"],
         env={},
@@ -178,9 +186,11 @@ def test_prepare_archived(ext, use_api, test_repo):
 def test_prepare_job_bad_commit(use_api, docker_cleanup, test_repo):
     job = JobDefinition(
         id="test_prepare_job_bad_commit",
+        job_request_id="test_request_id",
         study=Study(git_repo_url=str(test_repo.path), commit="bad-commit"),
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="invalid-test-image",
         args=["/usr/bin/true"],
         env={},
@@ -199,9 +209,11 @@ def test_prepare_job_bad_commit(use_api, docker_cleanup, test_repo):
 def test_prepare_job_no_input_file(use_api, docker_cleanup, test_repo):
     job = JobDefinition(
         id="test_prepare_job_no_input_file",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="busybox",
         args=["/usr/bin/true"],
         env={},
@@ -222,9 +234,11 @@ def test_execute_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     job = JobDefinition(
         id="test_execute_success",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["/usr/bin/true"],
         env={},
@@ -257,9 +271,11 @@ def test_execute_not_prepared(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     job = JobDefinition(
         id="test_execute_not_prepared",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["/usr/bin/true"],
         env={},
@@ -281,9 +297,11 @@ def test_finalize_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     job = JobDefinition(
         id="test_finalize_finalized",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["touch", "/workspace/output/output.csv", "/workspace/output/summary.csv"],
         env={},
@@ -330,9 +348,11 @@ def test_finalize_failed(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     job = JobDefinition(
         id="test_finalize_failed",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["false"],
         env={},
@@ -376,9 +396,11 @@ def test_finalize_unmatched(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     job = JobDefinition(
         id="test_finalize_unmatched",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["true"],
         env={},
@@ -422,9 +444,11 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     job = JobDefinition(
         id="test_finalize_failed",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["sleep", "101"],
         env={},
@@ -465,9 +489,11 @@ def test_cleanup_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
     job = JobDefinition(
         id="test_cleanup_success",
+        job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",
         action="action",
+        created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["/usr/bin/true"],
         env={},
