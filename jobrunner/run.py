@@ -21,7 +21,6 @@ from jobrunner.job_executor import (
     Study,
 )
 from jobrunner.lib.database import find_where, select_values, update
-from jobrunner.lib.docker import DockerTimeoutError
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.manage_jobs import (
     BrokenContainerError,
@@ -178,18 +177,6 @@ STABLE_STATES = [
 def handle_active_job_api(job, api):
     try:
         handle_job_api(job, api)
-    # TODO: Catching this exception layering violation because the job API is supposed
-    # to be agnostic as to what kind of backend it's running against. However, we're
-    # currently regularly getting timeouts from Docker which cause jobs to get
-    # incorrectly marked as failed.  And restructuring the code to handle this in a more
-    # general fashion is going to take a while. Also, while it's aesthetically
-    # unpleasant this layering violation _shouldn't_ cause us practical problems:
-    # non-docker backends will just never raise this exception and never hit this
-    # branch.
-    except DockerTimeoutError:
-        # We don't want these to fail the job they happened to occur on but we still let
-        # the error bubble up and trigger a clean restart of the service.
-        raise
     except Exception:
         mark_job_as_failed(job, "Internal error")
         # Do not clean up, as we may want to debug
