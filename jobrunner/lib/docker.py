@@ -393,8 +393,11 @@ def kill(name):
 
 def write_logs_to_file(container_name, filename):
     with open(filename, "wb") as f:
+        # the --tail 100000 acts as an upper bound for large log outputs. It
+        # ensures that streaming the logs via docker does not take too long and
+        # cause the command to timeout. Some logs is better than none.
         docker(
-            ["container", "logs", "--timestamps", container_name],
+            ["container", "logs", "--timestamps", "--tail", "100000", container_name],
             check=True,
             stdout=f,
             stderr=subprocess.STDOUT,
