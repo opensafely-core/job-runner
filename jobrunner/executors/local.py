@@ -1,6 +1,7 @@
 import json
 import logging
 import subprocess
+import time
 from pathlib import Path
 
 from jobrunner import config
@@ -260,13 +261,19 @@ def persist_outputs(job, outputs, container_metadata):
     """Copy logs and generated outputs to persistant storage."""
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
+    job.completed_at = int(time.time())
     job_metadata = dict()
-    job_metadata["id"] = job.id
+    job_metadata["job_id"] = job.id
+    job_metadata["job_request_id"] = job.job_request_id
+    job_metadata["created_at"] = job.created_at
+    job_metadata["completed_at"] = int(time.time())
     job_metadata["docker_image_id"] = container_metadata["Image"]
-    job_metadata["exit_code"] = container_metadata["State"]["ExitCode"]
+    # convert exit code to str so 0 exit codes get logged
+    job_metadata["exit_code"] = str(container_metadata["State"]["ExitCode"])
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job.study.commit
+    job_metadata["local_run"] = True
 
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
@@ -343,8 +350,12 @@ def write_log_file(job, job_metadata, filename):
 
 # Keys of fields to log in manifest.json and log file
 KEYS_TO_LOG = [
-    "id",
+    "job_id",
+    "job_request_id",
     "commit",
     "docker_image_id",
     "exit_code",
+    "created_at",
+    "completed_at",
+    "local_run",
 ]

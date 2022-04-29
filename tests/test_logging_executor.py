@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from jobrunner.executors.logging import LoggingExecutor
@@ -45,9 +47,11 @@ def test_delegates(method):
 def job_definition(job_id="a-job-id"):
     job = JobDefinition(
         id=job_id,
+        job_request_id="test_request_id",
         study=Study(git_repo_url="", commit=""),
         workspace="",
         action="",
+        created_at=int(time.time()),
         image="",
         args=[],
         env={},
