@@ -268,7 +268,8 @@ def persist_outputs(job, outputs, container_metadata):
     job_metadata["created_at"] = job.created_at
     job_metadata["completed_at"] = int(time.time())
     job_metadata["docker_image_id"] = container_metadata["Image"]
-    job_metadata["exit_code"] = container_metadata["State"]["ExitCode"]
+    # convert exit code to str so 0 exit codes get logged
+    job_metadata["exit_code"] = str(container_metadata["State"]["ExitCode"])
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job.study.commit
