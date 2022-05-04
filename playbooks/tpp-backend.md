@@ -1,4 +1,8 @@
-# TPP Backend
+# TPP Backend (DEPRECATED)
+
+THIS PLAYBOOK HAS BEEN DEPRECATED
+
+The general backend playbook is at https://github.com/opensafely-core/backend-server/blob/main/jobrunner/playbook.md#jobrunner
 
 
 ## Fundamentals
