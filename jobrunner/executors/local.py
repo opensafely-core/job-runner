@@ -241,11 +241,7 @@ def finalize_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
     exit_code = container_metadata["State"]["ExitCode"]
-    message = None
-    if exit_code == 137:
-        # 137 = 128+9, which means was killed by signal 9, SIGKILL
-        # This usually happens because of OOM killer, or else manually
-        message = "likely means it ran out of memory"
+    message = config.EXIT_CODES.get(exit_code)
     results = JobResults(
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,

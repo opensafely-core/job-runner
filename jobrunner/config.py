@@ -190,3 +190,19 @@ STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
 # feature flag to enable new API abstraction
 EXECUTION_API = os.environ.get("EXECUTION_API", "true").lower() == "true"
 EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI")
+
+
+# Map known exit codes to user-friendly messages
+EXIT_CODES = {
+    # Custom database-related exit codes return from cohortextractor, see
+    # https://github.com/opensafely-core/cohort-extractor/blob/0a314a909817dbcc48907643e0b6eeff319337db/cohortextractor/cohortextractor.py#L787
+    3: (
+        "A transient database error occurred, your job may run "
+        "if you try it again, if it keeps failing then contact tech support"
+    ),
+    4: "New data is being imported into the database, please try again in a few hours",
+    5: "Something went wrong with the database, please contact tech support",
+    # 137 = 128+9, which means was killed by signal 9, SIGKILL
+    # This usually happens because of OOM killer, or else manually
+    137: "likely means it ran out of memory",
+}
