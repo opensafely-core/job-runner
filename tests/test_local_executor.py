@@ -484,6 +484,62 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
+@pytest.mark.parametrize(
+    "exit_code,expected_message",
+    [
+        (
+            3,
+            (
+                "A transient database error occurred, your job may run "
+                "if you try it again, if it keeps failing then contact tech support"
+            ),
+        ),
+        (
+            4,
+            "New data is being imported into the database, please try again in a few hours",
+        ),
+        (5, "Something went wrong with the database, please contact tech support"),
+    ],
+)
+def test_finalize_failed_db_exit_codes(
+    use_api, docker_cleanup, test_repo, tmp_work_dir, exit_code, expected_message
+):
+    ensure_docker_images_present("busybox")
+
+    job = JobDefinition(
+        id=f"test_finalize_failed_{exit_code}",
+        job_request_id="test_request_id",
+        study=test_repo.study,
+        workspace="test",
+        action="action",
+        created_at=int(time.time()),
+        image="ghcr.io/opensafely-core/busybox",
+        args=["sh", "-c", f"exit {exit_code}"],
+        env={},
+        inputs=["output/input.csv"],
+        output_spec={
+            "output/output.*": "high_privacy",
+            "output/summary.*": "medium_privacy",
+        },
+        allow_database_access=False,
+    )
+
+    populate_workspace(job.workspace, "output/input.csv")
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job)
+    assert status.state == ExecutorState.PREPARING
+    status = api.execute(job)
+    assert status.state == ExecutorState.EXECUTING
+
+    wait_for_state(api, job, ExecutorState.EXECUTED)
+    status = api.finalize(job)
+
+    assert local.RESULTS[job.id].message == expected_message
+
+
+@pytest.mark.needs_docker
 def test_cleanup_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
