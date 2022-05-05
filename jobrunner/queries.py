@@ -44,5 +44,4 @@ def get_flag(name):
 def set_flag(name, value):
     """Set a flag to a value in the db."""
     # Note: table must exist to set flags
-    flag = Flag(name, value)
-    upsert(flag)
+    upsert(Flag(name, value))

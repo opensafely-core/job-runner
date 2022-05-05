@@ -47,6 +47,9 @@ def upsert(item):
     columns = ", ".join(escape(field.name) for field in fields)
     placeholders = ", ".join(["?"] * len(fields))
     updates = ", ".join(f"{escape(field.name)} = ?" for field in fields)
+    # Note: technically we update the id on conflict with this approach, which
+    # is unessecary, but it does not hurt and simplifies updates and params
+    # parts of the query.
     sql = f"""
         INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})
         ON CONFLICT(id) DO UPDATE SET {updates}
