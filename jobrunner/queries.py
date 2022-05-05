@@ -1,8 +1,9 @@
+import sqlite3
 from itertools import groupby
 from operator import attrgetter
 
-from jobrunner.lib.database import find_where
-from jobrunner.models import Job
+from jobrunner.lib.database import find_one, find_where, upsert
+from jobrunner.models import Flag, Job
 
 
 def calculate_workspace_state(workspace):
@@ -24,3 +25,24 @@ def calculate_workspace_state(workspace):
 
 def group_by(iterable, key):
     return groupby(sorted(iterable, key=key), key=key)
+
+
+def get_flag(name):
+    """Get the current value of a flag, None if not set."""
+    # Note: fail gracefully if the flags table does not exist
+    # This means we don't need to worry about it in local_run.
+    try:
+        return find_one(Flag, id=name).value
+    except ValueError:
+        return None
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e):
+            return None
+        raise
+
+
+def set_flag(name, value):
+    """Set a flag to a value in the db."""
+    # Note: table must exist to set flags
+    flag = Flag(name, value)
+    upsert(flag)

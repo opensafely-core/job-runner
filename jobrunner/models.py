@@ -256,3 +256,18 @@ def isoformat_to_timestamp(string):
         .astimezone(datetime.timezone.utc)
         .timestamp()
     )
+
+
+@databaseclass
+class Flag:
+    __tablename__ = "flags"
+    __tableschema__ = """
+        CREATE TABLE flags (
+            id TEXT,
+            value TEXT,
+            PRIMARY KEY (id)
+        )
+    """
+
+    id: str  # noqa: A003
+    value: str

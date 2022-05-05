@@ -22,9 +22,11 @@ TABLES = {}
 
 
 def databaseclass(cls):
-    assert hasattr(cls, "__tablename__")
-    assert hasattr(cls, "__tableschema__")
     dc = dataclasses.dataclass(cls)
+    assert hasattr(dc, "__tablename__"), "must have __tablename__ attribute"
+    assert hasattr(dc, "__tableschema__"), "must have __tableschema__ attribute"
+    fields = {f.name for f in dataclasses.fields(dc)}
+    assert "id" in fields, "must have primary key 'id'"
     TABLES[dc.__tablename__] = dc
     return dc
 
@@ -36,6 +38,22 @@ def insert(item):
     placeholders = ", ".join(["?"] * len(fields))
     sql = f"INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})"
     get_connection().execute(sql, encode_field_values(fields, item))
+
+
+def upsert(item):
+    assert item.id
+    table = item.__tablename__
+    fields = dataclasses.fields(item)
+    columns = ", ".join(escape(field.name) for field in fields)
+    placeholders = ", ".join(["?"] * len(fields))
+    updates = ", ".join(f"{escape(field.name)} = ?" for field in fields)
+    sql = f"""
+        INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})
+        ON CONFLICT(id) DO UPDATE SET {updates}
+    """
+    params = encode_field_values(fields, item)
+    # pass params twice, once for INSERT and once for UPDATE
+    get_connection().execute(sql, params + params)
 
 
 def update(item, exclude_fields=None):
