@@ -18,6 +18,15 @@ from jobrunner import config
 
 
 CONNECTION_CACHE = threading.local()
+TABLES = {}
+
+
+def databaseclass(cls):
+    assert hasattr(cls, "__tablename__")
+    assert hasattr(cls, "__tableschema__")
+    dc = dataclasses.dataclass(cls)
+    TABLES[dc.__tablename__] = dc
+    return dc
 
 
 def insert(item):
@@ -145,10 +154,13 @@ def get_connection_from_file(filename):
     conn.row_factory = sqlite3.Row
     schema_count = list(conn.execute("SELECT COUNT(*) FROM sqlite_master"))[0][0]
     if schema_count == 0:
-        with open(config.DATABASE_SCHEMA_FILE) as f:
-            schema_sql = f.read()
-        conn.executescript(schema_sql)
+        for table in TABLES.values():
+            create_table(conn, table)
     return conn
+
+
+def create_table(conn, cls):
+    conn.executescript(cls.__tableschema__)
 
 
 def query_params_to_sql(params):
