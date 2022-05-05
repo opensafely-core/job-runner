@@ -485,10 +485,11 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 @pytest.mark.needs_docker
 @pytest.mark.parametrize(
-    "exit_code,expected_message",
+    "exit_code,db_access_allowed,expected_message",
     [
         (
             3,
+            True,
             (
                 "A transient database error occurred, your job may run "
                 "if you try it again, if it keeps failing then contact tech support"
@@ -496,13 +497,28 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
         ),
         (
             4,
+            True,
             "New data is being imported into the database, please try again in a few hours",
         ),
-        (5, "Something went wrong with the database, please contact tech support"),
+        (
+            5,
+            True,
+            "Something went wrong with the database, please contact tech support",
+        ),
+        # the same exit codes for a job that doesn't have access to the database show no message
+        (3, False, None),
+        (4, False, None),
+        (5, False, None),
     ],
 )
 def test_finalize_failed_db_exit_codes(
-    use_api, docker_cleanup, test_repo, tmp_work_dir, exit_code, expected_message
+    use_api,
+    docker_cleanup,
+    test_repo,
+    tmp_work_dir,
+    exit_code,
+    db_access_allowed,
+    expected_message,
 ):
     ensure_docker_images_present("busybox")
 
@@ -521,7 +537,7 @@ def test_finalize_failed_db_exit_codes(
             "output/output.*": "high_privacy",
             "output/summary.*": "medium_privacy",
         },
-        allow_database_access=False,
+        allow_database_access=db_access_allowed,
     )
 
     populate_workspace(job.workspace, "output/input.csv")
