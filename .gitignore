@@ -25,4 +25,5 @@ tags
 tests/fixtures/*/metadata
 tests/fixtures/*/output/*
 venv
+.venv
 workdir
