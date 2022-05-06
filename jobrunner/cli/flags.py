@@ -20,51 +20,53 @@ def parse_cli_flag(raw):
     return name, value
 
 
-def set_flags(flags, create):
+def main(action, flags, create=False):
     try:
-        for name, value in flags:
-            set_flag(name, value)
-
+        current_flags = select_values(Flag, "id")
     except sqlite3.OperationalError as e:
         if "no such table" in str(e):
             if create:
                 create_table(get_connection(), Flag)
-                # try again
-                for name, value in flags:
-                    set_flag(name, value)
+                current_flags = select_values(Flag, "id")
             else:
                 sys.exit(
-                    "Flags table does not exists. Run command again with --create to create it."
+                    "The flags table does not exists. Run command again with --create to create it."
                 )
-        else:
-            raise
 
-    return [p[0] for p in flags]
+    flags_to_show = []
 
-
-def main(action, flags, create=False):
     if action == "set":
-        flags = set_flags(flags, create)
-    elif not flags:
-        try:
-            flags = select_values(Flag, "id")
-        except sqlite3.OperationalError:
-            pass
+        for name, value in flags:
+            set_flag(name, value)
+            flags_to_show.append(name)
 
-    for flag in flags:
+    else:  # action == "get"
+        if flags:
+            flags_to_show = flags
+        else:
+            flags_to_show = current_flags
+
+    for flag in flags_to_show:
         print(f"{flag}={get_flag(flag)}")
 
 
 def run(argv):
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
-    subparsers = parser.add_subparsers(help="get or set")
 
+    subparsers = parser.add_subparsers()
+    # for get, flag arguments is optional
     parser_get = subparsers.add_parser("get", help="get the current values of flags")
     parser_get.add_argument(
         "flags", nargs="*", help="flags to get, or empty for all flags"
     )
+    parser_get.add_argument(
+        "--create",
+        action="store_true",
+        help="Create the flags DB schema if missing",
+    )
     parser_get.set_defaults(action="get")
 
+    # for set, at least one flag argument is requires, and it must contain =
     parser_set = subparsers.add_parser("set", help="set flag values")
     parser_set.add_argument(
         "flags",

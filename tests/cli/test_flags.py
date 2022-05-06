@@ -48,6 +48,19 @@ def test_args_set_clear(capsys, tmp_work_dir):
     assert queries.get_flag("foo") is None
 
 
+def test_args_get_create(capsys, tmp_work_dir):
+    database.get_connection().execute("DROP TABLE flags")
+    with pytest.raises(SystemExit) as e:
+        flags.run(["get"])
+
+    assert "--create" in str(e.value)
+
+    flags.run(["get", "--create"])
+    stdout, stderr = capsys.readouterr()
+    assert stdout == ""
+    assert stderr == ""
+
+
 def test_args_set_create(capsys, tmp_work_dir):
     database.get_connection().execute("DROP TABLE flags")
     with pytest.raises(SystemExit) as e:
