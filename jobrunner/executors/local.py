@@ -241,11 +241,16 @@ def finalize_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
     exit_code = container_metadata["State"]["ExitCode"]
+
+    # First get the user-friendly message for known database exit codes, for jobs
+    # that have db access
     message = None
-    if exit_code == 137:
-        # 137 = 128+9, which means was killed by signal 9, SIGKILL
-        # This usually happens because of OOM killer, or else manually
-        message = "likely means it ran out of memory"
+    if job.allow_database_access:
+        message = config.DATABASE_EXIT_CODES.get(exit_code)
+    # No database error, check for other known exit codes
+    if message is None:
+        message = config.EXIT_CODES.get(exit_code)
+
     results = JobResults(
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,
