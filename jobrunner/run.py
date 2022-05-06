@@ -34,6 +34,7 @@ from jobrunner.manage_jobs import (
 )
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.project import requires_db_access
+from jobrunner.queries import get_flag
 
 
 log = logging.getLogger(__name__)
@@ -52,14 +53,17 @@ def main(exit_callback=lambda _: False):
         api = get_executor_api()
 
     while True:
-        active_jobs = handle_jobs(api)
+        mode = get_flag("mode")
+
+        active_jobs = handle_jobs(api, mode)
 
         if exit_callback(active_jobs):
             break
+
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(api: Optional[ExecutorAPI]):
+def handle_jobs(api: Optional[ExecutorAPI], mode=None):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -75,7 +79,7 @@ def handle_jobs(api: Optional[ExecutorAPI]):
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             if api:
-                handle_active_job_api(job, api)
+                handle_active_job_api(job, api, mode)
             else:
                 # old way
                 if job.state == State.PENDING:
@@ -174,9 +178,9 @@ STABLE_STATES = [
 ]
 
 
-def handle_active_job_api(job, api):
+def handle_active_job_api(job, api, mode=None):
     try:
-        handle_job_api(job, api)
+        handle_job_api(job, api, mode)
     except Exception:
         mark_job_as_failed(job, "Internal error")
         # Do not clean up, as we may want to debug
@@ -188,7 +192,7 @@ def handle_active_job_api(job, api):
         raise
 
 
-def handle_job_api(job, api):
+def handle_job_api(job, api, mode=None):
     """Handle an active job.
 
     This contains the main state machine logic for a job. For the most part,
@@ -207,13 +211,26 @@ def handle_job_api(job, api):
         api.cleanup(definition)
         return
 
+    # handle db maintenance mode before considering current executor state, as
+    # if it applies, we're going to tear it all down anyway.
+    if mode == "db-maintenance" and definition.allow_database_access:
+        if job.state == State.RUNNING:
+            log.warning(f"DB maintenance mode active, killing db job {job.id}")
+            # we ignore the JobStatus returned from these API calls, as this is not a hard error
+            api.terminate(definition)
+            api.cleanup(definition)
+
+        # reset state to pending and exit
+        set_state(job, State.PENDING, "Waiting for database to finish maintenance")
+        return
+
     initial_status = api.get_status(definition)
 
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
         if job.state == State.PENDING:
             log.warning(
-                "state ereror: got {initial_status.state} for a job we thought was PENDING"
+                f"state error: got {initial_status.state} for a job we thought was PENDING"
             )
         # no action needed, simply update job message and timestamp
         message = initial_status.state.value.title()
@@ -462,6 +479,8 @@ def set_state(job, state, message, code=None):
         job.started_at = timestamp
     elif state == State.FAILED or state == State.SUCCEEDED:
         job.completed_at = timestamp
+    elif state == State.PENDING:  # restarting the job gracefully
+        job.started_at = None
     job.state = state
     job.status_message = message
     job.status_code = code

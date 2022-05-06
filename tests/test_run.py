@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner import run
+from jobrunner import config, run
 from jobrunner.job_executor import ExecutorState, JobStatus, Privacy
 from jobrunner.models import State, StatusCode
 from tests.factories import StubExecutorAPI, job_factory
@@ -247,6 +247,53 @@ def test_handle_job_finalized_failed_unmatched(db):
     assert job.state == State.FAILED
     assert job.status_message == "No outputs found matching patterns:\n - badfile.csv"
     assert job.outputs == {"output/file.csv": "medium"}
+
+
+@pytest.fixture
+def backend_db_config(monkeypatch):
+    monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
+    # for test jobs, job.database_name is None, so add a dummy connection
+    # string for that db
+    monkeypatch.setitem(config.DATABASE_URLS, None, "conn str")
+
+
+def test_handle_pending_db_maintenance_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.UNKNOWN,
+        State.PENDING,
+        run_command="cohortextractor:latest generate_cohort",
+    )
+
+    run.handle_job_api(job, api, mode="db-maintenance")
+
+    # executor state
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    # our state
+    assert job.state == State.PENDING
+    assert job.status_message == "Waiting for database to finish maintenance"
+    assert job.started_at is None
+
+
+def test_handle_running_db_maintenance_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.EXECUTING,
+        State.RUNNING,
+        run_command="cohortextractor:latest generate_cohort",
+    )
+
+    run.handle_job_api(job, api, mode="db-maintenance")
+
+    # executor state
+    assert job.id in api.tracker["terminate"]
+    assert job.id in api.tracker["cleanup"]
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
+    assert job.state == State.PENDING
+    assert job.status_message == "Waiting for database to finish maintenance"
+    assert job.started_at is None
 
 
 def invalid_transitions():
