@@ -14,6 +14,7 @@ import hashlib
 import secrets
 from enum import Enum
 
+from jobrunner.lib.database import databaseclass
 from jobrunner.lib.string_utils import project_name_from_url, slugify
 
 
@@ -58,17 +59,63 @@ class JobRequest:
 # we've created the relevant Jobs we have no real need for the JobRequest
 # object, but we it's useful to store it for debugging/audit purposes so we
 # just save a blob of the original JSON as received from the job-server.
-@dataclasses.dataclass
+@databaseclass
 class SavedJobRequest:
     __tablename__ = "job_request"
+    __tableschema__ = """
+        CREATE TABLE job_request (
+            id TEXT,
+            original TEXT,
+            PRIMARY KEY (id)
+        );
+    """
 
     id: str  # noqa: A003
     original: dict
 
 
-@dataclasses.dataclass
+@databaseclass
 class Job:
     __tablename__ = "job"
+    __tableschema__ = """
+        CREATE TABLE job (
+            id TEXT,
+            job_request_id TEXT,
+            state TEXT,
+            repo_url TEXT,
+            "commit" TEXT,
+            workspace TEXT,
+            database_name TEXT,
+            action TEXT,
+            action_repo_url TEXT,
+            action_commit TEXT,
+            requires_outputs_from TEXT,
+            wait_for_job_ids TEXT,
+            run_command TEXT,
+            image_id TEXT,
+            output_spec TEXT,
+            outputs TEXT,
+            unmatched_outputs TEXT,
+            status_message TEXT,
+            status_code TEXT,
+            cancelled BOOLEAN,
+            created_at INT,
+            updated_at INT,
+            started_at INT,
+            completed_at INT,
+
+            PRIMARY KEY (id)
+        );
+
+        CREATE INDEX idx_job__job_request_id ON job (job_request_id);
+
+        -- Once jobs transition into a terminal state (failed or succeeded) they become
+        -- basically irrelevant from the application's point of view as it never needs
+        -- to query them. By creating an index only on non-terminal states we ensure
+        -- that it always stays relatively small even as the set of historical jobs
+        -- grows.
+        CREATE INDEX idx_job__state ON job (state) WHERE state NOT IN ('failed', 'succeeded');
+    """
 
     id: str = None  # noqa: A003
     job_request_id: str = None
@@ -209,3 +256,18 @@ def isoformat_to_timestamp(string):
         .astimezone(datetime.timezone.utc)
         .timestamp()
     )
+
+
+@databaseclass
+class Flag:
+    __tablename__ = "flags"
+    __tableschema__ = """
+        CREATE TABLE flags (
+            id TEXT,
+            value TEXT,
+            PRIMARY KEY (id)
+        )
+    """
+
+    id: str  # noqa: A003
+    value: str

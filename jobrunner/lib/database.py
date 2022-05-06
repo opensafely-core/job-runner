@@ -18,6 +18,17 @@ from jobrunner import config
 
 
 CONNECTION_CACHE = threading.local()
+TABLES = {}
+
+
+def databaseclass(cls):
+    dc = dataclasses.dataclass(cls)
+    assert hasattr(dc, "__tablename__"), "must have __tablename__ attribute"
+    assert hasattr(dc, "__tableschema__"), "must have __tableschema__ attribute"
+    fields = {f.name for f in dataclasses.fields(dc)}
+    assert "id" in fields, "must have primary key 'id'"
+    TABLES[dc.__tablename__] = dc
+    return dc
 
 
 def insert(item):
@@ -27,6 +38,25 @@ def insert(item):
     placeholders = ", ".join(["?"] * len(fields))
     sql = f"INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})"
     get_connection().execute(sql, encode_field_values(fields, item))
+
+
+def upsert(item):
+    assert item.id
+    table = item.__tablename__
+    fields = dataclasses.fields(item)
+    columns = ", ".join(escape(field.name) for field in fields)
+    placeholders = ", ".join(["?"] * len(fields))
+    updates = ", ".join(f"{escape(field.name)} = ?" for field in fields)
+    # Note: technically we update the id on conflict with this approach, which
+    # is unessecary, but it does not hurt and simplifies updates and params
+    # parts of the query.
+    sql = f"""
+        INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})
+        ON CONFLICT(id) DO UPDATE SET {updates}
+    """
+    params = encode_field_values(fields, item)
+    # pass params twice, once for INSERT and once for UPDATE
+    get_connection().execute(sql, params + params)
 
 
 def update(item, exclude_fields=None):
@@ -145,10 +175,13 @@ def get_connection_from_file(filename):
     conn.row_factory = sqlite3.Row
     schema_count = list(conn.execute("SELECT COUNT(*) FROM sqlite_master"))[0][0]
     if schema_count == 0:
-        with open(config.DATABASE_SCHEMA_FILE) as f:
-            schema_sql = f.read()
-        conn.executescript(schema_sql)
+        for table in TABLES.values():
+            create_table(conn, table)
     return conn
+
+
+def create_table(conn, cls):
+    conn.executescript(cls.__tableschema__)
 
 
 def query_params_to_sql(params):
