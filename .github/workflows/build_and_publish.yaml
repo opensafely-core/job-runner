@@ -72,7 +72,7 @@ jobs:
     - name: Test image
       run: make -C docker docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
     - name: Log into GitHub Container Registry
-      run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.DOCKER_RW_TOKEN }}
+      run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
     - name: Push image to GitHub Container Registry
       run: |
         IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
