@@ -480,7 +480,7 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
     # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED
     assert job.id in local.RESULTS
-    assert local.RESULTS[job.id].message == "likely means it ran out of memory"
+    assert local.RESULTS[job.id].message == "Killed: out of memory, or stopped by admin"
 
 
 @pytest.mark.needs_docker

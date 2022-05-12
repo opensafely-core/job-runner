@@ -205,5 +205,5 @@ DATABASE_EXIT_CODES = {
 EXIT_CODES = {
     # 137 = 128+9, which means was killed by signal 9, SIGKILL
     # This usually happens because of OOM killer, or else manually
-    137: "likely means it ran out of memory",
+    137: "Killed: out of memory, or stopped by admin",
 }
