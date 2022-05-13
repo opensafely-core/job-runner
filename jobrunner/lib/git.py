@@ -98,13 +98,13 @@ def commit_reachable_from_ref(repo_url, commit_sha, ref):
     supplied commit is reachable from that ref.
     """
     ref_sha = get_sha_from_remote_ref(repo_url, ref)
-    # The commont case is that the cha is the current HEAD of the branch, so optimise for that.
+    # The commont case is that the sha is the current HEAD of the branch, so optimise for that.
     if commit_sha == ref_sha:
         return True
 
-    # The sha could be a tag - try derefence it and recheck against head
+    # The sha could be a tag - try to derefence it and recheck against head
     try:
-        # try deref commit sha in case is a tag
+        # try to deref commit sha in case is a tag
         commit_sha = get_sha_from_remote_ref(repo_url, commit_sha)
     except Exception:
         pass
