@@ -7,6 +7,9 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Mapping
 
+from jobrunner.executors.graphnet.container.utils import copy_files
+from jobrunner.executors.graphnet.k8s import read_log, list_pod_of_job, extract_k8s_api_values, read_k8s_job_status, init_k8s_config, JOB_CONTAINER_NAME
+
 JOB_RESULTS_TAG = "__JobResults__:"
 
 
@@ -33,10 +36,12 @@ def main():
     parser.add_argument("medium_privacy_workspace_dir", type=str, help='workdir/medium_privacy/workspaces/{workspace_name}')
     parser.add_argument("medium_privacy_metadata_dir", type=str, help='workdir/medium_privacy/workspaces/{workspace_name}/metadata')
     
-    parser.add_argument("execute_logs", type=str, help="log from the execute step")
     parser.add_argument("output_spec_json", type=str, help="JSON of the output_spec")
-    parser.add_argument("job_metadata_json", type=str,
-                        help="The action log file and any useful metadata from the job run should also be written to a separate log storage area in long-term storage.")
+    
+    parser.add_argument("use_local_k8s_config", type=str, help="")
+    parser.add_argument("execute_job_name", type=str, help="")
+    parser.add_argument("namespace", type=str, help="")
+    parser.add_argument("job_definition_map_json", type=str, help="")
     
     args = parser.parse_args()
     
@@ -48,9 +53,45 @@ def main():
     medium_privacy_workspace_dir = args.medium_privacy_workspace_dir
     medium_privacy_metadata_dir = args.medium_privacy_metadata_dir
     
-    execute_logs = args.execute_logs
+    # execute_logs = args.execute_logs
     output_spec = json.loads(args.output_spec_json)
-    job_metadata = json.loads(args.job_metadata_json)
+    # job_metadata = json.loads(args.job_metadata_json)
+    
+    use_local_k8s_config = args.use_local_k8s_config.lower() == 'true'
+    execute_job_name = args.execute_job_name
+    namespace = args.namespace
+    job_definition_map = json.loads(args.job_definition_map_json) if len(args.job_definition_map_json.strip()) > 0 else None
+    
+    # read the log of the execute job
+    batch_v1, core_v1, networking_v1 = init_k8s_config(use_local_k8s_config)
+    container_log = None
+    logs = read_log(execute_job_name, namespace)
+    for (_, container_name), container_log in logs.items():
+        if container_name == JOB_CONTAINER_NAME:
+            break
+    
+    # get the metadata of the execute job
+    pods = list_pod_of_job(execute_job_name, namespace)
+    print(pods)
+    job = batch_v1.read_namespaced_job(execute_job_name, namespace)
+    job_metadata = extract_k8s_api_values(job, ['env'])  # env contains sql server login
+    
+    job_status = read_k8s_job_status(execute_job_name, namespace)
+    
+    execute_logs = container_log
+    # output_spec_json = json.dumps(output_spec)
+    job_metadata = {
+        "state"       : job_status.name,
+        "created_at"  : "",
+        "started_at"  : str(job.status.start_time),
+        "completed_at": str(job.status.completion_time),
+        "job_metadata": job_metadata
+    }
+    if job_definition_map:
+        # add fields from JobDefinition
+        job_metadata.update(dict(job_definition_map))
+    
+    # job_metadata_json = json.dumps(job_metadata)
     
     job_result = finalize(job_dir, high_privacy_action_log_path, high_privacy_log_dir, high_privacy_metadata_dir, high_privacy_workspace_dir, medium_privacy_metadata_dir,
                           medium_privacy_workspace_dir, execute_logs, output_spec, job_metadata)
@@ -160,22 +201,6 @@ def find_matching_outputs(job_dir: Path, output_spec: Mapping[str, str]):
         for filename in filenames:
             outputs[filename] = privacy_level
     return outputs, unmatched_patterns
-
-
-def copy_files(src_dir, src_filenames, dest_dir):
-    for src in src_filenames:
-        if len(str(src)) > 0:
-            if src_dir:
-                src_path = Path(src_dir) / src
-            else:
-                src_path = Path(src)
-            
-            src.parent.mkdir(exist_ok=True, parents=True)
-            
-            dest = dest_dir / src.parent
-            dest.mkdir(exist_ok=True, parents=True)
-            
-            shutil.copy(src_path, dest)
 
 
 if __name__ == '__main__':

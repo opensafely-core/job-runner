@@ -190,8 +190,10 @@ LABEL org.opencontainers.image.title="job-runner-tools-graphnet" \
 COPY /jobrunner/lib/. /app/jobrunner/lib
 COPY /jobrunner/__init__.py /app/jobrunner/__init__.py
 COPY /jobrunner/config.py /app/jobrunner/config.py
+COPY /jobrunner/executors/graphnet/container/utils.py /app/jobrunner/executors/graphnet/container/utils.py
 COPY /jobrunner/executors/graphnet/container/prepare.py /app/jobrunner/prepare.py
 COPY /jobrunner/executors/graphnet/container/finalize.py /app/jobrunner/finalize.py
+COPY /jobrunner/executors/graphnet/k8s.py /app/jobrunner/executors/graphnet/k8s.py
 
 # finally, tag with build information. These will change regularly, therefore
 # we do them as the last action.
@@ -202,3 +204,12 @@ LABEL org.opencontainers.image.revision=$GITREF
 
 ## changed to root in order to manage the files in the PV in k8s
 USER root
+
+##################################################
+FROM job-runner-prod as job-runner-graphnet
+
+USER root
+#RUN chown appuser: /app && \
+#    chmod u+w /app
+#
+#USER appuser

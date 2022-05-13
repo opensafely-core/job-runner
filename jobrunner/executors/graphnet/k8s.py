@@ -1,14 +1,14 @@
 import hashlib
-import json
 import re
 import socket
 import time
+import logging
 from enum import Enum
 from typing import Tuple, Optional, List, Mapping
 
 from kubernetes import client, config as k8s_config
 
-from jobrunner.executors.graphnet.container.finalize import JOB_RESULTS_TAG
+log = logging.getLogger(__name__)
 
 JOB_CONTAINER_NAME = "job"
 
@@ -86,12 +86,12 @@ def convert_k8s_name(text: str, suffix: Optional[str] = None, hash_len: int = 7,
 
 def create_namespace(name: str):
     if name == 'default':
-        print(f"default namespace is used")
+        log.debug(f"default namespace is used")
         return
     
     namespaces = core_v1.list_namespace()
     if name in [n.metadata.name for n in namespaces.items]:
-        print(f"namespace {name} already exist")
+        log.debug(f"namespace {name} already exist")
         return
     
     core_v1.create_namespace(client.V1Namespace(
@@ -99,22 +99,20 @@ def create_namespace(name: str):
                     name=name
             )
     ))
-    print(f"namespace {name} created")
+    log.debug(f"namespace {name} created")
 
 
-def create_pv(pv_name: str, storage_class: str, size: str, host_path=None):
+def create_pv(pv_name: str, storage_class: str, size: str, host_path=None, labels=None):
     all_pv = core_v1.list_persistent_volume()
     for pv in all_pv.items:
         if pv.metadata.name == pv_name:
-            print(f"pv {pv_name} already exist")
+            log.debug(f"pv {pv_name} already exist")
             return
     
     pv = client.V1PersistentVolume(
             metadata=client.V1ObjectMeta(
                     name=pv_name,
-                    labels={
-                        "app": "opensafely"
-                    }
+                    labels=labels
             ),
             spec=client.V1PersistentVolumeSpec(
                     storage_class_name=storage_class,
@@ -123,12 +121,11 @@ def create_pv(pv_name: str, storage_class: str, size: str, host_path=None):
                     },
                     access_modes=["ReadWriteOnce"],
                     
-                    # for testing:
-                    host_path=host_path
+                    host_path=host_path,
             )
     )
     core_v1.create_persistent_volume(body=pv)
-    print(f"pv {pv_name} created")
+    log.debug(f"pv {pv_name} created")
 
 
 def is_pvc_created(pvc_name: str) -> bool:
@@ -139,22 +136,20 @@ def is_pvc_created(pvc_name: str) -> bool:
     return False
 
 
-def create_pvc(pv_name: str, pvc_name: str, storage_class: str, namespace: str, size: str):
+def create_pvc(pv_name: Optional[str], pvc_name: str, storage_class: str, namespace: str, size: str, access_mode: str, labels=None):
     if is_pvc_created(pvc_name):
-        print(f"pvc {pvc_name} already exist")
+        log.debug(f"pvc {pvc_name} already exist")
         return
     
     pvc = client.V1PersistentVolumeClaim(
             metadata=client.V1ObjectMeta(
                     name=pvc_name,
-                    labels={
-                        "app": "opensafely"
-                    }
+                    labels=labels
             ),
             spec=client.V1PersistentVolumeClaimSpec(
                     storage_class_name=storage_class,
                     volume_name=pv_name,
-                    access_modes=["ReadWriteOnce"],
+                    access_modes=[access_mode],
                     resources={
                         "requests": {
                             "storage": size
@@ -163,21 +158,30 @@ def create_pvc(pv_name: str, pvc_name: str, storage_class: str, namespace: str, 
             )
     )
     core_v1.create_namespaced_persistent_volume_claim(body=pvc, namespace=namespace)
-    print(f"pvc {pvc_name} created")
+    
+    # find the true pv claimed by this pvc
+    while pv_name is None:
+        pv_name = read_pv_name(namespace, pvc_name)
+        time.sleep(1)
+    
+    log.debug(f"pvc {pvc_name} created for pv {pv_name}")
+    return pv_name
 
 
-def create_k8s_job(
-        job_name: str,
-        namespace: str,
-        image: str,
-        command: List[str],
-        args: List[str],
-        env: Mapping[str, str],
-        storages: List[Tuple[str, str, bool]],
-        pod_labels: Mapping[str, str], depends_on: str = None,
-        image_pull_policy: str = "IfNotPresent",
-        block_until_created=True
-):
+def create_k8s_job(job_name: str,
+                   namespace: str,
+                   image: str,
+                   command: List[str],
+                   args: List[str],
+                   env: Mapping[str, str],
+                   storages: List[Tuple[str, str, bool]],
+                   job_labels: Optional[Mapping[str, str]],
+                   pod_labels: Mapping[str, str],
+                   depends_on: str = None,
+                   image_pull_policy: str = "IfNotPresent",
+                   block_until_created=True,
+                   use_dependency=False,
+                   service_account_name=None):
     """
     Create k8s job dynamically. Do nothing if job with the same job_name already exist.
 
@@ -189,16 +193,19 @@ def create_k8s_job(
     @param env: env for the job container
     @param storages: List of (pvc_name, volume_mount_path, is_control). The first storage with is_control equals True will be used for dependency control
                      if depends_on is specified
+    @param job_labels: k8s labels to be added into the job.
     @param pod_labels: k8s labels to be added into the pod. Can be used for other controls like network policy
     @param depends_on: k8s job_name of another job. This job will wait until the specified job finished before it starts.
     @param image_pull_policy: image_pull_policy of the container
     @param block_until_created: block this function until the job is created on the k8s cluster
+    @param use_dependency: True to turn on dependency function to use depends_on and create post container after the job is done
+    @param service_account_name: k8s service account to be used by the job
     """
     
     all_jobs = batch_v1.list_namespaced_job(namespace)
     for job in all_jobs.items:
         if job.metadata.name == job_name:
-            print(f"job {job_name} already exist")
+            log.debug(f"job {job_name} already exist")
             return
     
     volumes = []
@@ -233,7 +240,7 @@ def create_k8s_job(
             volume_mounts=job_volume_mounts
     )
     
-    if control_volume_mount:
+    if control_volume_mount and use_dependency:
         pre_container = client.V1Container(
                 name="pre",
                 image="busybox",
@@ -268,9 +275,7 @@ def create_k8s_job(
             kind="Job",
             metadata=client.V1ObjectMeta(
                     name=job_name,
-                    labels={
-                        "app": "os-test"
-                    }
+                    labels=job_labels
             ),
             spec=client.V1JobSpec(
                     backoff_limit=0,
@@ -284,6 +289,8 @@ def create_k8s_job(
                                     volumes=volumes,
                                     init_containers=init_containers,
                                     containers=containers,
+                                    service_account_name=service_account_name,
+                                    automount_service_account_token=service_account_name != None
                             )
                     )
             )
@@ -294,7 +301,7 @@ def create_k8s_job(
         while read_k8s_job_status(job_name, namespace) == K8SJobStatus.UNKNOWN:
             time.sleep(.5)
     
-    print(f"job {job_name} created")
+    log.debug(f"job {job_name} created")
 
 
 def create_network_policy(namespace, address_ports):
@@ -309,14 +316,14 @@ def create_network_policy(namespace, address_ports):
     all_np = networking_v1.list_namespaced_network_policy(namespace)
     for np in all_np.items:
         if np.metadata.name == np_name:
-            print(f"network policy {np_name} already exist")
+            log.debug(f"network policy {np_name} already exist")
             return
     
     # resolve ip for domain
     ip_ports = []
     for address, port in address_ports:
         ip_list = list({addr[-1][0] for addr in socket.getaddrinfo(address, 0, 0, 0, 0)})
-        print(f'resolved ip for {address}: {ip_list}')
+        log.debug(f'resolved ip for {address}: {ip_list}')
         for ip in ip_list:
             ip_ports.append([ip, port])
     
@@ -359,7 +366,7 @@ def create_network_policy(namespace, address_ports):
     )
     
     networking_v1.create_namespaced_network_policy(namespace, network_policy)
-    print(f"network policy {np_name} created for {'-'.join([f'{ip}:{port}' for ip, port in ip_ports])}")
+    log.debug(f"network policy {np_name} created for {'-'.join([f'{ip}:{port}' for ip, port in ip_ports])}")
     return pod_label
 
 
@@ -435,7 +442,7 @@ def read_log(job_name: str, namespace: str) -> Mapping[Tuple[str, str], str]:
             try:
                 logs[(pod_name, container_name)] = core_v1.read_namespaced_pod_log(pod_name, namespace=namespace, container=container_name)
             except Exception as e:
-                print(e)
+                log.exception(e)
     
     return logs
 
@@ -482,20 +489,6 @@ def extract_k8s_api_values(data, removed_fields):
         return None
     else:
         return str(data)
-
-
-def read_finalize_output(opensafely_job_name, opensafely_job_id, namespace):
-    finalize_job_name = convert_k8s_name(opensafely_job_name, "finalize", additional_hash=opensafely_job_id)
-    logs = read_log(finalize_job_name, namespace)
-    container_log = ""
-    for (_, container_name), container_log in logs.items():
-        if container_name == JOB_CONTAINER_NAME:
-            break
-    for line in container_log.split('\n'):
-        if line.startswith(JOB_RESULTS_TAG):
-            job_result = line[len(JOB_RESULTS_TAG):]
-            return json.loads(job_result)
-    return None
 
 
 def read_image_id(job_name, container_name, namespace):
@@ -548,7 +541,25 @@ def await_job_status(job_name, namespace, sleep_interval=.5, timeout=5 * 60 * 60
     while time.time() - start_time < timeout:
         status = read_k8s_job_status(job_name, namespace)
         if status.completed():
-            print("job completed")
+            log.debug("job completed")
             return status
         time.sleep(sleep_interval)
     return None
+
+
+def read_pv_name(namespace, pvc_name):
+    pv_name = None
+    for pv in core_v1.list_persistent_volume().items:
+        claim_ref = pv.spec.claim_ref
+        if claim_ref and claim_ref.name == pvc_name and claim_ref.namespace == namespace:
+            pv_name = pv.metadata.name
+            break
+    return pv_name
+
+
+def list_pod_with_label(namespace, key, value):
+    results = []
+    for pod in core_v1.list_namespaced_pod(namespace).items:
+        if pod.metadata.labels.get(key) == value:
+            results.append(pod)
+    return results

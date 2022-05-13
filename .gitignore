@@ -6,7 +6,7 @@
 .#*
 .coverage
 .data
-.env
+.env*
 .hypothesis/
 .idea/
 .python-version
