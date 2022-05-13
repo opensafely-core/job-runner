@@ -83,6 +83,12 @@ def test_commit_reachable_from_ref(tmp_work_dir):
         "test-branch-dont-delete",
     )
     assert is_reachable_good
+    is_reachable_tag = commit_reachable_from_ref(
+        "https://github.com/opensafely-core/test-public-repository.git",
+        "test-tag-dont-delete",
+        "test-branch-dont-delete",
+    )
+    assert is_reachable_tag
     is_reachable_bad = commit_reachable_from_ref(
         "https://github.com/opensafely-core/test-public-repository.git",
         "029a6ff81cb0ab878de24c12bc690969163c5c9e",

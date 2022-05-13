@@ -98,15 +98,27 @@ def commit_reachable_from_ref(repo_url, commit_sha, ref):
     supplied commit is reachable from that ref.
     """
     ref_sha = get_sha_from_remote_ref(repo_url, ref)
-    # The easy case and the case I expect to be hit almost every time as the UI
-    # currently only supports running against the branch head
+    # The commont case is that the cha is the current HEAD of the branch, so optimise for that.
     if commit_sha == ref_sha:
         return True
+
+    # The sha could be a tag - try derefence it and recheck against head
+    try:
+        # try deref commit sha in case is a tag
+        commit_sha = get_sha_from_remote_ref(repo_url, commit_sha)
+    except Exception:
+        pass
+    else:
+        # it was a tag, so recheck against the ref sha.
+        if commit_sha == ref_sha:
+            return True
+
     # However a well (or badly) timed push could cause the target sha and the
-    # branch head to diverge, so we need to handle that. In order to do so we
-    # need to fetch the history of the branch. We first fetch just the last 10
-    # commits on the assumption that it's probably one of those. If that fails
-    # we fetch the entire branch history.
+    # branch head to diverge, so we need to handle that. Also, Interactive
+    # requests can be non-HEAD commits.
+    # In order to do so we need to fetch the history of the branch. We first
+    # fetch just the last 10 commits on the assumption that it's probably one
+    # of those. If that fails we fetch the entire branch history.
     repo_dir = get_local_repo_dir(repo_url)
     ensure_git_init(repo_dir)
     fetch_commit(repo_dir, repo_url, ref_sha, depth=10)
