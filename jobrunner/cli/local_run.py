@@ -23,7 +23,6 @@ away afterwards.
 import argparse
 import getpass
 import os
-import platform
 import random
 import shlex
 import shutil
@@ -35,7 +34,7 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from jobrunner import config, manifest_to_database_migration
+from jobrunner import config, executors, manifest_to_database_migration
 from jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,
@@ -61,8 +60,10 @@ from jobrunner.reusable_actions import (
 )
 from jobrunner.run import main as run_main
 
+
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]
+
 # local run logging format
 LOCAL_RUN_FORMAT = "{action}{message}"
 
@@ -208,21 +209,33 @@ def create_and_run_jobs(
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
 
+    # We want to fetch any reusable actions code directly from Github so as to
+    # avoid pushing unnecessary traffic through the proxy
+    config.GIT_PROXY_DOMAIN = "github.com"
     # Rather than using the throwaway `temp_dir` to store git repos in we use a
     # consistent directory within the system tempdir. This means we don't have
     # to keep refetching commits and also avoids the complexity of deleting
-    # git's read-only directories on Windows. We use `getpass.getuser()` as a
+    # git's read-only directories on Windows. We use the current username as a
     # crude means of scoping the directory to the user in order to avoid
     # potential permissions issues if multiple users share the same directory.
     config.GIT_REPO_DIR = Path(tempfile.gettempdir()).joinpath(
-        f"opensafely_{getpass.getuser()}"
+        f"opensafely_{getuser()}"
     )
 
     # None of the below should be used when running locally
-    config.WORK_DIR = None
+    config.WORKDIR = None
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
+
+    configure_logging(
+        fmt=log_format,
+        # All the other output we produce goes to stdout and it's a bit
+        # confusing if the log messages end up on a separate stream
+        stream=sys.stdout,
+        # Filter out log messages in the local run context
+        extra_filter=filter_log_messages,
+    )
 
     # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
     manifest_to_database_migration.migrate_one(
@@ -299,21 +312,6 @@ def create_and_run_jobs(
 
     action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
-
-    configure_logging(
-        fmt=log_format,
-        # None of these status messages are particularly useful in local run
-        # mode, and they can generate a lot of clutter in large dependency
-        # trees
-        status_codes_to_ignore=[
-            StatusCode.WAITING_ON_DEPENDENCIES,
-            StatusCode.DEPENDENCY_FAILED,
-            StatusCode.WAITING_ON_WORKERS,
-        ],
-        # All the other output we produce goes to stdout and it's a bit
-        # confusing if the log messages end up on a separate stream
-        stream=sys.stdout,
-    )
 
     # Wrap all the log output inside an expandable block when running inside
     # Github Actions
@@ -413,7 +411,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         # makes for an awkward workflow when iterating in development
         force_run_failed=True,
         branch="",
-        original={"created_by": getpass.getuser()},
+        original={"created_by": getuser()},
     )
 
     project_file_path = project_dir / "project.yaml"
@@ -464,6 +462,33 @@ def job_failed_or_none_remaining(active_jobs):
     if any(job.state == State.FAILED for job in active_jobs):
         return True
     return len(active_jobs) == 0
+
+
+def filter_log_messages(record):
+    """
+    Not all log messages are useful in the local run context so to avoid noise
+    and make things clearer for the user we filter them out here
+    """
+    # None of these status messages are particularly useful in local run
+    # mode, and they can generate a lot of clutter in large dependency
+    # trees
+    if getattr(record, "status_code", None) in {
+        StatusCode.WAITING_ON_DEPENDENCIES,
+        StatusCode.DEPENDENCY_FAILED,
+        StatusCode.WAITING_ON_WORKERS,
+    }:
+        return False
+
+    # We sometimes log caught exceptions for debugging purposes in production,
+    # but we don't want to show these to the user when running locally
+    if getattr(record, "exc_info", None):
+        return False
+
+    # Executor state logging is pretty verbose and unlikely to be useful for local running
+    if record.name == executors.logging.LOGGER_NAME:
+        return False
+
+    return True
 
 
 # Copied from test/conftest.py to avoid a more complex dependency tree
@@ -578,10 +603,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
         except Exception:
             pass
         finally:
-            # py3.7 on windows can't clean up TemporaryDirectory with git's read only
-            # files in them, so just don't bother.
-            if platform.system() != "Windows" or sys.version_info[:2] > (3, 7):
-                tmp.cleanup()
+            tmp.cleanup()
 
     if cached.exists():
         # if the refresh failed for some reason, update the last time it was
@@ -606,6 +628,16 @@ def docker_preflight_check():
         print("\nIt looks like you have Docker installed but have not started it.")
         return False
     return True
+
+
+def getuser():
+    # `getpass.getuser()` can fail on Windows under certain circumstances. It's never
+    # critical that we know the current username so we don't want to block execution if
+    # this happens
+    try:
+        return getpass.getuser()
+    except Exception:
+        return "unknown"
 
 
 def run():

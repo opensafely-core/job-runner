@@ -25,7 +25,7 @@ def pytest_configure(config):
 
 @pytest.fixture
 def tmp_work_dir(monkeypatch, tmp_path):
-    monkeypatch.setattr("jobrunner.config.WORK_DIR", tmp_path)
+    monkeypatch.setattr("jobrunner.config.WORKDIR", tmp_path)
     monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
     config_vars = [
         "TMP_DIR",
@@ -34,6 +34,7 @@ def tmp_work_dir(monkeypatch, tmp_path):
         "MEDIUM_PRIVACY_STORAGE_BASE",
         "HIGH_PRIVACY_WORKSPACES_DIR",
         "MEDIUM_PRIVACY_WORKSPACES_DIR",
+        "HIGH_PRIVACY_ARCHIVE_DIR",
         "JOB_LOG_DIR",
     ]
     for config_var in config_vars:

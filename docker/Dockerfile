@@ -13,6 +13,12 @@ FROM ghcr.io/opensafely-core/base-docker:latest as base-python
 # docker clean up that deletes that cache on every apt install
 RUN rm -f /etc/apt/apt.conf.d/docker-clean
 
+# preemptively create a docker group using specific gid, before docker is
+# installed. This allows us to set the host docker gid to the same thing in
+# systems we control, and then we can just mount /var/run/docker.sock into the
+# container.
+RUN groupadd --gid 10010 docker
+
 # ensure fully working base python3 installation
 # see: https://gist.github.com/tiran/2dec9e03c6f901814f6d1e8dad09528e
 # use space efficient utility from base image
@@ -48,7 +54,7 @@ ENV VIRTUAL_ENV=/opt/venv/ PATH="/opt/venv/bin:$PATH"
 
 # The cache mount means a) /root/.cache is not in the image, and b) it's preserved
 # between docker builds locally, for faster dev rebuild.
-COPY requirements.txt /tmp/requirements.prod.txt
+COPY requirements.prod.txt /tmp/requirements.prod.txt
 
 # DL3042: using cache mount instead
 # DL3013: we always want latest pip/setuptools/wheel, at least for now
@@ -79,7 +85,7 @@ FROM base-python as job-runner-base
 # We currently use host bind mounts in production backends, which means if we
 # need to match the uid inside the container to the one on the host.  To do
 # this, we reserve uid/gid 10000 to use as our running user on the host.
-RUN useradd --create-home --user-group --uid 10000 appuser
+RUN useradd --create-home --user-group --uid 10000 -G docker appuser
 
 # copy venv over from builder image. These will have root:root ownership, but
 # are readable by all.
@@ -90,7 +96,6 @@ ENV VIRTUAL_ENV=/opt/venv/ PATH="/opt/venv/bin:$PATH"
 
 RUN mkdir /app
 WORKDIR /app
-VOLUME /app
 
 # We set command rather than entrypoint, to make it easier to run different
 # things from the cli
@@ -150,10 +155,20 @@ COPY requirements.dev.txt /tmp/requirements.dev.txt
 RUN --mount=type=cache,target=/root/.cache \
     python -m pip install --requirement /tmp/requirements.dev.txt
 
+# modify container docker gid to match host
+ARG DOCKER_HOST_GROUPID
+RUN groupmod -g $DOCKER_HOST_GROUPID docker
+
 # in dev, ensure appuser uid matches host user id
-ARG USERID=1000
-ARG GROUPID=1000
-RUN usermod -u $USERID appuser && groupmod -g $GROUPID appuser
+ARG DEV_USERID=1000
+ARG DEV_GROUPID=1000
+RUN usermod -u $DEV_USERID appuser
+# Modify appuse group only if group id does not already exist. We run dev
+# containers with an explicit group id anyway, so file permissions on the host
+# will be correct, and we do not actually rely on named appuser group access to
+# anything.
+RUN grep -q ":$DEV_GROUPID:" /etc/group || groupmod -g $DEV_GROUPID appuser
+
 
 # switch back to appuser
 USER appuser
@@ -175,8 +190,10 @@ LABEL org.opencontainers.image.title="job-runner-tools-graphnet" \
 COPY /jobrunner/lib/. /app/jobrunner/lib
 COPY /jobrunner/__init__.py /app/jobrunner/__init__.py
 COPY /jobrunner/config.py /app/jobrunner/config.py
+COPY /jobrunner/executors/graphnet/container/utils.py /app/jobrunner/executors/graphnet/container/utils.py
 COPY /jobrunner/executors/graphnet/container/prepare.py /app/jobrunner/prepare.py
 COPY /jobrunner/executors/graphnet/container/finalize.py /app/jobrunner/finalize.py
+COPY /jobrunner/executors/graphnet/k8s.py /app/jobrunner/executors/graphnet/k8s.py
 
 # finally, tag with build information. These will change regularly, therefore
 # we do them as the last action.
@@ -187,3 +204,12 @@ LABEL org.opencontainers.image.revision=$GITREF
 
 ## changed to root in order to manage the files in the PV in k8s
 USER root
+
+##################################################
+FROM job-runner-prod as job-runner-graphnet
+
+USER root
+#RUN chown appuser: /app && \
+#    chmod u+w /app
+#
+#USER appuser

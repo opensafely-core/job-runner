@@ -29,14 +29,18 @@ services:
       - ../workdir:/workdir
       # used to configure ssh access for docker
       - ./ssh:/home/appuser/.ssh
+      # docker control
+      - /var/run/docker.sock:/var/run/docker.sock
+    # paths relative to docker-compose.yaml file
+    env_file:
+      - ../.env
     # ensure WORKDIR environment points to fixed location
     environment:
       # default dev config
       WORKDIR: /workdir
       MEDIUM_PRIVACY_STORAGE_BASE: /workdir/workspaces
       HIGH_PRIVACY_STORAGE_BASE: /workdir/workspaces
-      # use docker over SSH to avoid socket file permissions
-      DOCKER_HOST: ssh://${DOCKER_USER}@${DOCKER_ADDR}
+      DOCKER_HOST: ${DOCKER_HOST:-unix:///var/run/docker.sock}
 
   # main development service
   dev:
@@ -47,20 +51,19 @@ services:
     # running as a specific uid/gid allows files written to mounted volumes by
     # the docker container's default user to match the host user's uid/gid, for
     # convienience.
-    user: ${DOCKER_USERID:-1000}:${DOCKER_GROUPID:-1000}
+    user: ${DEV_USERID:-1000}:${DEV_GROUPID:-1000}
+    # also run with additional group docker
+    group_add: [docker]
     build:
       # the dev stage in the Dockerfile
       target: job-runner-dev
       # pass the uid/gid as build arg
       args:
-        - USERID=${DOCKER_USERID:-1000}
-        - GROUPID=${DOCKER_GROUPID:-1000}
-    # paths relative to docker-compose.yaml file
-    env_file:
-      - ../.env
+        - DEV_USERID=${DEV_USERID:-1000}
+        - DEV_GROUPID=${DEV_GROUPID:-1000}
+        - DOCKER_HOST_GROUPID=${DOCKER_HOST_GROUPID}
     volumes:
       - ..:/app
-      - ../workdir:/work_dir
 
   # test runner service - uses dev-image with a different command
   test:

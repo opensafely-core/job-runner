@@ -16,10 +16,12 @@ class Study:
 
 @dataclass
 class JobDefinition:
-    id: str  # a unique identifier for the job
+    id: str  # a unique identifier for the job  # noqa: A003
+    job_request_id: str  # a unique identifier for the job's job request
     study: Study  # the study defining the action for this job
     workspace: str  # the workspace to run the job in
     action: str  # the name of the action that the job is running
+    created_at: int  # UNIX timestamp, time job created
     image: str  # the Docker image to run
     args: List[str]  # the arguments to pass to the Docker container
     env: Mapping[str, str]  # the environment variables to set for the Docker container
@@ -53,6 +55,7 @@ class JobResults:
     unmatched_patterns: List[str]  # list of patterns that matched no outputs
     exit_code: int
     image_id: str
+    message: str = None
 
 
 class ExecutorAPI:

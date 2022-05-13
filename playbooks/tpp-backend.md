@@ -1,4 +1,8 @@
-# TPP Backend
+# TPP Backend (DEPRECATED)
+
+THIS PLAYBOOK HAS BEEN DEPRECATED
+
+The general backend playbook is at https://github.com/opensafely-core/backend-server/blob/main/jobrunner/playbook.md#jobrunner
 
 
 ## Fundamentals
@@ -317,6 +321,28 @@ for debugging then omit this flag.
 It's fine to run this command against a job that's already been killed
 so you can use it with the `--cleanup` flag to remove containers and
 volumes of jobs that have already finished.
+
+
+### Preparing for reboot
+
+Sometimes we need to restart Docker, or reboot the VM in which we're
+running, or reboot the entire host machine. When the happens, it's nicer
+if we can automatically restart any running jobs rather than have them
+fail and force the user to manually restart them.
+
+To do this, first stop the job-runner service (see above).
+
+After the service is stopped you can run the `prepare_for_reboot` command:
+
+    bash scripts/run.sh -m jobrunner.cli.prepare_for_reboot
+
+This is quite a destructive command as it will destroy the containers
+and volumes for any running jobs. It will also reset any currently
+running jobs to the pending state.
+
+The next time job-runner restarts (which should be after the reboot) it
+will pick up these jobs again as if it had not run them before and the
+user should not have to do anything.
 
 
 ### Clearing up diskspace

@@ -107,7 +107,14 @@ class TestHandleReusableAction:
         with pytest.raises(reusable_actions.ReusableActionError):
             reusable_actions.handle_reusable_action("reusable-action:latest")
 
-    def test_reusable_action_with_invalid_runtime(self, *args, **kwargs):
+    @pytest.mark.parametrize(
+        "action",
+        [
+            "cohortextractor:v1 generate_cohort",
+            "databuilder:v0.36.0 generate_dataset",
+        ],
+    )
+    def test_reusable_action_with_invalid_runtime(self, action, *args, **kwargs):
         action = "foo:v1"
         reusable_action_1 = ReusableAction(
             repo_url="foo", commit="bar", action_file=b"run: notanaction:v1"

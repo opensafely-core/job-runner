@@ -84,8 +84,7 @@ def handle_reusable_action(run_command):
 
     reusable_action = fetch_reusable_action(image, tag)
     new_run_args = apply_reusable_action(run_args, reusable_action)
-    # When we no longer support Python 3.7 we can just use `shlex.join()` here
-    new_run_command = " ".join(shlex.quote(arg) for arg in new_run_args)
+    new_run_command = shlex.join(new_run_args)
     return new_run_command, reusable_action.repo_url, reusable_action.commit
 
 
@@ -184,7 +183,9 @@ def apply_reusable_action(run_args, reusable_action):
         if action_image not in config.ALLOWED_IMAGES:
             raise ReusableActionError(f"Unrecognised runtime: {action_image}")
         if is_generate_cohort_command(action_run_args):
-            raise ReusableActionError("Re-usable actions cannot invoke cohortextractor")
+            raise ReusableActionError(
+                "Re-usable actions cannot invoke cohortextractor/databuilder"
+            )
     except (YAMLError, ReusableActionError) as e:
         formatted_error = textwrap.indent(f"{type(e).__name__}: {e}", "  ")
         raise ReusableActionError(

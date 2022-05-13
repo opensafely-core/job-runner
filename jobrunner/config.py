@@ -15,24 +15,31 @@ def _is_valid_backend_name(name):
 
 default_work_dir = Path(__file__) / "../../workdir"
 
-WORK_DIR = Path(os.environ.get("WORK_DIR", default_work_dir)).resolve()
+WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()
 
-TMP_DIR = WORK_DIR / "temp"
+TMP_DIR = WORKDIR / "temp"
 
-GIT_REPO_DIR = WORK_DIR / "repos"
+GIT_REPO_DIR = WORKDIR / "repos"
 
-DATABASE_FILE = WORK_DIR / "db.sqlite"
-DATABASE_SCHEMA_FILE = Path(__file__).parent / "schema.sql"
+DATABASE_FILE = WORKDIR / "db.sqlite"
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORK_DIR / "high_privacy")
+    os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORKDIR / "high_privacy")
 )
 MEDIUM_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", WORK_DIR / "medium_privacy")
+    os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", WORKDIR / "medium_privacy")
 )
 
 HIGH_PRIVACY_WORKSPACES_DIR = HIGH_PRIVACY_STORAGE_BASE / "workspaces"
 MEDIUM_PRIVACY_WORKSPACES_DIR = MEDIUM_PRIVACY_STORAGE_BASE / "workspaces"
+
+HIGH_PRIVACY_ARCHIVE_DIR = Path(
+    os.environ.get("HIGH_PRIVACY_ARCHIVE_DIR", HIGH_PRIVACY_STORAGE_BASE / "archives")
+)
+
+# valid archive formats
+ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
+
 
 JOB_LOG_DIR = HIGH_PRIVACY_STORAGE_BASE / "logs"
 
@@ -62,6 +69,7 @@ else:
 ALLOWED_IMAGES = {
     "cohortextractor",
     "cohortextractor-v2",
+    "databuilder",
     "stata-mp",
     "r",
     "jupyter",
@@ -135,8 +143,9 @@ ALLOWED_GITHUB_ORGS = (
     os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely").strip().split(",")
 )
 
-# we hardcode this for now, as from a security perspective, we do not want it
-# to be run time configurable.
+# We hardcode this for now, as from a security perspective, we do not want it
+# to be run time configurable. Though we do override this in `local_run.py` as
+# we don't want to push traffic via the proxy when running locally.
 GIT_PROXY_DOMAIN = "github-proxy.opensafely.org"
 
 
@@ -180,5 +189,23 @@ STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
 
 
 # feature flag to enable new API abstraction
-EXECUTION_API = os.environ.get("EXECUTION_API", "false").lower() == "true"
+EXECUTION_API = os.environ.get("EXECUTION_API", "true").lower() == "true"
 EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI")
+
+
+# Map known exit codes to user-friendly messages
+DATABASE_EXIT_CODES = {
+    # Custom database-related exit codes return from cohortextractor, see
+    # https://github.com/opensafely-core/cohort-extractor/blob/0a314a909817dbcc48907643e0b6eeff319337db/cohortextractor/cohortextractor.py#L787
+    3: (
+        "A transient database error occurred, your job may run "
+        "if you try it again, if it keeps failing then contact tech support"
+    ),
+    4: "New data is being imported into the database, please try again in a few hours",
+    5: "Something went wrong with the database, please contact tech support",
+}
+EXIT_CODES = {
+    # 137 = 128+9, which means was killed by signal 9, SIGKILL
+    # This usually happens because of OOM killer, or else manually
+    137: "Killed: out of memory, or stopped by admin",
+}

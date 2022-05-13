@@ -4,7 +4,7 @@ import pytest
 
 from jobrunner.executors.graphnet.container.prepare import (
     git_clone_and_checkout,
-    copy_input_files
+    copy_files
 )
 
 REPO_FIXTURE = str(Path(__file__).parents[1].resolve() / "fixtures/git-repo")
@@ -24,29 +24,34 @@ def test_git_clone_and_checkout(tmp_work_dir, tmp_path):
     assert [f.name for f in target_dir.iterdir()] == ["README.md"]
 
 
-def test_copy_input_files(tmp_work_dir, tmp_path):
+def test_copy_files(tmp_work_dir, tmp_path):
+    src_dir = tmp_work_dir
+    
     inputs = [
-        tmp_work_dir / "foo1",
-        tmp_work_dir / "foo2",
-        tmp_work_dir / "foo3",
+        "output/foo1",
+        "output/foo2",
+        "output/foo3",
     ]
     job_dir = tmp_path / "job"
     job_dir.mkdir()
     
     for i in inputs:
-        i.touch()
+        p = (src_dir / i)
+        p.parent.mkdir(exist_ok=True, parents=True)
+        p.touch()
     
-    copy_input_files(inputs, job_dir)
+    copy_files(src_dir, inputs, job_dir)
     
-    assert set([f.name for f in job_dir.iterdir()]) == set(f.name for f in inputs)
+    assert set([f.name for f in (job_dir/'output').iterdir()]) == set(Path(f).name for f in inputs)
 
 
-def test_copy_empty_input_files(tmp_path):
+def test_copy_empty_input_files(tmp_work_dir, tmp_path):
+    src_dir = tmp_work_dir
+    
     inputs = "".split(";")
     job_dir = tmp_path / "job"
     job_dir.mkdir()
     
-    copy_input_files(inputs, job_dir)
+    copy_files(src_dir, inputs, job_dir)
     
     assert len([f.name for f in job_dir.iterdir()]) == 0
-

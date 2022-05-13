@@ -14,6 +14,7 @@ from jobrunner.lib.database import find_where
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, JobRequest
 
+
 session = requests.Session()
 log = logging.getLogger(__name__)
 

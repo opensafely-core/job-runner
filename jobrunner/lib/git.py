@@ -12,11 +12,21 @@ from jobrunner import config
 from jobrunner.lib.string_utils import project_name_from_url
 from jobrunner.lib.subprocess_utils import subprocess_run
 
+
 log = logging.getLogger(__name__)
 
 
 # See `commit_already_fetched`
 SENTINEL_TAG_PREFIX = "fetched/"
+
+# Prevent git from ever prompting for credentials. Hat tip:
+# https://serverfault.com/a/1054253
+NEVER_PROMPT_FOR_AUTH_ENV = dict(
+    os.environ,
+    GIT_TERMINAL_PROMPT="0",
+    GIT_ASKPASS="echo",
+    GCM_INTERACTIVE="never",
+)
 
 
 class GitError(Exception):
@@ -132,7 +142,6 @@ def get_sha_from_remote_ref(repo_url, ref):
                 "git",
                 "ls-remote",
                 "--quiet",
-                "--exit-code",
                 add_access_token_and_proxy(repo_url),
                 ref,
                 deref_ref,
@@ -141,6 +150,7 @@ def get_sha_from_remote_ref(repo_url, ref):
             capture_output=True,
             text=True,
             encoding="utf-8",
+            env=NEVER_PROMPT_FOR_AUTH_ENV,
         )
         output = response.stdout
     except subprocess.SubprocessError as exc:
@@ -269,6 +279,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
                 check=True,
                 capture_output=True,
                 cwd=repo_dir,
+                env=NEVER_PROMPT_FOR_AUTH_ENV,
             )
             mark_commmit_as_fetched(repo_dir, commit_sha)
             break

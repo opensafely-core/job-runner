@@ -9,10 +9,17 @@ import random
 import shlex
 import sys
 import time
+from typing import Optional
 
 from jobrunner import config
 from jobrunner.executors import get_executor_api
-from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
+from jobrunner.job_executor import (
+    ExecutorAPI,
+    ExecutorState,
+    JobDefinition,
+    Privacy,
+    Study,
+)
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.manage_jobs import (
@@ -20,14 +27,15 @@ from jobrunner.manage_jobs import (
     JobError,
     cleanup_job,
     finalise_job,
-    get_job_metadata,
     job_still_running,
     kill_job,
     list_outputs_from_action,
     start_job,
 )
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.project import is_generate_cohort_command
+from jobrunner.project import requires_db_access
+from jobrunner.queries import get_flag
+
 
 log = logging.getLogger(__name__)
 
@@ -39,18 +47,23 @@ class InvalidTransition(Exception):
 def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
 
+    api = None
     if config.EXECUTION_API:
         log.info("using new EXECUTION_API")
+        api = get_executor_api()
 
     while True:
-        active_jobs = handle_jobs()
+        mode = get_flag("mode")
+
+        active_jobs = handle_jobs(api, mode)
 
         if exit_callback(active_jobs):
             break
+
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs():
+def handle_jobs(api: Optional[ExecutorAPI], mode=None):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -61,19 +74,14 @@ def handle_jobs():
     if config.RANDOMISE_JOB_ORDER:
         random.shuffle(active_jobs)
 
-    api = None
-    if config.EXECUTION_API:
-        api = get_executor_api()
-
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            # new way
-            if config.EXECUTION_API:
-                handle_job_api(job, api)
-            # old way
+            if api:
+                handle_active_job_api(job, api, mode)
             else:
+                # old way
                 if job.state == State.PENDING:
                     handle_pending_job(job)
                 elif job.state == State.RUNNING:
@@ -162,24 +170,6 @@ def handle_running_job(job):
             cleanup_job(job)
 
 
-def handle_active_jobs_api(api, active_jobs):
-    for job in active_jobs:
-        # `set_log_context` ensures that all log messages triggered anywhere
-        # further down the stack will have `job` set on them
-        with set_log_context(job=job):
-            try:
-                handle_job_api(job, api)
-            except Exception:
-                mark_job_as_failed(job, "Internal error")
-                # Do not clean up, as we may want to debug
-                #
-                # Raising will kill the main loop, by design. The service manager
-                # will restart, and this job will be ignored when it does, as
-                # it has failed. If we have an internal error, a full restart
-                # might recover better.
-                raise
-
-
 # we do not control the tranisition from these states, the executor does
 STABLE_STATES = [
     ExecutorState.PREPARING,
@@ -188,7 +178,27 @@ STABLE_STATES = [
 ]
 
 
-def handle_job_api(job, api):
+def handle_active_job_api(job, api, mode=None):
+    try:
+        handle_job_api(job, api, mode)
+    except Exception:
+        mark_job_as_failed(
+            job,
+            "Internal error: this usually means a platform issue rather than a problem "
+            "for users to fix.\n"
+            "The tech team are automatically notified of these errors and will be "
+            "investigating.",
+        )
+        # Do not clean up, as we may want to debug
+        #
+        # Raising will kill the main loop, by design. The service manager
+        # will restart, and this job will be ignored when it does, as
+        # it has failed. If we have an internal error, a full restart
+        # might recover better.
+        raise
+
+
+def handle_job_api(job, api, mode=None):
     """Handle an active job.
 
     This contains the main state machine logic for a job. For the most part,
@@ -207,13 +217,26 @@ def handle_job_api(job, api):
         api.cleanup(definition)
         return
 
+    # handle db maintenance mode before considering current executor state, as
+    # if it applies, we're going to tear it all down anyway.
+    if mode == "db-maintenance" and definition.allow_database_access:
+        if job.state == State.RUNNING:
+            log.warning(f"DB maintenance mode active, killing db job {job.id}")
+            # we ignore the JobStatus returned from these API calls, as this is not a hard error
+            api.terminate(definition)
+            api.cleanup(definition)
+
+        # reset state to pending and exit
+        set_state(job, State.PENDING, "Waiting for database to finish maintenance")
+        return
+
     initial_status = api.get_status(definition)
 
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
         if job.state == State.PENDING:
             log.warning(
-                "state ereror: got {initial_status.state} for a job we thought was PENDING"
+                f"state error: got {initial_status.state} for a job we thought was PENDING"
             )
         # no action needed, simply update job message and timestamp
         message = initial_status.state.value.title()
@@ -240,7 +263,9 @@ def handle_job_api(job, api):
 
         if any(state != State.SUCCEEDED for state in awaited_states):
             set_message(
-                job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
+                job,
+                "Waiting on dependencies",
+                code=StatusCode.WAITING_ON_DEPENDENCIES,
             )
             return
 
@@ -275,30 +300,35 @@ def handle_job_api(job, api):
         api.cleanup(definition)
         # we are done here
         return
+    else:
+        new_status = initial_status
 
     # following logic is common to all non-final transitions
 
-    if new_status.state == initial_status.state:
-        # no change in state, i.e. back pressure
-        set_message(
-            job, "Waiting on available resources", code=StatusCode.WAITING_ON_WORKERS
-        )
+    if new_status.state == ExecutorState.ERROR:
+        # all transitions can go straight to error
+        mark_job_as_failed(job, new_status.message)
+        api.cleanup(definition)
 
     elif new_status.state == expected_state:
         # successful state change to the expected next state
         if new_status.state == ExecutorState.PREPARING:
             job.state = State.RUNNING
+            job.started_at = int(time.time())
         elif job.state != State.RUNNING:
             # got an ExecutorState that should mean the job.state is RUNNING, but it is not
             log.warning(
-                "state error: got {new_status.state} for job we thought was {job.state}"
+                f"state error: got {new_status.state} for job we thought was {job.state}"
             )
         set_message(job, new_status.state.value.title())
 
-    elif new_status.state == ExecutorState.ERROR:
-        # all transitions can go straight to error
-        mark_job_as_failed(job, new_status.message)
-        api.cleanup(definition)
+    elif new_status.state == initial_status.state:
+        # no change in state, i.e. back pressure
+        set_message(
+                job,
+                "Waiting on available resources",
+                code=StatusCode.WAITING_ON_WORKERS,
+        )
 
     else:
         raise InvalidTransition(
@@ -311,8 +341,10 @@ def save_results(job, results):
     # set the final state of the job
     if results.exit_code != 0:
         job.state = State.FAILED
-        job.status_message = "Job exited with an error code"
+        job.status_message = f"Job exited with error code {results.exit_code}"
         job.status_code = StatusCode.NONZERO_EXIT
+        if results.message:
+            job.status_message += f": {results.message}"
     elif results.unmatched_patterns:
         job.state = State.FAILED
         job.status_message = "No outputs found matching patterns:\n - {}".format(
@@ -359,7 +391,7 @@ def job_to_job_definition(job):
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
     # Check `is True` so we fail closed if we ever get anything else
-    if is_generate_cohort_command(action_args) is True:
+    if requires_db_access(action_args) is True:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
@@ -394,9 +426,11 @@ def job_to_job_definition(job):
 
     return JobDefinition(
         job.id,
+        job.job_request_id,
         study,
         job.workspace,
         job.action,
+        job.created_at,
         full_image,
         action_args,
         env,
@@ -453,6 +487,8 @@ def set_state(job, state, message, code=None):
         job.started_at = timestamp
     elif state == State.FAILED or state == State.SUCCEEDED:
         job.completed_at = timestamp
+    elif state == State.PENDING:  # restarting the job gracefully
+        job.started_at = None
     job.state = state
     job.status_message = message
     job.status_code = code

@@ -41,49 +41,35 @@ containers and stores the appropriate outputs when they finish.
 ## Testing
 
 Tests can be run with:
-```
-python -m pytest
-```
-(Note that the `pytest` command is subtly different and won't work).
+
+    just test
 
 Some of these tests involve talking to GitHub and there is a big fat
 integration test which takes a while to run. You can run just the fast
 tests with:
-```
-python -m pytest -m "not slow_test"
-```
 
-The big integration test will sit there inscrutably for 30s-1min. If you
-want to know what it's up to you can get pytest to show the log output
-with:
-```
-python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO
-```
+    just test-fast
+
+The big integration test will sit there inscrutably for 30s-1min.
+If you want to know what it's up to you can get pytest to show the log output with:
+
+    just test-verbose
 
 ### Testing in docker
 
 To run tests in docker, simply run:
 
-    make docker-test
+    make -C docker docker-test
 
-This will build the docker image and run tests. You can run job-runner with:
+This will build the docker image and run tests. You can run job-runner as
+a service with:
 
-    make docker-serve
+    make -C docker docker-serve
 
 Or run a command inside the docker image:
 
-    make docker-run ARGS=command  # bash by default
+    make -C docker docker-run ARGS=command  # bash by default
 
-Note: we use ssh for authenticated network access to the host's docker in
-development. The above commands will automatically generate a local ed25519
-dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
-`make docker-clean` to remove this.  If you wish to use a different user/host,
-you can do so:
-
-1. Specify `DOCKER_USER` and `DOCKER_ADDR` environment variables.
-2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
-3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
-   set up.
 
 
 ### Testing on Windows
@@ -95,8 +81,8 @@ Windows installed in a VM and Docker running on the host. The steps are:
 
 1. Install git in the Windows VM: https://git-scm.com/download/win
 
-2. Install Python 3.7 in the Windows VM:
-   I used Python 3.7.9 [Windows x86-64 executable](https://www.python.org/ftp/python/3.7.9/python-3.7.9-amd64.exe) installer from:
+2. Install Python 3.8 in the Windows VM:
+   I used Python 3.8.12 [Windows x86-64 executable](https://www.python.org/ftp/python/3.8.12/python-3.8.12-amd64.exe) installer from:
    https://www.python.org/downloads/windows/
 
 3. On the host machine, navigate to your job-runner checkout and run
@@ -143,3 +129,37 @@ See the full set of options it accepts with:
 ```
 python -m jobrunner.cli.add_job --help
 ```
+
+## job-runner docker image
+
+Building the dev docker image:
+
+    make -C docker-build                   # build base and dev image
+    make -C docker-build ENV=prod          # build base and prod image
+    make -C docker-build ARGS=--no-cache   # build without cache
+
+
+### Exposing the host's docker service
+
+By default, running the docker container will mount your host's
+`/var/run/docker.sock` into the container and use that for job-runner to run
+jobs. It does some matching of docker GIDs to do so.
+
+However, it also supports accessing docker over ssh:
+
+    make -C docker enable-docker-over-ssh
+
+The docker-compose invocations will now talk to your host docker over SSH,
+possibly on a remote machine. You can disable with:
+
+    make -C docker disable-docker-over-ssh
+
+Note: The above commands will automatically generate a local ed25519
+dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
+`just docker-clean` to remove this.  If you wish to use a different user/host,
+you can do so:
+
+1. Specify `SSH_USER` and `SSH_HOST` environment variables.
+2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
+3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
+   set up.

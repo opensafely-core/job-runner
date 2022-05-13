@@ -1,15 +1,10 @@
 import pytest
 
-from jobrunner import run
-from jobrunner.job_executor import (
-    ExecutorAPI,
-    ExecutorState,
-    JobDefinition,
-    JobStatus,
-    Privacy,
-)
+from jobrunner import config, run
+from jobrunner.job_executor import ExecutorState, JobStatus, Privacy
 from jobrunner.models import State, StatusCode
 from tests.factories import StubExecutorAPI, job_factory
+from tests.fakes import RecordingExecutor
 
 
 def test_handle_pending_job_cancelled(db):
@@ -67,6 +62,7 @@ def test_handle_job_pending_to_preparing(db):
     # our state
     assert job.status_message == "Preparing"
     assert job.state == State.RUNNING
+    assert job.started_at
 
 
 def test_handle_job_pending_dependency_failed(db):
@@ -231,7 +227,7 @@ def test_handle_job_finalized_failed_exit_code(db):
     # our state
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.NONZERO_EXIT
-    assert job.status_message == "Job exited with an error code"
+    assert job.status_message == "Job exited with error code 1"
     assert job.outputs == {"output/file.csv": "medium"}
 
 
@@ -251,6 +247,53 @@ def test_handle_job_finalized_failed_unmatched(db):
     assert job.state == State.FAILED
     assert job.status_message == "No outputs found matching patterns:\n - badfile.csv"
     assert job.outputs == {"output/file.csv": "medium"}
+
+
+@pytest.fixture
+def backend_db_config(monkeypatch):
+    monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
+    # for test jobs, job.database_name is None, so add a dummy connection
+    # string for that db
+    monkeypatch.setitem(config.DATABASE_URLS, None, "conn str")
+
+
+def test_handle_pending_db_maintenance_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.UNKNOWN,
+        State.PENDING,
+        run_command="cohortextractor:latest generate_cohort",
+    )
+
+    run.handle_job_api(job, api, mode="db-maintenance")
+
+    # executor state
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    # our state
+    assert job.state == State.PENDING
+    assert job.status_message == "Waiting for database to finish maintenance"
+    assert job.started_at is None
+
+
+def test_handle_running_db_maintenance_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.EXECUTING,
+        State.RUNNING,
+        run_command="cohortextractor:latest generate_cohort",
+    )
+
+    run.handle_job_api(job, api, mode="db-maintenance")
+
+    # executor state
+    assert job.id in api.tracker["terminate"]
+    assert job.id in api.tracker["cleanup"]
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
+    assert job.state == State.PENDING
+    assert job.status_message == "Waiting for database to finish maintenance"
+    assert job.started_at is None
 
 
 def invalid_transitions():
@@ -286,6 +329,21 @@ def test_bad_transition(current, invalid, db):
         run.handle_job_api(job, api)
 
 
+def test_handle_active_job_marks_as_failed(db, monkeypatch):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING)
+
+    def error(*args, **kwargs):
+        raise Exception("test")
+
+    monkeypatch.setattr(api, "get_status", error)
+
+    with pytest.raises(Exception):
+        run.handle_active_job_api(job, api)
+
+    assert job.state is State.FAILED
+
+
 def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     job_factory(
         id="1",
@@ -303,7 +361,9 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
         outputs={"output-from-cancelled-run": "highly_sensitive_output"},
     )
 
-    api = RecordingExecutorAPI()
+    api = RecordingExecutor(
+        JobStatus(ExecutorState.UNKNOWN), JobStatus(ExecutorState.PREPARING)
+    )
     run.handle_job_api(
         job_factory(
             id="3", requires_outputs_from=["other-action"], state=State.PENDING
@@ -312,16 +372,6 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     )
 
     assert api.job.inputs == ["output-from-completed-run"]
-
-
-class RecordingExecutorAPI(ExecutorAPI):
-    def get_status(self, job: JobDefinition) -> JobStatus:
-        self.job = job
-        return JobStatus(ExecutorState.UNKNOWN)
-
-    def prepare(self, job: JobDefinition) -> JobStatus:
-        self.job = job
-        return JobStatus(ExecutorState.PREPARING)
 
 
 def test_get_obsolete_files_nothing_to_delete(db):

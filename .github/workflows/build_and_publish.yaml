@@ -37,18 +37,18 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v1
     - name: Set up Python 3.8
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v3
       with:
         python-version: 3.8
     - name: Install wheel package
       run: |
-        pip install wheel
+        pip install build wheel
     - name: Generate correct value for VERSION file
       run: |
         echo ${{ needs.tag-new-version.outputs.tag }} > VERSION
+    - uses: extractions/setup-just@v1
     - name: Build package
-      run: |
-        python setup.py sdist bdist_wheel
+      run: just package-build
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@master
       if: needs.tag-new-version.outputs.tag
@@ -67,19 +67,12 @@ jobs:
       uses: actions/checkout@v1
     - name: Build image
       run: |
-          make docker-build  # build base and dev images
-          make docker-build ENV=prod  # build and tag prod image
-    - name: Setup self-SSH
-      run: |
-        # ensure local user is set up to ssh in to the runner
-        chmod 700 ~
-        mkdir ~/.ssh -m 700
-        touch ~/.ssh/authorized_keys
-        chmod 600 ~/.ssh/authorized_keys
+          make -C docker docker-build  # build base and dev images
+          make -C docker docker-build ENV=prod  # build and tag prod image
     - name: Test image
-      run: make docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
+      run: make -C docker docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
     - name: Log into GitHub Container Registry
-      run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.DOCKER_RW_TOKEN }}
+      run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
     - name: Push image to GitHub Container Registry
       run: |
         IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME

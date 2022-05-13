@@ -21,7 +21,7 @@ def test_service_main(tmp_path):
         # we just point it to a "reserved for future use" IP4 block which hangs
         # nicely as we want.
         env={
-            "WORK_DIR": str(tmp_path),
+            "WORKDIR": str(tmp_path),
             "JOB_SERVER_ENDPOINT": "https://240.0.0.1",
         },
     )

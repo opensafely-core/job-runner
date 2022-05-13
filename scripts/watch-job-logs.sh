@@ -24,7 +24,7 @@ done
 # An empty name search matches everything, which is what we want
 job_list="$(
   docker container ls --all \
-    --filter 'label=jobrunner-job' \
+    --filter 'label=jobrunner-local' \
     --filter "name=$name_search" \
     --format='{{.Names}}'
 )"

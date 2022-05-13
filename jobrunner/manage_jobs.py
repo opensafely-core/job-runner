@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 
 from jobrunner import config
-from jobrunner.lib import docker
+from jobrunner.lib import atomic_writer, docker
 from jobrunner.lib.database import find_one
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
@@ -26,9 +26,10 @@ from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.models import SavedJobRequest, State, StatusCode
 from jobrunner.project import (
     get_all_output_patterns_from_project_file,
-    is_generate_cohort_command,
+    requires_db_access,
 )
 from jobrunner.queries import calculate_workspace_state
+
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ KEYS_TO_LOG = [
     "action_repo_url",
     "action_commit",
     "job_id",
+    "job_request_id",
     "run_by_user",
     "created_at",
     "completed_at",
@@ -104,7 +106,7 @@ def start_job(job):
     allow_network_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
     # Check `is True` so we fail closed if we ever get anything else
-    if is_generate_cohort_command(action_args) is True:
+    if requires_db_access(action_args) is True:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_network_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
@@ -428,6 +430,7 @@ def get_job_metadata(job, container_metadata):
     # The original job_request, exactly as received from the job-server
     job_metadata["job_request"] = job_request.original
     job_metadata["job_id"] = job_metadata["id"]
+    job_metadata["job_request_id"] = job_request.id
     job_metadata["run_by_user"] = job_metadata["job_request"].get("created_by")
     job_metadata["docker_image_id"] = container_metadata["Image"]
     job_metadata["exit_code"] = container_metadata["State"]["ExitCode"]
@@ -493,11 +496,9 @@ def get_log_dir(job):
 def copy_file(source, dest):
     dest.parent.mkdir(parents=True, exist_ok=True)
     ensure_overwritable(dest)
-    # shutil.copy() should be reasonably efficient in Python 3.8+, but if we
-    # need to stick with 3.7 for some reason we could replace this with a
-    # shellout to `cp`. See:
-    # https://docs.python.org/3/library/shutil.html#shutil-platform-dependent-efficient-copy-operations
-    shutil.copy(source, dest)
+
+    with atomic_writer(dest) as tmp:
+        shutil.copy(source, tmp)
 
 
 def delete_files(directory, filenames, files_to_keep=()):

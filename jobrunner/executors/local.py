@@ -1,9 +1,12 @@
 import json
 import logging
 import subprocess
+import time
 from pathlib import Path
 
+from jobrunner import config
 from jobrunner.job_executor import (
+    ExecutorAPI,
     ExecutorState,
     JobDefinition,
     JobResults,
@@ -12,6 +15,7 @@ from jobrunner.job_executor import (
 )
 from jobrunner.lib import docker
 from jobrunner.lib.string_utils import tabulate
+
 # ideally, these should be moved into this module when the old implementation
 # is removed
 from jobrunner.manage_jobs import (
@@ -31,6 +35,7 @@ from jobrunner.manage_jobs import (
     write_manifest_file,
 )
 
+
 # cache of result objects
 RESULTS = {}
 LABEL = "jobrunner-local"
@@ -42,13 +47,39 @@ class LocalDockerError(Exception):
     pass
 
 
-class LocalDockerAPI:
+def get_job_labels(job: JobDefinition):
+    """Useful metadata to label docker objects with."""
+    return {
+        "workspace": job.workspace,
+        "action": job.action,
+    }
+
+
+def workspace_is_archived(workspace):
+    archive_dir = config.HIGH_PRIVACY_ARCHIVE_DIR
+    for ext in config.ARCHIVE_FORMATS:
+        path = (archive_dir / workspace).with_suffix(ext)
+        if path.exists():
+            return True
+    return False
+
+
+class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
     def prepare(self, job):
         current = self.get_status(job)
         if current.state != ExecutorState.UNKNOWN:
             return current
+
+        # Check the workspace is not archived
+        workspace_dir = get_high_privacy_workspace(job.workspace)
+        if not workspace_dir.exists():
+            if workspace_is_archived(job.workspace):
+                return JobStatus(
+                    ExecutorState.ERROR,
+                    f"Workspace {job.workspace} has been archived. Contact the OpenSAFELY tech team to resolve",
+                )
 
         # Check the image exists locally and error if not. Newer versions of
         # docker-cli support `--pull=never` as an argument to `docker run` which
@@ -88,11 +119,7 @@ class LocalDockerAPI:
                 env=job.env,
                 allow_network_access=job.allow_database_access,
                 label=LABEL,
-                labels={
-                    # make it easier to find stuff
-                    "workspace": job.workspace,
-                    "action": job.action,
-                },
+                labels=get_job_labels(job),
             )
         except Exception as exc:
             return JobStatus(
@@ -102,6 +129,7 @@ class LocalDockerAPI:
         return JobStatus(ExecutorState.EXECUTING)
 
     def finalize(self, job):
+
         current = self.get_status(job)
         if current.state != ExecutorState.EXECUTED:
             return current
@@ -120,6 +148,7 @@ class LocalDockerAPI:
     def cleanup(self, job):
         cleanup_job(job)
         RESULTS.pop(job.id, None)
+        return JobStatus(ExecutorState.UNKNOWN)
 
     def get_status(self, job):
         name = container_name(job)
@@ -173,7 +202,7 @@ def prepare_job(job):
     workspace_dir = get_high_privacy_workspace(job.workspace)
 
     volume = volume_name(job)
-    docker.create_volume(volume)
+    docker.create_volume(volume, get_job_labels(job))
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
@@ -211,11 +240,23 @@ def prepare_job(job):
 def finalize_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
+    exit_code = container_metadata["State"]["ExitCode"]
+
+    # First get the user-friendly message for known database exit codes, for jobs
+    # that have db access
+    message = None
+    if job.allow_database_access:
+        message = config.DATABASE_EXIT_CODES.get(exit_code)
+    # No database error, check for other known exit codes
+    if message is None:
+        message = config.EXIT_CODES.get(exit_code)
+
     results = JobResults(
-        outputs,
-        unmatched_patterns,
-        container_metadata["State"]["ExitCode"],
-        container_metadata["Image"],
+        outputs=outputs,
+        unmatched_patterns=unmatched_patterns,
+        exit_code=container_metadata["State"]["ExitCode"],
+        image_id=container_metadata["Image"],
+        message=message,
     )
     persist_outputs(job, results.outputs, container_metadata)
     RESULTS[job.id] = results
@@ -225,13 +266,19 @@ def persist_outputs(job, outputs, container_metadata):
     """Copy logs and generated outputs to persistant storage."""
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
+    job.completed_at = int(time.time())
     job_metadata = dict()
-    job_metadata["id"] = job.id
+    job_metadata["job_id"] = job.id
+    job_metadata["job_request_id"] = job.job_request_id
+    job_metadata["created_at"] = job.created_at
+    job_metadata["completed_at"] = int(time.time())
     job_metadata["docker_image_id"] = container_metadata["Image"]
-    job_metadata["exit_code"] = container_metadata["State"]["ExitCode"]
+    # convert exit code to str so 0 exit codes get logged
+    job_metadata["exit_code"] = str(container_metadata["State"]["ExitCode"])
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job.study.commit
+    job_metadata["local_run"] = True
 
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
@@ -308,8 +355,12 @@ def write_log_file(job, job_metadata, filename):
 
 # Keys of fields to log in manifest.json and log file
 KEYS_TO_LOG = [
-    "id",
+    "job_id",
+    "job_request_id",
     "commit",
     "docker_image_id",
     "exit_code",
+    "created_at",
+    "completed_at",
+    "local_run",
 ]

@@ -128,12 +128,13 @@ def test_get_action_specification_for_cohortextractor_generate_cohort_action():
     )
 
 
-def test_get_action_specification_for_cohortextractor_v2_action():
+@pytest.mark.parametrize("image", ["cohortextractor-v2", "databuilder"])
+def test_get_action_specification_for_databuilder_action(image):
     project_dict = {
         "expectations": {"population_size": 1_000},
         "actions": {
             "generate_cohort_v2": {
-                "run": "cohortextractor-v2:latest generate_cohort --output=output/cohort.csv --dummy-data-file dummy.csv",
+                "run": f"{image}:latest generate_cohort --output=output/cohort.csv --dummy-data-file dummy.csv",
                 "outputs": {"highly_sensitive": {"cohort": "output/cohort.csv"}},
             }
         },
@@ -142,29 +143,41 @@ def test_get_action_specification_for_cohortextractor_v2_action():
     action_spec = project.get_action_specification(project_dict, action_id)
     assert (
         action_spec.run
-        == """cohortextractor-v2:latest generate_cohort --output=output/cohort.csv --dummy-data-file dummy.csv"""
+        == f"""{image}:latest generate_cohort --output=output/cohort.csv --dummy-data-file dummy.csv"""
     )
 
 
 @pytest.mark.parametrize(
-    "args,error",
+    "args,error,image",
     [
         (
             "--output=output/cohort1.csv --dummy-data-file dummy.csv",
             "--output in run command and outputs must match",
+            "cohortextractor-v2",
         ),
         (
             "--output=output/cohort1.csv",
             "--dummy-data-file is required for a local run",
+            "cohortextractor-v2",
+        ),
+        (
+            "--output=output/cohort1.csv --dummy-data-file dummy.csv",
+            "--output in run command and outputs must match",
+            "databuilder",
+        ),
+        (
+            "--output=output/cohort1.csv",
+            "--dummy-data-file is required for a local run",
+            "databuilder",
         ),
     ],
 )
-def test_get_action_specification_for_cohortextractor_v2_errors(args, error):
+def test_get_action_specification_for_databuilder_errors(args, error, image):
     project_dict = {
         "expectations": {"population_size": 1_000},
         "actions": {
             "generate_cohort_v2": {
-                "run": f"cohortextractor-v2:latest generate_cohort {args}",
+                "run": f"{image}:latest generate_cohort {args}",
                 "outputs": {"highly_sensitive": {"cohort": "output/cohort.csv"}},
             }
         },
@@ -172,3 +185,28 @@ def test_get_action_specification_for_cohortextractor_v2_errors(args, error):
     action_id = "generate_cohort_v2"
     with pytest.raises(ProjectValidationError, match=error):
         project.get_action_specification(project_dict, action_id)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["cohortextractor:latest", "generate_cohort", "--output-dir=outputs"],
+        ["cohortextractor-v2:latest", "generate_dataset", "--output-dir=outputs"],
+        ["databuilder:latest", "generate_dataset", "--output-dir=outputs"],
+        ["cohortextractor:latest", "generate_codelist_report", "--output-dir=outputs"],
+    ],
+)
+def test_requires_db_access_privileged_commands_can_access_db(args):
+    assert project.requires_db_access(args)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["cohortextractor:latest"],
+        ["cohortextractor:latest", "generate_dataset", "--output-dir=outputs"],
+        ["python", "script.py", "--output-dir=outputs"],
+    ],
+)
+def test_requires_db_access_commands_cannot_access_db(args):
+    assert not project.requires_db_access(args)
