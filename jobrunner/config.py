@@ -184,6 +184,14 @@ if STATS_DATABASE_FILE:
     STATS_DATABASE_FILE = Path(STATS_DATABASE_FILE)
 
 STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
+MAINTENANCE_POLL_INTERVAL = float(
+    os.environ.get("MAINTENANCE_POLL_INTERVAL", "300")
+)  # 5 min
+MAINTENANCE_MODE = os.environ.get("MAINTENANCE_MODE", "").lower() in (
+    "true",
+    "yes",
+    "on",
+)
 
 
 # feature flag to enable new API abstraction

@@ -6,7 +6,9 @@ import threading
 import time
 
 from jobrunner import config, record_stats, run, sync
+from jobrunner.lib.docker import docker
 from jobrunner.lib.log_utils import configure_logging
+from jobrunner.queries import get_flag, set_flag
 
 
 log = logging.getLogger(__name__)
@@ -33,6 +35,8 @@ def main():
         # note: thread name appears in log output, so its nice to keep them all the same length
         start_thread(sync_wrapper, "sync")
         start_thread(record_stats_wrapper, "stat")
+        if config.MAINTENANCE_MODE:
+            start_thread(maintenance_wrapper, "mntn")
         run.main()
     except KeyboardInterrupt:
         log.info("jobrunner.service stopped")
@@ -67,6 +71,50 @@ def record_stats_wrapper():
         except Exception:
             log.exception("Exception in record_stats thread")
             time.sleep(config.STATS_POLL_INTERVAL)
+
+
+def maintenance_wrapper():
+    """Poll a backend specific way to set the db maintenance flag."""
+    while True:
+        try:
+            maintenance_mode()
+        except Exception:
+            log.exception("Exception in maintenance_mode thread")
+
+        time.sleep(config.MAINTENANCE_POLL_INTERVAL)
+
+
+def maintenance_mode():
+    """Check if the db is currently in maintenance mode, and set flags as appropriate."""
+    # This did not seem big enough to warrant splitting into a separate module.
+    current = get_flag("mode")
+    ps = docker(
+        [
+            "run",
+            "--rm",
+            "ghcr.io/opensafely-core/cohortextractor",
+            "maintenance",
+            "--current-mode",
+            str(current),
+        ],
+        env={"DATABASE_URL": config.DATABASE_URLS["full"]},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    last_line = ps.stdout.split("\n")[-1]
+    if "db-maintenance" in last_line:
+        if current != "db-maintenance":
+            log.warning("Enabling DB maintenance mode")
+        else:
+            log.warning("DB maintenance mode is currently enabled")
+        set_flag("mode", "db-maintenance")
+    else:
+        if current == "db-maintenance":
+            log.info("DB maintenance mode had ended")
+        set_flag("mode", None)
+
+    return get_flag("mode")
 
 
 if __name__ == "__main__":
