@@ -12,6 +12,15 @@ from jobrunner.lib.log_utils import configure_logging
 log = logging.getLogger(__name__)
 
 
+def start_thread(target, name):
+    log.info(f"Starting {name} thread")
+    # daemon=True means this thread will be automatically join()ed when the
+    # process exits
+    thread = threading.Thread(target=target, daemon=True)
+    thread.name = name
+    thread.start()
+
+
 def main():
     """Run the main run loop after starting the sync loop in a thread."""
     # extra space to align with other thread's "sync" label.
@@ -21,15 +30,9 @@ def main():
 
     try:
         log.info("jobrunner.service started")
-        # daemon=True means this thread will be automatically join()ed when the
-        # process exits
-        thread = threading.Thread(target=sync_wrapper, daemon=True)
-        thread.name = "sync"
-        thread.start()
-        # Stat the `record_stats` thread
-        thread = threading.Thread(target=record_stats_wrapper, daemon=True)
-        thread.name = "stat"
-        thread.start()
+        # note: thread name appears in log output, so its nice to keep them all the same length
+        start_thread(sync_wrapper, "sync")
+        start_thread(record_stats_wrapper, "stat")
         run.main()
     except KeyboardInterrupt:
         log.info("jobrunner.service stopped")
