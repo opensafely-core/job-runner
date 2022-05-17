@@ -32,7 +32,7 @@ virtualenv:
     test -d $VIRTUAL_ENV || { $PYTHON_VERSION -m venv $VIRTUAL_ENV && $PIP install --upgrade pip; }
 
     # ensure we have pip-tools so we can run pip-compile
-    test -e $BIN/pip-compile || $PIP install pip-tools
+    test -e $BIN/pip-compile || $PIP install $(grep pip-tools== requirements.dev.txt)
 
 
 _compile src dst *args: virtualenv
