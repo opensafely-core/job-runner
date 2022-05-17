@@ -6,6 +6,7 @@ import threading
 import time
 
 from jobrunner import config, record_stats, run, sync
+from jobrunner.lib.database import get_connection
 from jobrunner.lib.docker import docker
 from jobrunner.lib.log_utils import configure_logging
 from jobrunner.queries import get_flag, set_flag
@@ -29,6 +30,8 @@ def main():
     threading.current_thread().name = "run "
     fmt = "{asctime} {threadName} {message} {tags}"
     configure_logging(fmt)
+    # ensure db is set up
+    get_connection()
 
     try:
         log.info("jobrunner.service started")
