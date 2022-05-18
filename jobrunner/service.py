@@ -30,7 +30,8 @@ def main():
     threading.current_thread().name = "run "
     fmt = "{asctime} {threadName} {message} {tags}"
     configure_logging(fmt)
-    # ensure db is set up
+    # ensure db is set up before we start any threads, otherwise if we don't already have
+    # a database (which we don't in tests) then threads will race to create the schema
     get_connection()
 
     try:
