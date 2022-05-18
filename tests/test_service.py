@@ -40,6 +40,8 @@ def add_maintenance_command(mock_subprocess_run, current):
             "docker",
             "run",
             "--rm",
+            "-e",
+            "DATABASE_URL",
             "ghcr.io/opensafely-core/cohortextractor",
             "maintenance",
             "--current-mode",
