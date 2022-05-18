@@ -111,6 +111,12 @@ class LocalDockerAPI(ExecutorAPI):
         if current.state != ExecutorState.PREPARED:
             return current
 
+        extra_args = []
+        if job.cpu_count:
+            extra_args.extend(["--cpus", str(job.cpu_count)])
+        if job.memory_limit:
+            extra_args.extend(["--memory", job.memory_limit])
+
         try:
             docker.run(
                 container_name(job),
@@ -120,6 +126,7 @@ class LocalDockerAPI(ExecutorAPI):
                 allow_network_access=job.allow_database_access,
                 label=LABEL,
                 labels=get_job_labels(job),
+                extra_args=extra_args,
             )
         except Exception as exc:
             return JobStatus(

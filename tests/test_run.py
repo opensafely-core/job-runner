@@ -428,3 +428,10 @@ def test_get_obsolete_files_case_change(db):
 
     obsolete = run.get_obsolete_files(definition, new_outputs)
     assert obsolete == []
+
+
+def test_job_definition_limits(db):
+    job = job_factory()
+    definition = run.job_to_job_definition(job)
+    assert definition.cpu_count == 2
+    assert definition.memory_limit == "4G"

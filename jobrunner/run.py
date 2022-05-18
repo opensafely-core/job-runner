@@ -423,18 +423,22 @@ def job_to_job_definition(job):
             outputs[pattern] = privacy_level
 
     return JobDefinition(
-        job.id,
-        job.job_request_id,
-        study,
-        job.workspace,
-        job.action,
-        job.created_at,
-        full_image,
-        action_args,
-        env,
-        input_files,
-        outputs,
-        allow_database_access,
+        id=job.id,
+        job_request_id=job.job_request_id,
+        study=study,
+        workspace=job.workspace,
+        action=job.action,
+        created_at=job.created_at,
+        image=full_image,
+        args=action_args,
+        env=env,
+        inputs=input_files,
+        output_spec=outputs,
+        allow_database_access=allow_database_access,
+        # in future, these may come from the JobRequest, but for now, we have
+        # config defaults.
+        cpu_count=config.DEFAULT_JOB_CPU_COUNT,
+        memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
     )
 
 
