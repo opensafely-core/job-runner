@@ -39,7 +39,7 @@ def main():
         # note: thread name appears in log output, so its nice to keep them all the same length
         start_thread(sync_wrapper, "sync")
         start_thread(record_stats_wrapper, "stat")
-        if config.MAINTENANCE_MODE:
+        if config.ENABLE_MAINTENANCE_MODE_THREAD:
             start_thread(maintenance_wrapper, "mntn")
         run.main()
     except KeyboardInterrupt:
