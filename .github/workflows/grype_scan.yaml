@@ -19,7 +19,7 @@ jobs:
         uses: anchore/scan-action@v3
         id: scan
         with:
-          path: "."
+          path: '.'
           acs-report-enable: true
           fail-build: ${{ inputs.fail-build }}
 
