@@ -11,6 +11,9 @@ jobs:
     env:
       SBOM_FILENAME: sbom-${{ inputs.release-tag }}.json
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
