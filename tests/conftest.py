@@ -1,6 +1,8 @@
 import subprocess
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, field
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -113,3 +115,37 @@ def db(monkeypatch):
     monkeypatch.setattr(config, "DATABASE_FILE", database_file)
     yield
     del database.CONNECTION_CACHE.__dict__[database_file]
+
+
+@dataclass
+class SubprocessStub:
+
+    calls: deque = field(default_factory=deque)
+
+    def add_call(self, cmd, **kwargs):
+        ps = subprocess.CompletedProcess(cmd, returncode=0)
+        self.calls.append((cmd, kwargs, ps))
+        # caller can alter to match desired behaviour
+        return ps
+
+    def run(self, call_args, **call_kwargs):
+        args, kwargs, ps = self.calls.popleft()
+        assert call_args == args, f"subprocess.run expected {args}, got {call_args}"
+        assert (
+            call_kwargs == kwargs
+        ), f"subprocess.run expected kwargs {kwargs}, got {call_kwargs}"
+        if ps.returncode != 0 and kwargs.get("check"):
+            raise subprocess.CalledProcessError(
+                args, ps.returncode, ps.stdout, ps.stderr
+            )
+        return ps
+
+
+@pytest.fixture
+def mock_subprocess_run():
+    stub = SubprocessStub()
+    with mock.patch("subprocess.run", stub.run):
+        yield stub
+    assert (
+        len(stub.calls) == 0
+    ), f"subprocess_run expected the following calls: {stub.calls}"

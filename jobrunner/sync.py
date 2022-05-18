@@ -8,7 +8,7 @@ import time
 
 import requests
 
-from jobrunner import config
+from jobrunner import config, queries
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where
 from jobrunner.lib.log_utils import configure_logging, set_log_context
@@ -68,9 +68,10 @@ def api_post(*args, **kwargs):
 
 def api_request(method, path, *args, **kwargs):
     url = "{}/{}/".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.strip("/"))
-    # We could do this just once on import, but it makes changing the config in
-    # tests more fiddly
-    session.headers = {"Authorization": config.JOB_SERVER_TOKEN}
+    session.headers = {
+        "Authorization": config.JOB_SERVER_TOKEN,
+        "Current-Mode": str(queries.get_flag("mode")),
+    }
     response = session.request(method, url, *args, **kwargs)
 
     log.debug(
