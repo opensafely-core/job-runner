@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 from pipeline import load_pipeline
-from pipeline.legacy import get_action_specification
 
 from jobrunner import config
+from jobrunner.actions import get_action_specification
 from jobrunner.cli import local_run
 from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run

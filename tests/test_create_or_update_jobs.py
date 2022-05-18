@@ -46,8 +46,8 @@ def test_create_or_update_jobs(tmp_work_dir):
     assert old_job.wait_for_job_ids == []
     assert old_job.requires_outputs_from == []
     assert old_job.run_command == (
-        "cohortextractor:latest generate_cohort --output-dir=."
-        " --expectations-population=1000"
+        "cohortextractor:latest generate_cohort --expectations-population=1000"
+        " --output-dir=."
     )
     assert old_job.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
     assert old_job.status_message is None

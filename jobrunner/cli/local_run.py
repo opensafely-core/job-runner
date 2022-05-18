@@ -35,9 +35,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
-from pipeline.legacy import UnknownActionError
 
 from jobrunner import config, executors
+from jobrunner.actions import UnknownActionError
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
