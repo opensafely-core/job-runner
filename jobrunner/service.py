@@ -91,11 +91,14 @@ def maintenance_wrapper():
 def maintenance_mode():
     """Check if the db is currently in maintenance mode, and set flags as appropriate."""
     # This did not seem big enough to warrant splitting into a separate module.
+    log.info("checking if db undergoing maintenance...")
     current = get_flag("mode")
     ps = docker(
         [
             "run",
             "--rm",
+            "-e",
+            "DATABASE_URL",
             "ghcr.io/opensafely-core/cohortextractor",
             "maintenance",
             "--current-mode",
@@ -118,7 +121,9 @@ def maintenance_mode():
             log.info("DB maintenance mode had ended")
         set_flag("mode", None)
 
-    return get_flag("mode")
+    mode = get_flag("mode")
+    log.info(f"db mode: {mode}")
+    return mode
 
 
 if __name__ == "__main__":
