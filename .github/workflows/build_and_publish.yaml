@@ -11,13 +11,8 @@ env:
   IMAGE_NAME: job-runner
 
 jobs:
-  security-scan-repository-files:
-    name: Scan project for vulnerabilities
-    uses: ./.github/workflows/grype.yaml
-
   tag-new-version:
     runs-on: ubuntu-latest
-    needs: security-scan-repository-files
     outputs:
       tag: ${{ steps.tag.outputs.new_tag }}
       version: ${{ steps.tag.outputs.new_version }}
