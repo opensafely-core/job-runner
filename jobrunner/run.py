@@ -53,10 +53,8 @@ def main(exit_callback=lambda _: False):
         api = get_executor_api()
 
     while True:
-        mode = get_flag("mode")
-        paused = get_flag("paused", "").lower() == "true"
 
-        active_jobs = handle_jobs(api, mode, paused)
+        active_jobs = handle_jobs(api)
 
         if exit_callback(active_jobs):
             break
@@ -64,7 +62,7 @@ def main(exit_callback=lambda _: False):
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(api: Optional[ExecutorAPI], mode=None, paused=None):
+def handle_jobs(api: Optional[ExecutorAPI]):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -80,7 +78,7 @@ def handle_jobs(api: Optional[ExecutorAPI], mode=None, paused=None):
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             if api:
-                handle_active_job_api(job, api, mode, paused)
+                handle_active_job_api(job, api)
             else:
                 # old way
                 if job.state == State.PENDING:
@@ -179,9 +177,11 @@ STABLE_STATES = [
 ]
 
 
-def handle_active_job_api(job, api, mode=None):
+def handle_active_job_api(job, api):
+    mode = get_flag("mode")
+    paused = get_flag("paused", "").lower() == "true"
     try:
-        handle_job_api(job, api, mode)
+        handle_job_api(job, api, mode, paused)
     except Exception:
         mark_job_as_failed(
             job,
