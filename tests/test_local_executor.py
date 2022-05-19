@@ -475,7 +475,7 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
     status = api.execute(job)
     assert status.state == ExecutorState.EXECUTING
 
-    # impersonate the OOM
+    # impersonate an admin
     docker.kill(container_name(job))
 
     wait_for_state(api, job, ExecutorState.EXECUTED)
@@ -486,7 +486,58 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
     # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED
     assert job.id in local.RESULTS
-    assert local.RESULTS[job.id].message == "Killed: out of memory, or stopped by admin"
+    assert local.RESULTS[job.id].exit_code == 137
+    assert local.RESULTS[job.id].message == "Killed by an OpenSAFELY admin"
+
+
+@pytest.mark.needs_docker
+def test_finalize_failed_oomkilled(use_api, docker_cleanup, test_repo, tmp_work_dir):
+    ensure_docker_images_present("busybox")
+
+    job = JobDefinition(
+        id="test_finalize_failed",
+        job_request_id="test_request_id",
+        study=test_repo.study,
+        workspace="test",
+        action="action",
+        created_at=int(time.time()),
+        image="ghcr.io/opensafely-core/busybox",
+        # Consume memory by writing to the tmpfs at /dev/shm
+        # We write a lot more that our limit, to ensure the OOM killer kicks in
+        # regardless of our tests host's vm.overcommit_memory settings.
+        args=["sh", "-c", "head -c 100m /dev/urandom >/dev/shm/foo"],
+        env={},
+        inputs=["output/input.csv"],
+        output_spec={
+            "output/output.*": "high_privacy",
+            "output/summary.*": "medium_privacy",
+        },
+        allow_database_access=False,
+        memory_limit="6M",  # lowest allowable limit
+    )
+
+    populate_workspace(job.workspace, "output/input.csv")
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job)
+    assert status.state == ExecutorState.PREPARING
+    status = api.execute(job)
+    assert status.state == ExecutorState.EXECUTING
+
+    wait_for_state(api, job, ExecutorState.EXECUTED)
+
+    status = api.finalize(job)
+    assert status.state == ExecutorState.FINALIZING
+
+    # we don't need to wait
+    assert api.get_status(job).state == ExecutorState.FINALIZED
+    assert job.id in local.RESULTS
+    assert local.RESULTS[job.id].exit_code == 137
+    assert (
+        local.RESULTS[job.id].message
+        == "Ran out of memory (limit for this job was 0.006GB)"
+    )
 
 
 @pytest.mark.needs_docker
