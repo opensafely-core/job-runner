@@ -245,6 +245,8 @@ def test_execute_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
         inputs=["output/input.csv"],
         output_spec={},
         allow_database_access=False,
+        cpu_count=1.5,
+        memory_limit="1G",
     )
 
     populate_workspace(job.workspace, "output/input.csv")
@@ -263,6 +265,10 @@ def test_execute_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
         ExecutorState.EXECUTING,
         ExecutorState.EXECUTED,
     )
+
+    container_data = docker.container_inspect(container_name(job), "HostConfig")
+    assert container_data["NanoCpus"] == int(1.5 * 1e9)
+    assert container_data["Memory"] == 2**30  # 1G
 
 
 @pytest.mark.needs_docker

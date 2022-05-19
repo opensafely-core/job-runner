@@ -344,9 +344,10 @@ def run(
         env = {}
     for key, value in env.items():
         run_args.extend(["--env", key])
-    docker(
+    ps = docker(
         run_args + args, check=True, capture_output=True, env=dict(os.environ, **env)
     )
+    return ps
 
 
 def image_exists_locally(image_name_and_version):

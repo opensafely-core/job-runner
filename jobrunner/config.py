@@ -217,3 +217,7 @@ EXIT_CODES = {
     # This usually happens because of OOM killer, or else manually
     137: "Killed: out of memory, or stopped by admin",
 }
+
+
+DEFAULT_JOB_CPU_COUNT = float(os.environ.get("DEFAULT_JOB_CPU_COUNT", 2))
+DEFAULT_JOB_MEMORY_LIMIT = os.environ.get("DEFAULT_JOB_MEMORY_LIMIT", "4G")
