@@ -12,6 +12,10 @@ def test_get_flag_no_row(tmp_work_dir):
     assert get_flag("foo") is None
 
 
+def test_get_flag_no_row_with_default(tmp_work_dir):
+    assert get_flag("foo", "default") == "default"
+
+
 def test_get_set_flag(tmp_work_dir):
     assert get_flag("foo") is None
     set_flag("foo", "bar")

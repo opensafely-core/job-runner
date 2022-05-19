@@ -27,17 +27,17 @@ def group_by(iterable, key):
     return groupby(sorted(iterable, key=key), key=key)
 
 
-def get_flag(name):
+def get_flag(name, default=None):
     """Get the current value of a flag, None if not set."""
     # Note: fail gracefully if the flags table does not exist
     # This means we don't need to worry about it in local_run.
     try:
         return find_one(Flag, id=name).value
     except ValueError:
-        return None
+        return default
     except sqlite3.OperationalError as e:
         if "no such table" in str(e):
-            return None
+            return default
         raise
 
 

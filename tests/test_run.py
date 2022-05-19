@@ -296,6 +296,40 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
     assert job.started_at is None
 
 
+def test_handle_pending_pause_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.UNKNOWN,
+        State.PENDING,
+        run_command="cohortextractor:latest generate_cohort",
+    )
+
+    run.handle_job_api(job, api, paused=True)
+
+    # executor state
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    # our state
+    assert job.state == State.PENDING
+    assert job.started_at is None
+
+
+def test_handle_running_pause_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.EXECUTING,
+        State.RUNNING,
+        run_command="cohortextractor:latest generate_cohort",
+    )
+
+    run.handle_job_api(job, api, paused=True)
+
+    # check we did nothing
+    # executor state
+    assert api.get_status(job).state == ExecutorState.EXECUTING
+    # our state
+    assert job.state == State.RUNNING
+
+
 def invalid_transitions():
     """Enumerate all invalid transistions by inverting valid transitions"""
 

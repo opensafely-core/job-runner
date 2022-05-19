@@ -54,8 +54,9 @@ def main(exit_callback=lambda _: False):
 
     while True:
         mode = get_flag("mode")
+        paused = get_flag("paused", "").lower() == "true"
 
-        active_jobs = handle_jobs(api, mode)
+        active_jobs = handle_jobs(api, mode, paused)
 
         if exit_callback(active_jobs):
             break
@@ -63,7 +64,7 @@ def main(exit_callback=lambda _: False):
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(api: Optional[ExecutorAPI], mode=None):
+def handle_jobs(api: Optional[ExecutorAPI], mode=None, paused=None):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -79,7 +80,7 @@ def handle_jobs(api: Optional[ExecutorAPI], mode=None):
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             if api:
-                handle_active_job_api(job, api, mode)
+                handle_active_job_api(job, api, mode, paused)
             else:
                 # old way
                 if job.state == State.PENDING:
@@ -198,7 +199,7 @@ def handle_active_job_api(job, api, mode=None):
         raise
 
 
-def handle_job_api(job, api, mode=None):
+def handle_job_api(job, api, mode=None, paused=None):
     """Handle an active job.
 
     This contains the main state machine logic for a job. For the most part,
@@ -217,8 +218,12 @@ def handle_job_api(job, api, mode=None):
         api.cleanup(definition)
         return
 
-    # handle db maintenance mode before considering current executor state, as
-    # if it applies, we're going to tear it all down anyway.
+    # handle special modes beofre considering executor state, as they ignore it
+    if paused:
+        if job.state == State.PENDING:
+            # do not start the job, keep it pending
+            return
+
     if mode == "db-maintenance" and definition.allow_database_access:
         if job.state == State.RUNNING:
             log.warning(f"DB maintenance mode active, killing db job {job.id}")
