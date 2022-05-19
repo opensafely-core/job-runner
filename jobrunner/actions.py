@@ -39,8 +39,9 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
     except KeyError:
         raise UnknownActionError(f"Action '{action_id}' not found in project.yaml")
 
-    # TODO: do this split in Action.parse_run_string
-    run_parts = shlex.split(action_spec.run.run)
+    # create a new version of the run.parts list so we can mutate it without
+    # affecting the original which is a property
+    run_parts = list(action_spec.run.parts)
 
     if action_spec.config:
         # For commands that require complex config, users can supply a config
