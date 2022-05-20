@@ -256,7 +256,15 @@ def finalize_job(job):
         message = config.DATABASE_EXIT_CODES.get(exit_code)
     # No database error, check for other known exit codes
     if message is None:
-        message = config.EXIT_CODES.get(exit_code)
+        # special case OOMKilled
+        if container_metadata["State"]["OOMKilled"]:
+            message = "Ran out of memory"
+            memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
+            if memory_limit > 0:
+                gb_limit = memory_limit / (1024**3)
+                message += f" (limit for this job was {gb_limit:.1g}GB)"
+        else:
+            message = config.EXIT_CODES.get(exit_code)
 
     results = JobResults(
         outputs=outputs,
