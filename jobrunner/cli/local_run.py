@@ -34,7 +34,7 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from jobrunner import config, executors, manifest_to_database_migration
+from jobrunner import config, executors
 from jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,
@@ -235,11 +235,6 @@ def create_and_run_jobs(
         stream=sys.stdout,
         # Filter out log messages in the local run context
         extra_filter=filter_log_messages,
-    )
-
-    # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
-    manifest_to_database_migration.migrate_one(
-        project_dir, write_medium_privacy_manifest=False, batch_size=1000, log=False
     )
 
     # Any jobs that are running or pending must be left over from a previous run that was aborted either by an
