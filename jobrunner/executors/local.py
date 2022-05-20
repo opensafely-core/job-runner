@@ -295,7 +295,6 @@ def persist_outputs(job, outputs, container_metadata):
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job.study.commit
-    job_metadata["local_run"] = True
 
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
@@ -379,5 +378,4 @@ KEYS_TO_LOG = [
     "exit_code",
     "created_at",
     "completed_at",
-    "local_run",
 ]
