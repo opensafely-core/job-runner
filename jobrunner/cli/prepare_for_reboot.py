@@ -4,8 +4,8 @@ automatically re-run after a reboot.
 """
 import argparse
 
+from jobrunner.executor.local import container_name, docker, volume_name
 from jobrunner.lib.database import find_where, update_where
-from jobrunner.manage_jobs import container_name, docker, volume_name
 from jobrunner.models import Job, State
 
 

@@ -3,8 +3,8 @@ Ops utility for killing jobs and cleaning up containers and volumes
 """
 import argparse
 
+from jobrunner.executors.local import container_name, docker, volume_name
 from jobrunner.lib.database import find_where
-from jobrunner.manage_jobs import container_name, docker, volume_name
 from jobrunner.models import Job, State
 from jobrunner.run import mark_job_as_failed
 

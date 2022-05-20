@@ -16,8 +16,8 @@ updates on it.
 import argparse
 import time
 
+from jobrunner.executors.local import container_name, docker
 from jobrunner.lib.database import find_where, update
-from jobrunner.manage_jobs import container_name, docker
 from jobrunner.models import Job, State
 from jobrunner.sync import api_post, job_to_remote_format
 

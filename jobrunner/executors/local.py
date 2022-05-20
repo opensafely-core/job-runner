@@ -1,6 +1,9 @@
+import datetime
 import json
 import logging
+import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -13,33 +16,53 @@ from jobrunner.job_executor import (
     JobStatus,
     Privacy,
 )
-from jobrunner.lib import docker
+from jobrunner.lib import atomic_writer, docker
+from jobrunner.lib.git import checkout_commit
+from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
+from jobrunner.project import get_all_output_patterns_from_project_file
 
-# ideally, these should be moved into this module when the old implementation
-# is removed
-from jobrunner.manage_jobs import (
-    METADATA_DIR,
-    TIMESTAMP_REFERENCE_FILE,
-    cleanup_job,
-    container_name,
-    copy_file,
-    copy_git_commit_to_volume,
-    copy_local_workspace_to_volume,
-    get_container_metadata,
-    get_high_privacy_workspace,
-    get_log_dir,
-    get_medium_privacy_workspace,
-    volume_name,
-    write_manifest_file,
-)
 
+# Directory inside working directory where manifest and logs are created
+METADATA_DIR = "metadata"
+
+# Records details of which action created each file
+MANIFEST_FILE = "manifest.json"
+
+# This is part of a hack we use to track which files in a volume are newly
+# created
+TIMESTAMP_REFERENCE_FILE = ".opensafely-timestamp"
 
 # cache of result objects
 RESULTS = {}
 LABEL = "jobrunner-local"
 
 log = logging.getLogger(__name__)
+
+
+def container_name(job):
+    return f"os-job-{job.id}"
+
+
+def volume_name(job):
+    return f"os-volume-{job.id}"
+
+
+def get_high_privacy_workspace(workspace):
+    return config.HIGH_PRIVACY_WORKSPACES_DIR / workspace
+
+
+def get_medium_privacy_workspace(workspace):
+    if config.MEDIUM_PRIVACY_WORKSPACES_DIR:
+        return config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace
+    else:
+        return None
+
+
+def get_log_dir(job):
+    # Split log directory up by month to make things slightly more manageable
+    month_dir = datetime.date.today().strftime("%Y-%m")
+    return config.JOB_LOG_DIR / month_dir / container_name(job)
 
 
 class LocalDockerError(Exception):
@@ -152,7 +175,13 @@ class LocalDockerAPI(ExecutorAPI):
         return JobStatus(ExecutorState.ERROR, "terminated by api")
 
     def cleanup(self, job):
-        cleanup_job(job)
+        if config.CLEAN_UP_DOCKER_OBJECTS:
+            log.info("Cleaning up container and volume")
+            docker.delete_container(container_name(job))
+            docker.delete_volume(volume_name(job))
+        else:
+            log.info("Leaving container and volume in place for debugging")
+
         RESULTS.pop(job.id, None)
         return JobStatus(ExecutorState.UNKNOWN)
 
@@ -244,7 +273,14 @@ def prepare_job(job):
 
 
 def finalize_job(job):
-    container_metadata = get_container_metadata(job)
+
+    container_metadata = docker.container_inspect(
+        container_name(job), none_if_not_exists=True
+    )
+    if not container_metadata:
+        raise LocalDockerError("Job container has vanished")
+    redact_environment_variables(container_metadata)
+
     outputs, unmatched_patterns = find_matching_outputs(job)
     exit_code = container_metadata["State"]["ExitCode"]
 
@@ -376,3 +412,116 @@ KEYS_TO_LOG = [
     "created_at",
     "completed_at",
 ]
+
+
+def copy_file(source, dest):
+    """Efficient atomic copy.
+
+    shutil.copy uses sendfile on linux, so should be fast.
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    with atomic_writer(dest) as tmp:
+        shutil.copy(source, tmp)
+
+
+def copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs):
+    log.info(f"Copying in code from {repo_url}@{commit}")
+    # git-archive will create a tarball on stdout and docker cp will accept a
+    # tarball on stdin, so if we wanted to we could do this all without a
+    # temporary directory, but not worth it at this stage
+    config.TMP_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as tmpdir:
+        tmpdir = Path(tmpdir)
+        checkout_commit(repo_url, commit, tmpdir)
+        # Because `docker cp` can't create parent directories automatically, we
+        # make sure parent directories exist for all the files we're going to
+        # copy in later
+        for directory in extra_dirs:
+            tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
+        try:
+            docker.copy_to_volume(volume, tmpdir, ".", timeout=60)
+        except docker.DockerTimeoutError:
+            # Aborting a `docker cp` into a container at the wrong time can
+            # leave the container in a completely broken state where any
+            # attempt to interact with or even remove it will just hang, see:
+            # https://github.com/docker/for-mac/issues/4491
+            #
+            # This means we can end up with jobs where any attempt to start
+            # them (by copying in code from git) causes the job-runner to
+            # completely lock up. To avoid this we use a timeout (60 seconds,
+            # which should be more than enough to copy in a few megabytes of
+            # code). The exception this triggers will cause the job to fail
+            # with an "internal error" message, which will then stop it
+            # blocking other jobs. We need a specific exception class here as
+            # we need to avoid trying to remove the container, which we would
+            # ordinarily do on error, because that operation will also hang :(
+            log.exception("Timed out copying code to volume, see issue #154")
+            raise LocalDockerError(
+                "There was a (hopefully temporary) internal Docker error, "
+                "please try the job again"
+            )
+
+
+def copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs):
+    # To mimic a production run, we only want output files to appear in the
+    # volume if they were produced by an explicitly listed dependency. So
+    # before copying in the code we get a list of all output patterns in the
+    # project and ignore any files matching these patterns
+    project_file = workspace_dir / "project.yaml"
+    ignore_patterns = get_all_output_patterns_from_project_file(project_file)
+    ignore_patterns.extend([".git", METADATA_DIR])
+    code_files = list_dir_with_ignore_patterns(workspace_dir, ignore_patterns)
+
+    # Because `docker cp` can't create parent directories automatically, we
+    # need to make sure empty parent directories exist for all the files we're
+    # going to copy in. For now we do this by actually creating a bunch of
+    # empty dirs in a temp directory. It should be possible to do this using
+    # the `tarfile` module to talk directly to `docker cp` stdin if we care
+    # enough.
+    directories = set(Path(filename).parent for filename in code_files)
+    directories.update(extra_dirs)
+    directories.discard(Path("."))
+    if directories:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            for directory in directories:
+                tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
+            docker.copy_to_volume(volume, tmpdir, ".")
+
+    log.info(f"Copying in code from {workspace_dir}")
+    for filename in code_files:
+        docker.copy_to_volume(volume, workspace_dir / filename, filename)
+
+
+# Environment variables whose values do not need to be hidden from the debug
+# logs
+SAFE_ENVIRONMENT_VARIABLES = set(
+    """
+    PATH PYTHON_VERSION DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
+    UBUNTU_VERSION PYENV_SHELL PYENV_VERSION PYTHONUNBUFFERED
+    OPENSAFELY_BACKEND TZ TEMP_DATABASE_NAME PYTHONPATH container LANG LC_ALL
+    """.split()
+)
+
+
+def redact_environment_variables(container_metadata):
+    """
+    Redact the values of any environment variables in the container which
+    aren't on the explicit safelist
+    """
+    env_vars = [line.split("=", 1) for line in container_metadata["Config"]["Env"]]
+    redacted_vars = [
+        f"{key}=xxxx-REDACTED-xxxx"
+        if key not in SAFE_ENVIRONMENT_VARIABLES
+        else f"{key}={value}"
+        for (key, value) in env_vars
+    ]
+    container_metadata["Config"]["Env"] = redacted_vars
+
+
+def write_manifest_file(workspace_dir, manifest):
+    manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
+    manifest_file_tmp = manifest_file.with_suffix(".tmp")
+    manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
+    manifest_file_tmp.replace(manifest_file)

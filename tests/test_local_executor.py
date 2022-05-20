@@ -6,20 +6,15 @@ from jobrunner import config
 from jobrunner.executors import local
 from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import docker
-from jobrunner.manage_jobs import (
-    container_name,
-    get_high_privacy_workspace,
-    get_medium_privacy_workspace,
-)
 from tests.factories import ensure_docker_images_present
 
 
 def populate_workspace(workspace, filename, content=None, privacy="high"):
     assert privacy in ("high", "medium")
     if privacy == "high":
-        path = get_high_privacy_workspace(workspace) / filename
+        path = local.get_high_privacy_workspace(workspace) / filename
     else:
-        path = get_medium_privacy_workspace(workspace) / filename
+        path = local.get_medium_privacy_workspace(workspace) / filename
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content or filename)
@@ -29,7 +24,7 @@ def populate_workspace(workspace, filename, content=None, privacy="high"):
 # used for tests and debugging
 def get_log(job):
     result = docker.docker(
-        ["container", "logs", container_name(job)],
+        ["container", "logs", local.container_name(job)],
         check=True,
         capture_output=True,
     )
@@ -259,7 +254,7 @@ def test_execute_success(docker_cleanup, test_repo, tmp_work_dir):
         ExecutorState.EXECUTED,
     )
 
-    container_data = docker.container_inspect(container_name(job), "HostConfig")
+    container_data = docker.container_inspect(local.container_name(job), "HostConfig")
     assert container_data["NanoCpus"] == int(1.5 * 1e9)
     assert container_data["Memory"] == 2**30  # 1G
 
@@ -469,7 +464,7 @@ def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir):
     assert status.state == ExecutorState.EXECUTING
 
     # impersonate an admin
-    docker.kill(container_name(job))
+    docker.kill(local.container_name(job))
 
     wait_for_state(api, job, ExecutorState.EXECUTED)
 

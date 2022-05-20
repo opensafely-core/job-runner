@@ -149,7 +149,7 @@ def test_integration(
     )
 
     # Check that the manifest contains what we expect. This is a subset of what used to be in the manifest, to support
-    # nicer UX for osrelease. See the comment in manage_jobs.finalize_job().
+    # nicer UX for osrelease.
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.load(manifest_file.open())
     assert manifest["workspace"] == "testing"
@@ -296,7 +296,7 @@ def test_integration_with_databuilder(
     )
 
     # Check that the manifest contains what we expect. This is a subset of what used to be in the manifest, to support
-    # nicer UX for osrelease. See the comment in manage_jobs.finalize_job().
+    # nicer UX for osrelease.
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.load(manifest_file.open())
     assert manifest["workspace"] == "testing"

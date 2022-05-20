@@ -22,10 +22,9 @@ from jobrunner.job_executor import (
 )
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.manage_jobs import list_outputs_from_action
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.project import requires_db_access
-from jobrunner.queries import get_flag
+from jobrunner.queries import calculate_workspace_state, get_flag
 
 
 log = logging.getLogger(__name__)
@@ -443,6 +442,15 @@ def get_reason_job_not_started(job):
             return "Waiting on available workers for resource intensive job"
         else:
             return "Waiting on available workers"
+
+
+def list_outputs_from_action(workspace, action):
+    for job in calculate_workspace_state(workspace):
+        if job.action == action:
+            return job.output_files
+
+    # The action has never been run before
+    return []
 
 
 def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):
