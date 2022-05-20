@@ -4,8 +4,9 @@ import shlex
 from typing import Dict, List
 
 from pipeline.exceptions import ProjectValidationError
-from pipeline.extractors import is_extraction_command
 from pipeline.outputs import get_output_dirs
+
+from .extractors import is_extraction_command
 
 
 class UnknownActionError(ProjectValidationError):
@@ -64,7 +65,7 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
                 size = config.expectations.population_size
                 run_parts.append(f"--expectations-population={size}")
 
-        output_dirs = get_output_dirs(action_spec.outputs.dict(exclude_unset=True))
+        output_dirs = get_output_dirs(action_spec.outputs)
 
         if len(output_dirs) == 1:
             # Automatically configure the cohortextractor to produce output in the

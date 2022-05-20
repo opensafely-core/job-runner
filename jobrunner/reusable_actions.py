@@ -2,9 +2,8 @@ import dataclasses
 import shlex
 import textwrap
 
-from pipeline.extractors import is_extraction_command
-
 from jobrunner import config
+from jobrunner.extractors import is_extraction_command
 from jobrunner.lib import git
 from jobrunner.lib.github_validators import (
     GithubValidationError,
