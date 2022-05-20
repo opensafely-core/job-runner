@@ -53,15 +53,8 @@ def list_repo_files(path):
     return list(str(f.relative_to(path)) for f in path.glob("**/*") if f.is_file())
 
 
-@pytest.fixture
-def use_api(monkeypatch):
-    monkeypatch.setattr(config, "EXECUTION_API", True)
-    yield
-    local.RESULTS.clear()
-
-
 @pytest.mark.needs_docker
-def test_prepare_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
+def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -104,7 +97,7 @@ def test_prepare_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_prepare_already_prepared(use_api, docker_cleanup, test_repo):
+def test_prepare_already_prepared(docker_cleanup, test_repo):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -132,7 +125,7 @@ def test_prepare_already_prepared(use_api, docker_cleanup, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_prepare_no_image(use_api, docker_cleanup, test_repo):
+def test_prepare_no_image(docker_cleanup, test_repo):
     job = JobDefinition(
         id="test_prepare_no_image",
         job_request_id="test_request_id",
@@ -156,7 +149,7 @@ def test_prepare_no_image(use_api, docker_cleanup, test_repo):
 
 
 @pytest.mark.parametrize("ext", config.ARCHIVE_FORMATS)
-def test_prepare_archived(ext, use_api, test_repo):
+def test_prepare_archived(ext, test_repo):
     job = JobDefinition(
         id="test_prepare_archived",
         job_request_id="test_request_id",
@@ -183,7 +176,7 @@ def test_prepare_archived(ext, use_api, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_prepare_job_bad_commit(use_api, docker_cleanup, test_repo):
+def test_prepare_job_bad_commit(docker_cleanup, test_repo):
     job = JobDefinition(
         id="test_prepare_job_bad_commit",
         job_request_id="test_request_id",
@@ -206,7 +199,7 @@ def test_prepare_job_bad_commit(use_api, docker_cleanup, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_prepare_job_no_input_file(use_api, docker_cleanup, test_repo):
+def test_prepare_job_no_input_file(docker_cleanup, test_repo):
     job = JobDefinition(
         id="test_prepare_job_no_input_file",
         job_request_id="test_request_id",
@@ -229,7 +222,7 @@ def test_prepare_job_no_input_file(use_api, docker_cleanup, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_execute_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
+def test_execute_success(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -272,7 +265,7 @@ def test_execute_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_execute_not_prepared(use_api, docker_cleanup, test_repo, tmp_work_dir):
+def test_execute_not_prepared(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -298,7 +291,7 @@ def test_execute_not_prepared(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -349,7 +342,7 @@ def test_finalize_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed(use_api, docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_failed(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -397,7 +390,7 @@ def test_finalize_failed(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_unmatched(use_api, docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_unmatched(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -445,7 +438,7 @@ def test_finalize_unmatched(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -491,7 +484,7 @@ def test_finalize_failed_137(use_api, docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_oomkilled(use_api, docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -569,7 +562,6 @@ def test_finalize_failed_oomkilled(use_api, docker_cleanup, test_repo, tmp_work_
     ],
 )
 def test_finalize_failed_db_exit_codes(
-    use_api,
     docker_cleanup,
     test_repo,
     tmp_work_dir,
@@ -613,7 +605,7 @@ def test_finalize_failed_db_exit_codes(
 
 
 @pytest.mark.needs_docker
-def test_cleanup_success(use_api, docker_cleanup, test_repo, tmp_work_dir):
+def test_cleanup_success(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(

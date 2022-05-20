@@ -19,16 +19,10 @@ from jobrunner.project import get_action_specification, parse_and_validate_proje
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
 
 
-@pytest.fixture
-def use_api(request, monkeypatch):
-    monkeypatch.setattr(config, "EXECUTION_API", request.param)
-
-
-@pytest.mark.parametrize("use_api", [True, False], indirect=True)
 @pytest.mark.parametrize("extraction_tool", ["cohortextractor", "databuilder"])
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_local_run_success(use_api, extraction_tool, tmp_path, docker_cleanup):
+def test_local_run_success(extraction_tool, tmp_path, docker_cleanup):
     project_dir = tmp_path / "project"
     shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
 

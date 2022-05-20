@@ -193,8 +193,6 @@ ENABLE_MAINTENANCE_MODE_THREAD = os.environ.get(
 )
 
 
-# feature flag to enable new API abstraction
-EXECUTION_API = os.environ.get("EXECUTION_API", "true").lower() == "true"
 EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI")
 
 

@@ -254,11 +254,11 @@ def job_still_running(job):
 
 # note: these functions use different naming logic for to isolate the state between the old/new worlds
 def container_name(job):
-    return f"os-job-{job.id}" if config.EXECUTION_API else f"job-{job.slug}"
+    return f"os-job-{job.id}"
 
 
 def volume_name(job):
-    return f"os-volume-{job.id}" if config.EXECUTION_API else f"volume-{job.slug}"
+    return f"os-volume-{job.id}"
 
 
 def finalise_job(job):
