@@ -252,19 +252,21 @@ def finalize_job(job):
     # First get the user-friendly message for known database exit codes, for jobs
     # that have db access
     message = None
-    if job.allow_database_access:
-        message = config.DATABASE_EXIT_CODES.get(exit_code)
-    # No database error, check for other known exit codes
+
+    # special case OOMKilled
+    if container_metadata["State"]["OOMKilled"]:
+        message = "Ran out of memory"
+        memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
+        if memory_limit > 0:
+            gb_limit = memory_limit / (1024**3)
+            message += f" (limit for this job was {gb_limit:.1g}GB)"
+
     if message is None:
-        # special case OOMKilled
-        if container_metadata["State"]["OOMKilled"]:
-            message = "Ran out of memory"
-            memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
-            if memory_limit > 0:
-                gb_limit = memory_limit / (1024**3)
-                message += f" (limit for this job was {gb_limit:.1g}GB)"
-        else:
-            message = config.EXIT_CODES.get(exit_code)
+        exit_codes = config.EXIT_CODES.copy()
+        if job.allow_database_access:
+            # db job exit codes have some more specific meanings
+            exit_codes.update(config.DATABASE_EXIT_CODES)
+        message = exit_codes.get(exit_code)
 
     results = JobResults(
         outputs=outputs,
