@@ -124,9 +124,6 @@ RANDOMISE_JOB_ORDER = True
 # Automatically delete containers and volumes after they have been used
 CLEAN_UP_DOCKER_OBJECTS = True
 
-# See `manage_jobs.ensure_overwritable` for more detail
-ENABLE_PERMISSIONS_WORKAROUND = bool(os.environ.get("ENABLE_PERMISSIONS_WORKAROUND"))
-
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
     "STATA_LICENSE_REPO",

@@ -9,7 +9,6 @@ still end up in a consistent state when it's restarted.
 import datetime
 import json
 import logging
-import os.path
 import shlex
 import shutil
 import tempfile
@@ -22,7 +21,6 @@ from jobrunner.lib.database import find_one
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
-from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.models import SavedJobRequest, State, StatusCode
 from jobrunner.project import (
     get_all_output_patterns_from_project_file,
@@ -297,7 +295,6 @@ def finalise_job(job):
 
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
-    ensure_overwritable(log_dir / "logs.txt", log_dir / "metadata.json")
     write_log_file(job, job_metadata, log_dir / "logs.txt")
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
@@ -315,7 +312,6 @@ def finalise_job(job):
     log.info(f"Logs written to: {metadata_log_file}")
 
     # Extract outputs to workspace
-    ensure_overwritable(*[workspace_dir / f for f in job.output_files])
     volume = volume_name(job)
     for filename in job.output_files:
         log.info(f"Extracting output file: {filename}")
@@ -495,14 +491,11 @@ def get_log_dir(job):
 
 def copy_file(source, dest):
     dest.parent.mkdir(parents=True, exist_ok=True)
-    ensure_overwritable(dest)
-
     with atomic_writer(dest) as tmp:
         shutil.copy(source, tmp)
 
 
 def delete_files(directory, filenames, files_to_keep=()):
-    ensure_overwritable(*[directory.joinpath(f) for f in filenames])
     # We implement the "files to keep" logic using inodes rather than names so
     # we can safely handle case-insensitive filesystems
     inodes_to_keep = set()
@@ -535,7 +528,6 @@ def list_outputs_from_action(workspace, action):
 def write_manifest_file(workspace_dir, manifest):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
-    ensure_overwritable(manifest_file, manifest_file_tmp)
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)
 
@@ -549,52 +541,3 @@ def get_medium_privacy_workspace(workspace):
         return config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace
     else:
         return None
-
-
-def ensure_overwritable(*paths):
-    """
-    This is a (nasty) workaround for the permissions issues we hit when
-    switching between running the job-runner inside Docker and running it
-    natively on Windows. The issue is that the Docker process creates files
-    which the Windows native process then doesn't have permission to delete or
-    replace. We work around this here by using Docker to delete the offending
-    files for us.
-
-    Note for the potentially confused: Windows permissions work nothing like
-    POSIX permissions. We can create new files in directories created by
-    Docker, we just can't modify or delete existing files.
-    """
-    if not config.ENABLE_PERMISSIONS_WORKAROUND:
-        return
-    non_writable = []
-    for path in paths:
-        path = Path(path)
-        if path.exists():
-            # It would be nice to have a read-only way of determining if we
-            # have write access but I can't seem to find one that works on
-            # Windows
-            try:
-                path.touch()
-            except PermissionError:
-                non_writable.append(path.resolve())
-    if not non_writable:
-        return
-    root = os.path.commonpath([f.parent for f in non_writable])
-    rel_paths = [f.relative_to(root) for f in non_writable]
-    rel_posix_paths = [str(f).replace(os.path.sep, "/") for f in rel_paths]
-    subprocess_run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            "--volume",
-            f"{root}:/workspace",
-            "--workdir",
-            "/workspace",
-            docker.MANAGEMENT_CONTAINER_IMAGE,
-            "rm",
-            *rel_posix_paths,
-        ],
-        check=True,
-        capture_output=True,
-    )

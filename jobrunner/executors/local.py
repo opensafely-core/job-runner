@@ -26,7 +26,6 @@ from jobrunner.manage_jobs import (
     copy_file,
     copy_git_commit_to_volume,
     copy_local_workspace_to_volume,
-    ensure_overwritable,
     get_container_metadata,
     get_high_privacy_workspace,
     get_log_dir,
@@ -298,7 +297,6 @@ def persist_outputs(job, outputs, container_metadata):
 
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
-    ensure_overwritable(log_dir / "logs.txt", log_dir / "metadata.json")
     write_log_file(job, job_metadata, log_dir / "logs.txt")
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
@@ -310,7 +308,6 @@ def persist_outputs(job, outputs, container_metadata):
     log.info(f"Logs written to: {metadata_log_file}")
 
     # Extract outputs to workspace
-    ensure_overwritable(*[workspace_dir / f for f in outputs.keys()])
     volume = volume_name(job)
     for filename in outputs.keys():
         log.info(f"Extracting output file: {filename}")
