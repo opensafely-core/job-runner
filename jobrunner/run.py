@@ -22,19 +22,9 @@ from jobrunner.job_executor import (
 )
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.manage_jobs import (
-    BrokenContainerError,
-    JobError,
-    cleanup_job,
-    finalise_job,
-    job_still_running,
-    kill_job,
-    list_outputs_from_action,
-    start_job,
-)
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.project import requires_db_access
-from jobrunner.queries import get_flag
+from jobrunner.queries import calculate_workspace_state, get_flag
 
 
 log = logging.getLogger(__name__)
@@ -46,14 +36,9 @@ class InvalidTransition(Exception):
 
 def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
-
-    api = None
-    if config.EXECUTION_API:
-        log.info("using new EXECUTION_API")
-        api = get_executor_api()
+    api = get_executor_api()
 
     while True:
-
         active_jobs = handle_jobs(api)
 
         if exit_callback(active_jobs):
@@ -77,96 +62,9 @@ def handle_jobs(api: Optional[ExecutorAPI]):
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            if api:
-                handle_active_job_api(job, api)
-            else:
-                # old way
-                if job.state == State.PENDING:
-                    handle_pending_job(job)
-                elif job.state == State.RUNNING:
-                    handle_running_job(job)
+            handle_single_job(job, api)
 
     return active_jobs
-
-
-def handle_pending_job(job):
-    if job.cancelled:
-        # Mark the job as running and then immediately invoke
-        # `handle_running_job` to deal with the cancellation. This slightly
-        # counterintuitive approach allows us to keep a simple, consistent set
-        # of state transitions and to consolidate all the kill/cleanup code
-        # together. It also means that there aren't edge cases where we could
-        # lose track of jobs completely after losing database state
-        mark_job_as_running(job)
-        handle_running_job(job)
-        return
-
-    awaited_states = get_states_of_awaited_jobs(job)
-    if State.FAILED in awaited_states:
-        mark_job_as_failed(
-            job, "Not starting as dependency failed", code=StatusCode.DEPENDENCY_FAILED
-        )
-    elif any(state != State.SUCCEEDED for state in awaited_states):
-        set_message(
-            job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
-        )
-    else:
-        not_started_reason = get_reason_job_not_started(job)
-        if not_started_reason:
-            set_message(job, not_started_reason, code=StatusCode.WAITING_ON_WORKERS)
-        else:
-            try:
-                set_message(job, "Preparing")
-                start_job(job)
-            except JobError as exception:
-                mark_job_as_failed(job, exception)
-                # See the `raise` in manage_jobs which explains why we can't
-                # cleanup on this specific error
-                if not isinstance(exception, BrokenContainerError):
-                    cleanup_job(job)
-            except Exception:
-                mark_job_as_failed(job, "Internal error when starting job")
-                cleanup_job(job)
-                raise
-            else:
-                mark_job_as_running(job)
-
-
-def handle_running_job(job):
-    if job.cancelled:
-        log.info("Cancellation requested, killing job")
-        kill_job(job)
-
-    log.debug("Checking job running state")
-    is_running = job_still_running(job)
-    log.debug("Check done")
-    if is_running:
-        set_message(job, "Running")
-    else:
-        try:
-            set_message(job, "Finished, checking status and extracting outputs")
-            job = finalise_job(job)
-            # We expect the job to be transitioned into its final state at this
-            # point
-            assert job.state in [State.SUCCEEDED, State.FAILED]
-        except JobError as exception:
-            mark_job_as_failed(job, exception)
-            # Question: do we want to clean up failed jobs? Given that we now
-            # tag all job-runner volumes and containers with a specific label
-            # we could leave them around for debugging purposes and have a
-            # cronjob which cleans them up a few days after they've stopped.
-            cleanup_job(job)
-        except Exception:
-            mark_job_as_failed(job, "Internal error when finalising job")
-            # We deliberately don't clean up after an internal error so we have
-            # some change of debugging. It's also possible, after fixing the
-            # error, to manually flip the state of the job back to "running" in
-            # the database and the code will then be able to finalise it
-            # correctly without having to re-run the job.
-            raise
-        else:
-            mark_job_as_completed(job)
-            cleanup_job(job)
 
 
 # we do not control the tranisition from these states, the executor does
@@ -177,11 +75,11 @@ STABLE_STATES = [
 ]
 
 
-def handle_active_job_api(job, api):
+def handle_single_job(job, api):
     mode = get_flag("mode")
     paused = get_flag("paused", "").lower() == "true"
     try:
-        handle_job_api(job, api, mode, paused)
+        handle_job(job, api, mode, paused)
     except Exception:
         mark_job_as_failed(
             job,
@@ -199,7 +97,7 @@ def handle_active_job_api(job, api):
         raise
 
 
-def handle_job_api(job, api, mode=None, paused=None):
+def handle_job(job, api, mode=None, paused=None):
     """Handle an active job.
 
     This contains the main state machine logic for a job. For the most part,
@@ -544,6 +442,15 @@ def get_reason_job_not_started(job):
             return "Waiting on available workers for resource intensive job"
         else:
             return "Waiting on available workers"
+
+
+def list_outputs_from_action(workspace, action):
+    for job in calculate_workspace_state(workspace):
+        if job.action == action:
+            return job.output_files
+
+    # The action has never been run before
+    return []
 
 
 def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):

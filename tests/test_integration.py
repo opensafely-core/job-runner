@@ -17,11 +17,10 @@ from tests.factories import ensure_docker_images_present
 log = logging.getLogger(__name__)
 
 
-@pytest.mark.parametrize("executor_api", [True, False])
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_integration(
-    executor_api, tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
+    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
 ):
     # TODO: add the following parametrize decorator back to this test:
     #
@@ -38,11 +37,7 @@ def test_integration(
     else:
         generate_action = "generate_dataset"
 
-    monkeypatch.setattr("jobrunner.config.EXECUTION_API", executor_api)
-    if executor_api:
-        api = get_executor_api()
-    else:
-        api = None
+    api = get_executor_api()
 
     monkeypatch.setattr(
         "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
@@ -154,7 +149,7 @@ def test_integration(
     )
 
     # Check that the manifest contains what we expect. This is a subset of what used to be in the manifest, to support
-    # nicer UX for osrelease. See the comment in manage_jobs.finalize_job().
+    # nicer UX for osrelease.
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.load(manifest_file.open())
     assert manifest["workspace"] == "testing"
@@ -186,11 +181,10 @@ def test_integration(
     assert not (high_privacy_workspace / f"{extraction_tool}-somefile.csv").exists()
 
 
-@pytest.mark.parametrize("executor_api", [True, False])
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_integration_with_databuilder(
-    executor_api, tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
+    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
 ):
     # TODO: merge this test into test_integration
     #
@@ -200,11 +194,7 @@ def test_integration_with_databuilder(
     # enough set of dummy data we can merge them into a single test.
     extraction_tool = "databuilder"
 
-    monkeypatch.setattr("jobrunner.config.EXECUTION_API", executor_api)
-    if executor_api:
-        api = get_executor_api()
-    else:
-        api = None
+    api = get_executor_api()
 
     monkeypatch.setattr(
         "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
@@ -306,7 +296,7 @@ def test_integration_with_databuilder(
     )
 
     # Check that the manifest contains what we expect. This is a subset of what used to be in the manifest, to support
-    # nicer UX for osrelease. See the comment in manage_jobs.finalize_job().
+    # nicer UX for osrelease.
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.load(manifest_file.open())
     assert manifest["workspace"] == "testing"

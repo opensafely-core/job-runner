@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+import jobrunner.executors.local
 from jobrunner import config
 from jobrunner.job_executor import Study
 from jobrunner.lib import database
@@ -17,6 +18,13 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "needs_docker: mark test as needing Docker daemon"
     )
+
+
+@pytest.fixture(autouse=True)
+def clear_api_state():
+    yield
+    # local docker API maintains results cache as a module global, so clear it.
+    jobrunner.executors.local.RESULTS.clear()
 
 
 @pytest.fixture

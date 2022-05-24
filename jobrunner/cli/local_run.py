@@ -45,12 +45,12 @@ from jobrunner.create_or_update_jobs import (
     insert_into_database,
     parse_and_validate_project_file,
 )
+from jobrunner.executors.local import METADATA_DIR
 from jobrunner.lib import database, docker
 from jobrunner.lib.database import find_where
 from jobrunner.lib.log_utils import configure_logging
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.manage_jobs import METADATA_DIR
 from jobrunner.models import Job, JobRequest, State, StatusCode, random_id
 from jobrunner.project import UnknownActionError, get_all_actions
 from jobrunner.queries import calculate_workspace_state
