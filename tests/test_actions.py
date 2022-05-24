@@ -1,5 +1,6 @@
 import argparse
 import shlex
+import sys
 
 import pytest
 from pipeline.exceptions import ProjectValidationError
@@ -8,6 +9,10 @@ from pipeline.models import Pipeline
 from jobrunner.actions import UnknownActionError, get_action_specification
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="ActionSpecification is only used to build commands for Docker",
+)
 def test_get_action_specification_databuilder_has_output_flag():
     config = Pipeline(
         **{
@@ -35,6 +40,10 @@ def test_get_action_specification_databuilder_has_output_flag():
     )
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="ActionSpecification is only used to build commands for Docker",
+)
 def test_get_action_specification_for_cohortextractor_generate_cohort_action():
     config = Pipeline(
         **{
@@ -59,6 +68,10 @@ def test_get_action_specification_for_cohortextractor_generate_cohort_action():
     )
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="ActionSpecification is only used to build commands for Docker",
+)
 @pytest.mark.parametrize("image", ["cohortextractor-v2", "databuilder"])
 def test_get_action_specification_for_databuilder_action(image):
     config = Pipeline(
@@ -84,6 +97,10 @@ def test_get_action_specification_for_databuilder_action(image):
     )
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="ActionSpecification is only used to build commands for Docker",
+)
 @pytest.mark.parametrize("image", ["cohortextractor-v2", "databuilder"])
 def test_get_action_specification_for_databuilder_errors(image):
     config = Pipeline(
@@ -108,6 +125,10 @@ def test_get_action_specification_for_databuilder_errors(image):
         )
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="ActionSpecification is only used to build commands for Docker",
+)
 def test_get_action_specification_with_config():
     config = Pipeline(
         **{
@@ -143,6 +164,10 @@ def test_get_action_specification_with_config():
     parser.parse_args(shlex.split(action_spec.run)[2:])
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="ActionSpecification is only used to build commands for Docker",
+)
 def test_get_action_specification_with_dummy_data_file_flag(tmp_path):
     dummy_data_file = tmp_path / "test.csv"
     with dummy_data_file.open("w") as f:
@@ -178,6 +203,10 @@ def test_get_action_specification_with_dummy_data_file_flag(tmp_path):
     assert action_spec.run == expected
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="ActionSpecification is only used to build commands for Docker",
+)
 def test_get_action_specification_without_dummy_data_file_flag(tmp_path):
     dummy_data_file = tmp_path / "test.csv"
     with dummy_data_file.open("w") as f:
@@ -202,6 +231,10 @@ def test_get_action_specification_without_dummy_data_file_flag(tmp_path):
     assert action_spec.run == expected
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="ActionSpecification is only used to build commands for Docker",
+)
 def test_get_action_specification_with_unknown_action():
     config = Pipeline(
         **{
@@ -214,7 +247,6 @@ def test_get_action_specification_with_unknown_action():
             },
         }
     )
-
     msg = "Action 'unknown_action' not found in project.yaml"
     with pytest.raises(UnknownActionError, match=msg):
         get_action_specification(config, "unknown_action")
