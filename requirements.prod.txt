@@ -10,11 +10,19 @@ chardet==3.0.4
     # via requests
 idna==2.10
     # via requests
+opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v0.1.1.zip
+    # via opensafely-jobrunner (setup.py)
+pydantic==1.9.0
+    # via opensafely-pipeline
 requests==2.25.0
     # via opensafely-jobrunner (setup.py)
 ruamel-yaml==0.16.12
-    # via opensafely-jobrunner (setup.py)
+    # via
+    #   opensafely-jobrunner (setup.py)
+    #   opensafely-pipeline
 ruamel-yaml-clib==0.2.6
     # via ruamel-yaml
+typing-extensions==4.1.1
+    # via pydantic
 urllib3==1.26.5
     # via requests

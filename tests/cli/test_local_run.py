@@ -7,13 +7,14 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+from pipeline import load_pipeline
 
 from jobrunner import config
+from jobrunner.actions import get_action_specification
 from jobrunner.cli import local_run
 from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.models import Job, SavedJobRequest, State
-from jobrunner.project import get_action_specification, parse_and_validate_project_file
 
 
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
@@ -77,13 +78,15 @@ def test_local_run_copes_with_detritus_of_earlier_interrupted_run(
     shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
     config.DATABASE_FILE = project_dir / "metadata" / "db.sqlite"
 
-    project = parse_and_validate_project_file(
-        (project_dir / "project.yaml").read_bytes()
-    )
+    project = load_pipeline(project_dir / "project.yaml")
     database.insert(SavedJobRequest(id="previous-request", original={}))
 
     def job(job_id, action, state):
-        spec = get_action_specification(project, action)
+        spec = get_action_specification(
+            project,
+            action,
+            using_dummy_data_backend=config.USING_DUMMY_DATA_BACKEND,
+        )
         return Job(
             id=job_id,
             job_request_id="previous-request",

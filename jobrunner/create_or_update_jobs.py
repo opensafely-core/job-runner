@@ -2,14 +2,18 @@
 This module provides a single public entry point `create_or_update_jobs`.
 
 It handles all logic connected with creating or updating Jobs in response to
-JobRequests. This includes fetching the code with git, validating the project
-and doing the necessary dependency resolution.
+JobRequests. This includes fetching the code with git, using the pipeline
+library to validate the pipeline configuration, and doing the necessary
+dependency resolution.
 """
 import logging
 import re
 import time
 
+from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
+
 from jobrunner import config
+from jobrunner.actions import get_action_specification
 from jobrunner.lib.database import exists_where, insert, transaction, update_where
 from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
 from jobrunner.lib.github_validators import (
@@ -18,13 +22,6 @@ from jobrunner.lib.github_validators import (
     validate_repo_url,
 )
 from jobrunner.models import Job, SavedJobRequest, State
-from jobrunner.project import (
-    RUN_ALL_COMMAND,
-    ProjectValidationError,
-    get_action_specification,
-    get_all_actions,
-    parse_and_validate_project_file,
-)
 from jobrunner.queries import calculate_workspace_state
 from jobrunner.reusable_actions import (
     ReusableActionError,
@@ -86,9 +83,11 @@ def create_jobs(job_request):
     # changes are for locally run jobs.
     validate_job_request(job_request)
     project_file = get_project_file(job_request)
-    project = parse_and_validate_project_file(project_file)
-    latest_jobs = get_latest_jobs_for_actions_in_project(job_request.workspace, project)
-    new_jobs = get_new_jobs_to_run(job_request, project, latest_jobs)
+    pipeline_config = load_pipeline(project_file)
+    latest_jobs = get_latest_jobs_for_actions_in_project(
+        job_request.workspace, pipeline_config
+    )
+    new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
     assert_new_jobs_created(new_jobs, latest_jobs)
     resolve_reusable_action_references(new_jobs)
     # There is a delay between getting the current jobs (which we fetch from
@@ -154,15 +153,15 @@ def get_project_file(job_request):
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
 
 
-def get_latest_jobs_for_actions_in_project(workspace, project):
+def get_latest_jobs_for_actions_in_project(workspace, pipeline_config):
     return [
         job
         for job in calculate_workspace_state(workspace)
-        if job.action in get_all_actions(project)
+        if job.action in pipeline_config.all_actions
     ]
 
 
-def get_new_jobs_to_run(job_request, project, current_jobs):
+def get_new_jobs_to_run(job_request, pipeline_config, current_jobs):
     """
     Returns a list of new jobs to run in response to the supplied JobReqeust
 
@@ -175,43 +174,49 @@ def get_new_jobs_to_run(job_request, project, current_jobs):
     # Build a dict mapping action names to job instances
     jobs_by_action = {job.action: job for job in current_jobs}
     # Add new jobs to it by recursing through the dependency tree
-    for action in get_actions_to_run(job_request, project):
-        recursively_build_jobs(jobs_by_action, job_request, project, action)
+    for action in get_actions_to_run(job_request, pipeline_config):
+        recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
 
     # Pick out the new jobs we've added and return them
     return [job for job in jobs_by_action.values() if job not in current_jobs]
 
 
-def get_actions_to_run(job_request, project):
+def get_actions_to_run(job_request, pipeline_config):
     # Handle the special `run_all` action
     if RUN_ALL_COMMAND in job_request.requested_actions:
-        return get_all_actions(project)
+        return pipeline_config.all_actions
     else:
         return job_request.requested_actions
 
 
-def recursively_build_jobs(jobs_by_action, job_request, project, action):
+def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action):
     """
     Recursively populate the `jobs_by_action` dict with jobs
 
     Args:
         jobs_by_action: A dict mapping action ID strings to Job instances
         job_request: An instance of JobRequest representing the job request.
-        project: A dict representing the project.
+        pipeline_config: A Pipeline instance representing the pipeline configuration.
         action: The string ID of the action to be added as a job.
     """
     existing_job = jobs_by_action.get(action)
     if existing_job and not job_should_be_rerun(job_request, existing_job):
         return
 
-    action_spec = get_action_specification(project, action)
+    action_spec = get_action_specification(
+        pipeline_config,
+        action,
+        using_dummy_data_backend=config.USING_DUMMY_DATA_BACKEND,
+    )
 
     # Walk over the dependencies of this action, creating any necessary jobs,
     # and ensure that this job waits for its dependencies to finish before it
     # starts
     wait_for_job_ids = []
     for required_action in action_spec.needs:
-        recursively_build_jobs(jobs_by_action, job_request, project, required_action)
+        recursively_build_jobs(
+            jobs_by_action, job_request, pipeline_config, required_action
+        )
         required_job = jobs_by_action[required_action]
         if required_job.state in [State.PENDING, State.RUNNING]:
             wait_for_job_ids.append(required_job.id)

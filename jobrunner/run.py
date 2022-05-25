@@ -20,10 +20,10 @@ from jobrunner.job_executor import (
     Privacy,
     Study,
 )
+from jobrunner.lib.commands import requires_db_access
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.project import requires_db_access
 from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 
