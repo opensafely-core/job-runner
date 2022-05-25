@@ -44,7 +44,7 @@ _compile src dst *args: virtualenv
 
 # update requirements.prod.txt if setup.py has changed
 requirements-prod *args:
-    "{{ just_executable() }}" _compile setup.py requirements.prod.txt {{ args }}
+    "{{ just_executable() }}" _compile pyproject.toml requirements.prod.txt {{ args }}
 
 
 # update requirements.dev.txt if requirements.dev.in has changed
