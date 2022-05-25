@@ -42,6 +42,8 @@ flake8-implicit-str-concat==0.3.0
     # via -r requirements.dev.in
 flake8-no-pep420==2.2.0
     # via -r requirements.dev.in
+freezegun==1.2.1
+    # via pytest-freezegun
 hypothesis==6.39.4
     # via -r requirements.dev.in
 identify==2.4.12
@@ -90,8 +92,13 @@ pytest==7.1.1
     # via
     #   -r requirements.dev.in
     #   pytest-cov
+    #   pytest-freezegun
 pytest-cov==3.0.0
     # via -r requirements.dev.in
+pytest-freezegun==0.4.2
+    # via -r requirements.dev.in
+python-dateutil==2.8.2
+    # via freezegun
 pyyaml==6.0
     # via pre-commit
 requests==2.25.0
@@ -102,6 +109,7 @@ requests-mock==1.9.3
     # via -r requirements.dev.in
 six==1.16.0
     # via
+    #   python-dateutil
     #   requests-mock
     #   virtualenv
 sortedcontainers==2.4.0

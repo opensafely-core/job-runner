@@ -9,7 +9,7 @@ from jobrunner import config, record_stats, run, sync
 from jobrunner.lib.database import get_connection
 from jobrunner.lib.docker import docker
 from jobrunner.lib.log_utils import configure_logging
-from jobrunner.queries import get_flag, set_flag
+from jobrunner.queries import get_flag_value, set_flag
 
 
 log = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ def maintenance_mode():
     """Check if the db is currently in maintenance mode, and set flags as appropriate."""
     # This did not seem big enough to warrant splitting into a separate module.
     log.info("checking if db undergoing maintenance...")
-    current = get_flag("mode")
+    current = get_flag_value("mode")
     ps = docker(
         [
             "run",
@@ -121,7 +121,7 @@ def maintenance_mode():
             log.info("DB maintenance mode had ended")
         set_flag("mode", None)
 
-    mode = get_flag("mode")
+    mode = get_flag_value("mode")
     log.info(f"db mode: {mode}")
     return mode
 

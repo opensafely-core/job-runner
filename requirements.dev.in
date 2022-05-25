@@ -15,4 +15,5 @@ pip-tools
 pre-commit
 pytest
 pytest-cov
+pytest-freezegun
 requests_mock

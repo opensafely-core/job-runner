@@ -70,7 +70,7 @@ def api_request(method, path, *args, **kwargs):
     url = "{}/{}/".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.strip("/"))
     session.headers = {
         "Authorization": config.JOB_SERVER_TOKEN,
-        "Current-Mode": str(queries.get_flag("mode")),
+        "Current-Mode": str(queries.get_flag_value("mode")),
     }
     response = session.request(method, url, *args, **kwargs)
 

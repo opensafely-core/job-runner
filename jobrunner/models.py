@@ -265,9 +265,19 @@ class Flag:
         CREATE TABLE flags (
             id TEXT,
             value TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
         )
     """
 
     id: str  # noqa: A003
     value: str
+    timestamp: int = None
+
+    @property
+    def timestamp_isoformat(self):
+        return timestamp_to_isoformat(self.timestamp)
+
+    def __str__(self):
+        ts = self.timestamp_isoformat if self.timestamp else "never set"
+        return f"{self.id}={self.value} ({ts})"

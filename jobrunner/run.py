@@ -24,7 +24,7 @@ from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.project import requires_db_access
-from jobrunner.queries import calculate_workspace_state, get_flag
+from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 
 log = logging.getLogger(__name__)
@@ -76,8 +76,8 @@ STABLE_STATES = [
 
 
 def handle_single_job(job, api):
-    mode = get_flag("mode")
-    paused = get_flag("paused", "").lower() == "true"
+    mode = get_flag_value("mode")
+    paused = get_flag_value("paused", "").lower() == "true"
     try:
         handle_job(job, api, mode, paused)
     except Exception:
