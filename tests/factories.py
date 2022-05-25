@@ -105,16 +105,17 @@ class StubExecutorAPI:
         """Set the next transition for this job when called"""
         self.transitions[definition.id] = (state, message)
 
-    def set_job_result(
-        self, definition, outputs={}, unmatched=[], exit_code=0, image_id="image_id"
-    ):
-
-        self.results[definition.id] = JobResults(
-            outputs,
-            unmatched,
-            exit_code,
-            image_id,
-        )
+    def set_job_result(self, definition, **kwargs):
+        defaults = {
+            "outputs": {},
+            "unmatched_patterns": [],
+            "unmatched_outputs": [],
+            "exit_code": 0,
+            "image_id": "image_id",
+            "message": "message",
+        }
+        kwargs = {**defaults, **kwargs}
+        self.results[definition.id] = JobResults(**kwargs)
 
     def do_transition(self, definition, expected, next_state):
         current = self.get_status(definition)

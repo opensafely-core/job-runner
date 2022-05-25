@@ -254,10 +254,7 @@ def save_results(job, results):
         # If the job fails because an output was missing its very useful to
         # show the user what files were created as often the issue is just a
         # typo
-
-        # Can we figure these out from job.outputs and project.yaml? Do we do
-        # it here or just in local run?
-        # TODO:  job.unmatched_outputs = ???
+        job.unmatched_outputs = results.unmatched_outputs
     else:
         job.state = State.SUCCEEDED
         job.status_message = "Completed successfully"

@@ -55,6 +55,7 @@ class JobStatus:
 class JobResults:
     outputs: Mapping[str, str]  # mapping of outputs to privacy levels
     unmatched_patterns: List[str]  # list of patterns that matched no outputs
+    unmatched_outputs: List[str]  # outputs that not match the output_spec
     exit_code: int
     image_id: str
     message: str = None

@@ -195,7 +195,7 @@ def test_handle_job_finalized_success_with_delete(db):
     )
 
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
-    api.set_job_result(job, {"output/file.csv": "medium"})
+    api.set_job_result(job, outputs={"output/file.csv": "medium"})
 
     run.handle_job(job, api)
 
@@ -215,7 +215,7 @@ def test_handle_job_finalized_success_with_delete(db):
 def test_handle_job_finalized_failed_exit_code(db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
-    api.set_job_result(job, {"output/file.csv": "medium"}, exit_code=1)
+    api.set_job_result(job, outputs={"output/file.csv": "medium"}, exit_code=1)
 
     run.handle_job(job, api)
 
@@ -227,14 +227,19 @@ def test_handle_job_finalized_failed_exit_code(db):
     # our state
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.NONZERO_EXIT
-    assert job.status_message == "Job exited with error code 1"
+    assert job.status_message == "Job exited with error code 1: message"
     assert job.outputs == {"output/file.csv": "medium"}
 
 
-def test_handle_job_finalized_failed_unmatched(db):
+def test_handle_job_finalized_failed_unmatched_patterns(db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
-    api.set_job_result(job, {"output/file.csv": "medium"}, unmatched=["badfile.csv"])
+    api.set_job_result(
+        job,
+        outputs={"output/file.csv": "medium"},
+        unmatched_patterns=["badfile.csv"],
+        unmatched_outputs=["otherbadfile.csv"],
+    )
 
     run.handle_job(job, api)
 
@@ -247,6 +252,7 @@ def test_handle_job_finalized_failed_unmatched(db):
     assert job.state == State.FAILED
     assert job.status_message == "No outputs found matching patterns:\n - badfile.csv"
     assert job.outputs == {"output/file.csv": "medium"}
+    assert job.unmatched_outputs == ["otherbadfile.csv"]
 
 
 @pytest.fixture
