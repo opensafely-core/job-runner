@@ -396,7 +396,8 @@ def test_finalize_unmatched(docker_cleanup, test_repo, tmp_work_dir):
         action="action",
         created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
-        args=["true"],
+        # the sleep is needed to make sure the unmatched file is *newer* enough
+        args=["sh", "-c", "sleep 1; touch /workspace/unmatched"],
         env={},
         inputs=["output/input.csv"],
         output_spec={
@@ -430,6 +431,7 @@ def test_finalize_unmatched(docker_cleanup, test_repo, tmp_work_dir):
     assert results.exit_code == 0
     assert results.outputs == {}
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
+    assert results.unmatched_outputs == ["unmatched"]
 
 
 @pytest.mark.needs_docker

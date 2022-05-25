@@ -266,10 +266,8 @@ def prepare_job(job):
             )
         docker.copy_to_volume(volume, workspace_dir / filename, filename)
 
-    # Hack: see `get_unmatched_outputs`. For some reason this requires a
-    # non-empty file so copying `os.devnull` didn't work.
-    some_non_empty_file = Path(__file__)
-    docker.copy_to_volume(volume, some_non_empty_file, TIMESTAMP_REFERENCE_FILE)
+    # Hack: see `get_unmatched_outputs`
+    docker.touch_file(volume, TIMESTAMP_REFERENCE_FILE)
     return volume
 
 
@@ -283,6 +281,7 @@ def finalize_job(job):
     redact_environment_variables(container_metadata)
 
     outputs, unmatched_patterns = find_matching_outputs(job)
+    unmatched_outputs = get_unmatched_outputs(job, outputs)
     exit_code = container_metadata["State"]["ExitCode"]
 
     # First get the user-friendly message for known database exit codes, for jobs
@@ -307,6 +306,7 @@ def finalize_job(job):
     results = JobResults(
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,
+        unmatched_outputs=unmatched_outputs,
         exit_code=container_metadata["State"]["ExitCode"],
         image_id=container_metadata["Image"],
         message=message,
@@ -383,6 +383,24 @@ def find_matching_outputs(job):
         for filename in filenames:
             outputs[filename] = privacy_level
     return outputs, unmatched_patterns
+
+
+def get_unmatched_outputs(job, outputs):
+    """
+    Returns all the files created by the job which were *not* matched by any of
+    the output patterns.
+
+    This is very useful in debugging because it's easy for users to get their
+    output patterns wrong (often just in the wrong directory) and it becomes
+    immediately obvious what the problem is if, as well as an error, they can
+    see a list of the files the job *did* produce.
+
+    The way we do this is bit hacky, but given that it's only used for
+    debugging info and not for Serious Business Purposes, it should be
+    sufficient.
+    """
+    all_outputs = docker.find_newer_files(volume_name(job), TIMESTAMP_REFERENCE_FILE)
+    return [filename for filename in all_outputs if filename not in outputs]
 
 
 def write_log_file(job, job_metadata, filename):

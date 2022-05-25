@@ -178,6 +178,20 @@ def copy_to_volume(volume_name, source, dest, timeout=None):
     )
 
 
+def touch_file(volume_name, path, timeout=None):
+    docker(
+        [
+            "container",
+            "exec",
+            manager_name(volume_name),
+            "touch",
+            f"{VOLUME_MOUNT_POINT}/{path}",
+        ],
+        check=True,
+        timeout=timeout,
+    )
+
+
 def copy_from_volume(volume_name, source, dest, timeout=None):
     """
     Copy the contents of `source` from the root of the named volume to `dest`
