@@ -109,7 +109,7 @@ def maintenance_mode():
         capture_output=True,
         text=True,
     )
-    last_line = ps.stdout.split("\n")[-1]
+    last_line = ps.stdout.strip().split("\n")[-1]
     if "db-maintenance" in last_line:
         if current != "db-maintenance":
             log.warning("Enabling DB maintenance mode")
