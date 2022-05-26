@@ -58,7 +58,8 @@ def main(action, flags, create=False):
 def run(argv):
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
 
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(dest="action")
+    subparsers.required = True
     # for get, flag arguments is optional
     parser_get = subparsers.add_parser("get", help="get the current values of flags")
     parser_get.add_argument(
