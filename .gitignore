@@ -27,3 +27,4 @@ tests/fixtures/*/output/*
 venv
 .venv
 workdir
+/lib
