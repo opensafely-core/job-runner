@@ -172,13 +172,15 @@ dotenv:
     cp dotenv-sample .env
 
 
-lib:
-    git clone git@github.com:opensafely/job-runner-dependencies.git lib
-
-
-update-wheels: devenv lib
-    #git -C lib pull
-    $BIN/pip install -r requirements.txt -r requirements.tools.txt --target lib
-    cp requirements.txt requirements.tools.txt lib/
+update-wheels: devenv
+    #!/bin/bash
+    if test -d lib; then
+        git -C lib pull
+    else
+        git clone git@github.com:opensafely/job-runner-dependencies.git lib
+    fi
+    $BIN/pip install -U -r requirements.prod.txt -r requirements.tools.txt --target lib
+    cp requirements.prod.txt requirements.tools.txt lib/
     rm -rf lib/bin lib/*.dist-info
     rm lib/_ruamel_yaml.*.so
+    rm lib/pydantic/.*.so
