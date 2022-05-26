@@ -1,0 +1,33 @@
+on:
+  workflow_call:
+    inputs:
+      fail-build:
+        description: Fail the build if vulnerabilities detected
+        type: boolean
+        required: false
+        default: true
+
+jobs:
+  grype-scan:
+    name: Run Grype security scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Scan current project with Grype
+        uses: anchore/scan-action@v3
+        id: scan
+        with:
+          path: '.'
+          acs-report-enable: true
+          fail-build: ${{ inputs.fail-build }}
+
+      - name: Upload SARIF report to GitHub
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: grype

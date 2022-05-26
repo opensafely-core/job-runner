@@ -1,0 +1,12 @@
+name: Grype security scan
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7 7 * * * '
+
+jobs:
+  grype-scan:
+    name: Scan project for vulnerabilities
+    uses: ./.github/workflows/grype_scan.yaml
+    with:
+      fail-build: false
