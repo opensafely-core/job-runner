@@ -295,13 +295,8 @@ def finalize_job(job):
         if memory_limit > 0:
             gb_limit = memory_limit / (1024**3)
             message += f" (limit for this job was {gb_limit:.1g}GB)"
-
-    if message is None:
-        exit_codes = config.EXIT_CODES.copy()
-        if job.allow_database_access:
-            # db job exit codes have some more specific meanings
-            exit_codes.update(config.DATABASE_EXIT_CODES)
-        message = exit_codes.get(exit_code)
+    else:
+        message = config.DOCKER_EXIT_CODES.get(exit_code)
 
     results = JobResults(
         outputs=outputs,

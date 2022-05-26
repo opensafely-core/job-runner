@@ -212,10 +212,45 @@ def test_handle_job_finalized_success_with_delete(db):
     assert api.deleted["workspace"][Privacy.HIGH] == ["output/old.csv"]
 
 
-def test_handle_job_finalized_failed_exit_code(db):
+@pytest.mark.parametrize(
+    "exit_code,run_command,extra_message",
+    [
+        (
+            3,
+            "cohortextractor generate_cohort",
+            (
+                "A transient database error occurred, your job may run "
+                "if you try it again, if it keeps failing then contact tech support"
+            ),
+        ),
+        (
+            4,
+            "cohortextractor generate_cohort",
+            "New data is being imported into the database, please try again in a few hours",
+        ),
+        (
+            5,
+            "cohortextractor generate_cohort",
+            "Something went wrong with the database, please contact tech support",
+        ),
+        # the same exit codes for a job that doesn't have access to the database show no message
+        (3, "python foo.py", None),
+        (4, "python foo.py", None),
+        (5, "python foo.py", None),
+    ],
+)
+def test_handle_job_finalized_failed_exit_code(
+    exit_code, run_command, extra_message, db, backend_db_config
+):
     api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
-    api.set_job_result(job, outputs={"output/file.csv": "medium"}, exit_code=1)
+    job = api.add_test_job(
+        ExecutorState.FINALIZED,
+        State.RUNNING,
+        run_command=run_command,
+    )
+    api.set_job_result(
+        job, outputs={"output/file.csv": "medium"}, exit_code=exit_code, message=None
+    )
 
     run.handle_job(job, api)
 
@@ -227,7 +262,10 @@ def test_handle_job_finalized_failed_exit_code(db):
     # our state
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.NONZERO_EXIT
-    assert job.status_message == "Job exited with error code 1: message"
+    expected = f"Job exited with error code {exit_code}"
+    if extra_message:
+        expected += f": {extra_message}"
+    assert job.status_message == expected
     assert job.outputs == {"output/file.csv": "medium"}
 
 
