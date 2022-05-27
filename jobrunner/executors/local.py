@@ -294,7 +294,7 @@ def finalize_job(job):
         memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
         if memory_limit > 0:
             gb_limit = memory_limit / (1024**3)
-            message += f" (limit for this job was {gb_limit:.1g}GB)"
+            message += f" (limit for this job was {gb_limit:.2f}GB)"
     else:
         message = config.DOCKER_EXIT_CODES.get(exit_code)
 

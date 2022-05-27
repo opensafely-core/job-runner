@@ -524,9 +524,10 @@ def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir):
     assert api.get_status(job).state == ExecutorState.FINALIZED
     assert job.id in local.RESULTS
     assert local.RESULTS[job.id].exit_code == 137
+    # Note, 6MB is rounded to 0.01GBM by the formatter
     assert (
         local.RESULTS[job.id].message
-        == "Ran out of memory (limit for this job was 0.006GB)"
+        == "Ran out of memory (limit for this job was 0.01GB)"
     )
 
 
