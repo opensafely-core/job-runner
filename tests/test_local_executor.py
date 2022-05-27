@@ -3,10 +3,18 @@ import time
 import pytest
 
 from jobrunner import config
-from jobrunner.executors import local
+from jobrunner.executors import local, volumes
 from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import docker
 from tests.factories import ensure_docker_images_present
+
+
+# this is parametized fixture, and test using it will run multiple times, once
+# for each volume api implementation
+@pytest.fixture(params=[volumes.DockerVolumeAPI])
+def volume_api(request, monkeypatch):
+    monkeypatch.setattr(local, "volume_api", request.param)
+    return request.param
 
 
 def populate_workspace(workspace, filename, content=None, privacy="high"):
@@ -49,7 +57,7 @@ def list_repo_files(path):
 
 
 @pytest.mark.needs_docker
-def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir):
+def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -63,7 +71,10 @@ def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir):
         args=["/usr/bin/true"],
         env={},
         inputs=["output/input.csv"],
-        output_spec={},
+        output_spec={
+            "*": "medium",
+            "**/*": "medium",
+        },
         allow_database_access=False,
     )
 
@@ -77,8 +88,7 @@ def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir):
     # we don't need to wait for this is currently synchronous
     assert api.get_status(job).state == ExecutorState.PREPARED
 
-    volume = local.volume_name(job)
-    assert docker.volume_exists(volume)
+    assert volume_api.volume_exists(job)
 
     # check files have been copied
     expected = set(list_repo_files(test_repo.source) + job.inputs)
@@ -86,13 +96,13 @@ def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir):
 
     # glob_volume_files uses find, and its '**/*' regex doesn't find files in
     # the root dir, which is arguably correct.
-    files = docker.glob_volume_files(volume, ["*", "**/*"])
+    files = volume_api.glob_volume_files(job)
     all_files = set(files["*"] + files["**/*"])
     assert all_files == expected
 
 
 @pytest.mark.needs_docker
-def test_prepare_already_prepared(docker_cleanup, test_repo):
+def test_prepare_already_prepared(docker_cleanup, test_repo, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -111,7 +121,7 @@ def test_prepare_already_prepared(docker_cleanup, test_repo):
     )
 
     # create the volume already
-    docker.create_volume(local.volume_name(job))
+    volume_api.create_volume(job)
 
     api = local.LocalDockerAPI()
     status = api.prepare(job)
@@ -120,7 +130,7 @@ def test_prepare_already_prepared(docker_cleanup, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_prepare_no_image(docker_cleanup, test_repo):
+def test_prepare_no_image(docker_cleanup, test_repo, volume_api):
     job = JobDefinition(
         id="test_prepare_no_image",
         job_request_id="test_request_id",
@@ -194,7 +204,7 @@ def test_prepare_job_bad_commit(docker_cleanup, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_prepare_job_no_input_file(docker_cleanup, test_repo):
+def test_prepare_job_no_input_file(docker_cleanup, test_repo, volume_api):
     job = JobDefinition(
         id="test_prepare_job_no_input_file",
         job_request_id="test_request_id",
@@ -217,7 +227,7 @@ def test_prepare_job_no_input_file(docker_cleanup, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_execute_success(docker_cleanup, test_repo, tmp_work_dir):
+def test_execute_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -260,7 +270,7 @@ def test_execute_success(docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_execute_not_prepared(docker_cleanup, test_repo, tmp_work_dir):
+def test_execute_not_prepared(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -286,7 +296,7 @@ def test_execute_not_prepared(docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -337,7 +347,7 @@ def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed(docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_failed(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -385,7 +395,7 @@ def test_finalize_failed(docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_unmatched(docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_unmatched(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -435,7 +445,7 @@ def test_finalize_unmatched(docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -481,7 +491,7 @@ def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir):
+def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -532,7 +542,7 @@ def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_cleanup_success(docker_cleanup, test_repo, tmp_work_dir):
+def test_cleanup_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -556,9 +566,8 @@ def test_cleanup_success(docker_cleanup, test_repo, tmp_work_dir):
     api.prepare(job)
     api.execute(job)
 
-    volume = local.volume_name(job)
     container = local.container_name(job)
-    assert docker.volume_exists(volume)
+    assert volume_api.volume_exists(job)
     assert docker.container_exists(container)
 
     status = api.cleanup(job)
@@ -567,7 +576,7 @@ def test_cleanup_success(docker_cleanup, test_repo, tmp_work_dir):
     status = api.get_status(job)
     assert status.state == ExecutorState.UNKNOWN
 
-    assert not docker.volume_exists(volume)
+    assert not volume_api.volume_exists(job)
     assert not docker.container_exists(container)
 
 

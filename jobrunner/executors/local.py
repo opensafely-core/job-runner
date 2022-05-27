@@ -10,6 +10,7 @@ from pathlib import Path
 from pipeline.legacy import get_all_output_patterns_from_project_file
 
 from jobrunner import config
+from jobrunner.executors.volumes import volume_api
 from jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorState,
@@ -43,10 +44,6 @@ log = logging.getLogger(__name__)
 
 def container_name(job):
     return f"os-job-{job.id}"
-
-
-def volume_name(job):
-    return f"os-volume-{job.id}"
 
 
 def get_high_privacy_workspace(workspace):
@@ -144,7 +141,7 @@ class LocalDockerAPI(ExecutorAPI):
             docker.run(
                 container_name(job),
                 [job.image] + job.args,
-                volume=(volume_name(job), "/workspace"),
+                volume=(volume_api.volume_name(job), "/workspace"),
                 env=job.env,
                 allow_network_access=job.allow_database_access,
                 label=LABEL,
@@ -179,7 +176,7 @@ class LocalDockerAPI(ExecutorAPI):
         if config.CLEAN_UP_DOCKER_OBJECTS:
             log.info("Cleaning up container and volume")
             docker.delete_container(container_name(job))
-            docker.delete_volume(volume_name(job))
+            volume_api.delete_volume(job)
         else:
             log.info("Leaving container and volume in place for debugging")
 
@@ -193,9 +190,8 @@ class LocalDockerAPI(ExecutorAPI):
         )
 
         if job_running is None:
-            # no container for this job found
-            volume = volume_name(job)
-            if docker.volume_exists(volume):
+            # no volume for this job found
+            if volume_api.volume_exists(job):
                 return JobStatus(ExecutorState.PREPARED)
             else:
                 return JobStatus(ExecutorState.UNKNOWN)
@@ -237,8 +233,7 @@ def prepare_job(job):
     """Creates a volume and populates it with the repo and input files."""
     workspace_dir = get_high_privacy_workspace(job.workspace)
 
-    volume = volume_name(job)
-    docker.create_volume(volume, get_job_labels(job))
+    volume_api.create_volume(job, get_job_labels(job))
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
@@ -247,12 +242,12 @@ def prepare_job(job):
     try:
         if job.study.git_repo_url and job.study.commit:
             copy_git_commit_to_volume(
-                volume, job.study.git_repo_url, job.study.commit, extra_dirs
+                job, job.study.git_repo_url, job.study.commit, extra_dirs
             )
         else:
             # We only encounter jobs without a repo or commit when using the
             # "local_run" command to execute uncommitted local code
-            copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
+            copy_local_workspace_to_volume(job, workspace_dir, extra_dirs)
     except subprocess.CalledProcessError:
         raise LocalDockerError(
             f"Could not checkout commit {job.study.commit} from {job.study.git_repo_url}"
@@ -264,11 +259,10 @@ def prepare_job(job):
             raise LocalDockerError(
                 f"The file {filename} doesn't exist in workspace {job.workspace} as requested for job {job.id}"
             )
-        docker.copy_to_volume(volume, workspace_dir / filename, filename)
+        volume_api.copy_to_volume(job, workspace_dir / filename, filename)
 
     # Hack: see `get_unmatched_outputs`
-    docker.touch_file(volume, TIMESTAMP_REFERENCE_FILE)
-    return volume
+    volume_api.touch_file(job, TIMESTAMP_REFERENCE_FILE)
 
 
 def finalize_job(job):
@@ -340,10 +334,9 @@ def persist_outputs(job, outputs, container_metadata):
     log.info(f"Logs written to: {metadata_log_file}")
 
     # Extract outputs to workspace
-    volume = volume_name(job)
     for filename in outputs.keys():
         log.info(f"Extracting output file: {filename}")
-        docker.copy_from_volume(volume, filename, workspace_dir / filename)
+        volume_api.copy_from_volume(job, filename, workspace_dir / filename)
 
     # Copy out logs and medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
@@ -368,7 +361,7 @@ def find_matching_outputs(job):
     Returns a dict mapping output filenames to their privacy level, plus a list
     of any patterns that had no matches at all
     """
-    all_matches = docker.glob_volume_files(volume_name(job), job.output_spec.keys())
+    all_matches = volume_api.glob_volume_files(job)
     unmatched_patterns = []
     outputs = {}
     for pattern, privacy_level in job.output_spec.items():
@@ -394,7 +387,7 @@ def get_unmatched_outputs(job, outputs):
     debugging info and not for Serious Business Purposes, it should be
     sufficient.
     """
-    all_outputs = docker.find_newer_files(volume_name(job), TIMESTAMP_REFERENCE_FILE)
+    all_outputs = volume_api.find_newer_files(job, TIMESTAMP_REFERENCE_FILE)
     return [filename for filename in all_outputs if filename not in outputs]
 
 
@@ -439,7 +432,7 @@ def copy_file(source, dest):
         shutil.copy(source, tmp)
 
 
-def copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs):
+def copy_git_commit_to_volume(job, repo_url, commit, extra_dirs):
     log.info(f"Copying in code from {repo_url}@{commit}")
     # git-archive will create a tarball on stdout and docker cp will accept a
     # tarball on stdin, so if we wanted to we could do this all without a
@@ -454,7 +447,7 @@ def copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs):
         for directory in extra_dirs:
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
         try:
-            docker.copy_to_volume(volume, tmpdir, ".", timeout=60)
+            volume_api.copy_to_volume(job, tmpdir, ".", timeout=60)
         except docker.DockerTimeoutError:
             # Aborting a `docker cp` into a container at the wrong time can
             # leave the container in a completely broken state where any
@@ -477,7 +470,7 @@ def copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs):
             )
 
 
-def copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs):
+def copy_local_workspace_to_volume(job, workspace_dir, extra_dirs):
     # To mimic a production run, we only want output files to appear in the
     # volume if they were produced by an explicitly listed dependency. So
     # before copying in the code we get a list of all output patterns in the
@@ -501,11 +494,11 @@ def copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs):
             tmpdir = Path(tmpdir)
             for directory in directories:
                 tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
-            docker.copy_to_volume(volume, tmpdir, ".")
+            volume_api.copy_to_volume(job, tmpdir, ".")
 
     log.info(f"Copying in code from {workspace_dir}")
     for filename in code_files:
-        docker.copy_to_volume(volume, workspace_dir / filename, filename)
+        volume_api.copy_to_volume(job, workspace_dir / filename, filename)
 
 
 # Environment variables whose values do not need to be hidden from the debug
