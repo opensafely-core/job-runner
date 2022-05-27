@@ -191,7 +191,7 @@ DEFAULT_JOB_MEMORY_LIMIT = os.environ.get("DEFAULT_JOB_MEMORY_LIMIT", "4G")
 
 EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI")
 
-# LocalDockerAPI execturo specific configuration
+# LocalDockerAPI executor specific configuration
 # Note: the local backend also reuses the main GIT_REPO_DIR config
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
