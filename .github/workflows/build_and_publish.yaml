@@ -28,36 +28,6 @@ jobs:
           default_bump: false
           release_branches: master,main
 
-  build-and-publish-package:
-    runs-on: ubuntu-latest
-    name: Build and publish PyPI package
-    needs: tag-new-version
-    if: needs.tag-new-version.outputs.tag
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v1
-      with:
-        fetch-depth: 0
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v3
-      with:
-        python-version: 3.8
-    - name: Install wheel package
-      run: |
-        pip install build wheel
-    - name: Generate correct value for VERSION file
-      run: |
-        echo ${{ needs.tag-new-version.outputs.tag }} > VERSION
-    - uses: extractions/setup-just@v1
-    - name: Build package
-      run: just package-build
-    - name: Publish package
-      uses: pypa/gh-action-pypi-publish@master
-      if: needs.tag-new-version.outputs.tag
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_PASSWORD }}
-
   build-and-publish-docker-image:
     runs-on: ubuntu-latest
     name: Build and publish docker image
@@ -83,9 +53,9 @@ jobs:
 
   create-release-from-tag:
     name: Create release from tag
-    needs: [tag-new-version, build-and-publish-package, build-and-publish-docker-image]
+    needs: [tag-new-version, build-and-publish-docker-image]
     if: needs.tag-new-version.outputs.tag
 
     uses: ./.github/workflows/add_sbom_to_release.yaml
     with:
-      release-tag: ${{ needs.tag-new-version.outputs.tag}}
+      release-tag: ${{ needs.tag-new-version.outputs.tag }}
