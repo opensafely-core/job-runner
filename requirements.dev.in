@@ -16,4 +16,5 @@ pre-commit
 pytest
 pytest-cov
 pytest-freezegun
+pytest-responses
 requests_mock

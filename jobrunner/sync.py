@@ -2,6 +2,7 @@
 Script which polls the job-server endpoint for active JobRequests and POSTs
 back any associated Jobs.
 """
+import json
 import logging
 import sys
 import time
@@ -66,13 +67,21 @@ def api_post(*args, **kwargs):
     return api_request("post", *args, **kwargs)
 
 
-def api_request(method, path, *args, **kwargs):
+def api_request(method, path, *args, headers=None, **kwargs):
+    if headers is None:
+        headers = {}
+
     url = "{}/{}/".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.strip("/"))
-    session.headers = {
-        "Authorization": config.JOB_SERVER_TOKEN,
-        "Current-Mode": str(queries.get_flag_value("mode")),
+
+    flags = {
+        f.id: {"v": f.value, "ts": f.timestamp_isoformat}
+        for f in queries.get_current_flags()
     }
-    response = session.request(method, url, *args, **kwargs)
+
+    headers["Authorization"] = config.JOB_SERVER_TOKEN
+    headers["Flags"] = json.dumps(flags, separators=(",", ":"))
+
+    response = session.request(method, url, *args, headers=headers, **kwargs)
 
     log.debug(
         "%s %s %s post_data=%s %s"
