@@ -42,6 +42,7 @@ exclude = '''
     | \.venv
     | htmlcov
     | venv
+    | lib           # job-runner-dependencies checkout
   )/
 )
 '''

@@ -186,7 +186,7 @@ def handle_job(job, api, mode=None, paused=None):
     elif initial_status.state == ExecutorState.FINALIZED:
         # final state - we have finished!
         results = api.get_results(definition)
-        save_results(job, results)
+        save_results(job, definition, results)
         obsolete = get_obsolete_files(definition, results.outputs)
         if obsolete:
             errors = api.delete_files(definition.workspace, Privacy.HIGH, obsolete)
@@ -237,7 +237,7 @@ def handle_job(job, api, mode=None, paused=None):
         )
 
 
-def save_results(job, results):
+def save_results(job, definition, results):
     """Extract the results of the execution and update the job accordingly."""
     # set the final state of the job
     if results.exit_code != 0:
@@ -246,6 +246,11 @@ def save_results(job, results):
         job.status_code = StatusCode.NONZERO_EXIT
         if results.message:
             job.status_message += f": {results.message}"
+        elif definition.allow_database_access:
+            error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
+            if error_msg:
+                job.status_message += f": {error_msg}"
+
     elif results.unmatched_patterns:
         job.state = State.FAILED
         job.status_message = "No outputs found matching patterns:\n - {}".format(
