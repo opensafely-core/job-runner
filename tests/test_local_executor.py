@@ -11,7 +11,7 @@ from tests.factories import ensure_docker_images_present
 
 # this is parametized fixture, and test using it will run multiple times, once
 # for each volume api implementation
-@pytest.fixture(params=[volumes.DockerVolumeAPI])
+@pytest.fixture(params=[volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI])
 def volume_api(request, monkeypatch):
     monkeypatch.setattr(local, "volume_api", request.param)
     return request.param

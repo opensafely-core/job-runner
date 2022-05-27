@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-import shutil
 import subprocess
 import tempfile
 import time
@@ -10,7 +9,7 @@ from pathlib import Path
 from pipeline.legacy import get_all_output_patterns_from_project_file
 
 from jobrunner import config
-from jobrunner.executors.volumes import volume_api
+from jobrunner.executors.volumes import copy_file, get_volume_api
 from jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorState,
@@ -19,7 +18,7 @@ from jobrunner.job_executor import (
     JobStatus,
     Privacy,
 )
-from jobrunner.lib import atomic_writer, docker
+from jobrunner.lib import docker
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
@@ -40,6 +39,7 @@ RESULTS = {}
 LABEL = "jobrunner-local"
 
 log = logging.getLogger(__name__)
+volume_api = get_volume_api()
 
 
 def container_name(job):
@@ -86,6 +86,10 @@ def workspace_is_archived(workspace):
 
 class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
+
+    @property
+    def volume_api(self):
+        return get_volume_api()
 
     def prepare(self, job):
         current = self.get_status(job)
@@ -419,17 +423,6 @@ KEYS_TO_LOG = [
     "created_at",
     "completed_at",
 ]
-
-
-def copy_file(source, dest):
-    """Efficient atomic copy.
-
-    shutil.copy uses sendfile on linux, so should be fast.
-    """
-    dest.parent.mkdir(parents=True, exist_ok=True)
-
-    with atomic_writer(dest) as tmp:
-        shutil.copy(source, tmp)
 
 
 def copy_git_commit_to_volume(job, repo_url, commit, extra_dirs):
