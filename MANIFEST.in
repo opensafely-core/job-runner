@@ -1,3 +1,0 @@
-include jobrunner/schema.sql
-include VERSION
-include LICENSE

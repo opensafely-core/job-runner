@@ -1,3 +1,36 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opensafely-jobrunner"
+description = "OpenSAFELY job scheduling and executor"
+readme = "README.md"
+authors = [{name = "OpenSAFELY", email = "tech@opensafely.org"}]
+license = {file = "LICENSE"}
+classifiers = [
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)"
+]
+requires-python = ">=3.8"
+dependencies = [
+  "opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.1.2",
+  "ruamel.yaml",
+  "requests",
+]
+dynamic = ["version"]
+
+[project.scripts]
+add_job = "jobrunner.cli.add_job:run"
+kill_job = "jobrunner.cli.kill_job:run"
+local_run = "jobrunner.cli.local_run:run"
+retry_job = "jobrunner.cli.retry_job:run"
+
+[project.urls]
+Home = "https://opensafely.org"
+Documentation = "https://docs.opensafely.org"
+Source = "https://github.com/opensafely-core/job-runner"
+
 [tool.black]
 exclude = '''
 (
@@ -30,3 +63,8 @@ lines_after_imports = 2
 skip_glob = [".direnv", ".venv", "venv"]
 
 [tool.pytest.ini_options]
+
+[tool.setuptools.packages.find]
+include = ["jobrunner*"]
+
+[tool.setuptools_scm]
