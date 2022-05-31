@@ -1,3 +1,5 @@
+name: Scan with Grype (reusable)
+
 on:
   workflow_call:
     inputs:
