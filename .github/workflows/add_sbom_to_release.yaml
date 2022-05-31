@@ -1,3 +1,5 @@
+name: Add software bill of materials to release (reusable)
+
 on:
   workflow_call:
     inputs:
