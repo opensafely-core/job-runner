@@ -8,6 +8,9 @@
 	@echo "DEV_GROUPID=$(shell id -g)" >> $@
 	@echo "DOCKER_HOST_GROUPID=$(shell getent group docker | awk -F: '{print $$3}')" >> $@
 
+/tmp/jobrunner-docker:
+	mkdir $@
+
 
 .PHONY: docker-build
 # enable modern docker build features
@@ -24,7 +27,7 @@ docker-build: .env
 
 .PHONY: docker-test
 # run tests in docker container
-docker-test: docker-build
+docker-test: docker-build | /tmp/jobrunner-docker
 	docker-compose run $(ARGS) --rm test
 
 
@@ -39,7 +42,7 @@ docker-serve: docker-build
 # run command in container
 docker-run: ENV ?= dev
 docker-run: CMD ?= bash
-docker-run: docker-build
+docker-run: docker-build | /tmp/jobrunner-docker
 	docker-compose run --rm $(ARGS) $(ENV) $(CMD)
 
 
@@ -53,7 +56,7 @@ docker-exec: docker-build
 
 .PHONY: docker-clean
 docker-clean:
-	rm -f .env
+	rm -rf .env /tmp/jobrunner-docker
 	docker image rm job-runner job-runner-dev || true
 	# clean up local ssh config
 	rm -f ssh/known_hosts ssh/id_ed25519*

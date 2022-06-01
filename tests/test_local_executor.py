@@ -34,6 +34,7 @@ def get_log(job):
     result = docker.docker(
         ["container", "logs", local.container_name(job)],
         check=True,
+        text=True,
         capture_output=True,
     )
     return result.stdout + result.stderr
@@ -300,7 +301,7 @@ def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
-        id="test_finalize_finalized",
+        id="test_finalize_success",
         job_request_id="test_request_id",
         study=test_repo.study,
         workspace="test",

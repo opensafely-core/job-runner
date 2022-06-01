@@ -208,10 +208,6 @@ MEDIUM_PRIVACY_STORAGE_BASE = Path(
 HIGH_PRIVACY_WORKSPACES_DIR = HIGH_PRIVACY_STORAGE_BASE / "workspaces"
 MEDIUM_PRIVACY_WORKSPACES_DIR = MEDIUM_PRIVACY_STORAGE_BASE / "workspaces"
 JOB_LOG_DIR = HIGH_PRIVACY_STORAGE_BASE / "logs"
-
-# used to store directories to be mounted into jobs with the BindMountVolumeAPI
-HIGH_PRIVACY_VOLUME_DIR = HIGH_PRIVACY_STORAGE_BASE / "volumes"
-
 HIGH_PRIVACY_ARCHIVE_DIR = Path(
     os.environ.get("HIGH_PRIVACY_ARCHIVE_DIR", HIGH_PRIVACY_STORAGE_BASE / "archives")
 )
@@ -229,3 +225,13 @@ DOCKER_EXIT_CODES = {
     # handled already.
     137: "Killed by an OpenSAFELY admin",
 }
+
+# BindMountVolumeAPI config
+#
+# used to store directories to be mounted into jobs with the BindMountVolumeAPI
+HIGH_PRIVACY_VOLUME_DIR = HIGH_PRIVACY_STORAGE_BASE / "volumes"
+
+# when running inside a docker container and using the BindMountVolumeAPI, this
+# needs to point to the path to the HIGH_PRIVACY_VOLUME_DIR from the *hosts*
+# perspective, as that's what docker will be looking for.
+DOCKER_HOST_VOLUME_DIR = os.environ.get("DOCKER_HOST_VOLUME_DIR")

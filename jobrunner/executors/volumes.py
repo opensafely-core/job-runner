@@ -60,7 +60,18 @@ def host_volume_path(job):
 
 class BindMountVolumeAPI:
     def volume_name(job):
-        return host_volume_path(job)
+        """Return the absolute path to the volume directory.
+
+        In case we're running inside a docker container, make sure the path is
+        relative to the *hosts* POV, not the container.
+        """
+        local_path = host_volume_path(job)
+        if config.DOCKER_HOST_VOLUME_DIR is None:
+            return local_path
+
+        return config.DOCKER_HOST_VOLUME_DIR / local_path.relative_to(
+            config.HIGH_PRIVACY_VOLUME_DIR
+        )
 
     def create_volume(job, labels=None):
         host_volume_path(job).mkdir()

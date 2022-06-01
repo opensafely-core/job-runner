@@ -87,10 +87,6 @@ def workspace_is_archived(workspace):
 class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
-    @property
-    def volume_api(self):
-        return get_volume_api()
-
     def prepare(self, job):
         current = self.get_status(job)
         if current.state != ExecutorState.UNKNOWN:
@@ -270,7 +266,6 @@ def prepare_job(job):
 
 
 def finalize_job(job):
-
     container_metadata = docker.container_inspect(
         container_name(job), none_if_not_exists=True
     )

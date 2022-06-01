@@ -1,4 +1,6 @@
+import os
 import subprocess
+import tempfile
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,7 +30,7 @@ def clear_api_state():
 
 
 @pytest.fixture
-def tmp_work_dir(monkeypatch, tmp_path):
+def tmp_work_dir(request, monkeypatch, tmp_path):
     monkeypatch.setattr("jobrunner.config.WORKDIR", tmp_path)
     monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
     config_vars = [
@@ -46,6 +48,48 @@ def tmp_work_dir(monkeypatch, tmp_path):
         monkeypatch.setattr(
             f"jobrunner.config.{config_var}", tmp_path / config_var.lower()
         )
+
+    # Ok, so this is a bit complex.
+    #
+    # For running the tests for BindMountVolumeAPI in a docker container, we
+    # need to make pytest's tmp_path readable by the host. This is so the
+    # host's docker service (which the jobrunner-inna-container uses to run
+    # jobs) can bind mount the HIGH_PRIVACY_VOLUME_DIR into the job container.
+    #
+    # We do this via:
+    #
+    # a) mounting a host directory into the container as /tmp
+    # b) letting pytest do it's thing in /tmp
+    # c) calculate and set DOCKER_HOST_VOLUME_DIR to point the the host's view
+    # of each test's individual temp dirs
+    #
+    # This pretty much amounts to replacing /tmp/ with PYTEST_HOST_TMP, but we
+    # make a best effort attempt to support pytest's --basetemp config.
+    #
+    # Note 1: for this to work, it requires cooperation with the values in
+    # docker-compose.yml, the PYTEST_HOST_TMP var needs to a) exist b) be owned
+    # by the user and c) be mounted as /tmp inside the container.
+    #
+    # Note 2: ideally, we would force pytest basedir to be /tmp, to avoid
+    # breaking the coupling between pytest config and docker-compose config.
+    # Technically, we can actually do this via the undocumented env var
+    # PYTEST_DEBUG_TEMPROOT[1], but that feels a bit icky. But it would
+    # probably reduce the chances of developers accidentaly breaking things.
+    #
+    # [1]https://github.com/pytest-dev/pytest/blob/main/src/_pytest/tmpdir.py#L114
+    pytest_host_tmp = os.environ.get("PYTEST_HOST_TMP")
+    if pytest_host_tmp:
+        # attempt to handle --basetemp cli arg being used to change the default
+        # location
+        basetemp = (
+            request.config.option.basetemp or Path(tempfile.gettempdir()).resolve()
+        )
+        host_volume_path = pytest_host_tmp / tmp_path.relative_to(basetemp)
+        monkeypatch.setattr(
+            "jobrunner.config.DOCKER_HOST_VOLUME_DIR",
+            host_volume_path / "high_privacy_volume_dir".lower(),
+        )
+
     return tmp_path
 
 
