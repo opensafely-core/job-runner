@@ -19,7 +19,7 @@ jobs:
           python-version: "3.8"
           cache: "pip"
           cache-dependency-path: requirements.*.txt
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@aa5d15c144db4585980a44ebfdd2cf337c4f14cb  # 1.4
       - name: Check formatting, linting and import sorting
         run: just check
 
@@ -46,7 +46,7 @@ jobs:
           cache: "pip"
           cache-dependency-path: requirements.*.txt
 
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@aa5d15c144db4585980a44ebfdd2cf337c4f14cb  # 1.4
 
       - name: Run actual tests on ${{ matrix.os }}
         if: ${{ matrix.os == 'ubuntu-latest' }}
@@ -76,7 +76,8 @@ jobs:
       - name: Set version
         run: echo '1.0' > VERSION
 
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@aa5d15c144db4585980a44ebfdd2cf337c4f14cb  # 1.4
+
       - name: Check the wheel installs and runs
         run: just package-test wheel
       - name: Check the sdist installs and runs
@@ -91,11 +92,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Just
+        uses: extractions/setup-just@aa5d15c144db4585980a44ebfdd2cf337c4f14cb  # 1.4
+
       - name: Build image
-        run: make -C docker docker-build
+        run: just docker/build
 
       - name: Run tests in docker-image
-        run: make -C docker docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
+        run: just docker/test
 
   test-github-workflow-output:
     runs-on: ubuntu-latest
@@ -109,7 +113,7 @@ jobs:
           python-version: 3.8
           cache: "pip"
           cache-dependency-path: requirements.*.txt
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@aa5d15c144db4585980a44ebfdd2cf337c4f14cb  # 1.4
       - name: Install dependencies
         run: just devenv
       - name: Run equivalent command used by test runner

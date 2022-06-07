@@ -1,0 +1,109 @@
+set dotenv-load := true
+
+export DOCKER_USERID := `id -u`
+export DOCKER_GROUPID := `id -g`
+export PYTEST_HOST_TMP := "/tmp/jobrunner-docker"
+export SSH_KEY := "ssh/id_jobrunner_dev"
+
+# used to identify the dev ssh key we generate
+
+export SSH_COMMENT := "local jobrunner dev key"
+
+# what is the hosts ip from docker containers POV?
+
+export SSH_HOST := `docker network inspect bridge --format='{{(index .IPAM.Config 0).Gateway}}'`
+
+# the dev build needs to know the hosts docker group ID, to match it in the container
+
+export DOCKER_HOST_GROUPID := `getent group docker | awk -F: '{print $3}'`
+
+# dev builds remap's appuser's uid to the running user, for easy file
+# permissions when we mount things in.
+export DEV_USERID := `id -u`
+export DEV_GROUPID := `id -g`
+
+
+build env="dev": tmpdir
+    #!/usr/bin/env bash
+    set -eux
+
+    # ensure env files exist
+    test -f ../.env || cp ../dotenv-sample ../.env
+    touch docker-compose.env
+
+    # enable modern docker build features
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_DOCKER_CLI_BUILD=1
+
+    # set build args for prod builds
+    export BUILD_DATE=$(date -u +'%y-%m-%dT%H:%M:%SZ')
+    export GITREF=$(git rev-parse --short HEAD)
+
+    # build the thing
+    docker-compose build --pull {{ env }}
+
+tmpdir:
+    #!/bin/bash -x
+    # We do this in order to ensure that PYTEST_HOST_TMP is owned by the user running the tests
+    if test -d $PYTEST_HOST_TMP; then
+        rm $PYTEST_HOST_TMP -rf || { echo "Cannot create $PYTEST_HOST_TMP! Is it owned by root? If so, remove."; exit 1; }
+    fi
+    mkdir $PYTEST_HOST_TMP
+
+# run tests in docker container
+test *args: build
+    #!/bin/bash -x
+    ls -l /tmp/
+    ls -l /tmp/jobrunner-docker
+    touch /tmp/jobrunner-docker/wat
+    docker-compose run --rm test ls -l /
+    docker-compose run --rm test ls -l /tmp
+    docker-compose run --rm test whoami
+    docker-compose run --rm test id -u
+    docker-compose run --rm test pytest tests/test_local_executor.py
+
+# run dev server in docker container
+service: build
+    docker-compose up dev
+
+# run command in dev container
+run *args="bash": build
+    docker-compose run --rm dev {{ args }}
+
+# exec command in existing dev container
+exec *args="bash":
+    docker-compose exec dev {{ args }}
+
+clean:
+    #!/bin/bash
+    rm -rf $PYTEST_HOST_TMP
+    docker image rm job-runner job-runner-dev || true
+    # clean up local ssh config
+    rm -f ssh/known_hosts $SSH_KEY*
+    sed -i '/$(SSH_COMMENT)/d' ~/.ssh/authorized_keys
+
+# setup dev ssh key and config
+setup-ssh:
+    #!/bin/bash -x
+    test -f "$SSH_KEY" && { echo "ssh key aleady set up"; exit 0; }
+
+    # create known_hosts file so ssh works without prompting
+    ssh-keyscan $SSH_HOST > ssh/known_hosts
+
+    # create the key
+    ssh-keygen -t ed25519 -N '' -C "$SSH_COMMENT" -f "$SSH_KEY"
+
+    # this is a little unpleasent, modifying the users authorizesd keys
+    # we do use the comment in clean command  to clean it up automatically though.
+    grep -q "$(cat $SSH_KEY.pub)" ~/.ssh/authorized_keys || cat $SSH_KEY.pub >> ~/.ssh/authorized_keys
+
+    # quick test to fail early if ssh doesn't work for some reason
+    ssh -i $SSH_KEY -o UserKnownHostsFile=ssh/known_hosts $USER@$SSH_HOST true || { echo "Failed to ssh into $SSH_HOST"; tail /var/log/auth.log; exit 1; }
+
+# enable using ssh to talk to docker on host
+enable-ssh: setup-ssh
+    echo "DOCKER_HOST=ssh://$USER@$SSH_HOST" > docker-compose.env
+
+# disable using ssh to talk to docker on host
+disable-ssh:
+    rm docker-compose.env

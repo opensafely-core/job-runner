@@ -9,6 +9,11 @@ on:
 
 env:
   IMAGE_NAME: job-runner
+  PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
+  STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
+
+permissions:
+    packages: write
 
 jobs:
   tag-new-version:
@@ -22,7 +27,7 @@ jobs:
           fetch-depth: 0
       - name: Bump version and push tag
         id: tag
-        uses: mathieudutour/github-tag-action@v4.5
+        uses: mathieudutour/github-tag-action@d745f2e74aaf1ee82e747b181f7a0967978abee0  # 6.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: false
@@ -36,13 +41,15 @@ jobs:
     if: needs.tag-new-version.outputs.tag
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
+    - name: Set up Just
+      uses: extractions/setup-just@aa5d15c144db4585980a44ebfdd2cf337c4f14cb  # 1.4
     - name: Build image
       run: |
-          make -C docker docker-build  # build base and dev images
-          make -C docker docker-build ENV=prod  # build and tag prod image
+        just docker/build dev # build base and dev images
+        just docker/build prod # explicitly build prod as well
     - name: Test image
-      run: make -C docker docker-test ARGS='-e PRIVATE_REPO_ACCESS_TOKEN'
+      run: just docker/test
     - name: Log into GitHub Container Registry
       run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
     - name: Push image to GitHub Container Registry

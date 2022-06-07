@@ -13,7 +13,7 @@
 __pycache__
 app.log
 build
-docker/.env
+docker/docker-compose.env
 docker/ssh/id_*
 docker/ssh/known_hosts
 htmlcov
