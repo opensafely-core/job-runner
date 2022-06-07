@@ -62,7 +62,19 @@ services:
         - DEV_USERID=${DEV_USERID:-1000}
         - DEV_GROUPID=${DEV_GROUPID:-1000}
         - DOCKER_HOST_GROUPID=${DOCKER_HOST_GROUPID}
+    # Some tricks are needed here to be able to test the BindMountVolumeAPI
+    # when running inside docker, as we need the volumes to be mountable by the
+    # host docker. Our pytest fixtures create the directories in /tmp, so we
+    # provide a host mounted /tmp to the container, so we can access it from
+    # the host as well.
+    environment:
+      # Tell our test fixture what the root dir is on the host where to point
+      # DOCKER_HOST_VOLUME_DIR to for each isolated test
+      PYTEST_HOST_TMP: /tmp/jobrunner-docker
     volumes:
+      # mount the host provide temp dir as /tmp. Note: this dir must exist
+      - /tmp/jobrunner-docker:/tmp
+      # mount our current code
       - ..:/app
 
   # test runner service - uses dev-image with a different command
@@ -72,3 +84,4 @@ services:
     container_name: job-runner-test
     # override command
     command: /opt/venv/bin/pytest
+
