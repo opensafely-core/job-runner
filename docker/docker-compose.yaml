@@ -34,6 +34,7 @@ services:
     # paths relative to docker-compose.yaml file
     env_file:
       - ../.env
+      - docker-compose.env
     # ensure WORKDIR environment points to fixed location
     environment:
       # default dev config
@@ -41,6 +42,7 @@ services:
       MEDIUM_PRIVACY_STORAGE_BASE: /workdir/workspaces
       HIGH_PRIVACY_STORAGE_BASE: /workdir/workspaces
       DOCKER_HOST: ${DOCKER_HOST:-unix:///var/run/docker.sock}
+      PRIVATE_REPO_TOKEN: ${PRIVATE_REPO_TOKEN:-}
 
   # main development service
   dev:
@@ -70,10 +72,10 @@ services:
     environment:
       # Tell our test fixture what the root dir is on the host where to point
       # DOCKER_HOST_VOLUME_DIR to for each isolated test
-      PYTEST_HOST_TMP: /tmp/jobrunner-docker
+      PYTEST_HOST_TMP: ${PYTEST_HOST_TMP:-/tmp/jobrunner-docker}
     volumes:
       # mount the host provide temp dir as /tmp. Note: this dir must exist
-      - /tmp/jobrunner-docker:/tmp
+      - ${PYTEST_HOST_TMP:-/tmp/jobrunner-docker}:/tmp
       # mount our current code
       - ..:/app
 
