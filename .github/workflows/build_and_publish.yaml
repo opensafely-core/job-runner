@@ -13,7 +13,8 @@ env:
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
 
 permissions:
-    packages: write
+  packages: write
+  contents: write
 
 jobs:
   tag-new-version:
