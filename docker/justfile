@@ -25,7 +25,7 @@ export DEV_GROUPID := `id -g`
 
 build env="dev": tmpdir
     #!/usr/bin/env bash
-    set -eux
+    set -eu
 
     # ensure env files exist
     test -f ../.env || cp ../dotenv-sample ../.env
@@ -43,7 +43,7 @@ build env="dev": tmpdir
     docker-compose build --pull {{ env }}
 
 tmpdir:
-    #!/bin/bash -x
+    #!/bin/bash
     # We do this in order to ensure that PYTEST_HOST_TMP is owned by the user running the tests
     if test -d $PYTEST_HOST_TMP; then
         rm $PYTEST_HOST_TMP -rf || { echo "Cannot create $PYTEST_HOST_TMP! Is it owned by root? If so, remove."; exit 1; }
@@ -52,15 +52,8 @@ tmpdir:
 
 # run tests in docker container
 test *args: build
-    #!/bin/bash -x
-    ls -l /tmp/
-    ls -l /tmp/jobrunner-docker
-    touch /tmp/jobrunner-docker/wat
-    docker-compose run --rm test ls -l /
-    docker-compose run --rm test ls -l /tmp
-    docker-compose run --rm test whoami
-    docker-compose run --rm test id -u
-    docker-compose run --rm test pytest tests/test_local_executor.py
+    #!/bin/bash
+    docker-compose run --rm test {{ args }}
 
 # run dev server in docker container
 service: build
