@@ -203,16 +203,14 @@ def handle_job(job, api, mode=None, paused=None):
         api.cleanup(definition)
         # we are done here
         return
+    else:
+        new_status = initial_status
 
     # following logic is common to all non-final transitions
-
-    if new_status.state == initial_status.state:
-        # no change in state, i.e. back pressure
-        set_message(
-            job,
-            "Waiting on available resources",
-            code=StatusCode.WAITING_ON_WORKERS,
-        )
+    if new_status.state == ExecutorState.ERROR:
+        # all transitions can go straight to error
+        mark_job_as_failed(job, new_status.message)
+        api.cleanup(definition)
 
     elif new_status.state == expected_state:
         # successful state change to the expected next state
@@ -226,10 +224,13 @@ def handle_job(job, api, mode=None, paused=None):
             )
         set_message(job, new_status.state.value.title())
 
-    elif new_status.state == ExecutorState.ERROR:
-        # all transitions can go straight to error
-        mark_job_as_failed(job, new_status.message)
-        api.cleanup(definition)
+    elif new_status.state == initial_status.state:
+        # no change in state, i.e. back pressure
+        set_message(
+                job,
+                "Waiting on available resources",
+                code=StatusCode.WAITING_ON_WORKERS,
+        )
 
     else:
         raise InvalidTransition(
