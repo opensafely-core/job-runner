@@ -146,6 +146,12 @@ def handle_job(job, api, mode=None, paused=None):
         set_message(job, message)
         return
 
+    if initial_status.state == ExecutorState.ERROR:
+        # something has gone wrong since we last checked
+        mark_job_as_failed(job, initial_status.message)
+        api.cleanup(definition)
+        return
+
     # ok, handle the state transitions that are our responsibility
     if initial_status.state == ExecutorState.UNKNOWN:
         # a new job

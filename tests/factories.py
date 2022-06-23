@@ -90,16 +90,16 @@ class StubExecutorAPI:
         self.state = {}
         self.deleted = defaultdict(lambda: defaultdict(list))
 
-    def add_test_job(self, exec_state, job_state, **kwargs):
+    def add_test_job(self, exec_state, job_state, message="message", **kwargs):
         """Create and track a db job object."""
         job = job_factory(state=job_state, **kwargs)
         if exec_state != ExecutorState.UNKNOWN:
-            self.state[job.id] = exec_state
+            self.state[job.id] = JobStatus(exec_state, message)
         return job
 
-    def set_job_state(self, definition, state):
+    def set_job_state(self, definition, state, message="message"):
         """Directly set a job state."""
-        self.state[definition.id] = state
+        self.state[definition.id] = JobStatus(state, message)
 
     def set_job_transition(self, definition, state, message="executor message"):
         """Set the next transition for this job when called"""
@@ -159,8 +159,7 @@ class StubExecutorAPI:
         return JobStatus(ExecutorState.UNKNOWN)
 
     def get_status(self, definition):
-        state = self.state.get(definition.id, ExecutorState.UNKNOWN)
-        return JobStatus(state)
+        return self.state.get(definition.id, JobStatus(ExecutorState.UNKNOWN))
 
     def get_results(self, definition):
         return self.results.get(definition.id)
