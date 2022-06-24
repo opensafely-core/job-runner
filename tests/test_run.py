@@ -49,6 +49,23 @@ def test_handle_job_stable_states(state, message, db):
     assert job.status_message == message
 
 
+def test_handle_job_initial_error(db):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.ERROR, State.RUNNING, message="broken")
+
+    run.handle_job(job, api)
+
+    # executor state
+    assert job.id in api.tracker["cleanup"]
+    # its been cleaned up and is now unknown
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
+    assert job.state == State.FAILED
+    assert job.status_message == "broken"
+    assert job.status_code is None
+
+
 def test_handle_job_pending_to_preparing(db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
