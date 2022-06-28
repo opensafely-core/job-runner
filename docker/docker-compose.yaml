@@ -28,7 +28,7 @@ services:
       # use the default dev workdir
       - ../workdir:/workdir
       # used to configure ssh access for docker
-      - ./ssh:/home/appuser/.ssh
+      - ./ssh:/home/opensafely/.ssh
       # docker control
       - /var/run/docker.sock:/var/run/docker.sock
     # paths relative to docker-compose.yaml file
@@ -86,4 +86,3 @@ services:
     container_name: job-runner-test
     # override command
     command: /opt/venv/bin/pytest
-
