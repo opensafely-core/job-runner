@@ -19,9 +19,9 @@ export DOCKER_HOST_GROUPID := `getent group docker | awk -F: '{print $3}'`
 
 # dev builds remap's appuser's uid to the running user, for easy file
 # permissions when we mount things in.
+
 export DEV_USERID := `id -u`
 export DEV_GROUPID := `id -g`
-
 
 build env="dev": tmpdir
     #!/usr/bin/env bash
@@ -60,8 +60,8 @@ service: build
     docker-compose up dev
 
 # run command in dev container
-run *args="bash": build
-    docker-compose run --rm dev {{ args }}
+run env="dev" *args="bash": build
+    docker-compose run --rm {{ env }} {{ args }}
 
 # exec command in existing dev container
 exec *args="bash":

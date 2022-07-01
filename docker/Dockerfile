@@ -81,11 +81,12 @@ RUN --mount=type=cache,target=/root/.cache \
 #    version of the code included when the prod image was built.
 FROM base-python as job-runner-base
 
-# Create a non-root user to run the app as
+# Create a non-root opensafely user to run the app as
 # We currently use host bind mounts in production backends, which means if we
 # need to match the uid inside the container to the one on the host.  To do
 # this, we reserve uid/gid 10000 to use as our running user on the host.
-RUN useradd --create-home --user-group --uid 10000 -G docker appuser
+# Note: we are currently not running as this user, but we will in future.
+RUN useradd --create-home --user-group --uid 10000 -G docker opensafely
 
 # copy venv over from builder image. These will have root:root ownership, but
 # are readable by all.
@@ -104,8 +105,9 @@ CMD ["/opt/venv/bin/python", "-m", "jobrunner.service"]
 # This may not be necessary, but it probably doesn't hurt
 ENV PYTHONPATH=/app
 
+# We are not ready to do this step yet
 # switch to running as the user
-USER appuser
+# USER opensafely
 
 
 ##################################################
@@ -144,7 +146,7 @@ LABEL org.opencontainers.image.revision=$GITREF
 FROM job-runner-base as job-runner-dev
 
 # switch back to root to run the install of dev requirements.txt
-USER root
+#USER root
 
 # TODO: its possible python dev dependencies might need some additional build packages installed?
 
@@ -159,16 +161,16 @@ RUN --mount=type=cache,target=/root/.cache \
 ARG DOCKER_HOST_GROUPID
 RUN groupmod -g $DOCKER_HOST_GROUPID docker
 
-# in dev, ensure appuser uid matches host user id
+# in dev, ensure opensafely uid matches host user id
 ARG DEV_USERID=1000
 ARG DEV_GROUPID=1000
-RUN usermod -u $DEV_USERID appuser
-# Modify appuse group only if group id does not already exist. We run dev
+RUN usermod -u $DEV_USERID opensafely
+# Modify opensafely only if group id does not already exist. We run dev
 # containers with an explicit group id anyway, so file permissions on the host
-# will be correct, and we do not actually rely on named appuser group access to
+# will be correct, and we do not actually rely on named opensafely group access to
 # anything.
-RUN grep -q ":$DEV_GROUPID:" /etc/group || groupmod -g $DEV_GROUPID appuser
+RUN grep -q ":$DEV_GROUPID:" /etc/group || groupmod -g $DEV_GROUPID opensafely
 
 
-# switch back to appuser
-USER appuser
+# switch back to opensafely
+#USER opensafely
