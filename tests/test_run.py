@@ -372,6 +372,7 @@ def test_handle_pending_pause_mode(db, backend_db_config):
     # our state
     assert job.state == State.PENDING
     assert job.started_at is None
+    assert "paused" in job.status_message
 
 
 def test_handle_running_pause_mode(db, backend_db_config):
@@ -389,6 +390,7 @@ def test_handle_running_pause_mode(db, backend_db_config):
     assert api.get_status(job).state == ExecutorState.EXECUTING
     # our state
     assert job.state == State.RUNNING
+    assert "paused" not in job.status_message
 
 
 def invalid_transitions():
