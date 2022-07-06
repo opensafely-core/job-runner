@@ -77,7 +77,7 @@ STABLE_STATES = [
 
 def handle_single_job(job, api):
     mode = get_flag_value("mode")
-    paused = str(get_flag_value("paused")).lower() == "true"
+    paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
         handle_job(job, api, mode, paused)
     except Exception:
