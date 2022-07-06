@@ -50,6 +50,17 @@ def get_flag_value(name, default=None):
 def set_flag(name, value, timestamp=None):
     """Set a flag to a value in the db."""
     # Note: table must exist to set flags
+
+    # If it's already in the desired state, do nothing to avoid updating the
+    # timestamp
+    try:
+        current = get_flag(name)
+    except ValueError:
+        pass
+    else:
+        if current.value == value:
+            return current
+
     if timestamp is None:
         timestamp = time.time()
     flag = Flag(name, value, timestamp)
