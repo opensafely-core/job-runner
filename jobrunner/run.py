@@ -120,9 +120,8 @@ def handle_job(job, api, mode=None, paused=None):
     if paused:
         if job.state == State.PENDING:
             # do not start the job, keep it pending
-            set_state(
+            set_message(
                 job,
-                State.PENDING,
                 "Backend is currently paused for maintenance, job will start once this is completed",
             )
             return
