@@ -55,7 +55,7 @@ ALLOWED_IMAGES = {
     "python",
 }
 
-DOCKER_REGISTRY = "ghcr.io/opensafely-core"
+DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")
 
 DATABASE_URLS = {
     "full": os.environ.get("FULL_DATABASE_URL"),
