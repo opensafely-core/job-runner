@@ -59,16 +59,16 @@ If you want to know what it's up to you can get pytest to show the log output wi
 
 To run tests in docker, simply run:
 
-    make -C docker docker-test
+    just docker/test
 
 This will build the docker image and run tests. You can run job-runner as
 a service with:
 
-    make -C docker docker-serve
+    just docker/service
 
 Or run a command inside the docker image:
 
-    make -C docker docker-run ARGS=command  # bash by default
+    just docker/run ARGS=command  # bash by default
 
 
 
