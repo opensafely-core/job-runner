@@ -7,7 +7,6 @@ from jobrunner.lib.commands import requires_db_access
     "args",
     [
         ["cohortextractor:latest", "generate_cohort", "--output-dir=outputs"],
-        ["cohortextractor-v2:latest", "generate_dataset", "--output-dir=outputs"],
         ["databuilder:latest", "generate_dataset", "--output-dir=outputs"],
         ["cohortextractor:latest", "generate_codelist_report", "--output-dir=outputs"],
     ],
@@ -21,6 +20,8 @@ def test_requires_db_access_privileged_commands_can_access_db(args):
     [
         ["cohortextractor:latest"],
         ["cohortextractor:latest", "generate_dataset", "--output-dir=outputs"],
+        # cohortextractor-v2 is no longer supported
+        ["cohortextractor-v2:latest", "generate_dataset", "--output-dir=outputs"],
         ["python", "script.py", "--output-dir=outputs"],
     ],
 )

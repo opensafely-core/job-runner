@@ -77,7 +77,7 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
             run_parts.append(f"--output-dir={output_dirs[0]}")
 
     elif is_extraction_command(run_parts, require_version=2):
-        # cohortextractor Version 2 expects all command line arguments to be
+        # databuilder expects all command line arguments to be
         # specified in the run command
         target = "--dummy-data-file"
         if using_dummy_data_backend and not any(

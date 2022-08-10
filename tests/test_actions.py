@@ -72,28 +72,32 @@ def test_get_action_specification_for_cohortextractor_generate_cohort_action():
     sys.platform.startswith("win"),
     reason="ActionSpecification is only used to build commands for Docker",
 )
-@pytest.mark.parametrize("image", ["cohortextractor-v2", "databuilder"])
-def test_get_action_specification_for_databuilder_action(image):
+def test_get_action_specification_for_databuilder_action():
     config = Pipeline(
         **{
             "version": 3,
             "expectations": {"population_size": 1000},
             "actions": {
-                "generate_cohort_v2": {
-                    "run": f"{image}:latest generate_cohort --output=output/cohort.csv --dummy-data-file dummy.csv",
-                    "outputs": {"highly_sensitive": {"cohort": "output/cohort.csv"}},
+                "generate_dataset": {
+                    "run": "databuilder:latest generate_dataset "
+                    "--dataset_definition=dataset_definition.py "
+                    "--output=output/dataset.csv "
+                    "--dummy-data-file=dummy.csv",
+                    "outputs": {"highly_sensitive": {"dataset": "output/dataset.csv"}},
                 }
             },
         }
     )
 
     action_spec = get_action_specification(
-        config, "generate_cohort_v2", using_dummy_data_backend=True
+        config, "generate_dataset", using_dummy_data_backend=True
     )
 
     assert (
-        action_spec.run
-        == f"""{image}:latest generate_cohort --output=output/cohort.csv --dummy-data-file dummy.csv"""
+        action_spec.run == "databuilder:latest generate_dataset "
+        "--dataset_definition=dataset_definition.py "
+        "--output=output/dataset.csv "
+        "--dummy-data-file=dummy.csv"
     )
 
 
@@ -101,16 +105,17 @@ def test_get_action_specification_for_databuilder_action(image):
     sys.platform.startswith("win"),
     reason="ActionSpecification is only used to build commands for Docker",
 )
-@pytest.mark.parametrize("image", ["cohortextractor-v2", "databuilder"])
-def test_get_action_specification_for_databuilder_errors(image):
+def test_get_action_specification_for_databuilder_errors():
     config = Pipeline(
         **{
             "version": 3,
             "expectations": {"population_size": 1_000},
             "actions": {
-                "generate_cohort_v2": {
-                    "run": f"{image}:latest generate_cohort --output=output/cohort.csv",
-                    "outputs": {"highly_sensitive": {"cohort": "output/cohort.csv"}},
+                "generate_dataset": {
+                    "run": "databuilder:latest generate_dataset "
+                    "--dataset_definition=dataset_definition.py "
+                    "--output=output/dataset.csv",
+                    "outputs": {"highly_sensitive": {"dataset": "output/dataset.csv"}},
                 }
             },
         }
@@ -120,7 +125,7 @@ def test_get_action_specification_for_databuilder_errors(image):
     with pytest.raises(ProjectValidationError, match=msg):
         get_action_specification(
             config,
-            "generate_cohort_v2",
+            "generate_dataset",
             using_dummy_data_backend=True,
         )
 
