@@ -14,7 +14,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-  "opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.1.2",
+  "opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.2.0",
   "ruamel.yaml",
   "requests",
 ]
