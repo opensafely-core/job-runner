@@ -4,7 +4,6 @@ def requires_db_access(args):
     """
     valid_commands = {
         "cohortextractor": ("generate_cohort", "generate_codelist_report"),
-        "cohortextractor-v2": ("generate_cohort", "generate_dataset"),
         "databuilder": ("generate_dataset",),
     }
     if len(args) <= 1:

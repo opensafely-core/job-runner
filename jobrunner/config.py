@@ -47,7 +47,6 @@ else:
 
 ALLOWED_IMAGES = {
     "cohortextractor",
-    "cohortextractor-v2",
     "databuilder",
     "stata-mp",
     "r",
