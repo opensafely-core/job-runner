@@ -67,7 +67,7 @@ def handle_jobs(api: Optional[ExecutorAPI]):
     return active_jobs
 
 
-# we do not control the tranisition from these states, the executor does
+# we do not control the transition from these states, the executor does
 STABLE_STATES = [
     ExecutorState.PREPARING,
     ExecutorState.EXECUTING,
@@ -116,7 +116,7 @@ def handle_job(job, api, mode=None, paused=None):
         api.cleanup(definition)
         return
 
-    # handle special modes beofre considering executor state, as they ignore it
+    # handle special modes before considering executor state, as they ignore it
     if paused:
         if job.state == State.PENDING:
             # do not start the job, keep it pending
@@ -180,6 +180,15 @@ def handle_job(job, api, mode=None, paused=None):
                 "Waiting on dependencies",
                 code=StatusCode.WAITING_ON_DEPENDENCIES,
             )
+            return
+
+        # Temporary fix to reintroduce concurrency limits lost in the move to
+        # the executor API. Ideally this should be the responsiblity of the
+        # executor, but implementing that for the local executor requries some
+        # work
+        not_started_reason = get_reason_job_not_started(job)
+        if not_started_reason:
+            set_message(job, not_started_reason, code=StatusCode.WAITING_ON_WORKERS)
             return
 
         expected_state = ExecutorState.PREPARING
