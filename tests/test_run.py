@@ -129,6 +129,21 @@ def test_handle_pending_job_waiting_on_dependency(db):
     assert job.status_code == StatusCode.WAITING_ON_DEPENDENCIES
 
 
+def test_handle_job_waiting_on_workers(monkeypatch, db):
+    monkeypatch.setattr(config, "MAX_WORKERS", 0)
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
+
+    run.handle_job(job, api)
+
+    # executor doesn't even know about it
+    assert job.id not in api.tracker["prepare"]
+
+    assert job.state == State.PENDING
+    assert job.status_message == "Waiting on available workers"
+    assert job.status_code == StatusCode.WAITING_ON_WORKERS
+
+
 @pytest.mark.parametrize(
     "exec_state,job_state,tracker",
     [
@@ -137,7 +152,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
         (ExecutorState.EXECUTED, State.RUNNING, "finalize"),
     ],
 )
-def test_handle_job_waiting_on_workers(exec_state, job_state, tracker, db):
+def test_handle_job_waiting_on_workers_via_executor(exec_state, job_state, tracker, db):
     api = StubExecutorAPI()
     job = api.add_test_job(exec_state, job_state)
     api.set_job_transition(job, exec_state)
