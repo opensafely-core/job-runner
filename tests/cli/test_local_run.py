@@ -185,6 +185,9 @@ def test_add_arguments():
             "--continue-on-error",
             "--timestamps",
             "--debug",
+            "--concurrency=3",
+            "--memory=2G",
+            "--cpu=1",
         ]
     )
 
@@ -193,6 +196,9 @@ def test_add_arguments():
     assert args.project_dir == "dir"
     assert args.timestamps
     assert args.debug
+    assert args.concurrency == 3
+    assert args.memory == "2G"
+    assert args.cpu == 1
 
 
 def test_filter_log_messages():
