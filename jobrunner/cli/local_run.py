@@ -152,7 +152,7 @@ def main(
     timestamps=False,
     format_output_for_github=False,
     concurrency=config.MAX_WORKERS,
-    memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
+    memory=config.DEFAULT_JOB_MEMORY_LIMIT,
     cpu=config.DEFAULT_JOB_CPU_COUNT,
 ):
     if not docker_preflight_check():
@@ -222,7 +222,7 @@ def create_and_run_jobs(
     log_format=LOCAL_RUN_FORMAT,
     format_output_for_github=False,
     concurrency=config.MAX_WORKERS,
-    memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
+    memory=config.DEFAULT_JOB_MEMORY_LIMIT,
     cpu=config.DEFAULT_JOB_CPU_COUNT,
 ):
     # Fiddle with the configuration to suit what we need for running local jobs
@@ -237,7 +237,7 @@ def create_and_run_jobs(
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
     config.MAX_WORKERS = concurrency
-    config.DEFAULT_JOB_MEMORY_LIMIT = memory_limit
+    config.DEFAULT_JOB_MEMORY_LIMIT = memory
     config.DEFAULT_JOB_CPU_COUNT = cpu
 
     # We want to fetch any reusable actions code directly from Github so as to
