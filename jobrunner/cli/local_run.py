@@ -32,7 +32,6 @@ import sys
 import tempfile
 import textwrap
 from datetime import datetime, timedelta
-from multiprocessing import cpu_count
 from pathlib import Path
 
 from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
@@ -123,9 +122,9 @@ def add_arguments(parser):
         "-c",
         type=int,
         help=(
-            f"The number of jobs to run concurrently. Defaults to {config.MAX_WORKERS}. Hint: try `-c 1` to run things in series to help debug memory issues."
+            "The number of jobs to run concurrently. Defaults to 2. Hint: try `-c 1` to run things in series to help debug memory issues."
         ),
-        default=max(cpu_count() - 1, 1),
+        default=2,
     )
     parser.add_argument(
         "--memory",
