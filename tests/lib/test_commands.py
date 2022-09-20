@@ -7,7 +7,7 @@ from jobrunner.lib.commands import requires_db_access
     "args",
     [
         ["cohortextractor:latest", "generate_cohort"],
-        ["databuilder:latest", "generate_dataset"],
+        ["databuilder:latest", "generate-dataset"],
         ["cohortextractor:latest", "generate_codelist_report"],
         # Third and subsequent arguments are ignored:
         ["cohortextractor:latest", "generate_cohort", "could-be-anything-here"],
