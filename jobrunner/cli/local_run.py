@@ -47,7 +47,6 @@ from jobrunner.create_or_update_jobs import (
 )
 from jobrunner.executors.local import METADATA_DIR
 from jobrunner.lib import database, docker
-from jobrunner.lib.database import find_where
 from jobrunner.lib.log_utils import configure_logging
 from jobrunner.lib.string_utils import tabulate
 from jobrunner.lib.subprocess_utils import subprocess_run
@@ -268,6 +267,9 @@ def create_and_run_jobs(
         extra_filter=filter_log_messages,
     )
 
+    # ensure that any local db is initialised and up to date
+    database.ensure_db()
+
     # Any jobs that are running or pending must be left over from a previous run that was aborted either by an
     # unexpected and unhandled exception or by the researcher abruptly terminating the process. We can't reasonably
     # recover them (and the researcher may not want to -- maybe that's why they terminated), so we mark them as
@@ -356,7 +358,7 @@ def create_and_run_jobs(
         if format_output_for_github:
             print("::endgroup::")
 
-    final_jobs = find_where(
+    final_jobs = database.find_where(
         Job, state__in=[State.FAILED, State.SUCCEEDED], job_request_id=job_request.id
     )
     # Always show failed jobs last, otherwise show in order run

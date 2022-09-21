@@ -23,10 +23,11 @@ def pytest_configure(config):
 
 
 @pytest.fixture(autouse=True)
-def clear_api_state():
+def clear_state():
     yield
     # local docker API maintains results cache as a module global, so clear it.
     jobrunner.executors.local.RESULTS.clear()
+    database.CONNECTION_CACHE.__dict__.clear()
 
 
 @pytest.fixture
@@ -48,6 +49,9 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
         monkeypatch.setattr(
             f"jobrunner.config.{config_var}", tmp_path / config_var.lower()
         )
+
+    # ensure db initialise
+    database.ensure_db()
 
     # Ok, so this is a bit complex.
     #
@@ -162,10 +166,11 @@ def test_repo(tmp_work_dir):
 
 
 @pytest.fixture()
-def db(monkeypatch):
+def db(monkeypatch, request):
     """Create a throwaway db."""
-    database_file = ":memory:{random.randrange(sys.maxsize)}"
+    database_file = f"file:db-{request.node.name}?mode=memory&cache=shared"
     monkeypatch.setattr(config, "DATABASE_FILE", database_file)
+    database.ensure_db(database_file)
     yield
     del database.CONNECTION_CACHE.__dict__[database_file]
 

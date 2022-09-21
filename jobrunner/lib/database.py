@@ -13,12 +13,14 @@ import json
 import sqlite3
 import threading
 from enum import Enum
+from pathlib import Path
 
 from jobrunner import config
 
 
 CONNECTION_CACHE = threading.local()
 TABLES = {}
+MIGRATIONS = {}
 
 
 def databaseclass(cls):
@@ -29,6 +31,12 @@ def databaseclass(cls):
     assert "id" in fields, "must have primary key 'id'"
     TABLES[dc.__tablename__] = dc
     return dc
+
+
+def migration(version, sql):
+    """Used to record a migration"""
+    assert version not in MIGRATIONS, f"Migration {version} already exists."
+    MIGRATIONS[version] = sql
 
 
 def insert(item):
@@ -144,44 +152,123 @@ def transaction():
     return conn
 
 
-def get_connection():
+def get_connection(filename=None):
+    """Return the current configured connection."""
     # The caching below means we get the same connection to the database every
     # time which is done not so much for efficiency as so that we can easily
     # implement transaction support without having to explicitly pass round a
     # connection object. This is done on a per-thread basis to avoid potential
     # threading issues.
-    filename = config.DATABASE_FILE
+    if filename is None:
+        filename = config.DATABASE_FILE
+
     # Looks icky but is documented `threading.local` usage
     cache = CONNECTION_CACHE.__dict__
-    if filename in cache:
-        return cache[filename]
-    else:
-        connection = get_connection_from_file(filename)
-        cache[filename] = connection
-        return connection
+    if filename not in cache:
+        conn = sqlite3.connect(filename)
+        # Enable autocommit so changes made outside of a transaction still get
+        # persisted to disk. We can use explicit transactions when we need
+        # atomicity.
+        conn.isolation_level = None
+        # Support dict-like access to rows
+        conn.row_factory = sqlite3.Row
+        cache[filename] = conn
+
+    return cache[filename]
 
 
-def get_connection_from_file(filename):
-    if str(filename).startswith(":memory:"):
-        filename = ":memory:"
-    else:
-        filename.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(filename)
-    # Enable autocommit so changes made outside of a transaction still get
-    # persisted to disk. We can use explicit transactions when we need
-    # atomicity.
-    conn.isolation_level = None
-    # Support dict-like access to rows
-    conn.row_factory = sqlite3.Row
-    schema_count = list(conn.execute("SELECT COUNT(*) FROM sqlite_master"))[0][0]
-    if schema_count == 0:
+class MigrationNeeded(Exception):
+    pass
+
+
+def db_status(filename):
+    # this allows us to use per-test :memory: dbs
+    if isinstance(filename, str):
+        if filename.startswith("file:") and "mode=memory" in filename:
+            return ("memory", False)
+
+        filename = Path(filename)
+
+    if filename.exists():
+        return ("file", True)
+
+    return ("file", False)
+
+
+def ensure_valid_db(filename=None, migrations=MIGRATIONS):
+    if filename is None:
+        filename = config.DATABASE_FILE
+
+    db_type, db_exists = db_status(filename)
+    if db_type == "file" and not db_exists:
+        raise MigrationNeeded(
+            f"db {filename} does not exist. Create with migrate command"
+        )
+
+    latest_version = max(migrations, default=0)
+    conn = get_connection(filename)
+    current_version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if latest_version != current_version:
+        raise MigrationNeeded(
+            f"db {filename} is out of date. Update with migrate command"
+        )
+
+
+def ensure_db(filename=None, migrations=MIGRATIONS):
+    """Ensure db is created and up to date with migrations
+
+    Will create new tables, or migrate the exisiting ones as needed.
+    """
+    if filename is None:
+        filename = config.DATABASE_FILE
+
+    db_type, db_exists = db_status(filename)
+
+    if db_type == "file":
+        filename.parent.mkdir(exist_ok=True, parents=True)
+
+    conn = get_connection(filename)
+
+    if db_exists:
+        migrate_db(conn, migrations)
+    else:  # new db
         for table in TABLES.values():
             create_table(conn, table)
+        # set migration level to highest migration version
+        conn.execute(f"PRAGMA user_version={max(migrations, default=0)}")
+        # print("created new db at {filename}")
+
     return conn
 
 
 def create_table(conn, cls):
     conn.executescript(cls.__tableschema__)
+
+
+# ensure migration is applied as a transaction together with the pragma update
+MIGRATION_SQL = """
+BEGIN;
+{sql};
+PRAGMA user_version={version};
+COMMIT;
+"""
+
+
+def migrate_db(conn, migrations=None):
+
+    current_version = conn.execute("PRAGMA user_version").fetchone()[0]
+    applied = []
+
+    for version, sql in sorted(migrations.items()):
+        if version > current_version:
+            transaction_sql = MIGRATION_SQL.format(sql=sql, version=version)
+            conn.executescript(transaction_sql)
+            applied.append(version)
+            print(f"Applied {migration} as migration {version}:\n{sql}")
+        else:
+            print(f"Skipping {migration} as already applied")
+
+    return applied
 
 
 def query_params_to_sql(params):

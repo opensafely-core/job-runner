@@ -77,6 +77,7 @@ def test_local_run_copes_with_detritus_of_earlier_interrupted_run(
     project_dir = tmp_path / "project"
     shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
     config.DATABASE_FILE = project_dir / "metadata" / "db.sqlite"
+    database.ensure_db(config.DATABASE_FILE)
 
     project = load_pipeline(project_dir / "project.yaml")
     database.insert(SavedJobRequest(id="previous-request", original={}))

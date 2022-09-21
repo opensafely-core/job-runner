@@ -6,7 +6,7 @@ import threading
 import time
 
 from jobrunner import config, record_stats, run, sync
-from jobrunner.lib.database import get_connection
+from jobrunner.lib.database import ensure_valid_db
 from jobrunner.lib.docker import docker
 from jobrunner.lib.log_utils import configure_logging
 from jobrunner.queries import get_flag_value, set_flag
@@ -30,9 +30,9 @@ def main():
     threading.current_thread().name = "run "
     fmt = "{asctime} {threadName} {message} {tags}"
     configure_logging(fmt)
-    # ensure db is set up before we start any threads, otherwise if we don't already have
-    # a database (which we don't in tests) then threads will race to create the schema
-    get_connection()
+
+    # check db is present and up to date, or else error
+    ensure_valid_db()
 
     try:
         log.info("jobrunner.service started")
