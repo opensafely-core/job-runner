@@ -10,6 +10,7 @@ shouldn't be too large a job.
 """
 import dataclasses
 import json
+import logging
 import sqlite3
 import threading
 from enum import Enum
@@ -17,6 +18,8 @@ from pathlib import Path
 
 from jobrunner import config
 
+
+log = logging.getLogger(__name__)
 
 CONNECTION_CACHE = threading.local()
 TABLES = {}
@@ -214,7 +217,7 @@ def ensure_valid_db(filename=None, migrations=MIGRATIONS):
         )
 
 
-def ensure_db(filename=None, migrations=MIGRATIONS):
+def ensure_db(filename=None, migrations=MIGRATIONS, verbose=False):
     """Ensure db is created and up to date with migrations
 
     Will create new tables, or migrate the exisiting ones as needed.
@@ -230,13 +233,14 @@ def ensure_db(filename=None, migrations=MIGRATIONS):
     conn = get_connection(filename)
 
     if db_exists:
-        migrate_db(conn, migrations)
+        migrate_db(conn, migrations, verbose=verbose)
     else:  # new db
         for table in TABLES.values():
             create_table(conn, table)
         # set migration level to highest migration version
         conn.execute(f"PRAGMA user_version={max(migrations, default=0)}")
-        # print("created new db at {filename}")
+        if verbose:
+            log.info(f"created new db at {filename}")
     return conn
 
 
@@ -253,7 +257,10 @@ COMMIT;
 """
 
 
-def migrate_db(conn, migrations=None):
+def migrate_db(conn, migrations=None, verbose=False):
+
+    # we store migrations in models, so make sure this has been imported to collect them
+    import jobrunner.models  # noqa: F401
 
     current_version = conn.execute("PRAGMA user_version").fetchone()[0]
     applied = []
@@ -263,9 +270,11 @@ def migrate_db(conn, migrations=None):
             transaction_sql = MIGRATION_SQL.format(sql=sql, version=version)
             conn.executescript(transaction_sql)
             applied.append(version)
-            print(f"Applied {migration} as migration {version}:\n{sql}")
+            if verbose:
+                log.info(f"Applied migration {version}:\n{sql}")
         else:
-            print(f"Skipping {migration} as already applied")
+            if verbose:
+                log.info(f"Skipping migration {version} as already applied")
 
     return applied
 
