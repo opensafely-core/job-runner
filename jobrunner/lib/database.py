@@ -237,7 +237,6 @@ def ensure_db(filename=None, migrations=MIGRATIONS):
         # set migration level to highest migration version
         conn.execute(f"PRAGMA user_version={max(migrations, default=0)}")
         # print("created new db at {filename}")
-
     return conn
 
 

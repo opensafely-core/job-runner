@@ -117,6 +117,9 @@ def job_request_from_remote_format(job_request):
         workspace=job_request["workspace"]["name"],
         database_name=job_request["workspace"]["db"],
         force_run_dependencies=job_request["force_run_dependencies"],
+        created_by=job_request["created_by"],
+        project=job_request["project"],
+        orgs=job_request["orgs"],
         original=job_request,
     )
 
@@ -137,6 +140,9 @@ def job_to_remote_format(job):
         "updated_at": job.updated_at_isoformat,
         "started_at": job.started_at_isoformat,
         "completed_at": job.completed_at_isoformat,
+        "created_by": job.created_by,
+        "project": job.project,
+        "orgs": job.org_list.split(","),
     }
 
 

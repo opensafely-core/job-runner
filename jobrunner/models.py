@@ -14,10 +14,12 @@ import hashlib
 import secrets
 from enum import Enum
 
-from jobrunner.lib.database import databaseclass
-from jobrunner.lib.string_utils import project_name_from_url, slugify
+from jobrunner.lib.database import databaseclass, migration
+from jobrunner.lib.string_utils import slugify
 
 
+# this is the overall high level state the job-runner uses to decide how to
+# handle a particular job.
 class State(Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -52,6 +54,9 @@ class JobRequest:
     force_run_dependencies: bool = False
     force_run_failed: bool = False
     branch: str = None
+    created_by: str = None
+    project: str = None
+    orgs: list = dataclasses.field(default_factory=list)
     original: dict = None
 
 
@@ -103,6 +108,9 @@ class Job:
             updated_at INT,
             started_at INT,
             completed_at INT,
+            created_by TEXT,
+            project TEXT,
+            org_list TEXT,
 
             PRIMARY KEY (id)
         );
@@ -116,6 +124,15 @@ class Job:
         -- grows.
         CREATE INDEX idx_job__state ON job (state) WHERE state NOT IN ('failed', 'succeeded');
     """
+
+    migration(
+        1,
+        """
+        ALTER TABLE job ADD COLUMN created_by TEXT;
+        ALTER TABLE job ADD COLUMN project TEXT;
+        ALTER TABLE job ADD COLUMN org_list TEXT;
+    """,
+    )
 
     id: str = None  # noqa: A003
     job_request_id: str = None
@@ -164,11 +181,16 @@ class Job:
     status_code: StatusCode = None
     # Flag indicating that the user has cancelled this job
     cancelled: bool = False
-    # Times (stored as integer UNIX timestamps)
+    # Times (stored as integer UNIX timestamps in seconds)
     created_at: int = None
     updated_at: int = None
     started_at: int = None
     completed_at: int = None
+
+    # used primarily for tagging telemetry
+    created_by: str = None
+    project: str = None
+    org_list: str = None
 
     def __post_init__(self):
         # Generate a Job ID based on the Job Request ID and action. This means
@@ -213,19 +235,12 @@ class Job:
     # On Python 3.8 we could use `functools.cached_property` here and avoid
     # recomputing this every time
     @property
-    def project(self):
-        """Project name based on github url."""
-        return project_name_from_url(self.repo_url)
-
-    # On Python 3.8 we could use `functools.cached_property` here and avoid
-    # recomputing this every time
-    @property
     def slug(self):
         """
         Use a human-readable slug rather than just an opaque ID to identify jobs in
         order to make debugging easier
         """
-        return slugify(f"{self.project}-{self.action}-{self.id}")
+        return slugify(f"{self.workspace}-{self.action}-{self.id}")
 
     @property
     def output_files(self):

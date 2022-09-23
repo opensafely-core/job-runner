@@ -19,6 +19,9 @@ def test_job_request_from_remote_format():
         "cancelled_actions": ["analyse"],
         "force_run_dependencies": True,
         "sha": "abcdef",
+        "created_by": "user",
+        "project": "project",
+        "orgs": ["org"],
     }
     expected = JobRequest(
         id="123",
@@ -30,6 +33,9 @@ def test_job_request_from_remote_format():
         requested_actions=["generate_cohort"],
         cancelled_actions=["analyse"],
         force_run_dependencies=True,
+        created_by="user",
+        project="project",
+        orgs=["org"],
         original=remote_job_request,
     )
     job_request = sync.job_request_from_remote_format(remote_job_request)

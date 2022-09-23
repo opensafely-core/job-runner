@@ -32,6 +32,8 @@ JOB_DEFAULTS = {
     "run_command": "python myscript.py",
     "output_spec": {},
     "created_at": 0,
+    "created_by": "user",
+    "project": "project",
 }
 
 

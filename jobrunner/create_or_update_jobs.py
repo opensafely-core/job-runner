@@ -221,6 +221,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         if required_job.state in [State.PENDING, State.RUNNING]:
             wait_for_job_ids.append(required_job.id)
 
+    timestamp = time.time()
     job = Job(
         job_request_id=job_request.id,
         state=State.PENDING,
@@ -233,8 +234,12 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         requires_outputs_from=action_spec.needs,
         run_command=action_spec.run,
         output_spec=action_spec.outputs,
-        created_at=int(time.time()),
-        updated_at=int(time.time()),
+        created_at=int(timestamp),
+        updated_at=int(timestamp),
+        created_by=job_request.created_by,
+        project=job_request.project,
+        # flatten into , separated list
+        org_list=",".join(job_request.orgs),
     )
 
     # Add it to the dictionary of scheduled jobs
@@ -331,10 +336,14 @@ def create_failed_job(job_request, exception):
         workspace=job_request.workspace,
         action=action,
         status_message=status_message,
-        created_at=now,
-        started_at=now,
-        updated_at=now,
-        completed_at=now,
+        created_at=int(now),
+        started_at=int(now),
+        updated_at=int(now),
+        completed_at=int(now),
+        created_by=job_request.created_by,
+        project=job_request.project,
+        # flatten into , separated list
+        org_list=",".join(job_request.orgs),
     )
     insert_into_database(job_request, [job])
 
