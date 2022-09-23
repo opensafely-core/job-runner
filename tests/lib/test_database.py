@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 
 import pytest
@@ -85,6 +86,22 @@ def test_ensure_db_new_db(tmp_path):
     assert conn.row_factory is sqlite3.Row
     assert CONNECTION_CACHE.__dict__[db] is conn
     assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+
+
+def test_ensure_db_verbose(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    db = tmp_path / "db.sqlite"
+
+    ensure_db(db, {1: "should not run"}, verbose=True)
+    assert "created new db" in caplog.records[-1].msg
+
+    ensure_db(
+        db,
+        {1: "should not run", 2: "ALTER TABLE job ADD COLUM test TEXT"},
+        verbose=True,
+    )
+    assert "Skipping migration 1" in caplog.records[-2].msg
+    assert "Applied migration 2" in caplog.records[-1].msg
 
 
 def test_ensure_db_new_db_memory():
