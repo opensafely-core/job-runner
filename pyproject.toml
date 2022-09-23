@@ -22,9 +22,13 @@ dynamic = ["version"]
 
 [project.scripts]
 add_job = "jobrunner.cli.add_job:run"
+flags = "jobrunner.cli.flags:run"
 kill_job = "jobrunner.cli.kill_job:run"
 local_run = "jobrunner.cli.local_run:run"
+migrate = "jobrunner.cli.migrate:run"
+prepare_for_reboot = "jobrunner.cli.prepare_for_reboot:run"
 retry_job = "jobrunner.cli.retry_job:run"
+
 
 [project.urls]
 Home = "https://opensafely.org"

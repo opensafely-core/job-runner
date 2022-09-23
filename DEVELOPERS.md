@@ -163,3 +163,51 @@ you can do so:
 2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
 3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
    set up.
+
+
+## Database schema and migrations
+
+jobrunner uses a minimal ORM-lite wrapper to talk to the DB.
+
+The current version of a tables schema definition is stored in the the
+`__tableschema__` attribute for that model's class, i.e. `Job.__tableschema__`.
+This is use to create the table in dev and test, so migrations are not usually
+needed in those cases.
+
+### Adding a migration
+
+However, we also occasionally need to apply changes to this schema in
+production, or in a user's local opensafely-cli database.
+
+To do this, we track migrations in `jobrunner/models.py`. Add a migration like so:
+
+```python
+database.migration(1, """
+DDL STATEMENT 1;
+DDL STATEMENT 2;
+""")
+```
+
+These statements are run together in a single transaction, along with
+incrementing the `user_version` in the database.
+
+Note: be aware that there are various restrictions on ALTER TABLE statements in
+sqlite:
+
+https://www.sqlite.org/lang_altertable.html#alter_table_add_column
+
+
+### Applying migrations
+
+
+Trying to run jobrunner as a service will error if the database does not exist
+or is out of date, as a protection against misconfiguration.
+
+To initialise or migrate the database, you can use the migrate command:
+
+```sh
+python -m jobrunner.cli.migrate
+```
+
+Note that for `jobrunner.cli.local_run`, which is used by opensafely-cli,
+migrations are automatically applied.

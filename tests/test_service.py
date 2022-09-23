@@ -7,6 +7,7 @@ import time
 import pytest
 
 from jobrunner import config, queries, service
+from jobrunner.lib import database
 
 
 @pytest.mark.skipif(
@@ -16,6 +17,9 @@ def test_service_main(tmp_path):
     """
     Test that the service module handles SIGINT and exits cleanly
     """
+    db = tmp_path / "db.sqlite"
+    database.ensure_db(db)
+
     p = subprocess.Popen(
         [sys.executable, "-m", "jobrunner.service"],
         # For the purposes of this test we don't care if we can actually talk
