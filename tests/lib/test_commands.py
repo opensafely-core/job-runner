@@ -11,6 +11,8 @@ from jobrunner.lib.commands import requires_db_access
         ["cohortextractor:latest", "generate_codelist_report"],
         # Third and subsequent arguments are ignored:
         ["cohortextractor:latest", "generate_cohort", "could-be-anything-here"],
+        # sqlrunner has an image but doesn't have a command
+        ["sqlrunner:latest", "input.sql"],
     ],
 )
 def test_requires_db_access_privileged_commands_can_access_db(args):

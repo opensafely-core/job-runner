@@ -52,6 +52,7 @@ ALLOWED_IMAGES = {
     "r",
     "jupyter",
     "python",
+    "sqlrunner",
 }
 
 DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")
