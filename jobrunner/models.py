@@ -14,10 +14,12 @@ import hashlib
 import secrets
 from enum import Enum
 
-from jobrunner.lib.database import databaseclass
+from jobrunner.lib.database import databaseclass, migration
 from jobrunner.lib.string_utils import slugify
 
 
+# this is the overall high level state the job-runner uses to decide how to
+# handle a particular job.
 class State(Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -140,6 +142,8 @@ class Job:
             updated_at INT,
             started_at INT,
             completed_at INT,
+            trace_context TEXT,
+            status_code_updated_at INT,
 
             PRIMARY KEY (id)
         );
@@ -153,6 +157,14 @@ class Job:
         -- grows.
         CREATE INDEX idx_job__state ON job (state) WHERE state NOT IN ('failed', 'succeeded');
     """
+
+    migration(
+        1,
+        """
+        ALTER TABLE job ADD COLUMN trace_context TEXT;
+        ALTER TABLE job ADD COLUMN status_code_updated_at INT;
+        """,
+    )
 
     id: str = None  # noqa: A003
     job_request_id: str = None
@@ -201,11 +213,19 @@ class Job:
     status_code: StatusCode = None
     # Flag indicating that the user has cancelled this job
     cancelled: bool = False
-    # Times (stored as integer UNIX timestamps)
+    # Times (stored as integer UNIX timestamps in seconds)
     created_at: int = None
     updated_at: int = None
     started_at: int = None
     completed_at: int = None
+
+    # Note: this timestamp should be in nanoseconds, not seconds
+    status_code_updated_at: int = None
+    # used to track the OTel trace context for this job
+    trace_context: dict = None
+
+    # used to cache the job_request json by the tracing code
+    _job_request = None
 
     def __post_init__(self):
         # Generate a Job ID based on the Job Request ID and action. This means

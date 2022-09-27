@@ -12,7 +12,7 @@ import time
 
 from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
-from jobrunner import config
+from jobrunner import config, tracing
 from jobrunner.actions import get_action_specification
 from jobrunner.lib.database import exists_where, insert, transaction, update_where
 from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
@@ -226,6 +226,8 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         job_request_id=job_request.id,
         state=State.PENDING,
         status_code=StatusCode.CREATED,
+        # time in ns
+        status_code_updated_at=int(timestamp * 1e9),
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
@@ -238,6 +240,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         created_at=int(timestamp),
         updated_at=int(timestamp),
     )
+    tracing.initialise_trace(job)
 
     # Add it to the dictionary of scheduled jobs
     jobs_by_action[action] = job
@@ -331,6 +334,8 @@ def create_failed_job(job_request, exception):
         job_request_id=job_request.id,
         state=state,
         status_code=code,
+        # time in ns
+        status_code_updated_at=int(now * 1e9),
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
@@ -341,6 +346,7 @@ def create_failed_job(job_request, exception):
         updated_at=int(now),
         completed_at=int(now),
     )
+    tracing.initialise_trace(job)
     insert_into_database(job_request, [job])
 
 

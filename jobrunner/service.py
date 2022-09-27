@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 
-from jobrunner import config, record_stats, run, sync
+from jobrunner import config, record_stats, run, sync, tracing
 from jobrunner.lib.database import ensure_valid_db
 from jobrunner.lib.docker import docker
 from jobrunner.lib.log_utils import configure_logging
@@ -30,6 +30,7 @@ def main():
     threading.current_thread().name = "run "
     fmt = "{asctime} {threadName} {message} {tags}"
     configure_logging(fmt)
+    tracing.setup_default_tracing()
 
     # check db is present and up to date, or else error
     ensure_valid_db()

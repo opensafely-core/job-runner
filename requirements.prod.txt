@@ -4,18 +4,42 @@
 #
 #    pip-compile --allow-unsafe --output-file=requirements.prod.txt pyproject.toml
 #
+backoff==2.1.2
+    # via opentelemetry-exporter-otlp-proto-http
 certifi==2020.11.8
     # via requests
 chardet==3.0.4
     # via requests
+deprecated==1.2.13
+    # via opentelemetry-api
+googleapis-common-protos==1.56.4
+    # via opentelemetry-exporter-otlp-proto-http
 idna==2.10
     # via requests
 opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.2.1
     # via opensafely-jobrunner (pyproject.toml)
+opentelemetry-api==1.12.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http==1.12.0
+    # via opensafely-jobrunner (pyproject.toml)
+opentelemetry-proto==1.12.0
+    # via opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk==1.12.0
+    # via opentelemetry-exporter-otlp-proto-http
+opentelemetry-semantic-conventions==0.33b0
+    # via opentelemetry-sdk
+protobuf==3.20.2
+    # via
+    #   googleapis-common-protos
+    #   opentelemetry-proto
 pydantic==1.9.0
     # via opensafely-pipeline
 requests==2.25.0
-    # via opensafely-jobrunner (pyproject.toml)
+    # via
+    #   opensafely-jobrunner (pyproject.toml)
+    #   opentelemetry-exporter-otlp-proto-http
 ruamel-yaml==0.16.12
     # via
     #   opensafely-jobrunner (pyproject.toml)
@@ -23,6 +47,16 @@ ruamel-yaml==0.16.12
 ruamel-yaml-clib==0.2.6
     # via ruamel-yaml
 typing-extensions==4.1.1
-    # via pydantic
+    # via
+    #   opentelemetry-sdk
+    #   pydantic
 urllib3==1.26.5
     # via requests
+wrapt==1.14.1
+    # via deprecated
+
+# The following packages are considered to be unsafe in a requirements file:
+setuptools==65.3.0
+    # via
+    #   opentelemetry-api
+    #   opentelemetry-sdk

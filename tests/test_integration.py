@@ -70,6 +70,9 @@ def test_integration(
             "db": "dummy",
         },
         "sha": test_repo.commit,
+        "created_by": "user",
+        "project": "project",
+        "orgs": ["org"],
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
@@ -117,6 +120,9 @@ def test_integration(
             "db": "dummy",
         },
         "sha": test_repo.commit,
+        "created_by": "user",
+        "project": "project",
+        "orgs": ["org"],
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
@@ -222,6 +228,9 @@ def test_integration_with_databuilder(
             "db": "dummy",
         },
         "sha": test_repo.commit,
+        "created_by": "user",
+        "project": "project",
+        "orgs": ["org"],
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
@@ -267,6 +276,9 @@ def test_integration_with_databuilder(
             "db": "dummy",
         },
         "sha": test_repo.commit,
+        "created_by": "user",
+        "project": "project",
+        "orgs": ["org"],
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",

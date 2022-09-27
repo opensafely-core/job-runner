@@ -4,12 +4,13 @@ import time
 from collections import defaultdict
 from copy import deepcopy
 
-from jobrunner import config
+from jobrunner import config, tracing
 from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from jobrunner.lib import docker
 from jobrunner.lib.database import insert
 from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.models import Job, JobRequest, SavedJobRequest, StatusCode
+from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode
+from tests.conftest import test_exporter
 
 
 JOB_REQUEST_DEFAULTS = {
@@ -21,11 +22,14 @@ JOB_REQUEST_DEFAULTS = {
     "database_name": "full",
     "original": {
         "created_by": "testuser",
+        "project": "project",
+        "orgs": ["org1", "org2"],
     },
 }
 
 
 JOB_DEFAULTS = {
+    "state": State.PENDING,
     "action": "action_name",
     "repo_url": "opensafely/study",
     "workspace": "workspace",
@@ -55,13 +59,24 @@ def job_factory(job_request=None, **kwargs):
     values = deepcopy(JOB_DEFAULTS)
     # default times
     timestamp = time.time()
-    values["created_at"] = int(timestamp)
-    values["updated_at"] = int(timestamp)
+    if "created_at" not in kwargs:
+        values["created_at"] = int(timestamp)
+    if "updated_at" not in kwargs:
+        values["updated_at"] = int(timestamp)
+    if "status_code_updated_at" not in kwargs:
+        values["status_code_updated_at"] = int(values["created_at"] * 1e9)
     values.update(kwargs)
 
     values["job_request_id"] = job_request.id
     job = Job(**values)
+
+    # initialise tracing
+    tracing.initialise_trace(job)
+
     insert(job)
+
+    # ensure tests just have the span they generate
+    test_exporter.clear()
     return job
 
 

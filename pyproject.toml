@@ -17,6 +17,7 @@ dependencies = [
   "opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.2.1",
   "ruamel.yaml",
   "requests",
+  "opentelemetry-exporter-otlp-proto-http",
 ]
 dynamic = ["version"]
 

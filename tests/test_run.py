@@ -1,8 +1,10 @@
 import pytest
+from opentelemetry import trace
 
 from jobrunner import config, run
 from jobrunner.job_executor import ExecutorState, JobStatus, Privacy
 from jobrunner.models import State, StatusCode
+from tests.conftest import get_trace
 from tests.factories import StubExecutorAPI, job_factory
 from tests.fakes import RecordingExecutor
 
@@ -52,6 +54,9 @@ def test_handle_job_stable_states(state, code, message, db):
     assert job.state == State.RUNNING
     assert job.status_message == message
 
+    # no spans
+    assert len(get_trace()) == 0
+
 
 def test_handle_job_initial_error(db):
     api = StubExecutorAPI()
@@ -81,6 +86,11 @@ def test_handle_job_pending_to_preparing(db):
     assert job.state == State.RUNNING
     assert job.started_at
 
+    # tracing
+    spans = get_trace()
+    assert spans[-2].name == "CREATED"
+    assert spans[-1].name == "ENTER PREPARING"
+
 
 def test_handle_job_pending_dependency_failed(db):
     api = StubExecutorAPI()
@@ -103,6 +113,12 @@ def test_handle_job_pending_dependency_failed(db):
     assert job.state == State.FAILED
     assert job.status_message == "Not starting as dependency failed"
     assert job.status_code == StatusCode.DEPENDENCY_FAILED
+
+    # tracing
+    spans = get_trace()
+    assert spans[-3].name == "CREATED"
+    assert spans[-2].name == "DEPENDENCY_FAILED"
+    assert spans[-1].name == "RUN"
 
 
 def test_handle_pending_job_waiting_on_dependency(db):
@@ -128,6 +144,11 @@ def test_handle_pending_job_waiting_on_dependency(db):
     assert job.status_message == "Waiting on dependencies"
     assert job.status_code == StatusCode.WAITING_ON_DEPENDENCIES
 
+    # tracing
+    spans = get_trace()
+    assert spans[-2].name == "CREATED"
+    assert spans[-1].name == "ENTER WAITING_ON_DEPENDENCIES"
+
 
 def test_handle_job_waiting_on_workers(monkeypatch, db):
     monkeypatch.setattr(config, "MAX_WORKERS", 0)
@@ -142,6 +163,11 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
     assert job.state == State.PENDING
     assert job.status_message == "Waiting on available workers"
     assert job.status_code == StatusCode.WAITING_ON_WORKERS
+
+    # tracing
+    spans = get_trace()
+    assert spans[-2].name == "CREATED"
+    assert spans[-1].name == "ENTER WAITING_ON_WORKERS"
 
 
 @pytest.mark.parametrize(
@@ -167,6 +193,12 @@ def test_handle_job_waiting_on_workers_via_executor(
     assert job.state == job_state
     assert job.status_message == "Waiting on available resources"
     assert job.status_code == StatusCode.WAITING_ON_WORKERS
+
+    # tracing
+    spans = get_trace()
+    expected_trace_state = code.name
+    assert spans[-2].name == expected_trace_state
+    assert spans[-1].name == "ENTER WAITING_ON_WORKERS"
 
 
 def test_handle_job_pending_to_error(db):
@@ -196,6 +228,11 @@ def test_handle_job_prepared_to_executing(db):
     assert job.state == State.RUNNING
     assert job.status_message == "Executing job on the backend"
 
+    # tracing
+    spans = get_trace()
+    assert spans[-2].name == "PREPARED"
+    assert spans[-1].name == "ENTER EXECUTING"
+
 
 def test_handle_job_executed_to_finalizing(db):
     api = StubExecutorAPI()
@@ -210,6 +247,11 @@ def test_handle_job_executed_to_finalizing(db):
     # our state
     assert job.state == State.RUNNING
     assert job.status_message == "Recording job results"
+
+    # tracing
+    spans = get_trace()
+    assert spans[-2].name == "EXECUTED"
+    assert spans[-1].name == "ENTER FINALIZING"
 
 
 def test_handle_job_finalized_success_with_delete(db):
@@ -238,6 +280,12 @@ def test_handle_job_finalized_success_with_delete(db):
     assert job.outputs == {"output/file.csv": "medium"}
     assert api.deleted["workspace"][Privacy.MEDIUM] == ["output/old.csv"]
     assert api.deleted["workspace"][Privacy.HIGH] == ["output/old.csv"]
+
+    # tracing
+    spans = get_trace()
+    assert spans[-3].name == "FINALIZED"
+    assert spans[-2].name == "SUCCEEDED"
+    assert spans[-1].name == "RUN"
 
 
 @pytest.mark.parametrize(
@@ -297,6 +345,17 @@ def test_handle_job_finalized_failed_exit_code(
     assert job.status_message == expected
     assert job.outputs == {"output/file.csv": "medium"}
 
+    spans = get_trace()
+    assert spans[-3].name == "FINALIZED"
+    completed_span = spans[-2]
+    assert completed_span.name == "NONZERO_EXIT"
+    assert completed_span.attributes["exit_code"] == exit_code
+    assert completed_span.attributes["outputs"] == 1
+    assert completed_span.attributes["unmatched_patterns"] == 0
+    assert completed_span.attributes["unmatched_outputs"] == 0
+    assert completed_span.attributes["image_id"] == "image_id"
+    assert spans[-1].name == "RUN"
+
 
 def test_handle_job_finalized_failed_unmatched_patterns(db):
     api = StubExecutorAPI()
@@ -320,6 +379,15 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     assert job.status_message == "No outputs found matching patterns:\n - badfile.csv"
     assert job.outputs == {"output/file.csv": "medium"}
     assert job.unmatched_outputs == ["otherbadfile.csv"]
+
+    spans = get_trace()
+    assert spans[-3].name == "FINALIZED"
+    completed_span = spans[-2]
+    assert completed_span.name == "UNMATCHED_PATTERNS"
+    assert completed_span.attributes["outputs"] == 1
+    assert completed_span.attributes["unmatched_patterns"] == 1
+    assert completed_span.attributes["unmatched_outputs"] == 1
+    assert spans[-1].name == "RUN"
 
 
 @pytest.fixture
@@ -347,6 +415,10 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
     assert job.status_message == "Waiting for database to finish maintenance"
     assert job.started_at is None
 
+    spans = get_trace()
+    assert spans[-2].name == "CREATED"
+    assert spans[-1].name == "ENTER WAITING_DB_MAINTENANCE"
+
 
 def test_handle_running_db_maintenance_mode(db, backend_db_config):
     api = StubExecutorAPI()
@@ -369,6 +441,10 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
     assert job.status_message == "Waiting for database to finish maintenance"
     assert job.started_at is None
 
+    spans = get_trace()
+    assert spans[-2].name == "EXECUTING"
+    assert spans[-1].name == "ENTER WAITING_DB_MAINTENANCE"
+
 
 def test_handle_pending_pause_mode(db, backend_db_config):
     api = StubExecutorAPI()
@@ -386,6 +462,10 @@ def test_handle_pending_pause_mode(db, backend_db_config):
     assert job.state == State.PENDING
     assert job.started_at is None
     assert "paused" in job.status_message
+
+    spans = get_trace()
+    assert spans[-2].name == "CREATED"
+    assert spans[-1].name == "ENTER WAITING_PAUSED"
 
 
 def test_handle_running_pause_mode(db, backend_db_config):
@@ -406,6 +486,9 @@ def test_handle_running_pause_mode(db, backend_db_config):
     # our state
     assert job.state == State.RUNNING
     assert "paused" not in job.status_message
+
+    spans = get_trace()
+    assert len(spans) == 0  # no spans
 
 
 def invalid_transitions():
@@ -454,6 +537,15 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
         run.handle_single_job(job, api)
 
     assert job.state is State.FAILED
+
+    spans = get_trace()
+    assert spans[-3].name == "EXECUTED"
+    error_span = spans[-2]
+    assert error_span.name == "INTERNAL_ERROR"
+    assert error_span.status.status_code == trace.StatusCode.ERROR
+    assert error_span.events[0].name == "exception"
+    assert error_span.events[0].attributes["exception.message"] == "test"
+    assert spans[-1].name == "RUN"
 
 
 def test_ignores_cancelled_jobs_when_calculating_dependencies(db):

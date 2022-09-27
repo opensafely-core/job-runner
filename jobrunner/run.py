@@ -11,7 +11,7 @@ import sys
 import time
 from typing import Optional
 
-from jobrunner import config
+from jobrunner import config, tracing
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import (
     ExecutorAPI,
@@ -23,7 +23,7 @@ from jobrunner.job_executor import (
 from jobrunner.lib.commands import requires_db_access
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.models import Job, State, StatusCode
+from jobrunner.models import FINAL_STATUS_CODES, Job, State, StatusCode
 from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 
@@ -334,7 +334,15 @@ def save_results(job, definition, results):
         code = StatusCode.SUCCEEDED
         message = "Completed successfully"
 
-    set_state(job, state, code, message)
+    trace_attrs = dict(
+        exit_code=results.exit_code,
+        image_id=results.image_id,
+        outputs=len(results.outputs),
+        unmatched_patterns=len(results.unmatched_patterns),
+        unmatched_outputs=len(results.unmatched_outputs),
+    )
+
+    set_state(job, state, code, message, **trace_attrs)
 
 
 def get_obsolete_files(definition, outputs):
@@ -469,17 +477,36 @@ def set_code(job, code, message, error=None, **attrs):
     """
     timestamp = time.time()
     timestamp_s = int(timestamp)
+    timestamp_ns = int(timestamp * 1e9)
 
     # if code has changed then log
     if job.status_code != code:
+
+        # trace we finished the previous state
+        tracing.finish_current_state(
+            job, timestamp_ns, error=error, message=message, **attrs
+        )
 
         # update db object
         job.status_code = code
         job.status_message = message
         job.updated_at = timestamp_s
 
+        # use higher precision timestamp for state change time
+        job.status_code_updated_at = timestamp_ns
         update_job(job)
+
+        if code in FINAL_STATUS_CODES:
+            # transitioning to a final state, so just record that state
+            tracing.finish_current_state(
+                job, timestamp_ns, final=True, error=error, message=message, **attrs
+            )
+        else:
+            # trace that we've started the next state
+            tracing.start_new_state(job, timestamp_ns, error=error, **attrs)
+
         log.info(job.status_message, extra={"status_code": job.status_code})
+
     # If the status message hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
     # active without writing to the database every single time we poll
