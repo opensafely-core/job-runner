@@ -15,7 +15,7 @@ import secrets
 from enum import Enum
 
 from jobrunner.lib.database import databaseclass
-from jobrunner.lib.string_utils import project_name_from_url, slugify
+from jobrunner.lib.string_utils import slugify
 
 
 class State(Enum):
@@ -209,13 +209,6 @@ class Job:
     @property
     def completed_at_isoformat(self):
         return timestamp_to_isoformat(self.completed_at)
-
-    # On Python 3.8 we could use `functools.cached_property` here and avoid
-    # recomputing this every time
-    @property
-    def project(self):
-        """Project name based on github url."""
-        return project_name_from_url(self.repo_url)
 
     # On Python 3.8 we could use `functools.cached_property` here and avoid
     # recomputing this every time
