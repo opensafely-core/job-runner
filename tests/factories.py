@@ -1,5 +1,6 @@
 import base64
 import secrets
+import time
 from collections import defaultdict
 from copy import deepcopy
 
@@ -8,7 +9,7 @@ from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from jobrunner.lib import docker
 from jobrunner.lib.database import insert
 from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.models import Job, JobRequest, SavedJobRequest
+from jobrunner.models import Job, JobRequest, SavedJobRequest, StatusCode
 
 
 JOB_REQUEST_DEFAULTS = {
@@ -32,6 +33,7 @@ JOB_DEFAULTS = {
     "run_command": "python myscript.py",
     "output_spec": {},
     "created_at": 0,
+    "status_code": StatusCode.CREATED,
 }
 
 
@@ -51,7 +53,12 @@ def job_factory(job_request=None, **kwargs):
         job_request = job_request_factory()
 
     values = deepcopy(JOB_DEFAULTS)
+    # default times
+    timestamp = time.time()
+    values["created_at"] = int(timestamp)
+    values["updated_at"] = int(timestamp)
     values.update(kwargs)
+
     values["job_request_id"] = job_request.id
     job = Job(**values)
     insert(job)
@@ -90,9 +97,17 @@ class StubExecutorAPI:
         self.state = {}
         self.deleted = defaultdict(lambda: defaultdict(list))
 
-    def add_test_job(self, exec_state, job_state, message="message", **kwargs):
+    def add_test_job(
+        self,
+        exec_state,
+        job_state,
+        status_code=StatusCode.CREATED,
+        message="message",
+        **kwargs,
+    ):
         """Create and track a db job object."""
-        job = job_factory(state=job_state, **kwargs)
+
+        job = job_factory(state=job_state, status_code=status_code, **kwargs)
         if exec_state != ExecutorState.UNKNOWN:
             self.state[job.id] = JobStatus(exec_state, message)
         return job

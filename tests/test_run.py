@@ -25,16 +25,20 @@ def test_handle_pending_job_cancelled(db):
 
 
 @pytest.mark.parametrize(
-    "state,message",
+    "state,code,message",
     [
-        (ExecutorState.PREPARING, "Preparing"),
-        (ExecutorState.EXECUTING, "Executing"),
-        (ExecutorState.FINALIZING, "Finalizing"),
+        (
+            ExecutorState.PREPARING,
+            StatusCode.PREPARING,
+            "Preparing your code and workspace files",
+        ),
+        (ExecutorState.EXECUTING, StatusCode.EXECUTING, "Executing job on the backend"),
+        (ExecutorState.FINALIZING, StatusCode.FINALIZING, "Recording job results"),
     ],
 )
-def test_handle_job_stable_states(state, message, db):
+def test_handle_job_stable_states(state, code, message, db):
     api = StubExecutorAPI()
-    job = api.add_test_job(state, State.RUNNING)
+    job = api.add_test_job(state, State.RUNNING, code, status_message=message)
 
     run.handle_job(job, api)
 
@@ -51,19 +55,15 @@ def test_handle_job_stable_states(state, message, db):
 
 def test_handle_job_initial_error(db):
     api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.ERROR, State.RUNNING, message="broken")
+    job = api.add_test_job(
+        ExecutorState.ERROR, State.RUNNING, StatusCode.EXECUTING, message="broken"
+    )
 
-    run.handle_job(job, api)
+    # we raise the error to be handled in handle_single_job
+    with pytest.raises(run.ExecutorError) as exc:
+        run.handle_job(job, api)
 
-    # executor state
-    assert job.id in api.tracker["cleanup"]
-    # its been cleaned up and is now unknown
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
-
-    # our state
-    assert job.state == State.FAILED
-    assert job.status_message == "broken"
-    assert job.status_code is None
+    assert str(exc.value) == "broken"
 
 
 def test_handle_job_pending_to_preparing(db):
@@ -77,7 +77,7 @@ def test_handle_job_pending_to_preparing(db):
     assert api.get_status(job).state == ExecutorState.PREPARING
 
     # our state
-    assert job.status_message == "Preparing"
+    assert job.status_message == "Preparing your code and workspace files"
     assert job.state == State.RUNNING
     assert job.started_at
 
@@ -145,16 +145,18 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
 
 
 @pytest.mark.parametrize(
-    "exec_state,job_state,tracker",
+    "exec_state,job_state,code,tracker",
     [
-        (ExecutorState.UNKNOWN, State.PENDING, "prepare"),
-        (ExecutorState.PREPARED, State.RUNNING, "execute"),
-        (ExecutorState.EXECUTED, State.RUNNING, "finalize"),
+        (ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED, "prepare"),
+        (ExecutorState.PREPARED, State.RUNNING, StatusCode.PREPARED, "execute"),
+        (ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED, "finalize"),
     ],
 )
-def test_handle_job_waiting_on_workers_via_executor(exec_state, job_state, tracker, db):
+def test_handle_job_waiting_on_workers_via_executor(
+    exec_state, job_state, code, tracker, db
+):
     api = StubExecutorAPI()
-    job = api.add_test_job(exec_state, job_state)
+    job = api.add_test_job(exec_state, job_state, code)
     api.set_job_transition(job, exec_state)
 
     run.handle_job(job, api)
@@ -173,23 +175,16 @@ def test_handle_job_pending_to_error(db):
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
     api.set_job_transition(job, ExecutorState.ERROR, "it is b0rked")
 
-    run.handle_job(job, api)
+    # we raise the error to be handled in handle_single_job
+    with pytest.raises(run.ExecutorError) as exc:
+        run.handle_job(job, api)
 
-    # executor state
-    assert job.id in api.tracker["prepare"]
-    assert job.id in api.tracker["cleanup"]
-    # its been cleaned up and is now unknown
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
-
-    # our state
-    assert job.state == State.FAILED
-    assert job.status_message == "it is b0rked"
-    assert job.status_code is None
+    assert str(exc.value) == "it is b0rked"
 
 
 def test_handle_job_prepared_to_executing(db):
     api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.PREPARED, State.RUNNING)
+    job = api.add_test_job(ExecutorState.PREPARED, State.RUNNING, StatusCode.PREPARED)
 
     run.handle_job(job, api)
 
@@ -199,12 +194,12 @@ def test_handle_job_prepared_to_executing(db):
 
     # our state
     assert job.state == State.RUNNING
-    assert job.status_message == "Executing"
+    assert job.status_message == "Executing job on the backend"
 
 
 def test_handle_job_executed_to_finalizing(db):
     api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING)
+    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED)
 
     run.handle_job(job, api)
 
@@ -214,7 +209,7 @@ def test_handle_job_executed_to_finalizing(db):
 
     # our state
     assert job.state == State.RUNNING
-    assert job.status_message == "Finalizing"
+    assert job.status_message == "Recording job results"
 
 
 def test_handle_job_finalized_success_with_delete(db):
@@ -223,10 +218,11 @@ def test_handle_job_finalized_success_with_delete(db):
     # insert previous outputs
     job_factory(
         state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
         outputs={"output/old.csv": "medium"},
     )
 
-    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
+    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
     api.set_job_result(job, outputs={"output/file.csv": "medium"})
 
     run.handle_job(job, api)
@@ -278,6 +274,7 @@ def test_handle_job_finalized_failed_exit_code(
     job = api.add_test_job(
         ExecutorState.FINALIZED,
         State.RUNNING,
+        StatusCode.FINALIZED,
         run_command=run_command,
     )
     api.set_job_result(
@@ -303,7 +300,7 @@ def test_handle_job_finalized_failed_exit_code(
 
 def test_handle_job_finalized_failed_unmatched_patterns(db):
     api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING)
+    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
     api.set_job_result(
         job,
         outputs={"output/file.csv": "medium"},
@@ -356,6 +353,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
     job = api.add_test_job(
         ExecutorState.EXECUTING,
         State.RUNNING,
+        StatusCode.EXECUTING,
         run_command="cohortextractor:latest generate_cohort",
     )
 
@@ -395,6 +393,8 @@ def test_handle_running_pause_mode(db, backend_db_config):
     job = api.add_test_job(
         ExecutorState.EXECUTING,
         State.RUNNING,
+        StatusCode.EXECUTING,
+        status_message="doing my thang",
         run_command="cohortextractor:latest generate_cohort",
     )
 
@@ -441,9 +441,9 @@ def test_bad_transition(current, invalid, db):
         run.handle_job(job, api)
 
 
-def test_handle_active_job_marks_as_failed(db, monkeypatch):
+def test_handle_single_job_marks_as_failed(db, monkeypatch):
     api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING)
+    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED)
 
     def error(*args, **kwargs):
         raise Exception("test")
@@ -461,6 +461,7 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
         id="1",
         action="other-action",
         state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
         created_at=1000,
         outputs={"output-from-completed-run": "highly_sensitive_output"},
     )
@@ -468,6 +469,7 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
         id="2",
         action="other-action",
         state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
         created_at=2000,
         cancelled=True,
         outputs={"output-from-cancelled-run": "highly_sensitive_output"},
@@ -494,6 +496,7 @@ def test_get_obsolete_files_nothing_to_delete(db):
     }
     job = job_factory(
         state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
         outputs=outputs,
     )
     definition = run.job_to_job_definition(job)
