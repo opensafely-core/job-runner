@@ -26,16 +26,53 @@ class State(Enum):
 
 
 # In contrast to State, these play no role in the state machine controlling
-# what happens with a job. They are simply machine readable versions of the
-# human readable status_message which allow us to provide certain UX
-# affordances in the web and command line interfaces. These get added as we
-# have a direct need for them, hence the minimal list below.
+# what happens with a job. These are designed specifically for reporting the
+# current low-level state of a job. They are simply machine readable versions
+# of the human readable status_message which allow us to provide certain UX
+# affordances in the web, cli and telemetry.
 class StatusCode(Enum):
+
+    # PENDING states
+    #
+    # initial state of a job, not yet running
+    CREATED = "created"
+    # waiting for pause mode to exit
+    WAITING_PAUSED = "paused"
+    # waiting db maintenance mode to exit
+    WAITING_DB_MAINTENANCE = "waiting_db_maintenance"
+    # waiting on dependant jobs
     WAITING_ON_DEPENDENCIES = "waiting_on_dependencies"
-    DEPENDENCY_FAILED = "dependency_failed"
+    # waiting on available resources to run the job
     WAITING_ON_WORKERS = "waiting_on_workers"
+
+    # RUNNING states, these mirror ExecutorState, and are the normal happy path
+    PREPARING = "preparing"
+    PREPARED = "prepared"
+    EXECUTING = "executing"
+    EXECUTED = "executed"
+    FINALIZING = "finalizing"
+    FINALIZED = "finalized"
+
+    # SUCCEEDED states. Simples.
+    SUCCEEDED = "succeeded"
+
+    # FAILED states
+    DEPENDENCY_FAILED = "dependency_failed"
     NONZERO_EXIT = "nonzero_exit"
     CANCELLED_BY_USER = "cancelled_by_user"
+    UNMATCHED_PATTERNS = "unmatched_patterns"
+    INTERNAL_ERROR = "internal_error"
+
+
+# used for tracing to know if a state is final or not
+FINAL_STATUS_CODES = [
+    StatusCode.SUCCEEDED,
+    StatusCode.DEPENDENCY_FAILED,
+    StatusCode.NONZERO_EXIT,
+    StatusCode.CANCELLED_BY_USER,
+    StatusCode.UNMATCHED_PATTERNS,
+    StatusCode.INTERNAL_ERROR,
+]
 
 
 # This is our internal representation of a JobRequest which we pass around but
