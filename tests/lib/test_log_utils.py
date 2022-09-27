@@ -11,7 +11,12 @@ FROZEN_TIMESTAMP = 1608568119.1467905
 FROZEN_TIMESTRING = datetime.utcfromtimestamp(FROZEN_TIMESTAMP).isoformat()
 
 repo_url = "https://github.com/opensafely/project"
-test_job = Job(id="id", action="action", repo_url=repo_url)
+test_job = Job(
+    id="id",
+    action="action",
+    repo_url=repo_url,
+    workspace="workspace",
+)
 test_request = JobRequest(
     id="request",
     repo_url=repo_url,
@@ -31,20 +36,26 @@ def test_formatting_filter():
     record = logging.makeLogRecord({"job": test_job})
     assert log_utils.formatting_filter(record)
     assert record.action == "action: "
-    assert record.tags == "project=project action=action id=id"
+    assert record.tags == "workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({"job": test_job, "status_code": "code"})
     assert log_utils.formatting_filter(record)
-    assert record.tags == "status=code project=project action=action id=id"
+    assert record.tags == "status=code workspace=workspace action=action id=id"
 
-    test_job2 = Job(id="id", action="action", repo_url=repo_url, status_code="code")
+    test_job2 = Job(
+        id="id",
+        action="action",
+        repo_url=repo_url,
+        status_code="code",
+        workspace="workspace",
+    )
     record = logging.makeLogRecord({"job": test_job2})
     assert log_utils.formatting_filter(record)
-    assert record.tags == "status=code project=project action=action id=id"
+    assert record.tags == "status=code workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({"job": test_job, "job_request": test_request})
     assert log_utils.formatting_filter(record)
-    assert record.tags == "project=project action=action id=id req=request"
+    assert record.tags == "workspace=workspace action=action id=id req=request"
 
     record = logging.makeLogRecord({"status_code": ""})
     assert log_utils.formatting_filter(record)
@@ -56,17 +67,17 @@ def test_formatting_filter_with_context():
     with log_utils.set_log_context(job=test_job):
         assert log_utils.formatting_filter(record)
     assert record.action == "action: "
-    assert record.tags == "project=project action=action id=id"
+    assert record.tags == "workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({"status_code": "code"})
     with log_utils.set_log_context(job=test_job):
         assert log_utils.formatting_filter(record)
-    assert record.tags == "status=code project=project action=action id=id"
+    assert record.tags == "status=code workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({})
     with log_utils.set_log_context(job=test_job, job_request=test_request):
         assert log_utils.formatting_filter(record)
-    assert record.tags == "project=project action=action id=id req=request"
+    assert record.tags == "workspace=workspace action=action id=id req=request"
 
 
 def test_jobrunner_formatter_default(monkeypatch):
@@ -83,7 +94,7 @@ def test_jobrunner_formatter_default(monkeypatch):
     formatter = log_utils.JobRunnerFormatter(log_utils.DEFAULT_FORMAT, style="{")
     assert formatter.format(record) == (
         "2020-12-21 16:28:39.146Z message "
-        "status=status project=project action=action id=id req=request"
+        "status=status workspace=workspace action=action id=id req=request"
     )
 
 

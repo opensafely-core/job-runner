@@ -104,7 +104,7 @@ def formatting_filter(record):
     if status_code:
         tags["status"] = status_code
     if job:
-        tags["project"] = job.project
+        tags["workspace"] = job.workspace
         tags["action"] = job.action
         tags["id"] = job.id
     if req:
