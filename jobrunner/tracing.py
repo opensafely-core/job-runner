@@ -9,7 +9,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 
 from jobrunner import config
 from jobrunner.lib import database
-from jobrunner.models import Job, SavedJobRequest, StatusCode
+from jobrunner.models import Job, SavedJobRequest, State, StatusCode
 
 
 logger = logging.getLogger(__name__)
@@ -203,6 +203,7 @@ if __name__ == "__main__":
     timestamp = int(time.time())
     job = Job(
         id="job_id",
+        state=State.PENDING,
         status_code=StatusCode.CREATED,
         status_code_updated_at=int(timestamp * 1e9),
         job_request_id="request_id",
