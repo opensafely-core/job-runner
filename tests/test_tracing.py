@@ -71,20 +71,20 @@ def test_finish_current_state(db):
     assert spans[-1].attributes["job"] == job.id
 
 
-def test_finish_current_state_final(db):
+def test_record_final_state(db):
     job = job_factory(status_code=models.StatusCode.SUCCEEDED)
     ts = int(time.time() * 1e9)
-    tracing.finish_current_state(job, ts, final=True)
+    tracing.record_final_state(job, ts)
 
     spans = get_trace()
     assert spans[-2].name == "SUCCEEDED"
     assert spans[-1].name == "RUN"
 
 
-def test_finish_current_state_final_error(db):
+def test_record_final_state_error(db):
     job = job_factory(status_code=models.StatusCode.INTERNAL_ERROR)
     ts = int(time.time() * 1e9)
-    tracing.finish_current_state(job, ts, final=True, error=Exception("error"))
+    tracing.record_final_state(job, ts, error=Exception("error"))
 
     spans = get_trace()
     assert spans[-2].name == "INTERNAL_ERROR"

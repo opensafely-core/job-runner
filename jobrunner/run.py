@@ -498,8 +498,8 @@ def set_code(job, code, message, error=None, **attrs):
 
         if code in FINAL_STATUS_CODES:
             # transitioning to a final state, so just record that state
-            tracing.finish_current_state(
-                job, timestamp_ns, final=True, error=error, message=message, **attrs
+            tracing.record_final_state(
+                job, timestamp_ns, error=error, message=message, **attrs
             )
         else:
             # trace that we've started the next state

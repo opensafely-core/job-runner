@@ -115,28 +115,34 @@ def initialise_trace(job):
     start_new_state(job, job.status_code_updated_at)
 
 
-def finish_current_state(job, timestamp_ns, final=False, error=None, **attrs):
+def finish_current_state(job, timestamp_ns, error=None, **attrs):
+    """Record a span representing the state we've just exited."""
+    try:
+        name = job.status_code.name
+        start_time = job.status_code_updated_at
+        record_job_span(job, name, start_time, timestamp_ns, error, **attrs)
+    except Exception:
+        # make sure trace failures do not error the job
+        logger.exception(f"failed to trace state for {job.id}")
+
+
+def record_final_state(job, timestamp_ns, error=None, **attrs):
     """Record a span representing the state we've just exited."""
     try:
         name = job.status_code.name
         # Note: this *must* be timestamp as integer nanoseconds
         start_time = job.status_code_updated_at
 
-        end_time = timestamp_ns
-
-        if final:
-            # final states have no duration, so make last for 1 sec, just act
-            # as a marker
-            end_time = int(end_time + 1e9)
-
+        # final states have no duration, so make last for 1 sec, just act
+        # as a marker
+        end_time = int(timestamp_ns + 1e9)
         record_job_span(job, name, start_time, end_time, error, **attrs)
 
-        if final:
-            # record a full span for the entire run
-            # trace vanity: have the job start 1us before the actual job, so
-            # it shows up first in the trace
-            job_start_time = int(job.created_at * 1e9) - 1000
-            record_job_span(job, "RUN", job_start_time, timestamp_ns, error, **attrs)
+        # record a full span for the entire run
+        # trace vanity: have the job start 1us before the actual job, so
+        # it shows up first in the trace
+        job_start_time = int(job.created_at * 1e9) - 1000
+        record_job_span(job, "RUN", job_start_time, timestamp_ns, error, **attrs)
 
     except Exception:
         # make sure trace failures do not error the job
