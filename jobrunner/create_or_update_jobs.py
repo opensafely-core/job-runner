@@ -334,7 +334,7 @@ def create_failed_job(job_request, exception):
         job_request_id=job_request.id,
         state=state,
         status_code=code,
-        # time in ns
+        # time in nanoseconds
         status_code_updated_at=int(now * 1e9),
         repo_url=job_request.repo_url,
         commit=job_request.commit,

@@ -88,7 +88,7 @@ def initialise_trace(job):
     We store the serialised trace context in the db, so we can reuse it for
     later spans.
 
-    We create a root span, which is a requirement in OTEl. For this reason we
+    We create a root span, which is a requirement in OTel. For this reason we
     send it out straight away, which means its duration is very short.
     """
     assert not job.trace_context, "this job already has a trace-context"
@@ -101,10 +101,10 @@ def initialise_trace(job):
     tracer = trace.get_tracer("jobs")
     attrs = trace_attributes(job)
 
-    # convert created_at to ns
+    # convert created_at to nanoseconds
     start_time = int(job.created_at * 1e9)
 
-    # TraceContextTextMapPropagator only works with the current span, sadlmy
+    # TraceContextTextMapPropagator only works with the current span, sadly
     with tracer.start_as_current_span("job", start_time=start_time) as root:
         root.set_attributes(attrs)
         # we serialise the entire trace context, as it may grow extra fields
@@ -133,7 +133,7 @@ def finish_current_state(job, timestamp_ns, final=False, error=None, **attrs):
 
         if final:
             # record a full span for the entire run
-            # trace vanity: have the job start 1us before the actualy job, so
+            # trace vanity: have the job start 1us before the actual job, so
             # it shows up first in the trace
             job_start_time = int(job.created_at * 1e9) - 1000
             record_job_span(job, "RUN", job_start_time, timestamp_ns, error, **attrs)
@@ -148,7 +148,7 @@ def start_new_state(job, timestamp_ns, error=None, **attrs):
     try:
         name = f"ENTER {job.status_code.name}"
         start_time = timestamp_ns
-        # fix the time for these synthenic marker events at one second
+        # fix the time for these synthetic marker events at one second
         end_time = int(start_time + 1e9)
         if attrs is None:
             attrs = {}
