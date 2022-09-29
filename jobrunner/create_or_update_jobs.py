@@ -226,7 +226,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         job_request_id=job_request.id,
         state=State.PENDING,
         status_code=StatusCode.CREATED,
-        # time in ns
+        # time in nanoseconds
         status_code_updated_at=int(timestamp * 1e9),
         repo_url=job_request.repo_url,
         commit=job_request.commit,
