@@ -169,6 +169,5 @@ update-wheels: devenv
     fi
     $BIN/pip install -U -r requirements.prod.txt -r requirements.tools.txt --target lib
     cp requirements.prod.txt requirements.tools.txt lib/
-    rm -rf lib/bin lib/*.dist-info
-    rm lib/_ruamel_yaml.*.so
-    rm lib/pydantic/.*.so
+    rm -rf lib/bin
+    find lib/ -name \*.so -exec rm {} \;
