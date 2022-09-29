@@ -115,8 +115,24 @@ def initialise_trace(job):
     start_new_state(job, job.status_code_updated_at)
 
 
+def _traceable(job):
+    """Is a job traceable?
+
+    Helper function to handle switching to tracing code when there are jobs
+    running that pre-existed it.
+    """
+    if job.trace_context is None or job.status_code is None:
+        logger.info(f"not tracing job {job.id} as not initialised")
+        return False
+
+    return True
+
+
 def finish_current_state(job, timestamp_ns, error=None, **attrs):
     """Record a span representing the state we've just exited."""
+    if not _traceable(job):
+        return
+
     try:
         name = job.status_code.name
         start_time = job.status_code_updated_at
@@ -128,6 +144,9 @@ def finish_current_state(job, timestamp_ns, error=None, **attrs):
 
 def record_final_state(job, timestamp_ns, error=None, **attrs):
     """Record a span representing the state we've just exited."""
+    if not _traceable(job):
+        return
+
     try:
         name = job.status_code.name
         # Note: this *must* be timestamp as integer nanoseconds
@@ -151,6 +170,9 @@ def record_final_state(job, timestamp_ns, error=None, **attrs):
 
 def start_new_state(job, timestamp_ns, error=None, **attrs):
     """Record a marker span to say that we've entered a new state."""
+    if not _traceable(job):
+        return
+
     try:
         name = f"ENTER {job.status_code.name}"
         start_time = timestamp_ns
@@ -168,9 +190,7 @@ def start_new_state(job, timestamp_ns, error=None, **attrs):
 
 def record_job_span(job, name, start_time, end_time, error, **attrs):
     """Record a span for a job."""
-    # handle migration gracefully
-    if not job.trace_context:
-        logger.info(f"not tracing job {job.id} as not initialised")
+    if not _traceable(job):
         return
 
     ctx = TraceContextTextMapPropagator().extract(carrier=job.trace_context)
