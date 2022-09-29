@@ -21,7 +21,7 @@ def disable_github_org_checking(monkeypatch):
 
 
 # Basic smoketest to test the full execution path
-def test_create_or_update_jobs(tmp_work_dir):
+def test_create_or_update_jobs(tmp_work_dir, db):
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
     job_request = JobRequest(
         id="123",
@@ -33,7 +33,11 @@ def test_create_or_update_jobs(tmp_work_dir):
         cancelled_actions=[],
         workspace="1",
         database_name="dummy",
-        original={},
+        original=dict(
+            created_by="user",
+            project="project",
+            orgs=["org1", "org2"],
+        ),
     )
     create_or_update_jobs(job_request)
     old_job = find_one(Job)
@@ -70,7 +74,11 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
         cancelled_actions=[],
         workspace="1",
         database_name="dummy",
-        original={},
+        original=dict(
+            created_by="user",
+            project="project",
+            orgs=["org1", "org2"],
+        ),
     )
     create_or_update_jobs(job_request)
     j = find_one(Job)
@@ -234,7 +242,11 @@ def test_validate_job_request(params, exc_msg, monkeypatch):
         cancelled_actions=[],
         workspace="1",
         database_name="full",  # note db from from job-server is 'full'
-        original={},
+        original=dict(
+            created_by="user",
+            project="project",
+            orgs=["org1", "org2"],
+        ),
     )
     kwargs.update(params)
     job_request = JobRequest(**kwargs)
@@ -258,7 +270,11 @@ def make_job_request(action=None, actions=None, **kwargs):
         database_name="full",
         requested_actions=actions,
         cancelled_actions=[],
-        original={},
+        original=dict(
+            created_by="user",
+            project="project",
+            orgs=["org1", "org2"],
+        ),
     )
     for key, value in kwargs.items():
         setattr(job_request, key, value)

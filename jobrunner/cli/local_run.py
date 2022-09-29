@@ -36,7 +36,7 @@ from pathlib import Path
 
 from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
-from jobrunner import config, executors
+from jobrunner import config, executors, tracing
 from jobrunner.actions import UnknownActionError
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
@@ -156,6 +156,8 @@ def main(
 ):
     if not docker_preflight_check():
         return False
+
+    tracing.setup_default_tracing()
 
     project_dir = Path(project_dir).resolve()
     temp_dir = Path(tempfile.mkdtemp(prefix="opensafely_"))
@@ -426,6 +428,7 @@ def create_and_run_jobs(
 
 
 def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
+
     job_request = JobRequest(
         id=random_id(),
         repo_url=str(project_dir),

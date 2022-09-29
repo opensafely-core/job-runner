@@ -7,12 +7,18 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 import jobrunner.executors.local
-from jobrunner import config
+from jobrunner import config, tracing
 from jobrunner.job_executor import Study
 from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
+
+
+# set up tracing
+test_exporter = InMemorySpanExporter()
+tracing.add_exporter(test_exporter)
 
 
 def pytest_configure(config):
@@ -28,6 +34,12 @@ def clear_state():
     # local docker API maintains results cache as a module global, so clear it.
     jobrunner.executors.local.RESULTS.clear()
     database.CONNECTION_CACHE.__dict__.clear()
+    # clear any exported spans
+    test_exporter.clear()
+
+
+def get_trace():
+    return test_exporter.get_finished_spans()
 
 
 @pytest.fixture
