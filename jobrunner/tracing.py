@@ -168,7 +168,11 @@ def start_new_state(job, timestamp_ns, error=None, **attrs):
 
 def record_job_span(job, name, start_time, end_time, error, **attrs):
     """Record a span for a job."""
-    assert job.trace_context is not None, "job missing trace_context"
+    # handle migration gracefully
+    if not job.trace_context:
+        logger.info(f"not tracing job {job.id} as not initialised")
+        return
+
     ctx = TraceContextTextMapPropagator().extract(carrier=job.trace_context)
     tracer = trace.get_tracer("jobs")
 
