@@ -110,3 +110,13 @@ def test_start_new_state(db):
     assert spans[-1].name == "ENTER PREPARING"
     assert spans[-1].attributes["enter_state"] is True
     assert spans[-1].end_time == int(ts + 1e9)
+
+
+def test_record_job_span_skips_uninitialized_job(db):
+    job = job_factory()
+    ts = int(time.time() * 1e9)
+    job.trace_context = None
+
+    tracing.record_job_span(job, "name", ts, ts + 10000, error=None)
+
+    assert len(get_trace()) == 0
