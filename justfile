@@ -96,6 +96,10 @@ test-verbose *ARGS: devenv
 test-no-docker *ARGS: devenv
     $BIN/python -m pytest -m "not needs_docker" {{ ARGS }}
 
+# run db migrations locally
+migrate:
+    $BIN/python -m jobrunner.cli.migrate
+
 package-build: virtualenv
     rm -rf dist
 
