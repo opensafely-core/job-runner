@@ -96,6 +96,10 @@ test-verbose *ARGS: devenv
 test-no-docker *ARGS: devenv
     $BIN/python -m pytest -m "not needs_docker" {{ ARGS }}
 
+# run db migrations locally
+migrate:
+    $BIN/python -m jobrunner.cli.migrate
+
 package-build: virtualenv
     rm -rf dist
 
@@ -165,6 +169,5 @@ update-wheels: devenv
     fi
     $BIN/pip install -U -r requirements.prod.txt -r requirements.tools.txt --target lib
     cp requirements.prod.txt requirements.tools.txt lib/
-    rm -rf lib/bin lib/*.dist-info
-    rm lib/_ruamel_yaml.*.so
-    rm lib/pydantic/.*.so
+    rm -rf lib/bin
+    find lib/ -name \*.so -exec rm {} \;

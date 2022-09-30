@@ -199,6 +199,9 @@ def db_status(filename):
 
 
 def ensure_valid_db(filename=None, migrations=MIGRATIONS):
+    # we store migrations in models, so make sure this has been imported to collect them
+    import jobrunner.models  # noqa: F401
+
     if filename is None:
         filename = config.DATABASE_FILE
 
@@ -222,6 +225,9 @@ def ensure_db(filename=None, migrations=MIGRATIONS, verbose=False):
 
     Will create new tables, or migrate the exisiting ones as needed.
     """
+    # we store migrations in models, so make sure this has been imported to collect them
+    import jobrunner.models  # noqa: F401
+
     if filename is None:
         filename = config.DATABASE_FILE
 
@@ -258,9 +264,6 @@ COMMIT;
 
 
 def migrate_db(conn, migrations=None, verbose=False):
-
-    # we store migrations in models, so make sure this has been imported to collect them
-    import jobrunner.models  # noqa: F401
 
     current_version = conn.execute("PRAGMA user_version").fetchone()[0]
     applied = []
