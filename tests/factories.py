@@ -16,7 +16,7 @@ from tests.conftest import test_exporter
 JOB_REQUEST_DEFAULTS = {
     "repo_url": "repo",
     "commit": "commit",
-    "requested_actions": [],
+    "requested_actions": ["action"],
     "cancelled_actions": [],
     "workspace": "workspace",
     "database_name": "full",
@@ -41,13 +41,17 @@ JOB_DEFAULTS = {
 }
 
 
-def job_request_factory(**kwargs):
+def job_request_factory_raw(**kwargs):
     if "id" not in kwargs:
         kwargs["id"] = base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
     values = deepcopy(JOB_REQUEST_DEFAULTS)
     values.update(kwargs)
-    job_request = JobRequest(**values)
+    return JobRequest(**values)
+
+
+def job_request_factory(**kwargs):
+    job_request = job_request_factory_raw(**kwargs)
     insert(SavedJobRequest(id=job_request.id, original=job_request.original))
     return job_request
 

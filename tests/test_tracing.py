@@ -53,7 +53,8 @@ def test_initialise_trace(db):
     assert "traceparent" in job.trace_context
 
     spans = get_trace()
-    assert spans[-1].name == "ENTER CREATED"
+    assert len(spans) == 1
+    assert spans[0].name == "job"
 
 
 def test_finish_current_state(db):
