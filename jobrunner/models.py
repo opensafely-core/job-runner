@@ -46,6 +46,8 @@ class StatusCode(Enum):
     WAITING_ON_DEPENDENCIES = "waiting_on_dependencies"
     # waiting on available resources to run the job
     WAITING_ON_WORKERS = "waiting_on_workers"
+    # reset for reboot
+    WAITING_ON_REBOOT = "waiting_on_reboot"
 
     # RUNNING states, these mirror ExecutorState, and are the normal happy path
     PREPARING = "preparing"
