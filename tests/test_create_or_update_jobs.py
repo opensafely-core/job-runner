@@ -7,12 +7,15 @@ import pytest
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
+    create_failed_job,
     create_jobs,
     create_or_update_jobs,
     validate_job_request,
 )
 from jobrunner.lib.database import find_one, update_where
-from jobrunner.models import Job, JobRequest, State
+from jobrunner.models import Job, JobRequest, State, StatusCode
+from tests.conftest import get_trace
+from tests.factories import job_request_factory_raw
 
 
 @pytest.fixture(autouse=True)
@@ -285,3 +288,40 @@ def create_jobs_with_project_file(job_request, project_file):
     with mock.patch("jobrunner.create_or_update_jobs.get_project_file") as f:
         f.return_value = project_file
         return create_jobs(job_request)
+
+
+def test_create_failed_job(db):
+    job_request = job_request_factory_raw()
+
+    create_failed_job(job_request, Exception("test"))
+
+    job = find_one(Job, job_request_id=job_request.id)
+
+    assert job.state == State.FAILED
+    assert job.status_code == StatusCode.INTERNAL_ERROR
+    assert job.status_message == "Exception: test"
+    assert job.action == "__error__"
+
+    spans = get_trace()
+
+    assert spans[0].name == "job"
+    assert spans[1].name == "INTERNAL_ERROR"
+    assert spans[2].name == "RUN"
+
+
+def test_create_failed_job_nothing_to_do(db):
+    job_request = job_request_factory_raw()
+
+    create_failed_job(job_request, NothingToDoError())
+    job = find_one(Job, job_request_id=job_request.id)
+
+    assert job.state == State.SUCCEEDED
+    assert job.status_code == StatusCode.SUCCEEDED
+    assert job.status_message == "All actions have already run"
+    assert job.action == job_request.requested_actions[0]
+
+    spans = get_trace()
+
+    assert spans[0].name == "job"
+    assert spans[1].name == "SUCCEEDED"
+    assert spans[2].name == "RUN"

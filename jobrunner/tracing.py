@@ -111,9 +111,6 @@ def initialise_trace(job):
         # (e.g.  baggage) over time
         TraceContextTextMapPropagator().inject(job.trace_context)
 
-    # trace the initial job state trace
-    start_new_state(job, job.status_code_updated_at)
-
 
 def _traceable(job):
     """Is a job traceable?
