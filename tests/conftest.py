@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 import jobrunner.executors.local
@@ -18,7 +19,7 @@ from jobrunner.lib.subprocess_utils import subprocess_run
 
 # set up tracing
 test_exporter = InMemorySpanExporter()
-tracing.add_exporter(test_exporter)
+tracing.add_exporter(test_exporter, processor=SimpleSpanProcessor)
 
 
 def pytest_configure(config):
