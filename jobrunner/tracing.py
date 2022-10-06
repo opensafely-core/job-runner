@@ -4,7 +4,7 @@ import os
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from jobrunner import config
@@ -17,19 +17,22 @@ provider = TracerProvider()
 trace.set_tracer_provider(provider)
 
 
-def add_exporter(exporter, processor=SimpleSpanProcessor):
-    # we default to SimpleSpanProcessor so that it's synchronous for tests
+def add_exporter(exporter, processor=BatchSpanProcessor):
+    """Utility method to add an exporter.
+
+    We use the BatchSpanProcessor by default, which is the default for
+    production. This is asynchronous, and queues and retries sending telemetry.
+
+    In testing, we insteads use SimpleSpanProcessor, which is synchronous and
+    easy to inspect the output of within a test.
+    """
+    # Note: BatchSpanProcessor is configured via env vars:
+    # https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor
     provider.add_span_processor(processor(exporter))
 
 
 def setup_default_tracing():
-    """Inspect environmenet variables and set up exporters accordingly.
-
-    We use the SimpleSpanProcessor by default, which is synchronous. The
-    BatchSpanProcess is asynchronous and more efficent at scale, but are
-    emitting so few spans that it is easier just to keep it simpler, and it
-    makes testing easier.
-    """
+    """Inspect environment variables and set up exporters accordingly."""
     if "OTEL_EXPORTER_OTLP_HEADERS" in os.environ:
         if "OTEL_SERVICE_NAME" not in os.environ:
             raise Exception(
