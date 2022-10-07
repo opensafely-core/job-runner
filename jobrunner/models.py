@@ -250,6 +250,8 @@ class Job:
                 data[key] = value.value
             # Convert UNIX timestamp to ISO format
             elif isinstance(value, int) and key.endswith("_at"):
+                if key == "status_code_updated_at":
+                    value /= 1e9
                 data[key] = timestamp_to_isoformat(value)
         return data
 
