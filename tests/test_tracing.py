@@ -55,8 +55,7 @@ def test_initialise_trace(db):
     assert "traceparent" in job.trace_context
 
     spans = get_trace()
-    assert len(spans) == 1
-    assert spans[0].name == "job"
+    assert len(spans) == 0
 
 
 def test_finish_current_state(db):
@@ -82,7 +81,7 @@ def test_record_final_state(db):
 
     spans = get_trace()
     assert spans[-2].name == "SUCCEEDED"
-    assert spans[-1].name == "RUN"
+    assert spans[-1].name == "JOB"
 
 
 def test_record_final_state_error(db):
@@ -97,7 +96,7 @@ def test_record_final_state_error(db):
     assert spans[-2].events[0].attributes["exception.message"] == "error"
     assert spans[-2].status.status_code == trace.StatusCode.ERROR
 
-    assert spans[-1].name == "RUN"
+    assert spans[-1].name == "JOB"
     assert spans[-1].status.status_code.name == "ERROR"
     assert spans[-1].events[0].name == "exception"
     assert spans[-1].events[0].attributes["exception.message"] == "error"
