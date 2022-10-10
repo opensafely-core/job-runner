@@ -72,6 +72,7 @@ def test_finish_current_state(db):
     assert spans[-1].end_time == ts
     assert spans[-1].attributes["extra"] == "extra"
     assert spans[-1].attributes["job"] == job.id
+    assert spans[-1].attributes["is_state"] is True
 
 
 def test_record_final_state(db):
@@ -113,8 +114,11 @@ def test_start_new_state(db):
 
     spans = get_trace()
     assert spans[-1].name == "ENTER PREPARING"
-    assert spans[-1].attributes["enter_state"] is True
+    assert spans[-1].attributes["is_state"] is False
     assert spans[-1].end_time == int(ts + 1e9)
+
+    # deprecated attribute
+    assert spans[-1].attributes["enter_state"] is True
 
 
 def test_record_job_span_skips_uninitialized_job(db):

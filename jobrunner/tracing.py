@@ -133,6 +133,8 @@ def finish_current_state(job, timestamp_ns, error=None, **attrs):
     if not _traceable(job):
         return
 
+    # allow them to be filtered out from tracking spans
+    attrs["is_state"] = True
     try:
         name = job.status_code.name
         start_time = job.status_code_updated_at
@@ -173,15 +175,16 @@ def start_new_state(job, timestamp_ns, error=None, **attrs):
     if not _traceable(job):
         return
 
+    # allow them to be filtered out easily
+    attrs["is_state"] = False
+    # legacy filter, remove once above is deployed for ~1 week
+    attrs["enter_state"] = True
+
     try:
         name = f"ENTER {job.status_code.name}"
         start_time = timestamp_ns
         # fix the time for these synthetic marker events at one second
         end_time = int(start_time + 1e9)
-        if attrs is None:
-            attrs = {}
-        # allow them to be filtered out easily
-        attrs["enter_state"] = True
         record_job_span(job, name, start_time, end_time, error, **attrs)
     except Exception:
         # make sure trace failures do not error the job
