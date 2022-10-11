@@ -304,9 +304,8 @@ def test_create_failed_job(db):
 
     spans = get_trace()
 
-    assert spans[0].name == "job"
-    assert spans[1].name == "INTERNAL_ERROR"
-    assert spans[2].name == "RUN"
+    assert spans[0].name == "INTERNAL_ERROR"
+    assert spans[1].name == "JOB"
 
 
 def test_create_failed_job_nothing_to_do(db):
@@ -322,6 +321,5 @@ def test_create_failed_job_nothing_to_do(db):
 
     spans = get_trace()
 
-    assert spans[0].name == "job"
-    assert spans[1].name == "SUCCEEDED"
-    assert spans[2].name == "RUN"
+    assert spans[0].name == "SUCCEEDED"
+    assert spans[1].name == "JOB"

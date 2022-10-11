@@ -5,6 +5,7 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.trace import propagation
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from jobrunner import config
@@ -102,14 +103,14 @@ def initialise_trace(job):
 
     job.trace_context = {}
     tracer = trace.get_tracer("jobs")
-    attrs = trace_attributes(job)
 
-    # convert created_at to nanoseconds
-    start_time = int(job.created_at * 1e9)
+    # create a root span in order to have a parent for all subsequent spans.
+    # However, we do not annotate or emit this span object now. We do this when
+    # the job has completed; see complete_job() for details.
+    root = tracer.start_span("JOB")
 
-    # TraceContextTextMapPropagator only works with the current span, sadly
-    with tracer.start_as_current_span("job", start_time=start_time) as root:
-        root.set_attributes(attrs)
+    # TraceContextTextMapPropagator only works with the current span, so set it as such.
+    with trace.use_span(root, end_on_exit=False):
         # we serialise the entire trace context, as it may grow extra fields
         # (e.g.  baggage) over time
         TraceContextTextMapPropagator().inject(job.trace_context)
@@ -133,6 +134,8 @@ def finish_current_state(job, timestamp_ns, error=None, **attrs):
     if not _traceable(job):
         return
 
+    # allow them to be filtered out from tracking spans
+    attrs["is_state"] = True
     try:
         name = job.status_code.name
         start_time = job.status_code_updated_at
@@ -157,12 +160,7 @@ def record_final_state(job, timestamp_ns, error=None, **attrs):
         end_time = int(timestamp_ns + 1e9)
         record_job_span(job, name, start_time, end_time, error, **attrs)
 
-        # record a full span for the entire run
-        # trace vanity: have the job start 1us before the actual job, so
-        # it shows up first in the trace
-        job_start_time = int(job.created_at * 1e9) - 1000
-        record_job_span(job, "RUN", job_start_time, timestamp_ns, error, **attrs)
-
+        complete_job(job, timestamp_ns, error, **attrs)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
@@ -173,19 +171,46 @@ def start_new_state(job, timestamp_ns, error=None, **attrs):
     if not _traceable(job):
         return
 
+    # allow them to be filtered out easily
+    attrs["is_state"] = False
+    # legacy filter, remove once above is deployed for ~1 week
+    attrs["enter_state"] = True
+
     try:
         name = f"ENTER {job.status_code.name}"
         start_time = timestamp_ns
         # fix the time for these synthetic marker events at one second
         end_time = int(start_time + 1e9)
-        if attrs is None:
-            attrs = {}
-        # allow them to be filtered out easily
-        attrs["enter_state"] = True
         record_job_span(job, name, start_time, end_time, error, **attrs)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
+
+
+def load_trace_context(job):
+    """Load the trace for this job from the db.
+
+    Returns a context object, which is suitable for feeding into a span's
+    context argument.
+    """
+    # The OTel propagation is designed to propagate across process/service
+    # boundaries. As such, using the extract() function returns a span context
+    # with is_remote=True.  However, we are using propagation to serialize
+    # trace context within a process, so we do not want this.
+    #
+    # However, there is no easy way to change it, as SpanContext is immutable.
+    # So we recreate an identical SpanContext, but with is_remote=False
+    ctx = TraceContextTextMapPropagator().extract(carrier=job.trace_context)
+
+    orig_ctx = propagation.get_current_span(ctx).get_span_context()
+    span_context = trace.SpanContext(
+        trace_id=orig_ctx.trace_id,
+        span_id=orig_ctx.span_id,
+        is_remote=False,
+        trace_flags=orig_ctx.trace_flags,
+        trace_state=orig_ctx.trace_state,
+    )
+    return propagation.set_span_in_context(trace.NonRecordingSpan(span_context), {})
 
 
 def record_job_span(job, name, start_time, end_time, error, **attrs):
@@ -193,27 +218,50 @@ def record_job_span(job, name, start_time, end_time, error, **attrs):
     if not _traceable(job):
         return
 
-    ctx = TraceContextTextMapPropagator().extract(carrier=job.trace_context)
+    ctx = load_trace_context(job)
+    tracer = trace.get_tracer("jobs")
+    span = tracer.start_span(name, context=ctx, start_time=start_time)
+    set_span_metadata(span, job, error, **attrs)
+    span.end(end_time)
+
+
+def complete_job(job, timestamp_ns, error, **attrs):
+    """Send the root span to record the full duration for this job."""
+
+    ctx = load_trace_context(job)
+    root_ctx = propagation.get_current_span(ctx).get_span_context()
     tracer = trace.get_tracer("jobs")
 
+    # trace vanity: have the job start 1us before the actual job, so
+    # it shows up first in the trace
+    job_start_time = int(job.created_at * 1e9) - 1000
+
+    # We created this root span at the start of the trace, as is required for
+    # a trace, and every span has had it as its id as its parent span. However,
+    # there is no easy way to serialize the actual span object now that we want
+    # to send it.
+    #
+    # So we create a new span, and then explicitly set its context to be the
+    # original root span's context.
+    root_span = tracer.start_span("JOB", start_time=job_start_time, context=ctx)
+    root_span._context = root_ctx
+    set_span_metadata(root_span, job, error, **attrs)
+    root_span.end(timestamp_ns)
+
+
+def set_span_metadata(span, job, error, **attrs):
+    """Set span metadata with everthing we know about a job."""
     attributes = {}
 
     if attrs:
         attributes.update(attrs)
     attributes.update(trace_attributes(job))
 
-    span = tracer.start_span(
-        name,
-        context=ctx,
-        start_time=start_time,
-    )
     span.set_attributes(attributes)
     if error:
         span.set_status(trace.Status(trace.StatusCode.ERROR))
     if isinstance(error, Exception):
         span.record_exception(error)
-
-    span.end(end_time)
 
 
 if __name__ == "__main__":

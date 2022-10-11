@@ -118,7 +118,7 @@ def test_handle_job_pending_dependency_failed(db):
     spans = get_trace()
     assert spans[-3].name == "CREATED"
     assert spans[-2].name == "DEPENDENCY_FAILED"
-    assert spans[-1].name == "RUN"
+    assert spans[-1].name == "JOB"
 
 
 def test_handle_pending_job_waiting_on_dependency(db):
@@ -285,7 +285,7 @@ def test_handle_job_finalized_success_with_delete(db):
     spans = get_trace()
     assert spans[-3].name == "FINALIZED"
     assert spans[-2].name == "SUCCEEDED"
-    assert spans[-1].name == "RUN"
+    assert spans[-1].name == "JOB"
 
 
 @pytest.mark.parametrize(
@@ -355,7 +355,7 @@ def test_handle_job_finalized_failed_exit_code(
     assert completed_span.attributes["unmatched_outputs"] == 0
     assert completed_span.attributes["image_id"] == "image_id"
     assert completed_span.status.status_code == trace.StatusCode.ERROR
-    assert spans[-1].name == "RUN"
+    assert spans[-1].name == "JOB"
 
 
 def test_handle_job_finalized_failed_unmatched_patterns(db):
@@ -388,7 +388,7 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     assert completed_span.attributes["outputs"] == 1
     assert completed_span.attributes["unmatched_patterns"] == 1
     assert completed_span.attributes["unmatched_outputs"] == 1
-    assert spans[-1].name == "RUN"
+    assert spans[-1].name == "JOB"
 
 
 @pytest.fixture
@@ -546,7 +546,7 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
     assert error_span.status.status_code == trace.StatusCode.ERROR
     assert error_span.events[0].name == "exception"
     assert error_span.events[0].attributes["exception.message"] == "test"
-    assert spans[-1].name == "RUN"
+    assert spans[-1].name == "JOB"
 
 
 def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
