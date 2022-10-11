@@ -354,6 +354,7 @@ def test_handle_job_finalized_failed_exit_code(
     assert completed_span.attributes["unmatched_patterns"] == 0
     assert completed_span.attributes["unmatched_outputs"] == 0
     assert completed_span.attributes["image_id"] == "image_id"
+    assert completed_span.status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "RUN"
 
 

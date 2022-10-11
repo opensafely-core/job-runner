@@ -1,5 +1,7 @@
 import time
 
+from opentelemetry import trace
+
 from jobrunner import models, tracing
 from tests.conftest import get_trace
 from tests.factories import job_factory, job_request_factory
@@ -92,11 +94,13 @@ def test_record_final_state_error(db):
     assert spans[-2].status.status_code.name == "ERROR"
     assert spans[-2].events[0].name == "exception"
     assert spans[-2].events[0].attributes["exception.message"] == "error"
+    assert spans[-2].status.status_code == trace.StatusCode.ERROR
 
     assert spans[-1].name == "RUN"
     assert spans[-1].status.status_code.name == "ERROR"
     assert spans[-1].events[0].name == "exception"
     assert spans[-1].events[0].attributes["exception.message"] == "error"
+    assert spans[-1].status.status_code == trace.StatusCode.ERROR
 
 
 def test_start_new_state(db):

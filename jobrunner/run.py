@@ -308,6 +308,8 @@ def save_results(job, definition, results):
     # save job outputs
     job.outputs = results.outputs
 
+    error = None
+
     if results.exit_code != 0:
         state = State.FAILED
         code = StatusCode.NONZERO_EXIT
@@ -318,6 +320,7 @@ def save_results(job, definition, results):
             error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
             if error_msg:
                 message += f": {error_msg}"
+        error = message
 
     elif results.unmatched_patterns:
         job.unmatched_outputs = results.unmatched_outputs
@@ -329,6 +332,8 @@ def save_results(job, definition, results):
         message = "No outputs found matching patterns:\n - {}".format(
             "\n - ".join(results.unmatched_patterns)
         )
+        error = message
+
     else:
         state = State.SUCCEEDED
         code = StatusCode.SUCCEEDED
@@ -342,7 +347,7 @@ def save_results(job, definition, results):
         unmatched_outputs=len(results.unmatched_outputs),
     )
 
-    set_state(job, state, code, message, **trace_attrs)
+    set_state(job, state, code, message, error=error, **trace_attrs)
 
 
 def get_obsolete_files(definition, outputs):
@@ -438,14 +443,17 @@ def mark_job_as_failed(job, code, message=None, exc=None, attrs=None):
     if message is None:
         message = f"{type(exc).__name__}: {exc}"
 
-    set_state(job, State.FAILED, code, message, exc=exc, attrs=attrs)
+    set_state(job, State.FAILED, code, message, error=exc, attrs=attrs)
 
 
-def set_state(job, state, code, message, exc=None, **attrs):
+def set_state(job, state, code, message, error=None, **attrs):
     """Update the high level state transitions.
+
+    Error can be an exception or a string message.
 
     This sets the high level state and records the timestamps we currently use
     for job-server metrics, then sets the granular code state via set_code.
+
 
     Argubly these higher level states are not strictly required now we're
     tracking the full status code progression. But that would be a big change,
@@ -461,7 +469,7 @@ def set_state(job, state, code, message, exc=None, **attrs):
     elif state == State.PENDING:  # restarting the job gracefully
         job.started_at = None
 
-    set_code(job, code, message, error=exc, **attrs)
+    set_code(job, code, message, error=error, **attrs)
 
 
 def set_code(job, code, message, error=None, **attrs):
