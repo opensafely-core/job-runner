@@ -87,6 +87,8 @@ def workspace_is_archived(workspace):
 class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
+    synchronous_transitions = [ExecutorState.PREPARING, ExecutorState.FINALIZING]
+
     def prepare(self, job):
         current = self.get_status(job)
         if current.state != ExecutorState.UNKNOWN:

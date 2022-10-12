@@ -32,6 +32,10 @@ class LoggingExecutor(ExecutorAPI):
     def delete_files(self, workspace: str, privacy: Privacy, paths: [str]) -> List[str]:
         return self._wrapped.delete_files(workspace, privacy, paths)
 
+    @property
+    def synchronous_transitions(self):
+        return getattr(self._wrapped, "synchronous_transitions", [])
+
     def _add_logging(self, method: Callable[[JobDefinition], JobStatus]):
         def wrapper(job: JobDefinition) -> JobStatus:
             status = method(job)

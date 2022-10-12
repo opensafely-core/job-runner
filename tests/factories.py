@@ -133,6 +133,13 @@ class StubExecutorAPI:
 
     def set_job_state(self, definition, state, message="message"):
         """Directly set a job state."""
+        # handle the synchronous state meaning the state has completed
+        synchronous = getattr(self, "synchronous_transitions", [])
+        if state in synchronous:
+            if state == ExecutorState.PREPARING:
+                state = ExecutorState.PREPARED
+            if state == ExecutorState.FINALIZING:
+                state = ExecutorState.FINALIZED
         self.state[definition.id] = JobStatus(state, message)
 
     def set_job_transition(self, definition, state, message="executor message"):
