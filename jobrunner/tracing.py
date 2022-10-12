@@ -187,7 +187,7 @@ def start_new_state(job, timestamp_ns, error=None, **attrs):
         logger.exception(f"failed to trace state for {job.id}")
 
 
-def load_trace_context(job):
+def load_root_span(job):
     """Load the trace for this job from the db.
 
     Returns a context object, which is suitable for feeding into a span's
@@ -210,6 +210,12 @@ def load_trace_context(job):
         trace_flags=orig_ctx.trace_flags,
         trace_state=orig_ctx.trace_state,
     )
+
+    return span_context
+
+
+def load_trace_context(job):
+    span_context = load_root_span(job)
     return propagation.set_span_in_context(trace.NonRecordingSpan(span_context), {})
 
 
@@ -225,11 +231,10 @@ def record_job_span(job, name, start_time, end_time, error, **attrs):
     span.end(end_time)
 
 
-def complete_job(job, timestamp_ns, error, **attrs):
+def complete_job(job, timestamp_ns, error=None, **attrs):
     """Send the root span to record the full duration for this job."""
 
-    ctx = load_trace_context(job)
-    root_ctx = propagation.get_current_span(ctx).get_span_context()
+    root_ctx = load_root_span(job)
     tracer = trace.get_tracer("jobs")
 
     # trace vanity: have the job start 1us before the actual job, so
@@ -240,11 +245,14 @@ def complete_job(job, timestamp_ns, error, **attrs):
     # a trace, and every span has had it as its id as its parent span. However,
     # there is no easy way to serialize the actual span object now that we want
     # to send it.
-    #
-    # So we create a new span, and then explicitly set its context to be the
-    # original root span's context.
-    root_span = tracer.start_span("JOB", start_time=job_start_time, context=ctx)
+
+    # this effectively starts a new trace
+    root_span = tracer.start_span("JOB", start_time=job_start_time)
+
+    # replace the context with the one from the original root span
     root_span._context = root_ctx
+
+    # annotate and send
     set_span_metadata(root_span, job, error, **attrs)
     root_span.end(timestamp_ns)
 

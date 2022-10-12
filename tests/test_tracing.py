@@ -128,3 +128,18 @@ def test_record_job_span_skips_uninitialized_job(db):
     tracing.record_job_span(job, "name", ts, ts + 10000, error=None)
 
     assert len(get_trace()) == 0
+
+
+def test_complete_job(db):
+    job = job_factory()
+    ts = int(time.time() * 1e9)
+
+    tracing.complete_job(job, ts)
+
+    ctx = tracing.load_root_span(job)
+
+    spans = get_trace()
+    assert spans[0].name == "JOB"
+    assert spans[0].context.trace_id == ctx.trace_id
+    assert spans[0].context.span_id == ctx.span_id
+    assert spans[0].parent is None
