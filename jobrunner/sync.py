@@ -137,6 +137,7 @@ def job_to_remote_format(job):
         "updated_at": job.updated_at_isoformat,
         "started_at": job.started_at_isoformat,
         "completed_at": job.completed_at_isoformat,
+        "trace_context": job.trace_context,
     }
 
 
