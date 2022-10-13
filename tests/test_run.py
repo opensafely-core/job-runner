@@ -549,6 +549,32 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
     assert spans[-1].name == "JOB"
 
 
+def test_handle_single_job_shortcuts_synchronous(db):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
+
+    api.synchronous_transitions = [ExecutorState.PREPARING]
+
+    run.handle_single_job(job, api)
+
+    # executor state
+    assert job.id in api.tracker["prepare"]
+    assert job.id in api.tracker["execute"]
+    assert api.get_status(job).state == ExecutorState.EXECUTING
+
+    # our state
+    assert job.status_message == "Executing job on the backend"
+    assert job.state == State.RUNNING
+    assert job.started_at
+
+    # tracing
+    spans = get_trace()
+    assert spans[-4].name == "CREATED"
+    assert spans[-3].name == "ENTER PREPARING"
+    assert spans[-2].name == "PREPARING"
+    assert spans[-1].name == "ENTER EXECUTING"
+
+
 def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     job_factory(
         id="1",

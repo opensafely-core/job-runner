@@ -117,7 +117,14 @@ def handle_single_job(job, api):
     mode = get_flag_value("mode")
     paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
-        handle_job(job, api, mode, paused)
+        synchronous_transition = handle_job(job, api, mode, paused)
+
+        # provide a way to shortcut moving a job on to the next state right away
+        # this is intended to support executors where some state transitions
+        # are synchronous, particularly the local executor where prepare is
+        # synchronous and can be time consuming.
+        if synchronous_transition:
+            handle_job(job, api, mode, paused)
     except Exception as exc:
         mark_job_as_failed(
             job,
@@ -292,6 +299,15 @@ def handle_job(job, api, mode=None, paused=None):
                     f"state error: got {new_status.state} for job we thought was {job.state}"
                 )
             set_code(job, code, message)
+
+        # does this api have synchronous_transitions?
+        synchronous_transitions = getattr(api, "synchronous_transitions", [])
+
+        if new_status.state in synchronous_transitions:
+            # we want to immediately run this function for this job again to
+            # avoid blocking it as we know the state transition has already
+            # completed.
+            return True
 
     elif new_status.state == ExecutorState.ERROR:
         # all transitions can go straight to error
