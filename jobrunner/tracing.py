@@ -48,44 +48,6 @@ def setup_default_tracing():
         add_exporter(ConsoleSpanExporter())
 
 
-def trace_attributes(job):
-    """These attributes are added to every span in order to slice and dice by
-    each as needed.
-    """
-    # grab job request metadata, caching it on the job instance to avoid excess
-    # queries/jsoning
-    if job._job_request is None:
-        try:
-            job._job_request = database.find_one(
-                SavedJobRequest, id=job.job_request_id
-            ).original
-        except ValueError:
-            job._job_request = {}
-
-    attrs = dict(
-        backend=config.BACKEND,
-        job=job.id,
-        job_request=job.job_request_id,
-        workspace=job.workspace,
-        action=job.action,
-        commit=job.commit,
-        run_command=job.run_command,
-        user=job._job_request.get("created_by", "unknown"),
-        project=job._job_request.get("project", "unknown"),
-        orgs=",".join(job._job_request.get("orgs", [])),
-        state=job.state.name,
-        message=job.status_message,
-    )
-
-    if job.action_repo_url:
-        attrs["reusable_action"] = job.action_repo_url
-        if job.action_commit:
-            attrs["reusable_action"] += ":" + job.action_commit
-
-    # opentelemetry cannot handle None values
-    return {k: "" if v is None else v for k, v in attrs.items()}
-
-
 def initialise_trace(job):
     """Initialise the trace for this job by creating a root span.
 
@@ -257,7 +219,10 @@ def complete_job(job, timestamp_ns, error=None, **attrs):
     root_span.end(timestamp_ns)
 
 
-def set_span_metadata(span, job, error, **attrs):
+OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
+
+
+def set_span_metadata(span, job, error=None, **attrs):
     """Set span metadata with everthing we know about a job."""
     attributes = {}
 
@@ -265,11 +230,61 @@ def set_span_metadata(span, job, error, **attrs):
         attributes.update(attrs)
     attributes.update(trace_attributes(job))
 
-    span.set_attributes(attributes)
+    # opentelemetry can only handle serializing certain attribute types
+    clean_attrs = {}
+    for k, v in attributes.items():
+        if not isinstance(v, OTEL_ATTR_TYPES):
+            # coerce to string so we preserve some information
+            v = str(v)
+            # log to help us notice this
+            logger.warn(
+                f"Trace span {span.name} attribute {k} was set invalid type: {v}, type {type(v)}"
+            )
+        clean_attrs[k] = v
+
+    span.set_attributes(clean_attrs)
+
     if error:
-        span.set_status(trace.Status(trace.StatusCode.ERROR))
+        span.set_status(trace.Status(trace.StatusCode.ERROR, str(error)))
     if isinstance(error, Exception):
         span.record_exception(error)
+
+
+def trace_attributes(job):
+    """These attributes are added to every span in order to slice and dice by
+    each as needed.
+    """
+    # grab job request metadata, caching it on the job instance to avoid excess
+    # queries/jsoning
+    if job._job_request is None:
+        try:
+            job._job_request = database.find_one(
+                SavedJobRequest, id=job.job_request_id
+            ).original
+        except ValueError:
+            job._job_request = {}
+
+    attrs = dict(
+        backend=config.BACKEND,
+        job=job.id,
+        job_request=job.job_request_id,
+        workspace=job.workspace,
+        action=job.action,
+        commit=job.commit,
+        run_command=job.run_command,
+        user=job._job_request.get("created_by", "unknown"),
+        project=job._job_request.get("project", "unknown"),
+        orgs=",".join(job._job_request.get("orgs", [])),
+        state=job.state.name,
+        message=job.status_message,
+    )
+
+    if job.action_repo_url:
+        attrs["reusable_action"] = job.action_repo_url
+        if job.action_commit:
+            attrs["reusable_action"] += ":" + job.action_commit
+
+    return attrs
 
 
 if __name__ == "__main__":
