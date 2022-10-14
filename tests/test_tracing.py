@@ -143,3 +143,46 @@ def test_complete_job(db):
     assert spans[0].context.trace_id == ctx.trace_id
     assert spans[0].context.span_id == ctx.span_id
     assert spans[0].parent is None
+
+
+def test_set_span_metadata_attrs(db):
+    job_request = job_request_factory()
+    job = job_factory(job_request=job_request)
+    tracer = trace.get_tracer("test")
+
+    class Test:
+        def __str__(self):
+            return "test"
+
+    span = tracer.start_span("test")
+    tracing.set_span_metadata(
+        span,
+        job,
+        custom_attr=Test(),  # test that attr is added and the type coerced to string
+        state="should be ignored",  # test that we can't override core job attributes
+    )
+
+    assert span.attributes["job"] == job.id
+    assert span.attributes["job_request"] == job.job_request_id
+    assert span.attributes["workspace"] == job.workspace
+    assert span.attributes["action"] == job.action
+    assert span.attributes["state"] == job.state.name  # not "should be ignored"
+    assert span.attributes["custom_attr"] == "test"
+
+    # job request attrs
+    assert span.attributes["user"] == job_request.original["created_by"]
+    assert span.attributes["project"] == job_request.original["project"]
+    assert span.attributes["orgs"] == ",".join(job_request.original["orgs"])
+
+
+def test_set_span_metadata_error(db):
+    job = job_factory()
+    tracer = trace.get_tracer("test")
+
+    span = tracer.start_span("test")
+    tracing.set_span_metadata(span, job, error=Exception("test"))
+
+    assert span.status.status_code == trace.StatusCode.ERROR
+    assert span.status.description == "test"
+    assert span.events[0].name == "exception"
+    assert span.events[0].attributes["exception.message"] == "test"
