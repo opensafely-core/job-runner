@@ -57,7 +57,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
         " --output-dir=."
     )
     assert old_job.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
-    assert old_job.status_message is None
+    assert old_job.status_message == "Created"
     # Check no new jobs created from same JobRequest
     create_or_update_jobs(job_request)
     new_job = find_one(Job)

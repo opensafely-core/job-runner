@@ -234,12 +234,12 @@ def set_span_metadata(span, job, error=None, **attrs):
     clean_attrs = {}
     for k, v in attributes.items():
         if not isinstance(v, OTEL_ATTR_TYPES):
-            # coerce to string so we preserve some information
-            v = str(v)
             # log to help us notice this
-            logger.warn(
+            logger.info(
                 f"Trace span {span.name} attribute {k} was set invalid type: {v}, type {type(v)}"
             )
+            # coerce to string so we preserve some information
+            v = str(v)
         clean_attrs[k] = v
 
     span.set_attributes(clean_attrs)
@@ -270,7 +270,6 @@ def trace_attributes(job):
         job_request=job.job_request_id,
         workspace=job.workspace,
         action=job.action,
-        commit=job.commit,
         run_command=job.run_command,
         user=job._job_request.get("created_by", "unknown"),
         project=job._job_request.get("project", "unknown"),
@@ -278,6 +277,10 @@ def trace_attributes(job):
         state=job.state.name,
         message=job.status_message,
     )
+
+    # local_run jobs don't have a commit
+    if job.commit:
+        attrs["commit"] = job.commit
 
     if job.action_repo_url:
         attrs["reusable_action"] = job.action_repo_url

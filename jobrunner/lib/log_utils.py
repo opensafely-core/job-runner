@@ -62,6 +62,10 @@ def configure_logging(
     if debug_log_file:
         logging.getLogger(__name__).info(f"Writing DEBUG logs to '{debug_log_file}'")
 
+    # quieten the trace logs if running locally
+    trace_log_level = os.environ.get("TRACE_LOG_LEVEL", "ERROR")
+    logging.getLogger("jobrunner.tracing").setLevel(trace_log_level)
+
     # We attach a custom handler for uncaught exceptions to display error
     # output from failed subprocesses
     sys.excepthook = show_subprocess_stderr
