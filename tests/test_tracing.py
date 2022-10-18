@@ -45,6 +45,41 @@ def test_trace_attributes(db):
     )
 
 
+def test_trace_attributes_missing(db):
+
+    jr = job_request_factory(
+        original=dict(
+            created_by="testuser",
+            project="project",
+            orgs=["org1", "org2"],
+        )
+    )
+    job = job_factory(
+        jr,
+        workspace="workspace",
+        action="action",
+        status_message="message",
+        # no commit
+        # no reusable action
+    )
+
+    attrs = tracing.trace_attributes(job)
+
+    assert attrs == dict(
+        backend="expectations",
+        job=job.id,
+        job_request=job.job_request_id,
+        workspace="workspace",
+        action="action",
+        run_command=job.run_command,
+        user="testuser",
+        project="project",
+        orgs="org1,org2",
+        state="PENDING",
+        message="message",
+    )
+
+
 def test_initialise_trace(db):
     job = job_factory()
     # clear factories default context

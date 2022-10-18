@@ -228,6 +228,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         status_code=StatusCode.CREATED,
         # time in nanoseconds
         status_code_updated_at=int(timestamp * 1e9),
+        status_message="Created",
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
@@ -335,13 +336,13 @@ def create_failed_job(job_request, exception):
         job_request_id=job_request.id,
         state=state,
         status_code=code,
+        status_message=status_message,
         # time in nanoseconds
         status_code_updated_at=int(now * 1e9),
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
         action=action,
-        status_message=status_message,
         created_at=int(now),
         started_at=int(now),
         updated_at=int(now),

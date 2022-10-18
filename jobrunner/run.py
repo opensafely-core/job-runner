@@ -455,7 +455,7 @@ def get_states_of_awaited_jobs(job):
     return states
 
 
-def mark_job_as_failed(job, code, message=None, exc=None, attrs=None):
+def mark_job_as_failed(job, code, message=None, exc=None, **attrs):
     if message is None:
         message = f"{type(exc).__name__}: {exc}"
 
