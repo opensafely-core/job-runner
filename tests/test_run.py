@@ -118,7 +118,9 @@ def test_handle_job_pending_dependency_failed(db):
     spans = get_trace()
     assert spans[-3].name == "CREATED"
     assert spans[-2].name == "DEPENDENCY_FAILED"
+    assert spans[-2].status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
+    assert spans[-1].status.status_code == trace.StatusCode.ERROR
 
 
 def test_handle_pending_job_waiting_on_dependency(db):

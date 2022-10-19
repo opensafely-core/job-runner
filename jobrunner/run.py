@@ -133,7 +133,7 @@ def handle_single_job(job, api):
             "for users to fix.\n"
             "The tech team are automatically notified of these errors and will be "
             "investigating.",
-            exc=exc,
+            error=exc,
         )
         # Do not clean up, as we may want to debug
         #
@@ -222,6 +222,7 @@ def handle_job(job, api, mode=None, paused=None):
                 job,
                 StatusCode.DEPENDENCY_FAILED,
                 "Not starting as dependency failed",
+                error=True,
             )
             return
 
@@ -455,11 +456,11 @@ def get_states_of_awaited_jobs(job):
     return states
 
 
-def mark_job_as_failed(job, code, message=None, exc=None, **attrs):
+def mark_job_as_failed(job, code, message=None, error=None, **attrs):
     if message is None:
-        message = f"{type(exc).__name__}: {exc}"
+        message = str(error)
 
-    set_state(job, State.FAILED, code, message, error=exc, attrs=attrs)
+    set_state(job, State.FAILED, code, message, error=error, attrs=attrs)
 
 
 def set_state(job, state, code, message, error=None, **attrs):
