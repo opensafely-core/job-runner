@@ -38,7 +38,59 @@ The bulk of the work here is done by the
 [manage_jobs](./jobrunner/manage_jobs.py) module which starts new Docker
 containers and stores the appropriate outputs when they finish.
 
+### Job State
+
+Jobs move through a defined set of `StatusCode`'s as the job-runner manages them.
+These are defined in `jobrunner/models.py`.
+
+The diagram below shows the transitions, but all states have an implicit transition to
+`INTERNAL_ERROR` or `CANCELLED_BY_USER`, which is not shown.
+
+
+```mermaid
+graph TD
+    CREATED --> PREPARING
+    CREATED --> WAITING_ON_DEPENDENCIES
+    CREATED --> WAITING_ON_WORKERS
+    CREATED --> WAITING_ON_REBOOT
+    CREATED --> WAITING_DB_MAINTENANCE
+    CREATED --> WAITING_PAUSED
+    WAITING_ON_DEPENDENCIES -->  WAITING_ON_WORKERS
+    WAITING_ON_DEPENDENCIES -->  WAITING_ON_REBOOT
+    WAITING_ON_DEPENDENCIES -->  WAITING_DB_MAINTENANCE
+    WAITING_ON_DEPENDENCIES --> PREPARING
+    WAITING_ON_DEPENDENCIES --> DEPENDENCY_FAILED
+    WAITING_PAUSED --> PREPARING
+    WAITING_ON_WORKERS --> PREPARING
+    WAITING_ON_REBOOT --> PREPARING
+    WAITING_DB_MAINTENANCE --> PREPARING
+    PREPARING --> EXECUTING
+    EXECUTING --> FINALIZING
+    FINALIZING --> SUCCEEDED
+    FINALIZING --> NONZERO_EXIT
+    FINALIZING --> UNMATCHED_PATTERNS
+    FINALIZING --all states can go here--> CANCELLED_BY_USER
+    FINALIZING --all states can go here--> INTERNAL_ERROR
+
+    subgraph Legend
+      direction TB
+      LEGEND_ERROR[ERROR STATE]
+      LEGEND_BLOCKED[BLOCKED]
+      LEGEND_NORMAL[HAPPY PATH]
+    end
+
+    %% styles
+    classDef default fill:#00397a,color:#f1f7ff,stroke-width:2px,stroke:#002147;
+    classDef error fill:#b6093d,color:#fef3f6,stroke-width:2px,stroke:#770628;
+    classDef blocking fill:#ffdf75,color:#7d661c,stroke-width:2px,stroke:#997d23;
+
+    class LEGEND_BLOCKED,WAITING_ON_WORKERS,WAITING_ON_REBOOT,WAITING_PAUSED,WAITING_DB_MAINTENANCE blocking
+    class LEGEND_ERROR,INTERNAL_ERROR,UNMATCHED_PATTERNS,DEPENDENCY_FAILED,NONZERO_EXIT error
+
+```
+
 ## Testing
+
 
 Tests can be run with:
 
