@@ -15,7 +15,12 @@ def main(partial_job_ids, cleanup=False):
         # If the job has been previously killed we don't want to overwrite the
         # timestamps here
         if job.state in (State.PENDING, State.RUNNING):
-            mark_job_as_failed(job, StatusCode.KILLED_BY_ADMIN)
+            mark_job_as_failed(
+                job,
+                StatusCode.KILLED_BY_ADMIN,
+                "An OpenSAFELY admin manually killed this job",
+                error=True,
+            )
         # All these docker commands are idempotent
         docker.kill(container_name(job))
         if cleanup:
