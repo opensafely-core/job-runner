@@ -71,6 +71,7 @@ graph TD
     FINALIZING --> UNMATCHED_PATTERNS
     FINALIZING --all states can go here--> CANCELLED_BY_USER
     FINALIZING --all states can go here--> INTERNAL_ERROR
+    FINALIZING --all states can go here--> KILLED_BY_ADMIN
 
     subgraph Legend
       direction TB
