@@ -3,9 +3,9 @@ Ops utility for killing jobs and cleaning up containers and volumes
 """
 import argparse
 
-from jobrunner.executors.local import container_name, docker, volume_name
+from jobrunner.executors.local import container_name, docker, volume_api
 from jobrunner.lib.database import find_where
-from jobrunner.models import Job, State
+from jobrunner.models import Job, State, StatusCode
 from jobrunner.run import mark_job_as_failed
 
 
@@ -15,12 +15,17 @@ def main(partial_job_ids, cleanup=False):
         # If the job has been previously killed we don't want to overwrite the
         # timestamps here
         if job.state in (State.PENDING, State.RUNNING):
-            mark_job_as_failed(job, "Killed by admin")
+            mark_job_as_failed(
+                job,
+                StatusCode.KILLED_BY_ADMIN,
+                "An OpenSAFELY admin manually killed this job",
+                error=True,
+            )
         # All these docker commands are idempotent
         docker.kill(container_name(job))
         if cleanup:
             docker.delete_container(container_name(job))
-            docker.delete_volume(volume_name(job))
+            volume_api.delete_volume(job)
 
 
 def get_jobs(partial_job_ids):
