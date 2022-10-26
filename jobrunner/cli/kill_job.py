@@ -19,7 +19,6 @@ def main(partial_job_ids, cleanup=False):
                 job,
                 StatusCode.KILLED_BY_ADMIN,
                 "An OpenSAFELY admin manually killed this job",
-                error=True,
             )
         # All these docker commands are idempotent
         docker.kill(container_name(job))

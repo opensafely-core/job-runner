@@ -222,7 +222,6 @@ def handle_job(job, api, mode=None, paused=None):
                 job,
                 StatusCode.DEPENDENCY_FAILED,
                 "Not starting as dependency failed",
-                error=True,
             )
             return
 
@@ -456,9 +455,9 @@ def get_states_of_awaited_jobs(job):
     return states
 
 
-def mark_job_as_failed(job, code, message=None, error=None, **attrs):
-    if message is None:
-        message = str(error)
+def mark_job_as_failed(job, code, message, error=None, **attrs):
+    if error is None:
+        error = True
 
     set_state(job, State.FAILED, code, message, error=error, attrs=attrs)
 
