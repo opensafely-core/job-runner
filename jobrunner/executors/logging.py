@@ -17,7 +17,7 @@ LOGGER_NAME = "executor"
 class LoggingExecutor(ExecutorAPI):
     def __init__(self, wrapped: ExecutorAPI):
         self._logger = logging.getLogger(LOGGER_NAME)
-        self._state_cache = LRUDict(100)  # Maps job ids to states
+        self._state_cache = LRUDict(1024)  # Maps job ids to states
         self._wrapped = wrapped
         self._add_logging(self._wrapped.get_status)
         self._add_logging(self._wrapped.prepare)

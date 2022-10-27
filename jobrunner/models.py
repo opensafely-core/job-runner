@@ -66,7 +66,7 @@ class StatusCode(Enum):
     CANCELLED_BY_USER = "cancelled_by_user"
     UNMATCHED_PATTERNS = "unmatched_patterns"
     INTERNAL_ERROR = "internal_error"
-    KILLED_BY_ADMIN = "Killed by admin"
+    KILLED_BY_ADMIN = "killed_by_admin"
 
 
 # used for tracing to know if a state is final or not
@@ -77,6 +77,7 @@ FINAL_STATUS_CODES = [
     StatusCode.CANCELLED_BY_USER,
     StatusCode.UNMATCHED_PATTERNS,
     StatusCode.INTERNAL_ERROR,
+    StatusCode.KILLED_BY_ADMIN,
 ]
 
 

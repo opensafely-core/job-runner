@@ -671,3 +671,16 @@ def test_job_definition_limits(db):
     definition = run.job_to_job_definition(job)
     assert definition.cpu_count == 2
     assert definition.memory_limit == "4G"
+
+
+def test_mark_job_as_failed_adds_error(db):
+    job = job_factory()
+    run.mark_job_as_failed(job, StatusCode.INTERNAL_ERROR, "error")
+
+    # tracing
+    spans = get_trace()
+    assert spans[-3].name == "CREATED"
+    assert spans[-2].name == "INTERNAL_ERROR"
+    assert spans[-2].status.status_code == trace.StatusCode.ERROR
+    assert spans[-1].name == "JOB"
+    assert spans[-1].status.status_code == trace.StatusCode.ERROR
