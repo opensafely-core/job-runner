@@ -36,22 +36,6 @@ Home = "https://opensafely.org"
 Documentation = "https://docs.opensafely.org"
 Source = "https://github.com/opensafely-core/job-runner"
 
-[tool.black]
-exclude = '''
-(
-  /(
-      \.git         # exclude a few common directories
-    | \.direnv
-    | \.github
-    | \.pytest_cache
-    | \.venv
-    | htmlcov
-    | venv
-    | lib           # job-runner-dependencies checkout
-  )/
-)
-'''
-
 [tool.coverage.run]
 branch = true
 omit = [".direnv/*", ".venv/*"]
