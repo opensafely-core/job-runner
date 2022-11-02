@@ -6,10 +6,6 @@ A job runner is a service that encapsulates:
    requested via a jobs queue; and
  * storing its results in a particular locations.
 
-
-Quickrefs:
- - [Playbooks](playbooks)
-
 End users will find more information in the [OpenSAFELY documentation](https://docs.opensafely.org).
 
 # Operating principles
