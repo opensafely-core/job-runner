@@ -54,13 +54,16 @@ exclude = '''
 
 [tool.coverage.run]
 branch = true
-omit = [".direnv/*", ".venv/*"]
+dynamic_context = "test_function"
 source = ["jobrunner"]
 
 [tool.coverage.report]
+fail_under = 78
+show_missing = true
 skip_covered = true
 
 [tool.coverage.html]
+show_contexts = true
 
 [tool.isort]
 profile = "black"
