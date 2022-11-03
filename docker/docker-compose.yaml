@@ -85,4 +85,6 @@ services:
         service: dev
     container_name: job-runner-test
     # override command
-    command: /opt/venv/bin/pytest
+    command: >
+      bash -c "/opt/venv/bin/coverage run --module pytest
+      && (/opt/venv/bin/coverage report || /opt/venv/bin/coverage html)"

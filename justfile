@@ -85,7 +85,8 @@ upgrade env package="": virtualenv
 
 # Run the tests
 test *ARGS: devenv
-    $BIN/python -m pytest {{ ARGS }}
+    $BIN/coverage run --module pytest {{ ARGS }}
+    $BIN/coverage report || $BIN/coverage html
 
 test-fast *ARGS: devenv
     $BIN/python -m pytest tests -m "not slow_test" {{ ARGS }}
