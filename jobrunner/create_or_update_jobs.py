@@ -326,11 +326,13 @@ def create_failed_job(job_request, exception):
         code = StatusCode.SUCCEEDED
         status_message = "All actions have already run"
         action = job_request.requested_actions[0]
+        error = None
     else:
         state = State.FAILED
         code = StatusCode.INTERNAL_ERROR
         status_message = f"{type(exception).__name__}: {exception}"
         action = "__error__"
+        error = exception
     now = time.time()
     job = Job(
         job_request_id=job_request.id,
@@ -349,8 +351,8 @@ def create_failed_job(job_request, exception):
         completed_at=int(now),
     )
     tracing.initialise_trace(job)
-    tracing.record_final_state(job, job.status_code_updated_at)
     insert_into_database(job_request, [job])
+    tracing.record_final_state(job, job.status_code_updated_at, error=error)
 
 
 def insert_into_database(job_request, jobs):
