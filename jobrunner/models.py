@@ -48,6 +48,8 @@ class StatusCode(Enum):
     WAITING_ON_DEPENDENCIES = "waiting_on_dependencies"
     # waiting on available resources to run the job
     WAITING_ON_WORKERS = "waiting_on_workers"
+    # waiting on available db resources to run the job
+    WAITING_ON_DB_WORKERS = "waiting_on_db_workers"
     # reset for reboot
     WAITING_ON_REBOOT = "waiting_on_reboot"
 
@@ -294,7 +296,10 @@ class Job:
 
     @property
     def action_args(self):
-        return shlex.split(self.run_command)
+        if self.run_command:
+            return shlex.split(self.run_command)
+        else:
+            return []
 
     @property
     def requires_db(self):

@@ -237,7 +237,8 @@ def handle_job(job, api, mode=None, paused=None):
         # work
         not_started_reason = get_reason_job_not_started(job)
         if not_started_reason:
-            set_code(job, StatusCode.WAITING_ON_WORKERS, not_started_reason)
+            code, message = not_started_reason
+            set_code(job, code, message)
             return
 
         expected_state = ExecutorState.PREPARING
@@ -555,14 +556,20 @@ def get_reason_job_not_started(job):
     required_resources = get_job_resource_weight(job)
     if used_resources + required_resources > config.MAX_WORKERS:
         if required_resources > 1:
-            return "Waiting on available workers for resource intensive job"
+            return (
+                StatusCode.WAITING_ON_WORKERS,
+                "Waiting on available workers for resource intensive job",
+            )
         else:
-            return "Waiting on available workers"
+            return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
 
     if job.requires_db:
         running_db_jobs = len([j for j in running_jobs if j.requires_db])
         if running_db_jobs >= config.MAX_DB_WORKERS:
-            return "Waiting on available database workers"
+            return (
+                StatusCode.WAITING_ON_DB_WORKERS,
+                "Waiting on available database workers",
+            )
 
 
 def list_outputs_from_action(workspace, action):

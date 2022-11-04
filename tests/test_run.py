@@ -188,12 +188,12 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
 
     assert job.state == State.PENDING
     assert job.status_message == "Waiting on available database workers"
-    assert job.status_code == StatusCode.WAITING_ON_WORKERS
+    assert job.status_code == StatusCode.WAITING_ON_DB_WORKERS
 
     # tracing
     spans = get_trace()
     assert spans[-2].name == "CREATED"
-    assert spans[-1].name == "ENTER WAITING_ON_WORKERS"
+    assert spans[-1].name == "ENTER WAITING_ON_DB_WORKERS"
 
 
 @pytest.mark.parametrize(
