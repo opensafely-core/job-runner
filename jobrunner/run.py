@@ -323,7 +323,7 @@ def save_results(job, definition, results):
     # save job outputs
     job.outputs = results.outputs
 
-    error = None
+    message = None
 
     if results.exit_code != 0:
         state = State.FAILED
@@ -335,7 +335,6 @@ def save_results(job, definition, results):
             error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
             if error_msg:
                 message += f": {error_msg}"
-        error = message
 
     elif results.unmatched_patterns:
         job.unmatched_outputs = results.unmatched_outputs
@@ -347,7 +346,6 @@ def save_results(job, definition, results):
         message = "No outputs found matching patterns:\n - {}".format(
             "\n - ".join(results.unmatched_patterns)
         )
-        error = message
 
     else:
         state = State.SUCCEEDED
@@ -362,7 +360,7 @@ def save_results(job, definition, results):
         unmatched_outputs=len(results.unmatched_outputs),
     )
 
-    set_state(job, state, code, message, error=error, **trace_attrs)
+    set_state(job, state, code, message, error=state == State.FAILED, **trace_attrs)
 
 
 def get_obsolete_files(definition, outputs):
