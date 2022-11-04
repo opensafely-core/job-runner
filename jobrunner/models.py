@@ -12,8 +12,10 @@ import dataclasses
 import datetime
 import hashlib
 import secrets
+import shlex
 from enum import Enum
 
+from jobrunner.lib.commands import requires_db_access
 from jobrunner.lib.database import databaseclass, migration
 from jobrunner.lib.string_utils import slugify
 
@@ -289,6 +291,14 @@ class Job:
             return self.outputs.keys()
         else:
             return []
+
+    @property
+    def action_args(self):
+        return shlex.split(self.run_command)
+
+    @property
+    def requires_db(self):
+        return requires_db_access(self.action_args)
 
 
 def deterministic_id(seed):

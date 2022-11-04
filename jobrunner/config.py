@@ -95,6 +95,7 @@ if PRESTO_TLS_CERT_PATH:
 
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
+MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
 
 # This is a crude mechanism for preventing a single large JobRequest with lots
 # of associated Jobs from hogging all the resources. We want this configurable

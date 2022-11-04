@@ -172,6 +172,30 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
     assert spans[-1].name == "ENTER WAITING_ON_WORKERS"
 
 
+def test_handle_job_waiting_on_db_workers(monkeypatch, db):
+    monkeypatch.setattr(config, "MAX_DB_WORKERS", 0)
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.UNKNOWN,
+        State.PENDING,
+        run_command="cohortextractor:latest generate_cohort",
+    )
+
+    run.handle_job(job, api)
+
+    # executor doesn't even know about it
+    assert job.id not in api.tracker["prepare"]
+
+    assert job.state == State.PENDING
+    assert job.status_message == "Waiting on available database workers"
+    assert job.status_code == StatusCode.WAITING_ON_WORKERS
+
+    # tracing
+    spans = get_trace()
+    assert spans[-2].name == "CREATED"
+    assert spans[-1].name == "ENTER WAITING_ON_WORKERS"
+
+
 @pytest.mark.parametrize(
     "exec_state,job_state,code,tracker",
     [
