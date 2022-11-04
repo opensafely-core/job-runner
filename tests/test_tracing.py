@@ -42,6 +42,7 @@ def test_trace_attributes(db):
         state="PENDING",
         message="message",
         reusable_action="action_repo:commit",
+        requires_db=False,
     )
 
 
@@ -77,6 +78,7 @@ def test_trace_attributes_missing(db):
         orgs="org1,org2",
         state="PENDING",
         message="message",
+        requires_db=False,
     )
 
 

@@ -6,7 +6,6 @@ updates its state as appropriate.
 import datetime
 import logging
 import random
-import shlex
 import sys
 import time
 from typing import Optional
@@ -20,7 +19,6 @@ from jobrunner.job_executor import (
     Privacy,
     Study,
 )
-from jobrunner.lib.commands import requires_db_access
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import FINAL_STATUS_CODES, Job, State, StatusCode
@@ -239,7 +237,8 @@ def handle_job(job, api, mode=None, paused=None):
         # work
         not_started_reason = get_reason_job_not_started(job)
         if not_started_reason:
-            set_code(job, StatusCode.WAITING_ON_WORKERS, not_started_reason)
+            code, message = not_started_reason
+            set_code(job, code, message)
             return
 
         expected_state = ExecutorState.PREPARING
@@ -387,11 +386,10 @@ def get_obsolete_files(definition, outputs):
 
 def job_to_job_definition(job):
 
-    action_args = shlex.split(job.run_command)
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
     # Check `is True` so we fail closed if we ever get anything else
-    if requires_db_access(action_args) is True:
+    if job.requires_db:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
@@ -403,6 +401,7 @@ def job_to_job_definition(job):
             if config.EMIS_ORGANISATION_HASH:
                 env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
     # Prepend registry name
+    action_args = job.action_args
     image = action_args.pop(0)
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
     if image.startswith("stata-mp"):
@@ -557,9 +556,20 @@ def get_reason_job_not_started(job):
     required_resources = get_job_resource_weight(job)
     if used_resources + required_resources > config.MAX_WORKERS:
         if required_resources > 1:
-            return "Waiting on available workers for resource intensive job"
+            return (
+                StatusCode.WAITING_ON_WORKERS,
+                "Waiting on available workers for resource intensive job",
+            )
         else:
-            return "Waiting on available workers"
+            return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
+
+    if job.requires_db:
+        running_db_jobs = len([j for j in running_jobs if j.requires_db])
+        if running_db_jobs >= config.MAX_DB_WORKERS:
+            return (
+                StatusCode.WAITING_ON_DB_WORKERS,
+                "Waiting on available database workers",
+            )
 
 
 def list_outputs_from_action(workspace, action):

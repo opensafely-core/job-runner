@@ -276,6 +276,7 @@ def trace_attributes(job):
         orgs=",".join(job._job_request.get("orgs", [])),
         state=job.state.name,
         message=job.status_message,
+        requires_db=job.requires_db,
     )
 
     # local_run jobs don't have a commit
