@@ -1,12 +1,10 @@
-import time
-
 from jobrunner import record_stats
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import job_factory
 
 
-def test_record_tick_trace(db):
+def test_record_tick_trace(db, freezer):
 
     jobs = []
     jobs.append(job_factory(status_code=StatusCode.CREATED))
@@ -21,16 +19,17 @@ def test_record_tick_trace(db):
     last_run1 = record_stats.record_tick_trace(None)
     assert len(get_trace()) == 0
 
-    time.sleep(0.1)
+    freezer.tick(10)
+
     last_run2 = record_stats.record_tick_trace(last_run1)
-    assert last_run2 > last_run1
+    assert last_run2 == last_run1 + 10 * 1e9
 
     spans = get_trace()
 
     root = spans[-1]
     assert root.name == "TICK"
     assert root.start_time == last_run1
-    assert root.end_time >= last_run2
+    assert root.end_time == last_run2
 
     for job, span in zip(jobs, spans):
         assert span.name == job.status_code.name

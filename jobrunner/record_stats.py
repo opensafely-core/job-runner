@@ -92,7 +92,7 @@ def record_tick_trace(last_run):
     Not that this will emit number of active jobs + 1 events every call, so we
     don't want to call it on too tight a loop.
     """
-    now = int(time.time() * 10e9)
+    now = time.time_ns()
 
     if last_run is None:
         return now
