@@ -105,15 +105,12 @@ def record_tick_trace(last_run):
         models.Job, state__in=[models.State.PENDING, models.State.RUNNING]
     )
 
-    root = tracer.start_span("TICK", start_time=start_time)
-
-    for job in active_jobs:
-        span = tracer.start_span(job.status_code.name, start_time=start_time)
-        # TODO add cpu/memory as attributes?
-        tracing.set_span_metadata(span, job, tick=True)
-        span.end(end_time)
-
-    root.end(end_time)
+    with tracer.start_as_current_span("TICK", start_time=start_time):
+        for job in active_jobs:
+            span = tracer.start_span(job.status_code.name, start_time=start_time)
+            # TODO add cpu/memory as attributes?
+            tracing.set_span_metadata(span, job, tick=True)
+            span.end(end_time)
 
     return end_time
 

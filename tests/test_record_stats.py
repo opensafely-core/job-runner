@@ -25,18 +25,19 @@ def test_record_tick_trace(db):
 
     end_time = spans[0].end_time
 
+    root = spans[-1]
+    assert root.name == "TICK"
+    assert root.start_time == last_run
+
     for job, span in zip(jobs, spans):
         assert span.name == job.status_code.name
         assert span.start_time == last_run
         assert span.end_time == end_time
         assert span.attributes["tick"] is True
         assert span.attributes["job"] == job.id
+        assert span.parent.span_id == root.context.span_id
 
     assert "SUCCEEDED" not in [s.name for s in spans]
-
-    assert spans[-1].name == "TICK"
-    assert spans[-1].start_time == last_run
-    assert spans[-1].end_time == end_time
 
 
 def test_record_tick_trace_last_run_is_none(db):
