@@ -3,17 +3,20 @@ Ops utility for killing jobs and cleaning up containers and volumes
 """
 import argparse
 
-from jobrunner.executors.local import container_name, docker, volume_api
-from jobrunner.lib.database import find_where
+from jobrunner.executors import local
+from jobrunner.lib import database, docker
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.run import mark_job_as_failed
+from jobrunner.run import job_to_job_definition, mark_job_as_failed
 
 
 def main(partial_job_ids, cleanup=False):
     jobs = get_jobs(partial_job_ids)
+    #
+    #
     for job in jobs:
         # If the job has been previously killed we don't want to overwrite the
         # timestamps here
+        container = local.container_name(job)
         if job.state in (State.PENDING, State.RUNNING):
             mark_job_as_failed(
                 job,
@@ -21,17 +24,27 @@ def main(partial_job_ids, cleanup=False):
                 "An OpenSAFELY admin manually killed this job",
             )
         # All these docker commands are idempotent
-        docker.kill(container_name(job))
+        docker.kill(container)
+
+        # save the logs
+        container_metadata = docker.container_inspect(
+            container, none_if_not_exists=True
+        )
+        if container_metadata:
+            job = job_to_job_definition(job)
+            metadata = local.get_job_metadata(job, {}, container_metadata)
+            local.write_job_logs(job, metadata, copy_log_to_workspace=False)
+
         if cleanup:
-            docker.delete_container(container_name(job))
-            volume_api.delete_volume(job)
+            docker.delete_container(container)
+            local.volume_api.delete_volume(job)
 
 
 def get_jobs(partial_job_ids):
     jobs = []
     need_confirmation = False
     for partial_job_id in partial_job_ids:
-        matches = find_where(Job, id__like=f"%{partial_job_id}%")
+        matches = database.find_where(Job, id__like=f"%{partial_job_id}%")
         if len(matches) == 0:
             raise RuntimeError(f"No jobs found matching '{partial_job_id}'")
         elif len(matches) > 1:

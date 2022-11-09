@@ -301,15 +301,16 @@ def finalize_job(job):
         image_id=container_metadata["Image"],
         message=message,
     )
-    persist_outputs(job, results.outputs, container_metadata)
+    job.completed_at = int(time.time())
+    job_metadata = get_job_metadata(job, outputs, container_metadata)
+    write_job_logs(job, job_metadata)
+    persist_outputs(job, results.outputs, job_metadata)
     RESULTS[job.id] = results
 
 
-def persist_outputs(job, outputs, container_metadata):
-    """Copy logs and generated outputs to persistant storage."""
+def get_job_metadata(job, outputs, container_metadata):
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
-    job.completed_at = int(time.time())
     job_metadata = dict()
     job_metadata["job_id"] = job.id
     job_metadata["job_request_id"] = job.job_request_id
@@ -321,31 +322,43 @@ def persist_outputs(job, outputs, container_metadata):
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job.study.commit
+    return job_metadata
 
+
+def write_job_logs(job, job_metadata, copy_log_to_workspace=True):
+    """Copy logs to log dir and workspace."""
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
     write_log_file(job, job_metadata, log_dir / "logs.txt")
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
 
-    # Copy logs to workspace
-    workspace_dir = get_high_privacy_workspace(job.workspace)
-    metadata_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
-    copy_file(log_dir / "logs.txt", metadata_log_file)
-    log.info(f"Logs written to: {metadata_log_file}")
+    if copy_log_to_workspace:
+        workspace_dir = get_high_privacy_workspace(job.workspace)
+        workspace_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
+        copy_file(log_dir / "logs.txt", workspace_log_file)
+        log.info(f"Logs written to: {workspace_log_file}")
 
+        medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
+        if medium_privacy_dir:
+            copy_file(
+                workspace_log_file,
+                medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
+            )
+
+
+def persist_outputs(job, outputs, job_metadata):
+    """Copy generated outputs to persistant storage."""
     # Extract outputs to workspace
+    workspace_dir = get_high_privacy_workspace(job.workspace)
+
     for filename in outputs.keys():
         log.info(f"Extracting output file: {filename}")
         volume_api.copy_from_volume(job, filename, workspace_dir / filename)
 
-    # Copy out logs and medium privacy files
+    # Copy out medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
     if medium_privacy_dir:
-        copy_file(
-            workspace_dir / METADATA_DIR / f"{job.action}.log",
-            medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
-        )
         for filename, privacy_level in outputs.items():
             if privacy_level == "moderately_sensitive":
                 copy_file(workspace_dir / filename, medium_privacy_dir / filename)
@@ -519,6 +532,7 @@ def redact_environment_variables(container_metadata):
 
 def write_manifest_file(workspace_dir, manifest):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
+    manifest_file.parent.mkdir(exist_ok=True)
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)
