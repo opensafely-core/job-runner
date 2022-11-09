@@ -39,9 +39,7 @@ def main():
     connection = get_database_connection(database_file)
     last_run = None
     while True:
-        if last_run:
-            last_run = record_tick_trace(last_run)
-
+        last_run = record_tick_trace(last_run)
         log_stats(connection)
         time.sleep(config.STATS_POLL_INTERVAL)
 
@@ -94,10 +92,14 @@ def record_tick_trace(last_run):
     Not that this will emit number of active jobs + 1 events every call, so we
     don't want to call it on too tight a loop.
     """
+    now = int(time.time() * 10e9)
+
+    if last_run is None:
+        return now
 
     # every span has the same timings
     start_time = last_run
-    end_time = int(time.time() * 10e9)
+    end_time = now
 
     active_jobs = database.find_where(
         models.Job, state__in=[models.State.PENDING, models.State.RUNNING]

@@ -37,3 +37,10 @@ def test_record_tick_trace(db):
     assert spans[-1].name == "TICK"
     assert spans[-1].start_time == last_run
     assert spans[-1].end_time == end_time
+
+
+def test_record_tick_trace_last_run_is_none(db):
+    now = int((time.time() - 10) * 1e9)
+    last_run = record_stats.record_tick_trace(None)
+    assert last_run > now
+    assert len(get_trace()) == 0
