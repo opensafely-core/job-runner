@@ -8,7 +8,10 @@ import sqlite3
 import sys
 import time
 
-from jobrunner import config
+from opentelemetry import trace
+
+from jobrunner import config, models, tracing
+from jobrunner.lib import database
 from jobrunner.lib.docker_stats import (
     get_container_stats,
     get_volume_and_container_sizes,
@@ -34,7 +37,9 @@ def main():
         return
     log.info(f"Logging system stats to: {database_file}")
     connection = get_database_connection(database_file)
+    last_run = None
     while True:
+        last_run = record_tick_trace(last_run)
         log_stats(connection)
         time.sleep(config.STATS_POLL_INTERVAL)
 
@@ -71,6 +76,46 @@ def get_all_stats():
         "containers": containers,
         "volumes": volume_sizes,
     }
+
+
+tracer = trace.get_tracer("ticks")
+
+
+def record_tick_trace(last_run):
+    """Record a period tick trace of current jobs.
+
+    This will give us more realtime information than the job traces, which only
+    send spans data when *leaving* a state.
+
+    The easiest way to filter these in honeycomb is on tick==true attribute
+
+    Not that this will emit number of active jobs + 1 events every call, so we
+    don't want to call it on too tight a loop.
+    """
+    now = int(time.time() * 10e9)
+
+    if last_run is None:
+        return now
+
+    # every span has the same timings
+    start_time = last_run
+    end_time = now
+
+    active_jobs = database.find_where(
+        models.Job, state__in=[models.State.PENDING, models.State.RUNNING]
+    )
+
+    root = tracer.start_span("TICK", start_time=start_time)
+
+    for job in active_jobs:
+        span = tracer.start_span(job.status_code.name, start_time=start_time)
+        # TODO add cpu/memory as attributes?
+        tracing.set_span_metadata(span, job, tick=True)
+        span.end(end_time)
+
+    root.end(end_time)
+
+    return end_time
 
 
 if __name__ == "__main__":
