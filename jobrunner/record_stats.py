@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import sqlite3
+import subprocess
 import sys
 import time
 
@@ -56,15 +57,18 @@ def get_database_connection(filename):
 
 
 def log_stats(connection):
-    stats = get_all_stats()
-    # If no containers are running then don't log anything
-    if not stats["containers"]:
-        return
-    timestamp = datetime.datetime.utcnow().isoformat()
-    connection.execute(
-        "INSERT INTO stats (timestamp, data) VALUES (?, ?)",
-        [timestamp, json.dumps(stats)],
-    )
+    try:
+        stats = get_all_stats()
+        # If no containers are running then don't log anything
+        if not stats["containers"]:
+            return
+        timestamp = datetime.datetime.utcnow().isoformat()
+        connection.execute(
+            "INSERT INTO stats (timestamp, data) VALUES (?, ?)",
+            [timestamp, json.dumps(stats)],
+        )
+    except subprocess.TimeoutExpired:
+        log.exception("Getting docker stats timed out")
 
 
 def get_all_stats():

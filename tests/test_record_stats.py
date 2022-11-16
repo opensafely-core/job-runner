@@ -1,3 +1,6 @@
+import logging
+import subprocess
+
 from jobrunner import record_stats
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
@@ -40,3 +43,16 @@ def test_record_tick_trace(db, freezer):
         assert span.parent.span_id == root.context.span_id
 
     assert "SUCCEEDED" not in [s.name for s in spans]
+
+
+def test_log_stats(db, caplog, monkeypatch):
+    def error():
+        raise subprocess.TimeoutExpired("test me", 10)
+
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(record_stats, "get_all_stats", error)
+
+    record_stats.log_stats(None)
+
+    assert caplog.records[-1].msg == "Getting docker stats timed out"
+    assert "test me" in caplog.records[-1].exc_text

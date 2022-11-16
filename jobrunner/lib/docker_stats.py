@@ -3,11 +3,15 @@ import json
 from jobrunner.lib.subprocess_utils import subprocess_run
 
 
-def get_volume_and_container_sizes():
+DEFAULT_TIMEOUT = 10
+
+
+def get_volume_and_container_sizes(timeout=DEFAULT_TIMEOUT):
     response = subprocess_run(
         ["docker", "system", "df", "--verbose", "--format", "{{json .}}"],
         capture_output=True,
         check=True,
+        timeout=timeout,
     )
     data = json.loads(response.stdout)
     volumes = {row["Name"]: _parse_size(row["Size"]) for row in data["Volumes"]}
@@ -15,11 +19,12 @@ def get_volume_and_container_sizes():
     return volumes, containers
 
 
-def get_container_stats():
+def get_container_stats(timeout=DEFAULT_TIMEOUT):
     response = subprocess_run(
         ["docker", "stats", "--no-stream", "--format", "{{json .}}"],
         capture_output=True,
         check=True,
+        timeout=timeout,
     )
     data = [json.loads(line) for line in response.stdout.splitlines()]
     return {
