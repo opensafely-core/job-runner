@@ -11,9 +11,9 @@ import requests
 
 from jobrunner import config, queries
 from jobrunner.create_or_update_jobs import create_or_update_jobs
-from jobrunner.lib.database import find_where
+from jobrunner.lib.database import find_where, select_values
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.models import Job, JobRequest
+from jobrunner.models import Job, JobRequest, State
 
 
 session = requests.Session()
@@ -52,7 +52,18 @@ def sync():
     for job_request in job_requests:
         with set_log_context(job_request=job_request):
             create_or_update_jobs(job_request)
-    jobs = find_where(Job, job_request_id__in=job_request_ids)
+
+    # `job_request_ids` contains all the JobRequests which job-server thinks are
+    # active; this query gets all those which _we_ think are active
+    active_job_request_ids = select_values(
+        Job, "job_request_id", state__in=[State.PENDING, State.RUNNING]
+    )
+    # We sync all jobs belonging to either set (using `dict.fromkeys` to preserve order
+    # for easier testing)
+    job_request_ids_to_sync = list(
+        dict.fromkeys(job_request_ids + active_job_request_ids)
+    )
+    jobs = find_where(Job, job_request_id__in=job_request_ids_to_sync)
     jobs_data = [job_to_remote_format(i) for i in jobs]
     log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
 
