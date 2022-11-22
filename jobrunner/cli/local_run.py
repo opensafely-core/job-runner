@@ -189,6 +189,9 @@ def main(
             clean_up_docker_objects=(not debug),
             log_format=log_format,
             format_output_for_github=format_output_for_github,
+            concurrency=concurrency,
+            memory=memory,
+            cpu=cpu,
         )
     except KeyboardInterrupt:
         print("\nKilled by user")
