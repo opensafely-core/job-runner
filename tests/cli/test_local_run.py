@@ -12,12 +12,32 @@ from pipeline import load_pipeline
 from jobrunner import config
 from jobrunner.actions import get_action_specification
 from jobrunner.cli import local_run
-from jobrunner.lib import database
+from jobrunner.lib import database, docker
 from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.models import Job, SavedJobRequest, State
 
 
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
+
+
+@pytest.mark.slow_test
+@pytest.mark.needs_docker
+def test_local_run_limits_applied(db, tmp_path, docker_cleanup):
+    project_dir = tmp_path / "project"
+    shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
+
+    local_run.main(
+        project_dir=project_dir,
+        actions=["generate_dataset"],
+        debug=True,  # preserves containers for inspection
+        memory="1.5G",
+        cpu=1.5,
+    )
+
+    for job in database.find_all(Job):
+        metadata = docker.container_inspect(f"os-job-{job.id}")
+        assert metadata["HostConfig"]["Memory"] == 1.5 * 1024**3
+        assert metadata["HostConfig"]["NanoCpus"] == 1.5 * 1e9
 
 
 @pytest.mark.parametrize("extraction_tool", ["cohortextractor", "databuilder"])
