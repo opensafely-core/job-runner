@@ -365,7 +365,7 @@ def test_handle_job_finalized_failed_exit_code(
     # our state
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.NONZERO_EXIT
-    expected = f"Job exited with error code {exit_code}"
+    expected = "Job exited with an error"
     if extra_message:
         expected += f": {extra_message}"
     assert job.status_message == expected
