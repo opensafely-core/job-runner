@@ -328,7 +328,7 @@ def save_results(job, definition, results):
     if results.exit_code != 0:
         state = State.FAILED
         code = StatusCode.NONZERO_EXIT
-        message = f"Job exited with error code {results.exit_code}"
+        message = "Job exited with an error"
         if results.message:
             message += f": {results.message}"
         elif definition.allow_database_access:
