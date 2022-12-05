@@ -1,6 +1,7 @@
 import configparser
 import os
 import re
+import subprocess
 from multiprocessing import cpu_count
 from pathlib import Path
 
@@ -14,6 +15,26 @@ def _is_valid_backend_name(name):
 
 
 default_work_dir = Path(__file__) / "../../workdir"
+
+
+VERSION = os.environ.get("VERSION", "unknown")
+if VERSION == "unknown":
+    try:
+        VERSION = subprocess.check_output(
+            ["git", "describe", "--tags"], text=True
+        ).strip()
+    except subprocess.CalledProcessError:
+        pass
+
+
+GIT_SHA = os.environ.get("GIT_SHA", "unknown")
+if GIT_SHA == "unknown":
+    try:
+        GIT_SHA = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], text=True
+        ).strip()
+    except subprocess.CalledProcessError:
+        pass
 
 
 WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()

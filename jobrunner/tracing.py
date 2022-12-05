@@ -277,6 +277,8 @@ def trace_attributes(job, results=None):
         state=job.state.name,
         message=job.status_message,
         requires_db=job.requires_db,
+        jobrunner_version=config.VERSION,
+        jobrunner_sha=config.GIT_SHA,
     )
 
     # local_run jobs don't have a commit

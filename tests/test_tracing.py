@@ -7,7 +7,9 @@ from tests.conftest import get_trace
 from tests.factories import job_factory, job_request_factory, job_results_factory
 
 
-def test_trace_attributes(db):
+def test_trace_attributes(db, monkeypatch):
+    monkeypatch.setattr(tracing.config, "VERSION", "v1.2.3")
+    monkeypatch.setattr(tracing.config, "GIT_SHA", "abcdefg")
 
     jr = job_request_factory(
         original=dict(
@@ -58,10 +60,14 @@ def test_trace_attributes(db):
         exit_code=1,
         image_id="image_id",
         executor_message="message",
+        jobrunner_version="v1.2.3",
+        jobrunner_sha="abcdefg",
     )
 
 
-def test_trace_attributes_missing(db):
+def test_trace_attributes_missing(db, monkeypatch):
+    monkeypatch.setattr(tracing.config, "VERSION", "v1.2.3")
+    monkeypatch.setattr(tracing.config, "GIT_SHA", "abcdefg")
 
     jr = job_request_factory(
         original=dict(
@@ -94,6 +100,8 @@ def test_trace_attributes_missing(db):
         state="PENDING",
         message="message",
         requires_db=False,
+        jobrunner_version="v1.2.3",
+        jobrunner_sha="abcdefg",
     )
 
 
