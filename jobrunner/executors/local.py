@@ -12,6 +12,7 @@ from jobrunner import config
 from jobrunner.executors.volumes import copy_file, get_volume_api
 from jobrunner.job_executor import (
     ExecutorAPI,
+    ExecutorRetry,
     ExecutorState,
     JobDefinition,
     JobResults,
@@ -187,9 +188,15 @@ class LocalDockerAPI(ExecutorAPI):
 
     def get_status(self, job):
         name = container_name(job)
-        job_running = docker.container_inspect(
-            name, "State.Running", none_if_not_exists=True
-        )
+        try:
+            job_running = docker.container_inspect(
+                name,
+                "State.Running",
+                none_if_not_exists=True,
+                timeout=10,
+            )
+        except docker.DockerTimeoutError:
+            raise ExecutorRetry("timed out inspecting container {name}")
 
         if job_running is None:
             # no volume for this job found

@@ -575,6 +575,63 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
     assert spans[-1].name == "JOB"
 
 
+def test_handle_single_job_retries_exceeded(db, monkeypatch):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED)
+
+    def retry(*args, **kwargs):
+        raise run.ExecutorRetry("retry")
+
+    monkeypatch.setattr(api, "get_status", retry)
+    monkeypatch.setattr(config, "MAX_RETRIES", 3)
+
+    run.handle_single_job(job, api)
+    run.handle_single_job(job, api)
+    run.handle_single_job(job, api)
+
+    with pytest.raises(run.RetriesExceeded):
+        run.handle_single_job(job, api)
+
+    assert job.state is State.FAILED
+
+    spans = get_trace()
+    assert spans[-3].name == "EXECUTED"
+    error_span = spans[-2]
+    assert error_span.name == "INTERNAL_ERROR"
+    assert error_span.status.status_code == trace.StatusCode.ERROR
+    assert error_span.events[0].name == "exception"
+    assert (
+        error_span.events[0].attributes["exception.message"]
+        == f"Too many retries for job {job.id} from executor"
+    )
+    assert spans[-1].name == "JOB"
+
+
+def test_handle_single_job_retries_not_exceeded(db, monkeypatch):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED)
+
+    def retry(*args, **kwargs):
+        raise run.ExecutorRetry("retry")
+
+    orig_get_status = api.get_status
+
+    monkeypatch.setattr(api, "get_status", retry)
+    monkeypatch.setattr(config, "MAX_RETRIES", 3)
+
+    run.handle_single_job(job, api)
+    run.handle_single_job(job, api)
+    run.handle_single_job(job, api)
+
+    monkeypatch.setattr(api, "get_status", orig_get_status)
+
+    # do *not* blow up this time
+    run.handle_single_job(job, api)
+
+    assert job.state is State.RUNNING
+    assert job.id not in run.EXECUTOR_RETRIES
+
+
 def test_handle_single_job_shortcuts_synchronous(db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
