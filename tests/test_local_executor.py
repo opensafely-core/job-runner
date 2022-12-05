@@ -622,3 +622,30 @@ def test_delete_files_bad_privacy(tmp_work_dir):
     populate_workspace("test", "file.txt")
     with pytest.raises(Exception):
         api.delete_files("test", None, ["file.txt"])
+
+
+def test_get_status_timeout(tmp_work_dir, monkeypatch):
+
+    job = JobDefinition(
+        id="test_get_status_timeout",
+        job_request_id="test_request_id",
+        study=None,
+        workspace="test",
+        action="action",
+        created_at=int(time.time()),
+        image="ghcr.io/opensafely-core/busybox",
+        args=["sleep", "1"],
+        env={},
+        inputs=[],
+        output_spec={},
+        allow_database_access=False,
+    )
+
+    def inspect(*args, **kwargs):
+        raise docker.DockerTimeoutError("timeout")
+
+    monkeypatch.setattr(local.docker, "container_inspect", inspect)
+    api = local.LocalDockerAPI()
+
+    with pytest.raises(local.ExecutorRetry):
+        api.get_status(job)

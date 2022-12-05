@@ -61,6 +61,12 @@ class JobResults:
     message: str = None
 
 
+class ExecutorRetry(Exception):
+    """Indicates to the job scheduler that there's a temporary issue and to try again later."""
+
+    pass
+
+
 class ExecutorAPI:
     """
     API for managing job execution.

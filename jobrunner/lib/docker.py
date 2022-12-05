@@ -301,7 +301,7 @@ def container_is_running(name):
     return container_inspect(name, "State.Running", none_if_not_exists=True) or False
 
 
-def container_inspect(name, key="", none_if_not_exists=False):
+def container_inspect(name, key="", none_if_not_exists=False, timeout=None):
     """
     Retrieves metadata about the named container. By default will return
     everything but `key` can be a dotted path to a specific piece of metadata.
@@ -315,7 +315,10 @@ def container_inspect(name, key="", none_if_not_exists=False):
             ["container", "inspect", "--format", "{{json .%s}}" % key, name],
             check=True,
             capture_output=True,
+            timeout=timeout,
         )
+    except subprocess.TimeoutExpired:
+        raise DockerTimeoutError(f"container_inspect timeout for {name}")
     except subprocess.CalledProcessError as e:
         if (
             none_if_not_exists

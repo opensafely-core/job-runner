@@ -14,6 +14,7 @@ from jobrunner import config, tracing
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import (
     ExecutorAPI,
+    ExecutorRetry,
     ExecutorState,
     JobDefinition,
     Privacy,
@@ -26,6 +27,13 @@ from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 
 log = logging.getLogger(__name__)
+
+# used to track the number of times an executor has asked to retry a job
+EXECUTOR_RETRIES = {}
+
+
+class RetriesExceeded(Exception):
+    pass
 
 
 class InvalidTransition(Exception):
@@ -188,7 +196,19 @@ def handle_job(job, api, mode=None, paused=None):
         )
         return
 
-    initial_status = api.get_status(definition)
+    try:
+        initial_status = api.get_status(definition)
+    except ExecutorRetry:
+        retries = EXECUTOR_RETRIES.get(job.id, 0)
+        if retries >= config.MAX_RETRIES:
+            raise RetriesExceeded(
+                f"Too many retries for job {job.id} from executor"
+            ) from ExecutorRetry
+        else:
+            EXECUTOR_RETRIES[job.id] = retries + 1
+            return
+    else:
+        EXECUTOR_RETRIES.pop(job.id, None)
 
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
