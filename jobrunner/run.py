@@ -372,15 +372,7 @@ def save_results(job, definition, results):
         code = StatusCode.SUCCEEDED
         message = "Completed successfully"
 
-    trace_attrs = dict(
-        exit_code=results.exit_code,
-        image_id=results.image_id,
-        outputs=len(results.outputs),
-        unmatched_patterns=len(results.unmatched_patterns),
-        unmatched_outputs=len(results.unmatched_outputs),
-    )
-
-    set_state(job, state, code, message, error=state == State.FAILED, **trace_attrs)
+    set_state(job, state, code, message, error=state == State.FAILED, results=results)
 
 
 def get_obsolete_files(definition, outputs):
@@ -479,7 +471,7 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
     set_state(job, State.FAILED, code, message, error=error, attrs=attrs)
 
 
-def set_state(job, state, code, message, error=None, **attrs):
+def set_state(job, state, code, message, error=None, results=None, **attrs):
     """Update the high level state transitions.
 
     Error can be an exception or a string message.
@@ -502,10 +494,10 @@ def set_state(job, state, code, message, error=None, **attrs):
     elif state == State.PENDING:  # restarting the job gracefully
         job.started_at = None
 
-    set_code(job, code, message, error=error, **attrs)
+    set_code(job, code, message, error=error, results=results, **attrs)
 
 
-def set_code(job, code, message, error=None, **attrs):
+def set_code(job, code, message, error=None, results=None, **attrs):
     """Set the granular status code state.
 
     We also trace this transition with OpenTelemetry traces.
@@ -525,7 +517,7 @@ def set_code(job, code, message, error=None, **attrs):
 
         # trace we finished the previous state
         tracing.finish_current_state(
-            job, timestamp_ns, error=error, message=message, **attrs
+            job, timestamp_ns, error=error, message=message, results=results, **attrs
         )
 
         # update db object
@@ -540,7 +532,12 @@ def set_code(job, code, message, error=None, **attrs):
         if code in FINAL_STATUS_CODES:
             # transitioning to a final state, so just record that state
             tracing.record_final_state(
-                job, timestamp_ns, error=error, message=message, **attrs
+                job,
+                timestamp_ns,
+                error=error,
+                message=message,
+                results=results,
+                **attrs,
             )
         else:
             # trace that we've started the next state

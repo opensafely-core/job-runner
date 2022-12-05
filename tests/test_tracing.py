@@ -4,7 +4,7 @@ from opentelemetry import trace
 
 from jobrunner import models, tracing
 from tests.conftest import get_trace
-from tests.factories import job_factory, job_request_factory
+from tests.factories import job_factory, job_request_factory, job_results_factory
 
 
 def test_trace_attributes(db):
@@ -26,7 +26,16 @@ def test_trace_attributes(db):
         status_message="message",
     )
 
-    attrs = tracing.trace_attributes(job)
+    results = job_results_factory(
+        outputs=["foo", "bar"],
+        unmatched_patterns=["unmatched_patterns"],
+        unmatched_outputs=["unmatched_outputs"],
+        exit_code=1,
+        image_id="image_id",
+        message="message",
+    )
+
+    attrs = tracing.trace_attributes(job, results)
 
     assert attrs == dict(
         backend="expectations",
@@ -43,6 +52,12 @@ def test_trace_attributes(db):
         message="message",
         reusable_action="action_repo:commit",
         requires_db=False,
+        outputs=2,
+        unmatched_patterns=1,
+        unmatched_outputs=1,
+        exit_code=1,
+        image_id="image_id",
+        executor_message="message",
     )
 
 
@@ -97,10 +112,11 @@ def test_initialise_trace(db):
 
 def test_finish_current_state(db):
     job = job_factory()
+    results = job_results_factory()
 
     ts = int(time.time() * 1e9)
 
-    tracing.finish_current_state(job, ts, extra="extra")
+    tracing.finish_current_state(job, ts, results=results, extra="extra")
 
     spans = get_trace()
     assert spans[-1].name == "CREATED"
@@ -109,22 +125,27 @@ def test_finish_current_state(db):
     assert spans[-1].attributes["extra"] == "extra"
     assert spans[-1].attributes["job"] == job.id
     assert spans[-1].attributes["is_state"] is True
+    assert spans[-1].attributes["exit_code"] == 0
 
 
 def test_record_final_state(db):
     job = job_factory(status_code=models.StatusCode.SUCCEEDED)
+    results = job_results_factory()
     ts = int(time.time() * 1e9)
-    tracing.record_final_state(job, ts)
+    tracing.record_final_state(job, ts, results=results)
 
     spans = get_trace()
     assert spans[-2].name == "SUCCEEDED"
+    assert spans[-2].attributes["exit_code"] == 0
     assert spans[-1].name == "JOB"
+    assert spans[-1].attributes["exit_code"] == 0
 
 
 def test_record_final_state_error(db):
     job = job_factory(status_code=models.StatusCode.INTERNAL_ERROR)
     ts = int(time.time() * 1e9)
-    tracing.record_final_state(job, ts, error=Exception("error"))
+    results = job_results_factory(exit_code=1)
+    tracing.record_final_state(job, ts, error=Exception("error"), results=results)
 
     spans = get_trace()
     assert spans[-2].name == "INTERNAL_ERROR"
@@ -132,12 +153,14 @@ def test_record_final_state_error(db):
     assert spans[-2].events[0].name == "exception"
     assert spans[-2].events[0].attributes["exception.message"] == "error"
     assert spans[-2].status.status_code == trace.StatusCode.ERROR
+    assert spans[-2].attributes["exit_code"] == 1
 
     assert spans[-1].name == "JOB"
     assert spans[-1].status.status_code.name == "ERROR"
     assert spans[-1].events[0].name == "exception"
     assert spans[-1].events[0].attributes["exception.message"] == "error"
     assert spans[-1].status.status_code == trace.StatusCode.ERROR
+    assert spans[-1].attributes["exit_code"] == 1
 
 
 def test_start_new_state(db):
@@ -162,16 +185,17 @@ def test_record_job_span_skips_uninitialized_job(db):
     ts = int(time.time() * 1e9)
     job.trace_context = None
 
-    tracing.record_job_span(job, "name", ts, ts + 10000, error=None)
+    tracing.record_job_span(job, "name", ts, ts + 10000, error=None, results=None)
 
     assert len(get_trace()) == 0
 
 
 def test_complete_job(db):
     job = job_factory()
+    results = job_results_factory(exit_code=1)
     ts = int(time.time() * 1e9)
 
-    tracing.complete_job(job, ts)
+    tracing.complete_job(job, ts, results=results)
 
     ctx = tracing.load_root_span(job)
 
@@ -180,6 +204,7 @@ def test_complete_job(db):
     assert spans[0].context.trace_id == ctx.trace_id
     assert spans[0].context.span_id == ctx.span_id
     assert spans[0].parent is None
+    assert spans[0].attributes["exit_code"] == 1
 
 
 def test_set_span_metadata_attrs(db):
