@@ -62,6 +62,11 @@ def test_trace_attributes(db, monkeypatch):
         executor_message="message",
         jobrunner_version="v1.2.3",
         jobrunner_sha="abcdefg",
+        action_version="unknown",
+        action_revision="unknown",
+        action_created="unknown",
+        base_revision="unknown",
+        base_created="unknown",
     )
 
 

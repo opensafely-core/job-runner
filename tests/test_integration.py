@@ -195,6 +195,11 @@ def test_integration_with_cohortextractor(
     assert len(executed_jobs) == 7
     assert sum(s.attributes["exit_code"] for s in executed_jobs) == 0
 
+    # If this fails, it might be that your docker images have missing labels,
+    # try pulling.  If that fails, it maybe the latest images are missing
+    # labels.
+    assert not any(s.attributes["action_created"] == "unknown" for s in executed_jobs)
+
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker

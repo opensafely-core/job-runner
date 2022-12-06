@@ -285,6 +285,7 @@ def finalize_job(job):
     outputs, unmatched_patterns = find_matching_outputs(job)
     unmatched_outputs = get_unmatched_outputs(job, outputs)
     exit_code = container_metadata["State"]["ExitCode"]
+    labels = container_metadata.get("Config", {}).get("Labels", {})
 
     # First get the user-friendly message for known database exit codes, for jobs
     # that have db access
@@ -307,6 +308,11 @@ def finalize_job(job):
         exit_code=container_metadata["State"]["ExitCode"],
         image_id=container_metadata["Image"],
         message=message,
+        action_version=labels.get("org.opencontainers.image.version", "unknown"),
+        action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
+        action_created=labels.get("org.opencontainers.image.created", "unknown"),
+        base_revision=labels.get("org.opensafely.base.vcs-ref", "unknown"),
+        base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
     job.completed_at = int(time.time())
     job_metadata = get_job_metadata(job, outputs, container_metadata)

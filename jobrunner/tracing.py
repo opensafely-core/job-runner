@@ -297,6 +297,11 @@ def trace_attributes(job, results=None):
         attrs["unmatched_patterns"] = len(results.unmatched_patterns)
         attrs["unmatched_outputs"] = len(results.unmatched_outputs)
         attrs["executor_message"] = results.message
+        attrs["action_version"] = results.action_version
+        attrs["action_revision"] = results.action_revision
+        attrs["action_created"] = results.action_created
+        attrs["base_revision"] = results.base_revision
+        attrs["base_created"] = results.base_created
 
     return attrs
 
