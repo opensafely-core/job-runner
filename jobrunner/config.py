@@ -23,7 +23,7 @@ if VERSION == "unknown":
         VERSION = subprocess.check_output(
             ["git", "describe", "--tags"], text=True
         ).strip()
-    except subprocess.CalledProcessError:
+    except (FileNotFoundError, subprocess.CalledProcessError):
         pass
 
 
@@ -33,7 +33,7 @@ if GIT_SHA == "unknown":
         GIT_SHA = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"], text=True
         ).strip()
-    except subprocess.CalledProcessError:
+    except (FileNotFoundError, subprocess.CalledProcessError):
         pass
 
 

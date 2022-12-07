@@ -9,7 +9,7 @@ from jobrunner.config import _is_valid_backend_name
 
 
 script = """
-from jobrunner import config;
+from jobrunner import config
 cfg = {k: str(v) for k, v in vars(config).items() if k.isupper()}
 print(repr(cfg))
 """
@@ -25,17 +25,20 @@ def import_cfg(env, raises=None):
     if "SYSTEMROOT" in os.environ:
         env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
 
-    ps = subprocess.run(
-        [sys.executable, "-c", script],
-        env=env,
-        text=True,
-        capture_output=True,
-    )
-    if ps.returncode == 0:
-        print(ps.stdout)
-        return ast.literal_eval(ps.stdout), None
-    else:
-        return None, ps.stderr
+    try:
+        ps = subprocess.run(
+            [sys.executable, "-c", script],
+            env=env,
+            text=True,
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as err:
+        print(err.stderr)
+        raise
+
+    print(ps.stdout)
+    return ast.literal_eval(ps.stdout)
 
 
 def test_config_imports_with_clean_env():
@@ -47,22 +50,22 @@ def test_config_presto_paths(tmp_path):
     key.write_text("key")
     cert = tmp_path / "cert"
     cert.write_text("cert")
-    cfg, err = import_cfg(
+    print(key)
+    print(cert)
+    cfg = import_cfg(
         {"PRESTO_TLS_KEY_PATH": str(key), "PRESTO_TLS_CERT_PATH": str(cert)}
     )
-    assert err is None
     assert cfg["PRESTO_TLS_KEY"] == "key"
     assert cfg["PRESTO_TLS_CERT"] == "cert"
 
 
 def test_config_presto_paths_not_exist(tmp_path):
-
     key = tmp_path / "key"
     key.write_text("key")
     cert = tmp_path / "cert"
     cert.write_text("cert")
 
-    cfg, err = import_cfg(
+    cfg = import_cfg(
         {
             "PRESTO_TLS_KEY_PATH": str(key),
             "PRESTO_TLS_CERT_PATH": str(cert),
@@ -71,25 +74,32 @@ def test_config_presto_paths_not_exist(tmp_path):
     assert cfg["PRESTO_TLS_KEY"] == "key"
     assert cfg["PRESTO_TLS_CERT"] == "cert"
 
-    # only one
-    _, err = import_cfg({"PRESTO_TLS_KEY_PATH": "foo"})
-    assert "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined" in err
+    with pytest.raises(subprocess.CalledProcessError) as err:
+        import_cfg({"PRESTO_TLS_KEY_PATH": "foo"})
 
-    cfg, err = import_cfg(
-        {
-            "PRESTO_TLS_KEY_PATH": "key.notexists",
-            "PRESTO_TLS_CERT_PATH": str(cert),
-        }
+    assert "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined" in str(
+        err.value.stderr
     )
-    assert "PRESTO_TLS_KEY_PATH=key.notexists" in err
 
-    cfg, err = import_cfg(
-        {
-            "PRESTO_TLS_KEY_PATH": str(key),
-            "PRESTO_TLS_CERT_PATH": "cert.notexists",
-        }
-    )
-    assert "PRESTO_TLS_CERT_PATH=cert.notexists" in err
+    with pytest.raises(subprocess.CalledProcessError) as err:
+        import_cfg(
+            {
+                "PRESTO_TLS_KEY_PATH": "key.notexists",
+                "PRESTO_TLS_CERT_PATH": str(cert),
+            }
+        )
+
+    assert "PRESTO_TLS_KEY_PATH=key.notexists" in str(err.value.stderr)
+
+    with pytest.raises(subprocess.CalledProcessError) as err:
+        import_cfg(
+            {
+                "PRESTO_TLS_KEY_PATH": str(key),
+                "PRESTO_TLS_CERT_PATH": "cert.notexists",
+            }
+        )
+
+    assert "PRESTO_TLS_CERT_PATH=cert.notexists" in str(err.value.stderr)
 
 
 @pytest.mark.parametrize(
