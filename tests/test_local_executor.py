@@ -492,7 +492,7 @@ def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir, volume_api
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir, volume_api):
+def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -506,7 +506,7 @@ def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir, volu
         # Consume memory by writing to the tmpfs at /dev/shm
         # We write a lot more that our limit, to ensure the OOM killer kicks in
         # regardless of our tests host's vm.overcommit_memory settings.
-        args=["sh", "-c", "head -c 100m /dev/urandom >/dev/shm/foo"],
+        args=["sh", "-c", "head -c 1000m /dev/urandom >/dev/shm/foo"],
         env={},
         inputs=["output/input.csv"],
         output_spec={
@@ -522,14 +522,9 @@ def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir, volu
     api = local.LocalDockerAPI()
 
     status = api.prepare(job)
-    assert status.state == ExecutorState.PREPARING
     status = api.execute(job)
-    assert status.state == ExecutorState.EXECUTING
 
     wait_for_state(api, job, ExecutorState.EXECUTED)
-
-    # let the docker service catch up, or else it can sometimes not mark it as OOMKilled fast enough
-    time.sleep(5)
 
     status = api.finalize(job)
     assert status.state == ExecutorState.FINALIZING
