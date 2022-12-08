@@ -11,6 +11,7 @@ import pytest
 import jobrunner.run
 import jobrunner.sync
 from jobrunner.executors import get_executor_api
+from tests.conftest import get_trace
 from tests.factories import ensure_docker_images_present
 
 
@@ -19,7 +20,7 @@ log = logging.getLogger(__name__)
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_integration(
+def test_integration_with_cohortextractor(
     tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
 ):
     # TODO: add the following parametrize decorator back to this test:
@@ -186,6 +187,19 @@ def test_integration(
     # Check that we don't produce outputs for cancelled jobs
     assert not (high_privacy_workspace / f"{extraction_tool}-somefile.csv").exists()
 
+    # Check that spans were emitted and capture details
+    job_spans = [s for s in get_trace() if s.name == "JOB"]
+    assert len(job_spans) == 8
+    # one job is cancelled
+    executed_jobs = [s for s in job_spans if "exit_code" in s.attributes]
+    assert len(executed_jobs) == 7
+    assert sum(s.attributes["exit_code"] for s in executed_jobs) == 0
+
+    # If this fails, it might be that your docker images have missing labels,
+    # try pulling.  If that fails, it maybe the latest images are missing
+    # labels.
+    assert not any(s.attributes["action_created"] == "unknown" for s in executed_jobs)
+
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
@@ -320,6 +334,14 @@ def test_integration_with_databuilder(
 
     # Check that we don't produce outputs for cancelled jobs
     assert not (high_privacy_workspace / "output/count_by_year_cancelled.csv").exists()
+
+    # Check that spans were emitted and capture details
+    job_spans = [s for s in get_trace() if s.name == "JOB"]
+    assert len(job_spans) == 4
+    # one job is cancelled
+    executed_jobs = [s for s in job_spans if "exit_code" in s.attributes]
+    assert len(executed_jobs) == 3
+    assert sum(s.attributes["exit_code"] for s in executed_jobs) == 0
 
 
 def get_posted_jobs(requests_mock):

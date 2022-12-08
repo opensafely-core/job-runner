@@ -60,6 +60,13 @@ class JobResults:
     image_id: str
     message: str = None
 
+    # to be extracted from the image labels
+    action_version: str = "unknown"
+    action_revision: str = "unknown"
+    action_created: str = "unknown"
+    base_revision: str = "unknown"
+    base_created: str = "unknown"
+
 
 class ExecutorRetry(Exception):
     """Indicates to the job scheduler that there's a temporary issue and to try again later."""

@@ -528,6 +528,9 @@ def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir, volu
 
     wait_for_state(api, job, ExecutorState.EXECUTED)
 
+    # let the docker service catch up, or else it can sometimes not mark it as OOMKilled fast enough
+    time.sleep(5)
+
     status = api.finalize(job)
     assert status.state == ExecutorState.FINALIZING
 

@@ -41,6 +41,16 @@ JOB_DEFAULTS = {
 }
 
 
+JOB_RESULTS_DEFAULTS = {
+    "outputs": ["output1", "output2"],
+    "unmatched_patterns": [],
+    "unmatched_outputs": [],
+    "exit_code": 0,
+    "image_id": "image_id",
+    "message": "message",
+}
+
+
 def job_request_factory_raw(**kwargs):
     if "id" not in kwargs:
         kwargs["id"] = base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
@@ -82,6 +92,12 @@ def job_factory(job_request=None, **kwargs):
     # ensure tests just have the span they generate
     test_exporter.clear()
     return job
+
+
+def job_results_factory(**kwargs):
+    values = deepcopy(JOB_RESULTS_DEFAULTS)
+    values.update(kwargs)
+    return JobResults(**values)
 
 
 class StubExecutorAPI:
