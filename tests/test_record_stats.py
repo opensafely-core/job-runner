@@ -20,14 +20,14 @@ def test_record_tick_trace(db, freezer):
     job_factory(state=State.SUCCEEDED, status_code=StatusCode.SUCCEEDED)
 
     last_run1 = record_stats.record_tick_trace(None)
-    assert len(get_trace()) == 0
+    assert len(get_trace("ticks")) == 0
 
     freezer.tick(10)
 
     last_run2 = record_stats.record_tick_trace(last_run1)
     assert last_run2 == last_run1 + 10 * 1e9
 
-    spans = get_trace()
+    spans = get_trace("ticks")
 
     root = spans[-1]
     assert root.name == "TICK"
