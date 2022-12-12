@@ -200,6 +200,9 @@ def test_integration_with_cohortextractor(
     # labels.
     assert not any(s.attributes["action_created"] == "unknown" for s in executed_jobs)
 
+    job_spans = [s for s in get_trace("loop") if s.name == "LOOP"]
+    assert len(job_spans) > 1
+
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker

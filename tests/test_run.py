@@ -574,6 +574,16 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
     assert error_span.events[0].attributes["exception.message"] == "test"
     assert spans[-1].name == "JOB"
 
+    spans = get_trace("loop")
+    assert len(spans) == 1
+    assert spans[0].name == "LOOP_JOB"
+    assert spans[0].attributes["job"] == job.id
+    assert spans[0].attributes["loop"] is True
+    assert spans[0].attributes["initial_code"] == "EXECUTED"
+    assert spans[0].attributes["initial_state"] == "RUNNING"
+    assert "final_code" not in spans[0].attributes
+    assert "final_state" not in spans[0].attributes
+
 
 def test_handle_single_job_retries_exceeded(db, monkeypatch):
     api = StubExecutorAPI()
@@ -606,6 +616,10 @@ def test_handle_single_job_retries_exceeded(db, monkeypatch):
     )
     assert spans[-1].name == "JOB"
 
+    spans = get_trace("loop")
+    assert len(spans) == 4
+    assert all(s for s in spans if s.name == "LOOP_JOB")
+
 
 def test_handle_single_job_retries_not_exceeded(db, monkeypatch):
     api = StubExecutorAPI()
@@ -630,6 +644,10 @@ def test_handle_single_job_retries_not_exceeded(db, monkeypatch):
 
     assert job.state is State.RUNNING
     assert job.id not in run.EXECUTOR_RETRIES
+
+    spans = get_trace("loop")
+    assert len(spans) == 4
+    assert all(s for s in spans if s.name == "LOOP_JOB")
 
 
 def test_handle_single_job_shortcuts_synchronous(db):
@@ -765,3 +783,18 @@ def test_mark_job_as_failed_adds_error(db):
     assert spans[-2].status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
     assert spans[-1].status.status_code == trace.StatusCode.ERROR
+
+
+def test_trace_handle_job_successful_transition(db):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.PREPARED, State.RUNNING, StatusCode.PREPARED)
+
+    api.set_job_transition(job, ExecutorState.EXECUTING, "success")
+
+    run.trace_handle_job(job, api, None, None)
+
+    spans = get_trace("loop")
+    assert len(spans) == 1
+    assert spans[0].attributes["job"] == job.id
+    assert spans[0].attributes["initial_code"] == "PREPARED"
+    assert spans[0].attributes["final_code"] == "EXECUTING"

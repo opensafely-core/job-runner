@@ -10,6 +10,8 @@ import sys
 import time
 from typing import Optional
 
+from opentelemetry import trace
+
 from jobrunner import config, tracing
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import (
@@ -27,6 +29,7 @@ from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer("loop")
 
 # used to track the number of times an executor has asked to retry a job
 EXECUTOR_RETRIES = {}
@@ -49,7 +52,8 @@ def main(exit_callback=lambda _: False):
     api = get_executor_api()
 
     while True:
-        active_jobs = handle_jobs(api)
+        with tracer.start_as_current_span("LOOP", attributes={"loop": True}):
+            active_jobs = handle_jobs(api)
 
         if exit_callback(active_jobs):
             break
@@ -73,7 +77,6 @@ def handle_jobs(api: Optional[ExecutorAPI]):
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             handle_single_job(job, api)
-
     return active_jobs
 
 
@@ -123,14 +126,14 @@ def handle_single_job(job, api):
     mode = get_flag_value("mode")
     paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
-        synchronous_transition = handle_job(job, api, mode, paused)
+        synchronous_transition = trace_handle_job(job, api, mode, paused)
 
         # provide a way to shortcut moving a job on to the next state right away
         # this is intended to support executors where some state transitions
         # are synchronous, particularly the local executor where prepare is
         # synchronous and can be time consuming.
         if synchronous_transition:
-            handle_job(job, api, mode, paused)
+            trace_handle_job(job, api, mode, paused)
     except Exception as exc:
         mark_job_as_failed(
             job,
@@ -148,6 +151,29 @@ def handle_single_job(job, api):
         # it has failed. If we have an internal error, a full restart
         # might recover better.
         raise
+
+
+def trace_handle_job(job, api, mode, paused):
+    """Call handle job with tracing."""
+    attrs = {
+        "loop": True,
+        "job": job.id,
+        "initial_state": job.state.name,
+        "initial_code": job.status_code.name,
+    }
+
+    with tracer.start_as_current_span("LOOP_JOB", attributes=attrs) as span:
+        try:
+            synchronous_transition = handle_job(job, api, mode, paused)
+        except Exception as exc:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
+            span.record_exception(exc)
+            raise
+        else:
+            span.set_attribute("final_state", job.state.name)
+            span.set_attribute("final_code", job.status_code.name)
+
+    return synchronous_transition
 
 
 def handle_job(job, api, mode=None, paused=None):
@@ -515,7 +541,7 @@ def set_code(job, code, message, error=None, results=None, **attrs):
     # if code has changed then log
     if job.status_code != code:
 
-        # trace we finished the previous state
+        # job trace: we finished the previous state
         tracing.finish_current_state(
             job, timestamp_ns, error=error, message=message, results=results, **attrs
         )
