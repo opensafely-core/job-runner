@@ -58,6 +58,14 @@ def get_medium_privacy_workspace(workspace):
         return None
 
 
+def timestamp_from_iso(iso):
+    """Attempt to convert iso formatted date to unix timestamp."""
+    try:
+        return int(datetime.fromisoformat(iso))
+    except Exception:
+        return None
+
+
 def get_log_dir(job):
     # Split log directory up by month to make things slightly more manageable
     month_dir = datetime.date.today().strftime("%Y-%m")
@@ -189,28 +197,37 @@ class LocalDockerAPI(ExecutorAPI):
     def get_status(self, job):
         name = container_name(job)
         try:
-            job_running = docker.container_inspect(
+            container = docker.container_inspect(
                 name,
-                "State.Running",
                 none_if_not_exists=True,
                 timeout=10,
             )
         except docker.DockerTimeoutError:
             raise ExecutorRetry("timed out inspecting container {name}")
 
-        if job_running is None:
-            # no volume for this job found
-            if volume_api.volume_exists(job):
-                return JobStatus(ExecutorState.PREPARED)
-            else:
+        if container is None:  # container doesn't exist
+            # timestamp file presence means we have finished preparing
+            timestamp = volume_api.file_timestamp(job, TIMESTAMP_REFERENCE_FILE, 10)
+            # TODO: maybe log the case where the volume exists, but the
+            # timestamp file does not? It's not a problems as the loop should
+            # re-prepare it anyway.
+            if timestamp is None:
+                # we are Jon Snow
                 return JobStatus(ExecutorState.UNKNOWN)
+            else:
+                # we've finish preparing
+                return JobStatus(ExecutorState.PREPARED, timestamp=timestamp)
 
-        elif job_running:
-            return JobStatus(ExecutorState.EXECUTING)
+        if container["State"]["Running"]:
+            timestamp = timestamp_from_iso(container["State"]["StartedAt"])
+            return JobStatus(ExecutorState.EXECUTING, timestamp=timestamp)
         elif job.id in RESULTS:
-            return JobStatus(ExecutorState.FINALIZED)
+            return JobStatus(
+                ExecutorState.FINALIZED, timestamp=RESULTS[job.id].timestamp
+            )
         else:  # container present but not running, i.e. finished
-            return JobStatus(ExecutorState.EXECUTED)
+            timestamp = timestamp_from_iso(container["State"]["FinishedAt"])
+            return JobStatus(ExecutorState.EXECUTED, timestamp=timestamp)
 
     def get_results(self, job):
         if job.id not in RESULTS:
@@ -308,6 +325,7 @@ def finalize_job(job):
         exit_code=container_metadata["State"]["ExitCode"],
         image_id=container_metadata["Image"],
         message=message,
+        timestamp=int(time.time()),
         action_version=labels.get("org.opencontainers.image.version", "unknown"),
         action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
         action_created=labels.get("org.opencontainers.image.created", "unknown"),

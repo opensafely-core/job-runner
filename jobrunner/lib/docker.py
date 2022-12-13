@@ -2,6 +2,7 @@
 Utility functions for interacting with Docker
 """
 import json
+import logging
 import os
 import re
 import subprocess
@@ -10,6 +11,8 @@ from jobrunner import config
 from jobrunner.lib import atomic_writer
 from jobrunner.lib.subprocess_utils import subprocess_run
 
+
+logger = logging.getLogger(__name__)
 
 # Docker requires a container in order to interact with volumes, but it doesn't
 # much matter what it is for our purposes as long as it has `sh` and `find`
@@ -190,6 +193,35 @@ def touch_file(volume_name, path, timeout=None):
         check=True,
         timeout=timeout,
     )
+
+
+def file_timestamp(volume_name, path, timeout=None):
+    try:
+        # use busybox's stat implementation
+        response = docker(
+            [
+                "container",
+                "exec",
+                manager_name(volume_name),
+                "stat",
+                "-c",
+                "%X",
+                f"{VOLUME_MOUNT_POINT}/{path}",
+            ],
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.CalledProcessError:
+        logger.exception(f"Failed to stat volume file {volume_name}:{path}")
+        return None
+
+    try:
+        return int(response.stdout.strip())
+    except (ValueError, TypeError):
+        # could not convert to integer
+        return None
 
 
 def copy_from_volume(volume_name, source, dest, timeout=None):

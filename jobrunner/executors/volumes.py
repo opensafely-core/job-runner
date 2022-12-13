@@ -1,10 +1,14 @@
 import importlib
+import logging
 import shutil
 from collections import defaultdict
 from pathlib import Path
 
 from jobrunner import config
 from jobrunner.lib import atomic_writer, docker
+
+
+logger = logging.getLogger(__name__)
 
 
 def copy_file(source, dest, follow_symlinks=True):
@@ -44,6 +48,9 @@ class DockerVolumeAPI:
 
     def touch_file(job, path, timeout=None):
         docker.touch_file(docker_volume_name(job), path, timeout)
+
+    def file_timestamp(job, path, timeout=None):
+        return docker.file_timestamp(docker_volume_name(job), path, timeout)
 
     def glob_volume_files(job):
         return docker.glob_volume_files(docker_volume_name(job), job.output_spec.keys())
@@ -103,6 +110,16 @@ class BindMountVolumeAPI:
 
     def touch_file(job, path, timeout=None):
         (host_volume_path(job) / path).touch()
+
+    def file_timestamp(job, path, timeout=None):
+        abs_path = host_volume_path(job) / path
+        try:
+            stat = abs_path.stat()
+        except Exception:
+            logger.exception("Failed to stat volume file {abs_path}")
+            return None
+        else:
+            return stat.st_ctime
 
     def glob_volume_files(job):
         volume = host_volume_path(job)
