@@ -39,8 +39,12 @@ def clear_state():
     test_exporter.clear()
 
 
-def get_trace():
-    return test_exporter.get_finished_spans()
+def get_trace(tracer=None):
+    spans = test_exporter.get_finished_spans()
+    if tracer is None:
+        return spans
+    else:
+        return [s for s in spans if s.instrumentation_scope.name == tracer]
 
 
 @pytest.fixture

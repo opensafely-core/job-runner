@@ -55,7 +55,7 @@ def test_handle_job_stable_states(state, code, message, db):
     assert job.status_message == message
 
     # no spans
-    assert len(get_trace()) == 0
+    assert len(get_trace("jobs")) == 0
 
 
 def test_handle_job_initial_error(db):
@@ -87,7 +87,7 @@ def test_handle_job_pending_to_preparing(db):
     assert job.started_at
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "CREATED"
     assert spans[-1].name == "ENTER PREPARING"
 
@@ -115,7 +115,7 @@ def test_handle_job_pending_dependency_failed(db):
     assert job.status_code == StatusCode.DEPENDENCY_FAILED
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-3].name == "CREATED"
     assert spans[-2].name == "DEPENDENCY_FAILED"
     assert spans[-2].status.status_code == trace.StatusCode.ERROR
@@ -147,7 +147,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
     assert job.status_code == StatusCode.WAITING_ON_DEPENDENCIES
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "CREATED"
     assert spans[-1].name == "ENTER WAITING_ON_DEPENDENCIES"
 
@@ -167,7 +167,7 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
     assert job.status_code == StatusCode.WAITING_ON_WORKERS
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "CREATED"
     assert spans[-1].name == "ENTER WAITING_ON_WORKERS"
 
@@ -191,7 +191,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     assert job.status_code == StatusCode.WAITING_ON_DB_WORKERS
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "CREATED"
     assert spans[-1].name == "ENTER WAITING_ON_DB_WORKERS"
 
@@ -221,7 +221,7 @@ def test_handle_job_waiting_on_workers_via_executor(
     assert job.status_code == StatusCode.WAITING_ON_WORKERS
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     expected_trace_state = code.name
     assert spans[-2].name == expected_trace_state
     assert spans[-1].name == "ENTER WAITING_ON_WORKERS"
@@ -255,7 +255,7 @@ def test_handle_job_prepared_to_executing(db):
     assert job.status_message == "Executing job on the backend"
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "PREPARED"
     assert spans[-1].name == "ENTER EXECUTING"
 
@@ -275,7 +275,7 @@ def test_handle_job_executed_to_finalizing(db):
     assert job.status_message == "Recording job results"
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "EXECUTED"
     assert spans[-1].name == "ENTER FINALIZING"
 
@@ -308,7 +308,7 @@ def test_handle_job_finalized_success_with_delete(db):
     assert api.deleted["workspace"][Privacy.HIGH] == ["output/old.csv"]
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-3].name == "FINALIZED"
     assert spans[-2].name == "SUCCEEDED"
     assert spans[-1].name == "JOB"
@@ -371,7 +371,7 @@ def test_handle_job_finalized_failed_exit_code(
     assert job.status_message == expected
     assert job.outputs == {"output/file.csv": "medium"}
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-3].name == "FINALIZED"
     completed_span = spans[-2]
     assert completed_span.name == "NONZERO_EXIT"
@@ -407,7 +407,7 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     assert job.outputs == {"output/file.csv": "medium"}
     assert job.unmatched_outputs == ["otherbadfile.csv"]
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-3].name == "FINALIZED"
     completed_span = spans[-2]
     assert completed_span.name == "UNMATCHED_PATTERNS"
@@ -442,7 +442,7 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
     assert job.status_message == "Waiting for database to finish maintenance"
     assert job.started_at is None
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "CREATED"
     assert spans[-1].name == "ENTER WAITING_DB_MAINTENANCE"
 
@@ -468,7 +468,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
     assert job.status_message == "Waiting for database to finish maintenance"
     assert job.started_at is None
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "EXECUTING"
     assert spans[-1].name == "ENTER WAITING_DB_MAINTENANCE"
 
@@ -490,7 +490,7 @@ def test_handle_pending_pause_mode(db, backend_db_config):
     assert job.started_at is None
     assert "paused" in job.status_message
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "CREATED"
     assert spans[-1].name == "ENTER WAITING_PAUSED"
 
@@ -514,7 +514,7 @@ def test_handle_running_pause_mode(db, backend_db_config):
     assert job.state == State.RUNNING
     assert "paused" not in job.status_message
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert len(spans) == 0  # no spans
 
 
@@ -565,7 +565,7 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
 
     assert job.state is State.FAILED
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-3].name == "EXECUTED"
     error_span = spans[-2]
     assert error_span.name == "INTERNAL_ERROR"
@@ -573,6 +573,16 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
     assert error_span.events[0].name == "exception"
     assert error_span.events[0].attributes["exception.message"] == "test"
     assert spans[-1].name == "JOB"
+
+    spans = get_trace("loop")
+    assert len(spans) == 1
+    assert spans[0].name == "LOOP_JOB"
+    assert spans[0].attributes["job"] == job.id
+    assert spans[0].attributes["loop"] is True
+    assert spans[0].attributes["initial_code"] == "EXECUTED"
+    assert spans[0].attributes["initial_state"] == "RUNNING"
+    assert "final_code" not in spans[0].attributes
+    assert "final_state" not in spans[0].attributes
 
 
 def test_handle_single_job_retries_exceeded(db, monkeypatch):
@@ -594,7 +604,7 @@ def test_handle_single_job_retries_exceeded(db, monkeypatch):
 
     assert job.state is State.FAILED
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-3].name == "EXECUTED"
     error_span = spans[-2]
     assert error_span.name == "INTERNAL_ERROR"
@@ -605,6 +615,10 @@ def test_handle_single_job_retries_exceeded(db, monkeypatch):
         == f"Too many retries for job {job.id} from executor"
     )
     assert spans[-1].name == "JOB"
+
+    spans = get_trace("loop")
+    assert len(spans) == 4
+    assert all(s for s in spans if s.name == "LOOP_JOB")
 
 
 def test_handle_single_job_retries_not_exceeded(db, monkeypatch):
@@ -631,6 +645,10 @@ def test_handle_single_job_retries_not_exceeded(db, monkeypatch):
     assert job.state is State.RUNNING
     assert job.id not in run.EXECUTOR_RETRIES
 
+    spans = get_trace("loop")
+    assert len(spans) == 4
+    assert all(s for s in spans if s.name == "LOOP_JOB")
+
 
 def test_handle_single_job_shortcuts_synchronous(db):
     api = StubExecutorAPI()
@@ -651,7 +669,7 @@ def test_handle_single_job_shortcuts_synchronous(db):
     assert job.started_at
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-4].name == "CREATED"
     assert spans[-3].name == "ENTER PREPARING"
     assert spans[-2].name == "PREPARING"
@@ -759,9 +777,24 @@ def test_mark_job_as_failed_adds_error(db):
     run.mark_job_as_failed(job, StatusCode.INTERNAL_ERROR, "error")
 
     # tracing
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-3].name == "CREATED"
     assert spans[-2].name == "INTERNAL_ERROR"
     assert spans[-2].status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
     assert spans[-1].status.status_code == trace.StatusCode.ERROR
+
+
+def test_trace_handle_job_successful_transition(db):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.PREPARED, State.RUNNING, StatusCode.PREPARED)
+
+    api.set_job_transition(job, ExecutorState.EXECUTING, "success")
+
+    run.trace_handle_job(job, api, None, None)
+
+    spans = get_trace("loop")
+    assert len(spans) == 1
+    assert spans[0].attributes["job"] == job.id
+    assert spans[0].attributes["initial_code"] == "PREPARED"
+    assert spans[0].attributes["final_code"] == "EXECUTING"

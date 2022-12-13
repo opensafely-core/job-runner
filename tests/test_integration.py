@@ -188,7 +188,7 @@ def test_integration_with_cohortextractor(
     assert not (high_privacy_workspace / f"{extraction_tool}-somefile.csv").exists()
 
     # Check that spans were emitted and capture details
-    job_spans = [s for s in get_trace() if s.name == "JOB"]
+    job_spans = [s for s in get_trace("jobs") if s.name == "JOB"]
     assert len(job_spans) == 8
     # one job is cancelled
     executed_jobs = [s for s in job_spans if "exit_code" in s.attributes]
@@ -199,6 +199,9 @@ def test_integration_with_cohortextractor(
     # try pulling.  If that fails, it maybe the latest images are missing
     # labels.
     assert not any(s.attributes["action_created"] == "unknown" for s in executed_jobs)
+
+    job_spans = [s for s in get_trace("loop") if s.name == "LOOP"]
+    assert len(job_spans) > 1
 
 
 @pytest.mark.slow_test
@@ -336,7 +339,7 @@ def test_integration_with_databuilder(
     assert not (high_privacy_workspace / "output/count_by_year_cancelled.csv").exists()
 
     # Check that spans were emitted and capture details
-    job_spans = [s for s in get_trace() if s.name == "JOB"]
+    job_spans = [s for s in get_trace("jobs") if s.name == "JOB"]
     assert len(job_spans) == 4
     # one job is cancelled
     executed_jobs = [s for s in job_spans if "exit_code" in s.attributes]

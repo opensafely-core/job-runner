@@ -119,7 +119,7 @@ def test_initialise_trace(db):
 
     assert "traceparent" in job.trace_context
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert len(spans) == 0
 
 
@@ -131,7 +131,7 @@ def test_finish_current_state(db):
 
     tracing.finish_current_state(job, ts, results=results, extra="extra")
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
     assert spans[-1].start_time == int(job.created_at * 1e9)
     assert spans[-1].end_time == ts
@@ -147,7 +147,7 @@ def test_record_final_state(db):
     ts = int(time.time() * 1e9)
     tracing.record_final_state(job, ts, results=results)
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "SUCCEEDED"
     assert spans[-2].attributes["exit_code"] == 0
     assert spans[-1].name == "JOB"
@@ -160,7 +160,7 @@ def test_record_final_state_error(db):
     results = job_results_factory(exit_code=1)
     tracing.record_final_state(job, ts, error=Exception("error"), results=results)
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-2].name == "INTERNAL_ERROR"
     assert spans[-2].status.status_code.name == "ERROR"
     assert spans[-2].events[0].name == "exception"
@@ -184,7 +184,7 @@ def test_start_new_state(db):
 
     tracing.start_new_state(job, ts)
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[-1].name == "ENTER PREPARING"
     assert spans[-1].attributes["is_state"] is False
     assert spans[-1].end_time == int(ts + 1e9)
@@ -200,7 +200,7 @@ def test_record_job_span_skips_uninitialized_job(db):
 
     tracing.record_job_span(job, "name", ts, ts + 10000, error=None, results=None)
 
-    assert len(get_trace()) == 0
+    assert len(get_trace("jobs")) == 0
 
 
 def test_complete_job(db):
@@ -212,7 +212,7 @@ def test_complete_job(db):
 
     ctx = tracing.load_root_span(job)
 
-    spans = get_trace()
+    spans = get_trace("jobs")
     assert spans[0].name == "JOB"
     assert spans[0].context.trace_id == ctx.trace_id
     assert spans[0].context.span_id == ctx.span_id

@@ -303,7 +303,7 @@ def test_create_failed_job(db):
     assert job.status_message == "Exception: test"
     assert job.action == "__error__"
 
-    spans = get_trace()
+    spans = get_trace("jobs")
 
     assert spans[0].name == "INTERNAL_ERROR"
     assert spans[0].status.status_code == trace.StatusCode.ERROR
@@ -326,7 +326,7 @@ def test_create_failed_job_nothing_to_do(db):
     assert job.status_message == "All actions have already run"
     assert job.action == job_request.requested_actions[0]
 
-    spans = get_trace()
+    spans = get_trace("jobs")
 
     assert spans[0].name == "SUCCEEDED"
     assert spans[0].status.status_code == trace.StatusCode.UNSET
