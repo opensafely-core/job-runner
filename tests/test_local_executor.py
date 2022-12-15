@@ -123,6 +123,7 @@ def test_prepare_already_prepared(docker_cleanup, test_repo, volume_api):
 
     # create the volume already
     volume_api.create_volume(job)
+    volume_api.touch_file(job, local.TIMESTAMP_REFERENCE_FILE)
 
     api = local.LocalDockerAPI()
     status = api.prepare(job)

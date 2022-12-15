@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from opentelemetry import trace
 
@@ -7,6 +9,88 @@ from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import StubExecutorAPI, job_factory
 from tests.fakes import RecordingExecutor
+
+
+@pytest.mark.parametrize(
+    "synchronous_transitions",
+    [
+        [],
+        [ExecutorState.PREPARING, ExecutorState.FINALIZING],
+    ],
+)
+def test_handle_job_full_execution(synchronous_transitions, db, freezer):
+    api = StubExecutorAPI()
+    api.synchronous_transitions = synchronous_transitions
+
+    start = int(time.time() * 1e9)
+
+    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
+
+    freezer.tick(1)
+
+    run.handle_job(job, api)
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.PREPARING
+
+    freezer.tick(1)
+    api.set_job_state(job, ExecutorState.PREPARED)
+
+    freezer.tick(1)
+    run.handle_job(job, api)
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.EXECUTING
+
+    freezer.tick(1)
+    api.set_job_state(job, ExecutorState.EXECUTED)
+
+    freezer.tick(1)
+    run.handle_job(job, api)
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.FINALIZING
+
+    freezer.tick(1)
+    api.set_job_state(job, ExecutorState.FINALIZED)
+    api.set_job_result(job)
+
+    freezer.tick(1)
+    run.handle_job(job, api)
+    assert job.state == State.SUCCEEDED
+    assert job.status_code == StatusCode.SUCCEEDED
+
+    spans = get_trace("jobs")
+    assert [s.name for s in spans] == [
+        "CREATED",
+        "ENTER PREPARING",
+        "PREPARING",
+        "ENTER PREPARED",
+        "PREPARED",
+        "ENTER EXECUTING",
+        "EXECUTING",
+        "ENTER EXECUTED",
+        "EXECUTED",
+        "ENTER FINALIZING",
+        "FINALIZING",
+        "ENTER FINALIZED",
+        "FINALIZED",
+        "SUCCEEDED",
+        "JOB",
+    ]
+
+    span_times = [
+        (s.name, (s.start_time - start) / 1e9, (s.end_time - start) / 1e9)
+        for s in spans[:-1]
+        if not s.name.startswith("ENTER")
+    ]
+    assert span_times == [
+        ("CREATED", 0, 1),
+        ("PREPARING", 1, 2),
+        ("PREPARED", 2, 3),
+        ("EXECUTING", 3, 4),
+        ("EXECUTED", 4, 5),
+        ("FINALIZING", 5, 6),
+        ("FINALIZED", 6, 7),
+        ("SUCCEEDED", 7, 8),  # this is always 1 second anyway!
+    ]
 
 
 def test_handle_pending_job_cancelled(db):
@@ -669,11 +753,14 @@ def test_handle_single_job_shortcuts_synchronous(db):
     assert job.started_at
 
     # tracing
-    spans = get_trace("jobs")
-    assert spans[-4].name == "CREATED"
-    assert spans[-3].name == "ENTER PREPARING"
-    assert spans[-2].name == "PREPARING"
-    assert spans[-1].name == "ENTER EXECUTING"
+    assert [s.name for s in get_trace("jobs")] == [
+        "CREATED",
+        "ENTER PREPARING",
+        "PREPARING",
+        "ENTER PREPARED",
+        "PREPARED",
+        "ENTER EXECUTING",
+    ]
 
 
 def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
