@@ -128,27 +128,6 @@ def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
         logger.exception(f"failed to trace state for {job.id}")
 
 
-def start_new_state(job, timestamp_ns, error=None, **attrs):
-    """Record a marker span to say that we've entered a new state."""
-    if not _traceable(job):
-        return
-
-    # allow them to be filtered out easily
-    attrs["is_state"] = False
-    # legacy filter, remove once above is deployed for ~1 week
-    attrs["enter_state"] = True
-
-    try:
-        name = f"ENTER {job.status_code.name}"
-        start_time = timestamp_ns
-        # fix the time for these synthetic marker events at one second
-        end_time = int(start_time + 1e9)
-        record_job_span(job, name, start_time, end_time, error, results=None, **attrs)
-    except Exception:
-        # make sure trace failures do not error the job
-        logger.exception(f"failed to trace state for {job.id}")
-
-
 def load_root_span(job):
     """Load the trace for this job from the db.
 

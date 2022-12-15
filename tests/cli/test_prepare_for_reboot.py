@@ -37,5 +37,4 @@ def test_prepare_for_reboot(db, monkeypatch):
     mockume_api.delete_volume.assert_called_once_with(job1)
 
     spans = get_trace("jobs")
-    assert spans[-2].name == "EXECUTING"
-    assert spans[-1].name == "ENTER WAITING_ON_REBOOT"
+    assert spans[-1].name == "EXECUTING"

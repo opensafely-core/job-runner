@@ -242,7 +242,6 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         updated_at=int(timestamp),
     )
     tracing.initialise_trace(job)
-    tracing.start_new_state(job, job.status_code_updated_at)
 
     # Add it to the dictionary of scheduled jobs
     jobs_by_action[action] = job

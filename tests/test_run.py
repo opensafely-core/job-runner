@@ -60,17 +60,11 @@ def test_handle_job_full_execution(synchronous_transitions, db, freezer):
     spans = get_trace("jobs")
     assert [s.name for s in spans] == [
         "CREATED",
-        "ENTER PREPARING",
         "PREPARING",
-        "ENTER PREPARED",
         "PREPARED",
-        "ENTER EXECUTING",
         "EXECUTING",
-        "ENTER EXECUTED",
         "EXECUTED",
-        "ENTER FINALIZING",
         "FINALIZING",
-        "ENTER FINALIZED",
         "FINALIZED",
         "SUCCEEDED",
         "JOB",
@@ -172,8 +166,7 @@ def test_handle_job_pending_to_preparing(db):
 
     # tracing
     spans = get_trace("jobs")
-    assert spans[-2].name == "CREATED"
-    assert spans[-1].name == "ENTER PREPARING"
+    assert spans[-1].name == "CREATED"
 
 
 def test_handle_job_pending_dependency_failed(db):
@@ -232,8 +225,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
 
     # tracing
     spans = get_trace("jobs")
-    assert spans[-2].name == "CREATED"
-    assert spans[-1].name == "ENTER WAITING_ON_DEPENDENCIES"
+    assert spans[-1].name == "CREATED"
 
 
 def test_handle_job_waiting_on_workers(monkeypatch, db):
@@ -252,8 +244,7 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
 
     # tracing
     spans = get_trace("jobs")
-    assert spans[-2].name == "CREATED"
-    assert spans[-1].name == "ENTER WAITING_ON_WORKERS"
+    assert spans[-1].name == "CREATED"
 
 
 def test_handle_job_waiting_on_db_workers(monkeypatch, db):
@@ -276,8 +267,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
 
     # tracing
     spans = get_trace("jobs")
-    assert spans[-2].name == "CREATED"
-    assert spans[-1].name == "ENTER WAITING_ON_DB_WORKERS"
+    assert spans[-1].name == "CREATED"
 
 
 @pytest.mark.parametrize(
@@ -307,8 +297,7 @@ def test_handle_job_waiting_on_workers_via_executor(
     # tracing
     spans = get_trace("jobs")
     expected_trace_state = code.name
-    assert spans[-2].name == expected_trace_state
-    assert spans[-1].name == "ENTER WAITING_ON_WORKERS"
+    assert spans[-1].name == expected_trace_state
 
 
 def test_handle_job_pending_to_error(db):
@@ -340,8 +329,7 @@ def test_handle_job_prepared_to_executing(db):
 
     # tracing
     spans = get_trace("jobs")
-    assert spans[-2].name == "PREPARED"
-    assert spans[-1].name == "ENTER EXECUTING"
+    assert spans[-1].name == "PREPARED"
 
 
 def test_handle_job_executed_to_finalizing(db):
@@ -360,8 +348,7 @@ def test_handle_job_executed_to_finalizing(db):
 
     # tracing
     spans = get_trace("jobs")
-    assert spans[-2].name == "EXECUTED"
-    assert spans[-1].name == "ENTER FINALIZING"
+    assert spans[-1].name == "EXECUTED"
 
 
 def test_handle_job_finalized_success_with_delete(db):
@@ -527,8 +514,7 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
     assert job.started_at is None
 
     spans = get_trace("jobs")
-    assert spans[-2].name == "CREATED"
-    assert spans[-1].name == "ENTER WAITING_DB_MAINTENANCE"
+    assert spans[-1].name == "CREATED"
 
 
 def test_handle_running_db_maintenance_mode(db, backend_db_config):
@@ -553,8 +539,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
     assert job.started_at is None
 
     spans = get_trace("jobs")
-    assert spans[-2].name == "EXECUTING"
-    assert spans[-1].name == "ENTER WAITING_DB_MAINTENANCE"
+    assert spans[-1].name == "EXECUTING"
 
 
 def test_handle_pending_pause_mode(db, backend_db_config):
@@ -575,8 +560,7 @@ def test_handle_pending_pause_mode(db, backend_db_config):
     assert "paused" in job.status_message
 
     spans = get_trace("jobs")
-    assert spans[-2].name == "CREATED"
-    assert spans[-1].name == "ENTER WAITING_PAUSED"
+    assert spans[-1].name == "CREATED"
 
 
 def test_handle_running_pause_mode(db, backend_db_config):
@@ -755,11 +739,8 @@ def test_handle_single_job_shortcuts_synchronous(db):
     # tracing
     assert [s.name for s in get_trace("jobs")] == [
         "CREATED",
-        "ENTER PREPARING",
         "PREPARING",
-        "ENTER PREPARED",
         "PREPARED",
-        "ENTER EXECUTING",
     ]
 
 

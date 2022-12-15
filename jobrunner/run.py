@@ -574,9 +574,6 @@ def set_code(job, code, message, error=None, results=None, timestamp=None, **att
                 results=results,
                 **attrs,
             )
-        else:
-            # trace that we've started the next state
-            tracing.start_new_state(job, timestamp_ns, error=error, **attrs)
 
         log.info(job.status_message, extra={"status_code": job.status_code})
 
