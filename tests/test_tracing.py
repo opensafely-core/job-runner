@@ -177,23 +177,6 @@ def test_record_final_state_error(db):
     assert spans[-1].attributes["exit_code"] == 1
 
 
-def test_start_new_state(db):
-    job = job_factory()
-    ts = int(time.time() * 1e9)
-
-    job.status_code = models.StatusCode.PREPARING
-
-    tracing.start_new_state(job, ts)
-
-    spans = get_trace("jobs")
-    assert spans[-1].name == "ENTER PREPARING"
-    assert spans[-1].attributes["is_state"] is False
-    assert spans[-1].end_time == int(ts + 1e9)
-
-    # deprecated attribute
-    assert spans[-1].attributes["enter_state"] is True
-
-
 def test_record_job_span_skips_uninitialized_job(db):
     job = job_factory()
     ts = int(time.time() * 1e9)
