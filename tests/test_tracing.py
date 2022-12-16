@@ -125,7 +125,6 @@ def test_initialise_trace(db):
 
 def test_finish_current_state(db):
     job = job_factory()
-    start_time = job.status_code_updated_at
     results = job_results_factory()
 
     ts = int(time.time() * 1e9)
@@ -134,7 +133,7 @@ def test_finish_current_state(db):
 
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
-    assert spans[-1].start_time == start_time
+    assert spans[-1].start_time == int(job.created_at * 1e9)
     assert spans[-1].end_time == ts
     assert spans[-1].attributes["extra"] == "extra"
     assert spans[-1].attributes["job"] == job.id

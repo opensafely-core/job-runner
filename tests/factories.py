@@ -78,7 +78,7 @@ def job_factory(job_request=None, **kwargs):
     if "updated_at" not in kwargs:
         values["updated_at"] = int(timestamp)
     if "status_code_updated_at" not in kwargs:
-        values["status_code_updated_at"] = int(timestamp * 1e9)
+        values["status_code_updated_at"] = int(values["created_at"] * 1e9)
     values.update(kwargs)
 
     values["job_request_id"] = job_request.id
@@ -138,19 +138,16 @@ class StubExecutorAPI:
         job_state,
         status_code=StatusCode.CREATED,
         message="message",
-        timestamp=None,
         **kwargs,
     ):
         """Create and track a db job object."""
 
         job = job_factory(state=job_state, status_code=status_code, **kwargs)
         if exec_state != ExecutorState.UNKNOWN:
-            self.state[job.id] = JobStatus(
-                exec_state, message, timestamp or int(time.time())
-            )
+            self.state[job.id] = JobStatus(exec_state, message)
         return job
 
-    def set_job_state(self, definition, state, message="message", timestamp=None):
+    def set_job_state(self, definition, state, message="message"):
         """Directly set a job state."""
         # handle the synchronous state meaning the state has completed
         synchronous = getattr(self, "synchronous_transitions", [])
@@ -159,15 +156,11 @@ class StubExecutorAPI:
                 state = ExecutorState.PREPARED
             if state == ExecutorState.FINALIZING:
                 state = ExecutorState.FINALIZED
-        if timestamp is None:
-            timestamp = time.time()
-        self.state[definition.id] = JobStatus(state, message, timestamp)
+        self.state[definition.id] = JobStatus(state, message)
 
-    def set_job_transition(
-        self, definition, state, message="executor message", timestamp=None
-    ):
+    def set_job_transition(self, definition, state, message="executor message"):
         """Set the next transition for this job when called"""
-        self.transitions[definition.id] = (state, message, timestamp)
+        self.transitions[definition.id] = (state, message)
 
     def set_job_result(self, definition, **kwargs):
         defaults = {
@@ -183,18 +176,17 @@ class StubExecutorAPI:
 
     def do_transition(self, definition, expected, next_state):
         current = self.get_status(definition)
-        timestamp = int(time.time())
         if current.state != expected:
             state = current.state
             message = f"Invalid transition to {next_state}, currently state is {current.state}"
         elif definition.id in self.transitions:
-            state, message, timestamp = self.transitions[definition.id]
+            state, message = self.transitions[definition.id]
         else:
             state = next_state
             message = "executor message"
 
-        self.set_job_state(definition, state, message, timestamp)
-        return JobStatus(state, message, timestamp)
+        self.set_job_state(definition, state)
+        return JobStatus(state, message)
 
     def prepare(self, definition):
         self.tracker["prepare"].add(definition.id)
