@@ -214,7 +214,8 @@ def file_timestamp(volume_name, path, timeout=None):
             timeout=timeout,
         )
     except subprocess.CalledProcessError:
-        logger.exception(f"Failed to stat volume file {volume_name}:{path}")
+        # either container or file didn't exist
+        logger.debug(f"Failed to stat volume file {volume_name}:{path}")
         return None
 
     try:
