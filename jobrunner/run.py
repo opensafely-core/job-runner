@@ -236,22 +236,15 @@ def handle_job(job, api, mode=None, paused=None):
     else:
         EXECUTOR_RETRIES.pop(job.id, None)
 
-    # check if we've transitioned since we last checked and trace it.
-    if initial_status.state in STATE_MAP:
-        initial_code, initial_message = STATE_MAP[initial_status.state]
-        if initial_code != job.status_code:
-            set_code(
-                job, initial_code, initial_message, timestamp=initial_status.timestamp
-            )
-
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
         if job.state == State.PENDING:
             log.warning(
                 f"state error: got {initial_status.state} for a job we thought was PENDING"
             )
-        # no action needed, simply update job message and timestamp, which is likely a no-op
-        set_code(job, initial_code, initial_message)
+        # no action needed, simply update job message and timestamp
+        code, message = STATE_MAP[initial_status.state]
+        set_code(job, code, message)
         return
 
     if initial_status.state == ExecutorState.ERROR:
@@ -530,7 +523,7 @@ def set_state(job, state, code, message, error=None, results=None, **attrs):
     set_code(job, code, message, error=error, results=results, **attrs)
 
 
-def set_code(job, code, message, error=None, results=None, timestamp=None, **attrs):
+def set_code(job, code, message, error=None, results=None, **attrs):
     """Set the granular status code state.
 
     We also trace this transition with OpenTelemetry traces.
@@ -541,9 +534,7 @@ def set_code(job, code, message, error=None, results=None, timestamp=None, **att
     collisions when states transition in <1s.
 
     """
-    if timestamp is None:
-        timestamp = time.time()
-
+    timestamp = time.time()
     timestamp_s = int(timestamp)
     timestamp_ns = int(timestamp * 1e9)
 
