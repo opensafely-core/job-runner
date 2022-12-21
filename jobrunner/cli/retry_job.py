@@ -18,7 +18,7 @@ import time
 
 from jobrunner.executors.local import container_name, docker
 from jobrunner.lib.database import find_where, update
-from jobrunner.models import Job, State
+from jobrunner.models import Job, State, StatusCode
 from jobrunner.sync import api_post, job_to_remote_format
 
 
@@ -28,7 +28,7 @@ def main(partial_job_id):
         raise RuntimeError("Cannot reset job, associated container does not exist")
     job.state = State.RUNNING
     job.status_message = "Re-attempting to extract outputs"
-    job.status_code = None
+    job.status_code = StatusCode.EXECUTING
     job.completed_at = None
     job.updated_at = int(time.time())
     print("\nUpdating job in database:")
