@@ -61,7 +61,7 @@ def get_medium_privacy_workspace(workspace):
 def timestamp_from_iso(iso):
     """Attempt to convert iso formatted date to unix timestamp."""
     try:
-        return int(datetime.fromisoformat(iso))
+        return int(datetime.datetime.fromisoformat(iso).timestamp())
     except Exception:
         return None
 

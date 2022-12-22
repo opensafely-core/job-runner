@@ -57,6 +57,11 @@ def list_repo_files(path):
     return list(str(f.relative_to(path)) for f in path.glob("**/*") if f.is_file())
 
 
+def test_timestamp_from_iso():
+    assert local.timestamp_from_iso("2022-01-01T12:34:56") == 1641040496
+    assert local.timestamp_from_iso("adassdas") is None
+
+
 @pytest.mark.needs_docker
 def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     ensure_docker_images_present("busybox")
