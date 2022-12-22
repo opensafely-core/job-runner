@@ -1,4 +1,6 @@
+import functools
 import secrets
+import warnings
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -57,3 +59,31 @@ def datestr_to_ns_timestamp(datestr):
     ts += ns
 
     return ts
+
+
+def warn_assertions(f):
+    """Helper decorator to catch assertions erros and emit as warnings.
+
+    In dev, this will cause tests to fail, and log output in prod.
+
+    Returns None, as that's the only thing it can reasonably do.  As such, it
+    can only be used to decorate functions that also return None, and it emits
+    a warning for that too.
+    """
+
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            rvalue = f(*args, **kwargs)
+            if rvalue is not None:
+                raise AssertionError(
+                    "warn_assertions can only be used on functions that return None:"
+                    "{f.__name__} return {type(rvalue)}"
+                )
+        except AssertionError as exc:
+            # convert exception to warning
+            warnings.warn(str(exc))
+
+        return None
+
+    return wrapper
