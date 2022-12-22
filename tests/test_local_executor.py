@@ -653,3 +653,28 @@ def test_get_status_timeout(tmp_work_dir, monkeypatch):
 
     with pytest.raises(local.ExecutorRetry):
         api.get_status(job)
+
+
+@pytest.mark.needs_docker
+def test_file_timestamp(tmp_work_dir, volume_api, freezer):
+
+    job = JobDefinition(
+        id="test_file_timestamp",
+        job_request_id="test_request_id",
+        study=None,
+        workspace="test",
+        action="action",
+        created_at=int(time.time()),
+        image="ghcr.io/opensafely-core/busybox",
+        args=["sleep", "1"],
+        env={},
+        inputs=[],
+        output_spec={},
+        allow_database_access=False,
+    )
+
+    volume_api.create_volume(job)
+    volume_api.touch_file(job, "test")
+    ts = volume_api.file_timestamp(job, "test")
+
+    assert ts == int(time.time() + 1)

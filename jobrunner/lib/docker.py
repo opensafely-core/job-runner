@@ -196,13 +196,15 @@ def touch_file(volume_name, path, timeout=None):
 
 
 def file_timestamp(volume_name, path, timeout=None):
+    container = manager_name(volume_name)
     try:
         # use busybox's stat implementation
+        # Note: timestamp precision here is truncated to the nearest second.
         response = docker(
             [
                 "container",
                 "exec",
-                manager_name(volume_name),
+                container,
                 "stat",
                 "-c",
                 "%X",
@@ -215,13 +217,17 @@ def file_timestamp(volume_name, path, timeout=None):
         )
     except subprocess.CalledProcessError:
         # either container or file didn't exist
-        logger.debug(f"Failed to stat volume file {volume_name}:{path}")
+        logger.debug(
+            f"Failed to stat file {volume_name}:{path} on container {container}"
+        )
         return None
 
     try:
         return int(response.stdout.strip())
     except (ValueError, TypeError):
-        # could not convert to integer
+        logger.debug(
+            f"Could not parse int from busybox stat output: {response.stdout.strip()}"
+        )
         return None
 
 

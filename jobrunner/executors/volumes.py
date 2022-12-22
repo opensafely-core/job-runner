@@ -50,7 +50,12 @@ class DockerVolumeAPI:
         docker.touch_file(docker_volume_name(job), path, timeout)
 
     def file_timestamp(job, path, timeout=None):
-        return docker.file_timestamp(docker_volume_name(job), path, timeout)
+        ts = docker.file_timestamp(docker_volume_name(job), path, timeout)
+        if ts is not None:
+            # truncation of file times means we can go back in time, so instead do ceiling.
+            return ts + 1
+        else:
+            return None
 
     def glob_volume_files(job):
         return docker.glob_volume_files(docker_volume_name(job), job.output_spec.keys())
@@ -119,7 +124,8 @@ class BindMountVolumeAPI:
             logger.exception("Failed to stat volume file {abs_path}")
             return None
         else:
-            return stat.st_ctime
+            # truncation of file times means we can go back in time, so instead do ceiling.
+            return int(stat.st_ctime + 1)
 
     def glob_volume_files(job):
         volume = host_volume_path(job)
