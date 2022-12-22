@@ -1,4 +1,6 @@
+import functools
 import secrets
+import warnings
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -57,3 +59,32 @@ def datestr_to_ns_timestamp(datestr):
     ts += ns
 
     return ts
+
+
+def warn_assertions(f):
+    """Helper decorator to emit any failed assertions as warnings.
+
+    reraise=False will not raise the assertion error further.
+
+    Designed to be used to ensure tests fail in dev, but are ignored in prod.
+    Note that the AssertionError is still raised, so will need catching, just
+    like any other error.  We don't know what to return, so re-raising the
+    exception is the only option.
+    """
+
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            rvalue = f(*args, **kwargs)
+            if rvalue is not None:
+                raise AssertionError(
+                    "warn_assertions can only be used on functions that return None:"
+                    "{f.__name__} return {type(rvalue)}"
+                )
+        except AssertionError as exc:
+            # convert exception to warning
+            warnings.warn(str(exc))
+
+        return None
+
+    return wrapper
