@@ -122,7 +122,9 @@ def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
         # final states have no duration, so make last for 1 sec, just act
         # as a marker
         end_time = int(timestamp_ns + 1e9)
-        record_job_span(job, name, start_time, end_time, error, results, **attrs)
+        record_job_span(
+            job, name, start_time, end_time, error, results, final=True, **attrs
+        )
 
         complete_job(job, timestamp_ns, error, results, **attrs)
     except Exception:

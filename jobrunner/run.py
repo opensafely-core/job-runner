@@ -235,13 +235,24 @@ def handle_job(job, api, mode=None, paused=None):
     else:
         EXECUTOR_RETRIES.pop(job.id, None)
 
+    # check if we've transitioned since we last checked and trace it.
+    if initial_status.state in STATE_MAP:
+        initial_code, initial_message = STATE_MAP[initial_status.state]
+        if initial_code != job.status_code:
+            set_code(
+                job,
+                initial_code,
+                initial_message,
+                timestamp_ns=initial_status.timestamp_ns,
+            )
+
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
         if job.state == State.PENDING:
             log.warning(
                 f"state error: got {initial_status.state} for a job we thought was PENDING"
             )
-        # no action needed, simply update job message and timestamp
+        # no action needed, simply update job message and timestamp, which is likely a no-op
         code, message = STATE_MAP[initial_status.state]
         set_code(job, code, message)
         return
@@ -334,7 +345,8 @@ def handle_job(job, api, mode=None, paused=None):
         code, message = STATE_MAP[new_status.state]
 
         # special case PENDING -> RUNNING transition
-        if new_status.state == ExecutorState.PREPARING:
+        # allow both states to do the transition to RUNNING, due to synchronous transitions
+        if new_status.state in [ExecutorState.PREPARING, ExecutorState.PREPARED]:
             set_state(job, State.RUNNING, code, message)
         else:
             if job.state != State.RUNNING:
@@ -522,7 +534,7 @@ def set_state(job, state, code, message, error=None, results=None, **attrs):
     set_code(job, code, message, error=error, results=results, **attrs)
 
 
-def set_code(job, code, message, error=None, results=None, **attrs):
+def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **attrs):
     """Set the granular status code state.
 
     We also trace this transition with OpenTelemetry traces.
@@ -530,14 +542,26 @@ def set_code(job, code, message, error=None, results=None, **attrs):
     Note: timestamp precision in the db is to the nearest second, which made
     sense when we were tracking fewer high level states. But now we are
     tracking more granular states, subsecond precision is needed to avoid odd
-    collisions when states transition in <1s.
-
+    collisions when states transition in <1s. Due to this, timestamp parameter
+    should be the output of time.time() i.e. a float representing seconds.
     """
-    timestamp = time.time()
-    timestamp_s = int(timestamp)
-    timestamp_ns = int(timestamp * 1e9)
+    if timestamp_ns is None:
+        t = time.time()
+        timestamp_s = int(t)
+        timestamp_ns = int(t * 1e9)
+    else:
+        timestamp_s = int(timestamp_ns // 1e9)
 
-    # if code has changed then log
+    if job.status_code_updated_at > timestamp_ns:
+        # we somehow have a negative duration, which honeycomb does funny things with.
+        # This can happen in tests, where things are fast, but we've seen it in production too.
+        log.warning(
+            f"negative state duration, clamping to 1ms ({job.status_code_updated_at} > {timestamp_ns})"
+        )
+        timestamp_ns = job.status_code_updated_at + 1e6  # set duration to 1ms
+        timestamp_s = int(timestamp_ns // 1e9)
+
+    # if code has changed then trace it and update
     if job.status_code != code:
 
         # job trace: we finished the previous state
