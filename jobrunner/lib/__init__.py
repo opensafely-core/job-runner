@@ -1,4 +1,6 @@
+import functools
 import secrets
+import warnings
 from contextlib import contextmanager
 
 
@@ -18,3 +20,29 @@ def atomic_writer(dest):
         raise
     else:
         tmp.replace(dest)
+
+
+def warn_assertions(reraise=True):
+    """Helper decorator to emit any failed assertions as warnings.
+
+    reraise=False will not raise the assertion error further.
+
+    Designed to be used to ensure tests fail in dev, but are ignored in prod.
+    Note that the AssertionError is still raised, so will need catching, just
+    like any other error.  We don't know what to return, so re-raising the
+    exception is the only option.
+    """
+
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except AssertionError as exc:
+                warnings.warn(str(exc))
+                if reraise:
+                    raise
+
+        return wrapper
+
+    return decorator

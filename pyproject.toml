@@ -56,6 +56,12 @@ lines_after_imports = 2
 skip_glob = [".direnv", ".venv", "venv"]
 
 [tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:opentelemetry.*:",
+    "ignore::DeprecationWarning:pytest_freezegun:17",
+    "ignore::DeprecationWarning:pytest_responses:9",
+]
 
 [tool.setuptools.packages.find]
 include = ["jobrunner*"]
