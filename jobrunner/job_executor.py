@@ -49,7 +49,7 @@ class ExecutorState(Enum):
 class JobStatus:
     state: ExecutorState
     message: Optional[str] = None
-    timestamp: int = None
+    timestamp: int = None  # timestamp this JobStatus occored, in integer nanoseconds
 
 
 @dataclass
@@ -60,7 +60,8 @@ class JobResults:
     exit_code: int
     image_id: str
     message: str = None
-    timestamp: int = None  # timestamp these results were finalized
+    # timestamp these results were finalized, in integer nanoseconds
+    timestamp: int = None
 
     # to be extracted from the image labels
     action_version: str = "unknown"

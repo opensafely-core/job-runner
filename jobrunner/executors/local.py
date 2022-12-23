@@ -19,7 +19,7 @@ from jobrunner.job_executor import (
     JobStatus,
     Privacy,
 )
-from jobrunner.lib import docker
+from jobrunner.lib import datestr_to_ns_timestamp, docker
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
@@ -55,14 +55,6 @@ def get_medium_privacy_workspace(workspace):
     if config.MEDIUM_PRIVACY_WORKSPACES_DIR:
         return config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace
     else:
-        return None
-
-
-def timestamp_from_iso(iso):
-    """Attempt to convert iso formatted date to unix timestamp."""
-    try:
-        return int(datetime.fromisoformat(iso))
-    except Exception:
         return None
 
 
@@ -209,7 +201,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         if container is None:  # container doesn't exist
             # timestamp file presence means we have finished preparing
-            timestamp = volume_api.file_timestamp(job, TIMESTAMP_REFERENCE_FILE, 10)
+            timestamp = volume_api.read_timestamp(job, TIMESTAMP_REFERENCE_FILE, 10)
             # TODO: maybe log the case where the volume exists, but the
             # timestamp file does not? It's not a problems as the loop should
             # re-prepare it anyway.
@@ -221,14 +213,14 @@ class LocalDockerAPI(ExecutorAPI):
                 return JobStatus(ExecutorState.PREPARED, timestamp=timestamp)
 
         if container["State"]["Running"]:
-            timestamp = timestamp_from_iso(container["State"]["StartedAt"])
+            timestamp = datestr_to_ns_timestamp(container["State"]["StartedAt"])
             return JobStatus(ExecutorState.EXECUTING, timestamp=timestamp)
         elif job.id in RESULTS:
             return JobStatus(
                 ExecutorState.FINALIZED, timestamp=RESULTS[job.id].timestamp
             )
         else:  # container present but not running, i.e. finished
-            timestamp = timestamp_from_iso(container["State"]["FinishedAt"])
+            timestamp = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
             return JobStatus(ExecutorState.EXECUTED, timestamp=timestamp)
 
     def get_results(self, job):
@@ -289,8 +281,8 @@ def prepare_job(job):
             )
         volume_api.copy_to_volume(job, workspace_dir / filename, filename)
 
-    # Hack: see `get_unmatched_outputs`
-    volume_api.touch_file(job, TIMESTAMP_REFERENCE_FILE)
+    # Used to record state for telemetry, and also see `get_unmatched_outputs`
+    volume_api.write_timestamp(job, TIMESTAMP_REFERENCE_FILE)
 
 
 def finalize_job(job):
@@ -327,14 +319,13 @@ def finalize_job(job):
         exit_code=container_metadata["State"]["ExitCode"],
         image_id=container_metadata["Image"],
         message=message,
-        timestamp=int(time.time()),
+        timestamp=time.time_ns(),
         action_version=labels.get("org.opencontainers.image.version", "unknown"),
         action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
         action_created=labels.get("org.opencontainers.image.created", "unknown"),
         base_revision=labels.get("org.opensafely.base.vcs-ref", "unknown"),
         base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
-    job.completed_at = int(time.time())
     job_metadata = get_job_metadata(job, outputs, container_metadata)
     write_job_logs(job, job_metadata)
     persist_outputs(job, results.outputs, job_metadata)

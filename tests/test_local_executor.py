@@ -5,7 +5,7 @@ import pytest
 from jobrunner import config
 from jobrunner.executors import local, volumes
 from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
-from jobrunner.lib import docker
+from jobrunner.lib import datestr_to_ns_timestamp, docker
 from tests.factories import ensure_docker_images_present
 
 
@@ -45,7 +45,11 @@ def wait_for_state(api, job, state, limit=5, step=0.25):
     start = time.time()
     elapsed = 0
 
-    while api.get_status(job).state != state:
+    while True:
+        status = api.get_status(job)
+        if status.state == state:
+            return status
+
         elapsed = time.time() - start
         if elapsed > limit:
             raise Exception(f"Timed out waiting for state {state} for job {job}")
@@ -58,7 +62,7 @@ def list_repo_files(path):
 
 
 @pytest.mark.needs_docker
-def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
+def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir, volume_api, freezer):
     ensure_docker_images_present("busybox")
 
     job = JobDefinition(
@@ -81,13 +85,18 @@ def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
 
     populate_workspace(job.workspace, "output/input.csv")
 
+    expected_timestamp = time.time_ns()
+
     api = local.LocalDockerAPI()
     status = api.prepare(job)
 
     assert status.state == ExecutorState.PREPARING
 
     # we don't need to wait for this is currently synchronous
-    assert api.get_status(job).state == ExecutorState.PREPARED
+    next_status = api.get_status(job)
+
+    assert next_status.state == ExecutorState.PREPARED
+    assert next_status.timestamp == expected_timestamp
 
     assert volume_api.volume_exists(job)
 
@@ -123,7 +132,7 @@ def test_prepare_already_prepared(docker_cleanup, test_repo, volume_api):
 
     # create the volume already
     volume_api.create_volume(job)
-    volume_api.touch_file(job, local.TIMESTAMP_REFERENCE_FILE)
+    volume_api.write_timestamp(job, local.TIMESTAMP_REFERENCE_FILE)
 
     api = local.LocalDockerAPI()
     status = api.prepare(job)
@@ -328,7 +337,13 @@ def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     status = api.execute(job)
     assert status.state == ExecutorState.EXECUTING
 
-    wait_for_state(api, job, ExecutorState.EXECUTED)
+    status = wait_for_state(api, job, ExecutorState.EXECUTED)
+
+    # check that timestamp is as expected
+    container = docker.container_inspect(local.container_name(job))
+    assert status.timestamp == datestr_to_ns_timestamp(container["State"]["FinishedAt"])
+
+    assert status.timestamp
 
     status = api.finalize(job)
     assert status.state == ExecutorState.FINALIZING
@@ -653,3 +668,73 @@ def test_get_status_timeout(tmp_work_dir, monkeypatch):
         str(exc.value)
         == "docker timed out after 11s inspecting container os-job-test_get_status_timeout"
     )
+
+
+@pytest.mark.needs_docker
+def test_write_read_timestamps(tmp_work_dir, volume_api):
+
+    job = JobDefinition(
+        id="test_read_timestamp",
+        job_request_id="test_request_id",
+        study=None,
+        workspace="test",
+        action="action",
+        created_at=int(time.time()),
+        image="ghcr.io/opensafely-core/busybox",
+        args=["sleep", "1"],
+        env={},
+        inputs=[],
+        output_spec={},
+        allow_database_access=False,
+    )
+
+    volume_api.create_volume(job)
+    before = time.time_ns()
+    volume_api.write_timestamp(job, "test")
+    after = time.time_ns()
+    ts = volume_api.read_timestamp(job, "test")
+
+    assert before <= ts <= after
+
+
+@pytest.mark.needs_docker
+def test_read_timestamp_stat_fallback(tmp_work_dir):
+
+    job = JobDefinition(
+        id="test_read_timestamp_stat",
+        job_request_id="test_request_id",
+        study=None,
+        workspace="test",
+        action="action",
+        created_at=int(time.time()),
+        image="ghcr.io/opensafely-core/busybox",
+        args=["sleep", "1"],
+        env={},
+        inputs=[],
+        output_spec={},
+        allow_database_access=False,
+    )
+
+    volumes.DockerVolumeAPI.create_volume(job)
+
+    volume_name = volumes.DockerVolumeAPI.volume_name(job)
+    before = time.time_ns()
+
+    path = "test"
+    # just touch the file, no contents
+    docker.docker(
+        [
+            "container",
+            "exec",
+            docker.manager_name(volume_name),
+            "touch",
+            f"{docker.VOLUME_MOUNT_POINT}/{path}",
+        ],
+        check=True,
+    )
+
+    after = time.time_ns()
+    ts = volumes.DockerVolumeAPI.read_timestamp(job, path)
+
+    # check its ns value in the right range
+    assert before <= ts <= after

@@ -8,7 +8,7 @@ import re
 import subprocess
 
 from jobrunner import config
-from jobrunner.lib import atomic_writer
+from jobrunner.lib import atomic_writer, datestr_to_ns_timestamp
 from jobrunner.lib.subprocess_utils import subprocess_run
 
 
@@ -181,31 +181,18 @@ def copy_to_volume(volume_name, source, dest, timeout=None):
     )
 
 
-def touch_file(volume_name, path, timeout=None):
-    docker(
-        [
-            "container",
-            "exec",
-            manager_name(volume_name),
-            "touch",
-            f"{VOLUME_MOUNT_POINT}/{path}",
-        ],
-        check=True,
-        timeout=timeout,
-    )
+def read_timestamp(volume_name, path, timeout=None):
+    container = manager_name(volume_name)
+    if not container_exists(container):
+        return None
 
-
-def file_timestamp(volume_name, path, timeout=None):
     try:
-        # use busybox's stat implementation
         response = docker(
             [
                 "container",
                 "exec",
-                manager_name(volume_name),
-                "stat",
-                "-c",
-                "%X",
+                container,
+                "cat",
                 f"{VOLUME_MOUNT_POINT}/{path}",
             ],
             capture_output=True,
@@ -213,15 +200,55 @@ def file_timestamp(volume_name, path, timeout=None):
             text=True,
             timeout=timeout,
         )
-    except subprocess.CalledProcessError:
-        # either container or file didn't exist
-        logger.debug(f"Failed to stat volume file {volume_name}:{path}")
+    except subprocess.CalledProcessError as exc:
+        # Must be file does not exist, as we've already checked for container
+        logger.debug(f"File {volume_name}:{path} does not exist:\n{exc.stderr}")
         return None
 
+    output = response.stdout.strip()
+
+    if output:
+        try:
+            return int(output)
+        except ValueError:
+            # could not convert to integer
+            logger.debug(
+                f"Could not parse int from {volume_name}:{path}: {response.stdout.strip()}"
+            )
+
+    # either output was "" or we couldn't parse it as integer
+    # fallback to filesystem metadata, to as support older volumes, and just be
+    # robust
     try:
-        return int(response.stdout.strip())
-    except (ValueError, TypeError):
-        # could not convert to integer
+        response = docker(
+            [
+                "container",
+                "exec",
+                container,
+                "stat",
+                "-c",
+                "%z",
+                f"{VOLUME_MOUNT_POINT}/{path}",
+            ],
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.CalledProcessError as exc:
+        # either container or file didn't exist
+        logger.debug(
+            f"Failed to stat file {volume_name}:{path} on container {container}:\n{exc.stderr}"
+        )
+        return None
+
+    datestr = response.stdout.strip()
+    try:
+        return datestr_to_ns_timestamp(datestr)
+    except ValueError as exc:
+        logger.debug(
+            f"Failed to convert file time of {datestr} to integer nanoseconds: {exc}"
+        )
         return None
 
 
