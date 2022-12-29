@@ -66,6 +66,23 @@ DESCRIPTION = __doc__.partition("\n\n")[0]
 LOCAL_RUN_FORMAT = "{action}{message}"
 
 
+STATA_ERROR_MESSGE = """
+The docker image 'stata-mp' requires a license to function.
+
+If you are a member of OpenSAFELY we should have been able to fetch
+the license automatically, so something has gone wrong. Please open
+a new discussion here so we can help:
+
+    https://github.com/opensafely/documentation/discussions
+
+If you are not a member of OpenSAFELY you will have to provide your
+own license. See the dicussion here for pointers:
+
+    https://github.com/opensafely/documentation/discussions/299
+
+"""
+
+
 # Super-crude support for colourised/formatted output inside Github Actions. It
 # would be good to support formatted output in the CLI more generally, but we
 # should use a decent library for that to handle the various cross-platform
@@ -316,18 +333,7 @@ def create_and_run_jobs(
     if uses_stata and config.STATA_LICENSE is None:
         config.STATA_LICENSE = get_stata_license()
         if config.STATA_LICENSE is None:
-            print(
-                "The docker image 'stata-mp' requires a license to function.\n"
-                "\n"
-                "If you are a member of OpenSAFELY we should have been able to fetch\n"
-                "the license automatically, so something has gone wrong. Please open\n"
-                "a new discussion here so we can help:\n"
-                "  https://github.com/opensafely/documentation/discussions\n"
-                "\n"
-                "If you are not a member of OpenSAFELY you will have to provide your\n"
-                "own license. See the dicussion here for pointers:\n"
-                " https://github.com/opensafely/documentation/discussions/299"
-            )
+            print(STATA_ERROR_MESSGE)
             return False
 
     for image in docker_images:
