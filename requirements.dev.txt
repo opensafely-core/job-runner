@@ -124,14 +124,9 @@ toml==0.10.2
     # via pre-commit
 tomli==2.0.1
     # via
-    #   black
     #   coverage
     #   pep517
     #   pytest
-typing-extensions==4.1.1
-    # via
-    #   -c requirements.prod.txt
-    #   black
 urllib3==1.26.5
     # via
     #   -c requirements.prod.txt
@@ -139,11 +134,13 @@ urllib3==1.26.5
     #   responses
 virtualenv==20.13.4
     # via pre-commit
-wheel==0.37.1
+wheel==0.38.1
     # via pip-tools
 
 # The following packages are considered to be unsafe in a requirements file:
 pip==22.0.4
     # via pip-tools
-setuptools==60.10.0
-    # via pip-tools
+setuptools==65.3.0
+    # via
+    #   -c requirements.prod.txt
+    #   pip-tools
