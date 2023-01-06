@@ -646,5 +646,10 @@ def test_get_status_timeout(tmp_work_dir, monkeypatch):
     monkeypatch.setattr(local.docker, "container_inspect", inspect)
     api = local.LocalDockerAPI()
 
-    with pytest.raises(local.ExecutorRetry):
-        api.get_status(job)
+    with pytest.raises(local.ExecutorRetry) as exc:
+        api.get_status(job, timeout=11)
+
+    assert (
+        str(exc.value)
+        == "docker timed out after 11s inspecting container os-job-test_get_status_timeout"
+    )

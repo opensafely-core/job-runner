@@ -194,16 +194,18 @@ class LocalDockerAPI(ExecutorAPI):
         RESULTS.pop(job.id, None)
         return JobStatus(ExecutorState.UNKNOWN)
 
-    def get_status(self, job):
+    def get_status(self, job, timeout=15):
         name = container_name(job)
         try:
             container = docker.container_inspect(
                 name,
                 none_if_not_exists=True,
-                timeout=10,
+                timeout=timeout,
             )
         except docker.DockerTimeoutError:
-            raise ExecutorRetry("timed out inspecting container {name}")
+            raise ExecutorRetry(
+                f"docker timed out after {timeout}s inspecting container {name}"
+            )
 
         if container is None:  # container doesn't exist
             # timestamp file presence means we have finished preparing
