@@ -31,7 +31,6 @@ from jobrunner.queries import calculate_workspace_state, get_flag_value
 log = logging.getLogger(__name__)
 tracer = trace.get_tracer("loop")
 
-# used to track the number of times an executor has asked to retry a job
 EXECUTOR_RETRIES = {}
 
 
@@ -224,15 +223,15 @@ def handle_job(job, api, mode=None, paused=None):
 
     try:
         initial_status = api.get_status(definition)
-    except ExecutorRetry:
-        retries = EXECUTOR_RETRIES.get(job.id, 0)
-        if retries >= config.MAX_RETRIES:
-            raise RetriesExceeded(
-                f"Too many retries for job {job.id} from executor"
-            ) from ExecutorRetry
-        else:
-            EXECUTOR_RETRIES[job.id] = retries + 1
-            return
+    except ExecutorRetry as retry:
+        job_retries = EXECUTOR_RETRIES.get(job.id, 0) + 1
+        EXECUTOR_RETRIES[job.id] = job_retries
+        span = trace.get_current_span()
+        span.set_attribute("executor_retry", True)
+        span.set_attribute("executor_retry_message", str(retry))
+        span.set_attribute("executor_retry_count", job_retries)
+        log.info(f"ExecutorRetry: {retry}")
+        return
     else:
         EXECUTOR_RETRIES.pop(job.id, None)
 

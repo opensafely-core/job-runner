@@ -575,69 +575,30 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
     assert "final_state" not in spans[0].attributes
 
 
-def test_handle_single_job_retries_exceeded(db, monkeypatch):
+def test_handle_single_job_with_executor_retry(db, monkeypatch):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED)
 
     def retry(*args, **kwargs):
-        raise run.ExecutorRetry("retry")
+        raise run.ExecutorRetry("retry message")
 
     monkeypatch.setattr(api, "get_status", retry)
-    monkeypatch.setattr(config, "MAX_RETRIES", 3)
 
     run.handle_single_job(job, api)
-    run.handle_single_job(job, api)
-    run.handle_single_job(job, api)
-
-    with pytest.raises(run.RetriesExceeded):
-        run.handle_single_job(job, api)
-
-    assert job.state is State.FAILED
-
-    spans = get_trace("jobs")
-    assert spans[-3].name == "EXECUTED"
-    error_span = spans[-2]
-    assert error_span.name == "INTERNAL_ERROR"
-    assert error_span.status.status_code == trace.StatusCode.ERROR
-    assert error_span.events[0].name == "exception"
-    assert (
-        error_span.events[0].attributes["exception.message"]
-        == f"Too many retries for job {job.id} from executor"
-    )
-    assert spans[-1].name == "JOB"
-
-    spans = get_trace("loop")
-    assert len(spans) == 4
-    assert all(s for s in spans if s.name == "LOOP_JOB")
-
-
-def test_handle_single_job_retries_not_exceeded(db, monkeypatch):
-    api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED)
-
-    def retry(*args, **kwargs):
-        raise run.ExecutorRetry("retry")
-
-    orig_get_status = api.get_status
-
-    monkeypatch.setattr(api, "get_status", retry)
-    monkeypatch.setattr(config, "MAX_RETRIES", 3)
-
-    run.handle_single_job(job, api)
-    run.handle_single_job(job, api)
-    run.handle_single_job(job, api)
-
-    monkeypatch.setattr(api, "get_status", orig_get_status)
-
-    # do *not* blow up this time
     run.handle_single_job(job, api)
 
     assert job.state is State.RUNNING
-    assert job.id not in run.EXECUTOR_RETRIES
+    assert run.EXECUTOR_RETRIES[job.id] == 2
 
     spans = get_trace("loop")
-    assert len(spans) == 4
-    assert all(s for s in spans if s.name == "LOOP_JOB")
+    assert len(spans) == 2
+    assert spans[0].attributes["executor_retry"] is True
+    assert spans[0].attributes["executor_retry_message"] == "retry message"
+    assert spans[0].attributes["executor_retry_count"] == 1
+
+    assert spans[1].attributes["executor_retry"] is True
+    assert spans[1].attributes["executor_retry_message"] == "retry message"
+    assert spans[1].attributes["executor_retry_count"] == 2
 
 
 def test_handle_single_job_shortcuts_synchronous(db):
