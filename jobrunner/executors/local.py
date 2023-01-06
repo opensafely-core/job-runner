@@ -99,10 +99,6 @@ class LocalDockerAPI(ExecutorAPI):
     synchronous_transitions = [ExecutorState.PREPARING, ExecutorState.FINALIZING]
 
     def prepare(self, job):
-        current = self.get_status(job)
-        if current.state != ExecutorState.UNKNOWN:
-            return current
-
         # Check the workspace is not archived
         workspace_dir = get_high_privacy_workspace(job.workspace)
         if not workspace_dir.exists():
@@ -123,6 +119,10 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.ERROR,
                 f"Docker image {job.image} is not currently available",
             )
+
+        current = self.get_status(job)
+        if current.state != ExecutorState.UNKNOWN:
+            return current
 
         try:
             prepare_job(job)
