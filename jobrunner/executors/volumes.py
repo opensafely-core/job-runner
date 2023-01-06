@@ -123,7 +123,7 @@ class BindMountVolumeAPI:
             if contents:
                 return int(contents)
             else:
-                # linx host filesystem provides untruncated timestamps
+                # linux host filesystem provides untruncated timestamps
                 stat = abs_path.stat()
                 return int(stat.st_ctime * 1e9)
 

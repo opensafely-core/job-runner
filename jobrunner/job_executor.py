@@ -49,7 +49,7 @@ class ExecutorState(Enum):
 class JobStatus:
     state: ExecutorState
     message: Optional[str] = None
-    timestamp: int = None  # timestamp this JobStatus occored, in integer nanoseconds
+    timestamp: int = None  # timestamp this JobStatus occurred, in integer nanoseconds
 
 
 @dataclass

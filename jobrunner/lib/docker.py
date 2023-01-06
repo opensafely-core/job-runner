@@ -217,7 +217,7 @@ def read_timestamp(volume_name, path, timeout=None):
             )
 
     # either output was "" or we couldn't parse it as integer
-    # fallback to filesystem metadata, to as support older volumes, and just be
+    # fallback to filesystem metadata, to support older volumes, and just be
     # robust
     try:
         response = docker(
