@@ -20,9 +20,12 @@ default_work_dir = Path(__file__) / "../../workdir"
 VERSION = os.environ.get("VERSION", "unknown")
 if VERSION == "unknown":
     try:
-        VERSION = subprocess.check_output(
-            ["git", "describe", "--tags"], text=True
-        ).strip()
+        ps = subprocess.run(
+            ["git", "describe", "--tags"],
+            text=True,
+            capture_output=True,
+        )
+        VERSION = ps.stdout.strip()
     except (FileNotFoundError, subprocess.CalledProcessError):
         pass
 
@@ -30,9 +33,12 @@ if VERSION == "unknown":
 GIT_SHA = os.environ.get("GIT_SHA", "unknown")
 if GIT_SHA == "unknown":
     try:
-        GIT_SHA = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], text=True
-        ).strip()
+        ps = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            text=True,
+            capture_output=True,
+        )
+        GIT_SHA = ps.stdout.strip()
     except (FileNotFoundError, subprocess.CalledProcessError):
         pass
 
