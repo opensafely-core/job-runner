@@ -201,27 +201,27 @@ class LocalDockerAPI(ExecutorAPI):
 
         if container is None:  # container doesn't exist
             # timestamp file presence means we have finished preparing
-            timestamp = volume_api.read_timestamp(job, TIMESTAMP_REFERENCE_FILE, 10)
+            timestamp_ns = volume_api.read_timestamp(job, TIMESTAMP_REFERENCE_FILE, 10)
             # TODO: maybe log the case where the volume exists, but the
             # timestamp file does not? It's not a problems as the loop should
             # re-prepare it anyway.
-            if timestamp is None:
+            if timestamp_ns is None:
                 # we are Jon Snow
                 return JobStatus(ExecutorState.UNKNOWN)
             else:
                 # we've finish preparing
-                return JobStatus(ExecutorState.PREPARED, timestamp=timestamp)
+                return JobStatus(ExecutorState.PREPARED, timestamp_ns=timestamp_ns)
 
         if container["State"]["Running"]:
-            timestamp = datestr_to_ns_timestamp(container["State"]["StartedAt"])
-            return JobStatus(ExecutorState.EXECUTING, timestamp=timestamp)
+            timestamp_ns = datestr_to_ns_timestamp(container["State"]["StartedAt"])
+            return JobStatus(ExecutorState.EXECUTING, timestamp_ns=timestamp_ns)
         elif job.id in RESULTS:
             return JobStatus(
-                ExecutorState.FINALIZED, timestamp=RESULTS[job.id].timestamp
+                ExecutorState.FINALIZED, timestamp_ns=RESULTS[job.id].timestamp_ns
             )
         else:  # container present but not running, i.e. finished
-            timestamp = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
-            return JobStatus(ExecutorState.EXECUTED, timestamp=timestamp)
+            timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
+            return JobStatus(ExecutorState.EXECUTED, timestamp_ns=timestamp_ns)
 
     def get_results(self, job):
         if job.id not in RESULTS:
@@ -319,7 +319,7 @@ def finalize_job(job):
         exit_code=container_metadata["State"]["ExitCode"],
         image_id=container_metadata["Image"],
         message=message,
-        timestamp=time.time_ns(),
+        timestamp_ns=time.time_ns(),
         action_version=labels.get("org.opencontainers.image.version", "unknown"),
         action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
         action_created=labels.get("org.opencontainers.image.created", "unknown"),

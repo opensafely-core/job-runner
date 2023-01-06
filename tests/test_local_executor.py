@@ -96,7 +96,7 @@ def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir, volume_api, fr
     next_status = api.get_status(job)
 
     assert next_status.state == ExecutorState.PREPARED
-    assert next_status.timestamp == expected_timestamp
+    assert next_status.timestamp_ns == expected_timestamp
 
     assert volume_api.volume_exists(job)
 
@@ -341,9 +341,9 @@ def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
 
     # check that timestamp is as expected
     container = docker.container_inspect(local.container_name(job))
-    assert status.timestamp == datestr_to_ns_timestamp(container["State"]["FinishedAt"])
-
-    assert status.timestamp
+    assert status.timestamp_ns == datestr_to_ns_timestamp(
+        container["State"]["FinishedAt"]
+    )
 
     status = api.finalize(job)
     assert status.state == ExecutorState.FINALIZING
