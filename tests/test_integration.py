@@ -158,7 +158,7 @@ def test_integration_with_cohortextractor(
     # Check that the manifest contains what we expect. This is a subset of what used to be in the manifest, to support
     # nicer UX for osrelease.
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
-    manifest = json.load(manifest_file.open())
+    manifest = json.loads(manifest_file.read_text())
     assert manifest["workspace"] == "testing"
     assert manifest["repo"] == str(test_repo.path)
 
@@ -200,8 +200,8 @@ def test_integration_with_cohortextractor(
     # labels.
     assert not any(s.attributes["action_created"] == "unknown" for s in executed_jobs)
 
-    job_spans = [s for s in get_trace("loop") if s.name == "LOOP"]
-    assert len(job_spans) > 1
+    loop_spans = [s for s in get_trace("loop") if s.name == "LOOP"]
+    assert len(loop_spans) > 1
 
 
 @pytest.mark.slow_test
@@ -327,7 +327,7 @@ def test_integration_with_databuilder(
     # Check that the manifest contains what we expect. This is a subset of what used to be in the manifest, to support
     # nicer UX for osrelease.
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
-    manifest = json.load(manifest_file.open())
+    manifest = json.loads(manifest_file.read_text())
     assert manifest["workspace"] == "testing"
     assert manifest["repo"] == str(test_repo.path)
 

@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -9,7 +10,7 @@ from opentelemetry.trace import propagation
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from jobrunner import config
-from jobrunner.lib import database
+from jobrunner.lib import database, warn_assertions
 from jobrunner.models import Job, SavedJobRequest, State, StatusCode
 
 
@@ -48,6 +49,7 @@ def setup_default_tracing():
         add_exporter(ConsoleSpanExporter())
 
 
+@warn_assertions
 def initialise_trace(job):
     """Initialise the trace for this job by creating a root span.
 
@@ -120,7 +122,9 @@ def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
         # final states have no duration, so make last for 1 sec, just act
         # as a marker
         end_time = int(timestamp_ns + 1e9)
-        record_job_span(job, name, start_time, end_time, error, results, **attrs)
+        record_job_span(
+            job, name, start_time, end_time, error, results, final=True, **attrs
+        )
 
         complete_job(job, timestamp_ns, error, results, **attrs)
     except Exception:
@@ -160,10 +164,29 @@ def load_trace_context(job):
     return propagation.set_span_in_context(trace.NonRecordingSpan(span_context), {})
 
 
+MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0).timestamp() * 1e9)
+
+
+@warn_assertions
 def record_job_span(job, name, start_time, end_time, error, results, **attrs):
     """Record a span for a job."""
     if not _traceable(job):
         return
+
+    # Due to @warn_assertions, this will be emitted as warnings in test, but
+    # the calling code swallows any exceptions.
+    assert start_time is not None
+    assert end_time is not None
+    assert (
+        start_time > MINIMUM_NS_TIMESTAMP
+    ), f"start_time not in nanoseconds: {start_time}"
+    assert end_time > MINIMUM_NS_TIMESTAMP, f"end_time not in nanoseconds: {end_time}"
+    # Note: windows timer precision is low, so we sometimes get the same
+    # value of ns for two separate measurments. This means they are not always
+    # increasing, but they should never decrease. At least in theory...
+    assert (
+        end_time >= start_time
+    ), f"end_time is before start_time, ({end_time} < {start_time})"
 
     ctx = load_trace_context(job)
     tracer = trace.get_tracer("jobs")
