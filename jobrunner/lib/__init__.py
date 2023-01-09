@@ -62,7 +62,7 @@ def datestr_to_ns_timestamp(datestr):
 
 
 def warn_assertions(f):
-    """Helper decorator to catch assertions erros and emit as warnings.
+    """Helper decorator to catch assertions errors and emit as warnings.
 
     In dev, this will cause tests to fail, and log output in prod.
 

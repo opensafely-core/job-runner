@@ -19,7 +19,7 @@ from tests.fakes import RecordingExecutor
     ],
 )
 def test_handle_job_full_execution(synchronous_transitions, db, freezer):
-    # move to a second boundary so rounding doesn't affect our times.
+    # move to a whole second boundary for easier timestamp maths
     freezer.move_to("2022-01-01T12:34:56")
 
     api = StubExecutorAPI()
