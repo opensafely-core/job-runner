@@ -110,7 +110,7 @@ def test_trace_attributes_missing(db, monkeypatch):
     )
 
 
-def test_initialise_trace1(db):
+def test_initialise_trace(db):
     job = job_factory()
     # clear factories default context
     job.trace_context = None
