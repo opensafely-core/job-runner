@@ -110,7 +110,7 @@ def test_trace_attributes_missing(db, monkeypatch):
     )
 
 
-def test_initialise_trace(db):
+def test_initialise_trace1(db):
     job = job_factory()
     # clear factories default context
     job.trace_context = None
@@ -119,8 +119,26 @@ def test_initialise_trace(db):
 
     assert "traceparent" in job.trace_context
 
+    # check we can load it without error
+    tracing.load_root_span(job)
+
+    # check is has not been emitted
     spans = get_trace("jobs")
     assert len(spans) == 0
+
+
+def test_initialise_trace_does_not_use_current_span(db):
+    job = job_factory()
+    # clear factories default context
+    job.trace_context = None
+
+    tracer = trace.get_tracer("test")
+    with tracer.start_as_current_span("test_initialise_trace") as current_span:
+        tracing.initialise_trace(job)
+
+    # check that we did not use the current spans trace id
+    span_context = tracing.load_root_span(job)
+    assert span_context.trace_id != current_span.context.trace_id
 
 
 def test_finish_current_state(db):

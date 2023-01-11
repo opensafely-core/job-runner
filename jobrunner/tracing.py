@@ -71,7 +71,7 @@ def initialise_trace(job):
     # create a root span in order to have a parent for all subsequent spans.
     # However, we do not annotate or emit this span object now. We do this when
     # the job has completed; see complete_job() for details.
-    root = tracer.start_span("JOB")
+    root = tracer.start_span("JOB", context={})
 
     # TraceContextTextMapPropagator only works with the current span, so set it as such.
     with trace.use_span(root, end_on_exit=False):
@@ -87,7 +87,7 @@ def _traceable(job):
     running that pre-existed it.
     """
     if job.trace_context is None or job.status_code is None:
-        logger.info(f"not tracing job {job.id} as not initialised")
+        logger.info(f"not tracing job {job.id} as not initialised for tracing")
         return False
 
     return True
