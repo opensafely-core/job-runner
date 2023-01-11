@@ -34,6 +34,8 @@ class State(Enum):
 # current low-level state of a job. They are simply machine readable versions
 # of the human readable status_message which allow us to provide certain UX
 # affordances in the web, cli and telemetry.
+
+
 class StatusCode(Enum):
 
     # PENDING states
@@ -72,9 +74,13 @@ class StatusCode(Enum):
     INTERNAL_ERROR = "internal_error"
     KILLED_BY_ADMIN = "killed_by_admin"
 
+    @property
+    def is_final_code(self):
+        return self in StatusCode._FINAL_STATUS_CODES
+
 
 # used for tracing to know if a state is final or not
-FINAL_STATUS_CODES = [
+StatusCode._FINAL_STATUS_CODES = [
     StatusCode.SUCCEEDED,
     StatusCode.DEPENDENCY_FAILED,
     StatusCode.NONZERO_EXIT,

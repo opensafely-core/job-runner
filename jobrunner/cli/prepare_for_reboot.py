@@ -7,7 +7,7 @@ import argparse
 from jobrunner.executors.local import container_name, docker, volume_api
 from jobrunner.lib.database import find_where
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.run import set_state
+from jobrunner.run import set_code
 
 
 def main(pause=True):
@@ -26,9 +26,8 @@ def main(pause=True):
 
     for job in find_where(Job, state=State.RUNNING):
         print(f"reseting job {job.id} to PENDING")
-        set_state(
+        set_code(
             job,
-            State.PENDING,
             StatusCode.WAITING_ON_REBOOT,
             "Job restarted - waiting for server to reboot",
         )
