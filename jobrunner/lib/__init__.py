@@ -61,6 +61,15 @@ def datestr_to_ns_timestamp(datestr):
     return ts
 
 
+def ns_timestamp_to_datetime(timestamp_ns):
+    """Debugging helper function to make ns timestamps human readable.
+
+    We do lose 3 levels of precision, as datetime can only handle microseconds,
+    but for human comparison that doesn't matter.
+    """
+    return datetime.fromtimestamp(timestamp_ns / 1e9)
+
+
 def warn_assertions(f):
     """Helper decorator to catch assertions errors and emit as warnings.
 

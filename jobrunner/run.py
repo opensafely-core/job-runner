@@ -22,6 +22,7 @@ from jobrunner.job_executor import (
     Privacy,
     Study,
 )
+from jobrunner.lib import ns_timestamp_to_datetime
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import FINAL_STATUS_CODES, Job, State, StatusCode
@@ -550,19 +551,25 @@ def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **
         timestamp_s = int(t)
         timestamp_ns = int(t * 1e9)
     else:
-        timestamp_s = int(timestamp_ns // 1e9)
-
-    if job.status_code_updated_at > timestamp_ns:
-        # we somehow have a negative duration, which honeycomb does funny things with.
-        # This can happen in tests, where things are fast, but we've seen it in production too.
-        log.warning(
-            f"negative state duration, clamping to 1ms ({job.status_code_updated_at} > {timestamp_ns})"
-        )
-        timestamp_ns = job.status_code_updated_at + 1e6  # set duration to 1ms
-        timestamp_s = int(timestamp_ns // 1e9)
+        timestamp_s = int(timestamp_ns / 1e9)
 
     # if code has changed then trace it and update
     if job.status_code != code:
+
+        # handle timer measurement errors
+        if job.status_code_updated_at > timestamp_ns:
+            # we somehow have a negative duration, which honeycomb does funny things with.
+            # This can happen in tests, where things are fast, but we've seen it in production too.
+            duration = datetime.timedelta(
+                microseconds=int((timestamp_ns - job.status_code_updated_at) / 1e3)
+            )
+            log.warning(
+                f"negative state duration of {duration}, clamping to 1ms\n"
+                f"before: {job.status_code:<24} at {ns_timestamp_to_datetime(job.status_code_updated_at)}\n"
+                f"after : {code:<24} at {ns_timestamp_to_datetime(timestamp_ns)}\n"
+            )
+            timestamp_ns = int(job.status_code_updated_at + 1e6)  # set duration to 1ms
+            timestamp_s = int(timestamp_ns // 1e9)
 
         # job trace: we finished the previous state
         tracing.finish_current_state(
