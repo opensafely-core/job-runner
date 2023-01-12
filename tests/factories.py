@@ -120,6 +120,8 @@ class StubExecutorAPI:
 
     """
 
+    synchronous_transitions = []
+
     def __init__(self):
 
         self.tracker = {
@@ -165,10 +167,10 @@ class StubExecutorAPI:
         self.state[definition.id] = JobStatus(state, message, timestamp_ns)
 
     def set_job_transition(
-        self, definition, state, message="executor message", timestamp_ns=None
+        self, definition, state, message="executor message", hook=None
     ):
         """Set the next transition for this job when called"""
-        self.transitions[definition.id] = (state, message, timestamp_ns)
+        self.transitions[definition.id] = (state, message, hook)
 
     def set_job_result(self, definition, timestamp_ns=None, **kwargs):
         if timestamp_ns is None:
@@ -186,24 +188,29 @@ class StubExecutorAPI:
 
     def do_transition(self, definition, expected, next_state):
         current = self.get_status(definition)
-        timestamp_ns = time.time_ns()
         if current.state != expected:
             state = current.state
             message = f"Invalid transition to {next_state}, currently state is {current.state}"
         elif definition.id in self.transitions:
-            state, message, timestamp_ns = self.transitions[definition.id]
+            state, message, hook = self.transitions.pop(definition.id)
+            if hook:
+                hook(definition)
         else:
             state = next_state
             message = "executor message"
 
+        timestamp_ns = time.time_ns()
         self.set_job_state(definition, state, message, timestamp_ns)
         return JobStatus(state, message, timestamp_ns)
 
     def prepare(self, definition):
         self.tracker["prepare"].add(definition.id)
-        return self.do_transition(
-            definition, ExecutorState.UNKNOWN, ExecutorState.PREPARING
-        )
+        if ExecutorState.PREPARING in self.synchronous_transitions:
+            expected = ExecutorState.PREPARED
+        else:
+            expected = ExecutorState.PREPARING
+
+        return self.do_transition(definition, ExecutorState.UNKNOWN, expected)
 
     def execute(self, definition):
         self.tracker["execute"].add(definition.id)
@@ -213,9 +220,11 @@ class StubExecutorAPI:
 
     def finalize(self, definition):
         self.tracker["finalize"].add(definition.id)
-        return self.do_transition(
-            definition, ExecutorState.EXECUTED, ExecutorState.FINALIZING
-        )
+        if ExecutorState.FINALIZING in self.synchronous_transitions:
+            expected = ExecutorState.FINALIZED
+        else:
+            expected = ExecutorState.FINALIZING
+        return self.do_transition(definition, ExecutorState.EXECUTED, expected)
 
     def terminate(self, definition):
         self.tracker["terminate"].add(definition.id)

@@ -187,6 +187,10 @@ def handle_job(job, api, mode=None, paused=None):
     assert job.state in (State.PENDING, State.RUNNING)
     definition = job_to_job_definition(job)
 
+    # does this api have synchronous_transitions?
+    synchronous_transitions = getattr(api, "synchronous_transitions", [])
+    is_synchronous = False
+
     if job.cancelled:
         # cancelled is driven by user request, so is handled explicitly first
         # regardless of executor state.
@@ -297,7 +301,17 @@ def handle_job(job, api, mode=None, paused=None):
             set_code(job, code, message)
             return
 
-        expected_state = ExecutorState.PREPARING
+        if ExecutorState.PREPARING in synchronous_transitions:
+            # prepare is synchronous, which means set our code to PREPARING
+            # before calling  api.prepare(), and we expect it to be PREPARED
+            # when finished
+            code, message = STATE_MAP[ExecutorState.PREPARING]
+            set_code(job, code, message)
+            expected_state = ExecutorState.PREPARED
+            is_synchronous = True
+        else:
+            expected_state = ExecutorState.PREPARING
+
         new_status = api.prepare(definition)
 
     elif initial_status.state == ExecutorState.PREPARED:
@@ -305,7 +319,18 @@ def handle_job(job, api, mode=None, paused=None):
         new_status = api.execute(definition)
 
     elif initial_status.state == ExecutorState.EXECUTED:
-        expected_state = ExecutorState.FINALIZING
+
+        if ExecutorState.FINALIZING in synchronous_transitions:
+            # finalize is synchronous, which means set our code to FINALIZING
+            # before calling  api.finalize(), and we expect it to be FINALIZED
+            # when finished
+            code, message = STATE_MAP[ExecutorState.FINALIZING]
+            set_code(job, code, message)
+            expected_state = ExecutorState.FINALIZED
+            is_synchronous = True
+        else:
+            expected_state = ExecutorState.FINALIZING
+
         new_status = api.finalize(definition)
 
     elif initial_status.state == ExecutorState.FINALIZED:
@@ -341,18 +366,13 @@ def handle_job(job, api, mode=None, paused=None):
 
     elif new_status.state == expected_state:
         # successful state change to the expected next state
-
         code, message = STATE_MAP[new_status.state]
         set_code(job, code, message)
 
-        # does this api have synchronous_transitions?
-        synchronous_transitions = getattr(api, "synchronous_transitions", [])
-
-        if new_status.state in synchronous_transitions:
-            # we want to immediately run this function for this job again to
-            # avoid blocking it as we know the state transition has already
-            # completed.
-            return True
+        # we want to immediately run this function for this job again to
+        # avoid blocking it as we know the state transition has already
+        # completed.
+        return is_synchronous
 
     elif new_status.state == ExecutorState.ERROR:
         # all transitions can go straight to error
