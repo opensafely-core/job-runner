@@ -89,7 +89,7 @@ def test_handle_job_full_execution_synchronous(db, freezer):
     api = StubExecutorAPI()
     api.synchronous_transitions = [ExecutorState.PREPARING, ExecutorState.FINALIZING]
 
-    start = int(time.time() * 1e9)
+    start = int(time.time_ns())
 
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
 
