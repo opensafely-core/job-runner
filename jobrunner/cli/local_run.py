@@ -151,6 +151,7 @@ def add_arguments(parser):
         default=config.DEFAULT_JOB_MEMORY_LIMIT,
     )
     parser.add_argument(
+        "--cpus",
         "--cpu",
         type=int,
         help=f"The per-job cpu limit. How many cpus the job can use. Defaults to {config.DEFAULT_JOB_CPU_COUNT}",
@@ -169,7 +170,7 @@ def main(
     format_output_for_github=False,
     concurrency=config.MAX_WORKERS,
     memory=config.DEFAULT_JOB_MEMORY_LIMIT,
-    cpu=config.DEFAULT_JOB_CPU_COUNT,
+    cpus=config.DEFAULT_JOB_CPU_COUNT,
 ):
     if not docker_preflight_check():
         return False
@@ -208,7 +209,7 @@ def main(
             format_output_for_github=format_output_for_github,
             concurrency=concurrency,
             memory=memory,
-            cpu=cpu,
+            cpus=cpus,
         )
     except KeyboardInterrupt:
         print("\nKilled by user")
@@ -244,7 +245,7 @@ def create_and_run_jobs(
     format_output_for_github=False,
     concurrency=config.MAX_WORKERS,
     memory=config.DEFAULT_JOB_MEMORY_LIMIT,
-    cpu=config.DEFAULT_JOB_CPU_COUNT,
+    cpus=config.DEFAULT_JOB_CPU_COUNT,
 ):
     # Fiddle with the configuration to suit what we need for running local jobs
     docker.LABEL = docker_label
@@ -259,7 +260,7 @@ def create_and_run_jobs(
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
     config.MAX_WORKERS = concurrency
     config.DEFAULT_JOB_MEMORY_LIMIT = memory
-    config.DEFAULT_JOB_CPU_COUNT = cpu
+    config.DEFAULT_JOB_CPU_COUNT = cpus
 
     # We want to fetch any reusable actions code directly from Github so as to
     # avoid pushing unnecessary traffic through the proxy

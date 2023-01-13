@@ -31,7 +31,7 @@ def test_local_run_limits_applied(db, tmp_path, docker_cleanup):
         actions=["generate_dataset"],
         debug=True,  # preserves containers for inspection
         memory="1.5G",
-        cpu=1.5,
+        cpus=1.5,
     )
 
     for job in database.find_all(Job):
@@ -208,7 +208,7 @@ def test_add_arguments():
             "--debug",
             "--concurrency=3",
             "--memory=2G",
-            "--cpu=1",
+            "--cpus=1",
         ]
     )
 
@@ -219,7 +219,7 @@ def test_add_arguments():
     assert args.debug
     assert args.concurrency == 3
     assert args.memory == "2G"
-    assert args.cpu == 1
+    assert args.cpus == 1
 
 
 def test_filter_log_messages():
