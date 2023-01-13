@@ -124,10 +124,8 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.ERROR, "Out of disk space, please try again later"
             )
 
-        # technically, we're acutally PREPARED, as we did in synchronously, but
-        # the loop code is expecting PREPARING, so return that. The next time
-        # around the loop, it will pick up that it is PREPARED, and move on.
-        return JobStatus(ExecutorState.PREPARING)
+        # this API is synchronous, so we are PREPARED now
+        return JobStatus(ExecutorState.PREPARED)
 
     def execute(self, job):
         current = self.get_status(job)
@@ -169,7 +167,8 @@ class LocalDockerAPI(ExecutorAPI):
         except LocalDockerError as exc:
             return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
-        return JobStatus(ExecutorState.FINALIZING)
+        # this api is synchronous, so we are now FINALIZED
+        return JobStatus(ExecutorState.FINALIZED)
 
     def terminate(self, job):
         docker.kill(container_name(job))

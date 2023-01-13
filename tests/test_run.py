@@ -11,19 +11,11 @@ from tests.factories import StubExecutorAPI, job_factory
 from tests.fakes import RecordingExecutor
 
 
-@pytest.mark.parametrize(
-    "synchronous_transitions",
-    [
-        [],
-        [ExecutorState.PREPARING, ExecutorState.FINALIZING],
-    ],
-)
-def test_handle_job_full_execution(synchronous_transitions, db, freezer):
+def test_handle_job_full_execution_async(db, freezer):
     # move to a whole second boundary for easier timestamp maths
     freezer.move_to("2022-01-01T12:34:56")
 
     api = StubExecutorAPI()
-    api.synchronous_transitions = synchronous_transitions
 
     start = int(time.time() * 1e9)
 
@@ -54,6 +46,80 @@ def test_handle_job_full_execution(synchronous_transitions, db, freezer):
     freezer.tick(1)
     api.set_job_state(job, ExecutorState.FINALIZED)
     api.set_job_result(job)
+
+    freezer.tick(1)
+    run.handle_job(job, api)
+    assert job.state == State.SUCCEEDED
+    assert job.status_code == StatusCode.SUCCEEDED
+
+    spans = get_trace("jobs")
+    assert [s.name for s in spans] == [
+        "CREATED",
+        "PREPARING",
+        "PREPARED",
+        "EXECUTING",
+        "EXECUTED",
+        "FINALIZING",
+        "FINALIZED",
+        "SUCCEEDED",
+        "JOB",
+    ]
+
+    span_times = [
+        (s.name, (s.start_time - start) / 1e9, (s.end_time - start) / 1e9)
+        for s in spans[:-1]
+        if not s.name.startswith("ENTER")
+    ]
+    assert span_times == [
+        ("CREATED", 0.0, 1.0),
+        ("PREPARING", 1.0, 2.0),
+        ("PREPARED", 2.0, 3.0),
+        ("EXECUTING", 3.0, 4.0),
+        ("EXECUTED", 4.0, 5.0),
+        ("FINALIZING", 5.0, 6.0),
+        ("FINALIZED", 6.0, 7.0),
+        ("SUCCEEDED", 7.0, 8.0),  # this is always 1 second anyway!
+    ]
+
+
+def test_handle_job_full_execution_synchronous(db, freezer):
+    # move to a whole second boundary for easier timestamp maths
+    freezer.move_to("2022-01-01T12:34:56")
+
+    api = StubExecutorAPI()
+    api.synchronous_transitions = [ExecutorState.PREPARING, ExecutorState.FINALIZING]
+
+    start = int(time.time_ns())
+
+    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
+
+    freezer.tick(1)
+
+    # prepare is synchronous
+    api.set_job_transition(job, ExecutorState.PREPARED, hook=lambda j: freezer.tick(1))
+    run.handle_job(job, api)
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.PREPARED
+
+    freezer.tick(1)
+    run.handle_job(job, api)
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.EXECUTING
+
+    freezer.tick(1)
+    api.set_job_state(job, ExecutorState.EXECUTED)
+
+    freezer.tick(1)
+    # finalize is synchronous
+
+    def finalize(job):
+        freezer.tick(1)
+        api.set_job_result(job)
+
+    api.set_job_transition(job, ExecutorState.FINALIZED, hook=finalize)
+    run.handle_job(job, api)
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.FINALIZED
 
     freezer.tick(1)
     run.handle_job(job, api)

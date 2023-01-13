@@ -90,7 +90,7 @@ def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir, volume_api, fr
     api = local.LocalDockerAPI()
     status = api.prepare(job)
 
-    assert status.state == ExecutorState.PREPARING
+    assert status.state == ExecutorState.PREPARED
 
     # we don't need to wait for this is currently synchronous
     next_status = api.get_status(job)
@@ -264,7 +264,7 @@ def test_execute_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
 
     # use prepare step as test set up
     status = api.prepare(job)
-    assert status.state == ExecutorState.PREPARING
+    assert status.state == ExecutorState.PREPARED
 
     status = api.execute(job)
     assert status.state == ExecutorState.EXECUTING
@@ -333,7 +333,7 @@ def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     api = local.LocalDockerAPI()
 
     status = api.prepare(job)
-    assert status.state == ExecutorState.PREPARING
+    assert status.state == ExecutorState.PREPARED
     status = api.execute(job)
     assert status.state == ExecutorState.EXECUTING
 
@@ -346,9 +346,8 @@ def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     )
 
     status = api.finalize(job)
-    assert status.state == ExecutorState.FINALIZING
+    assert status.state == ExecutorState.FINALIZED
 
-    # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED
     assert job.id in local.RESULTS
 
@@ -390,14 +389,14 @@ def test_finalize_failed(docker_cleanup, test_repo, tmp_work_dir, volume_api):
     api = local.LocalDockerAPI()
 
     status = api.prepare(job)
-    assert status.state == ExecutorState.PREPARING
+    assert status.state == ExecutorState.PREPARED
     status = api.execute(job)
     assert status.state == ExecutorState.EXECUTING
 
     wait_for_state(api, job, ExecutorState.EXECUTED)
 
     status = api.finalize(job)
-    assert status.state == ExecutorState.FINALIZING
+    assert status.state == ExecutorState.FINALIZED
 
     # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED
@@ -439,14 +438,14 @@ def test_finalize_unmatched(docker_cleanup, test_repo, tmp_work_dir, volume_api)
     api = local.LocalDockerAPI()
 
     status = api.prepare(job)
-    assert status.state == ExecutorState.PREPARING
+    assert status.state == ExecutorState.PREPARED
     status = api.execute(job)
     assert status.state == ExecutorState.EXECUTING
 
     wait_for_state(api, job, ExecutorState.EXECUTED)
 
     status = api.finalize(job)
-    assert status.state == ExecutorState.FINALIZING
+    assert status.state == ExecutorState.FINALIZED
 
     # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED
@@ -488,7 +487,7 @@ def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir, volume_api
     api = local.LocalDockerAPI()
 
     status = api.prepare(job)
-    assert status.state == ExecutorState.PREPARING
+    assert status.state == ExecutorState.PREPARED
     status = api.execute(job)
     assert status.state == ExecutorState.EXECUTING
 
@@ -498,7 +497,7 @@ def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir, volume_api
     wait_for_state(api, job, ExecutorState.EXECUTED)
 
     status = api.finalize(job)
-    assert status.state == ExecutorState.FINALIZING
+    assert status.state == ExecutorState.FINALIZED
 
     # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED
@@ -543,7 +542,7 @@ def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir):
     wait_for_state(api, job, ExecutorState.EXECUTED)
 
     status = api.finalize(job)
-    assert status.state == ExecutorState.FINALIZING
+    assert status.state == ExecutorState.FINALIZED
 
     # we don't need to wait
     assert api.get_status(job).state == ExecutorState.FINALIZED

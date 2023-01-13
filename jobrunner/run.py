@@ -22,9 +22,10 @@ from jobrunner.job_executor import (
     Privacy,
     Study,
 )
+from jobrunner.lib import ns_timestamp_to_datetime
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.models import FINAL_STATUS_CODES, Job, State, StatusCode
+from jobrunner.models import Job, State, StatusCode
 from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 
@@ -186,6 +187,10 @@ def handle_job(job, api, mode=None, paused=None):
     assert job.state in (State.PENDING, State.RUNNING)
     definition = job_to_job_definition(job)
 
+    # does this api have synchronous_transitions?
+    synchronous_transitions = getattr(api, "synchronous_transitions", [])
+    is_synchronous = False
+
     if job.cancelled:
         # cancelled is driven by user request, so is handled explicitly first
         # regardless of executor state.
@@ -213,9 +218,8 @@ def handle_job(job, api, mode=None, paused=None):
             api.cleanup(definition)
 
         # reset state to pending and exit
-        set_state(
+        set_code(
             job,
-            State.PENDING,
             StatusCode.WAITING_DB_MAINTENANCE,
             "Waiting for database to finish maintenance",
         )
@@ -297,7 +301,17 @@ def handle_job(job, api, mode=None, paused=None):
             set_code(job, code, message)
             return
 
-        expected_state = ExecutorState.PREPARING
+        if ExecutorState.PREPARING in synchronous_transitions:
+            # prepare is synchronous, which means set our code to PREPARING
+            # before calling  api.prepare(), and we expect it to be PREPARED
+            # when finished
+            code, message = STATE_MAP[ExecutorState.PREPARING]
+            set_code(job, code, message)
+            expected_state = ExecutorState.PREPARED
+            is_synchronous = True
+        else:
+            expected_state = ExecutorState.PREPARING
+
         new_status = api.prepare(definition)
 
     elif initial_status.state == ExecutorState.PREPARED:
@@ -305,7 +319,18 @@ def handle_job(job, api, mode=None, paused=None):
         new_status = api.execute(definition)
 
     elif initial_status.state == ExecutorState.EXECUTED:
-        expected_state = ExecutorState.FINALIZING
+
+        if ExecutorState.FINALIZING in synchronous_transitions:
+            # finalize is synchronous, which means set our code to FINALIZING
+            # before calling  api.finalize(), and we expect it to be FINALIZED
+            # when finished
+            code, message = STATE_MAP[ExecutorState.FINALIZING]
+            set_code(job, code, message)
+            expected_state = ExecutorState.FINALIZED
+            is_synchronous = True
+        else:
+            expected_state = ExecutorState.FINALIZING
+
         new_status = api.finalize(definition)
 
     elif initial_status.state == ExecutorState.FINALIZED:
@@ -341,29 +366,13 @@ def handle_job(job, api, mode=None, paused=None):
 
     elif new_status.state == expected_state:
         # successful state change to the expected next state
-
         code, message = STATE_MAP[new_status.state]
+        set_code(job, code, message)
 
-        # special case PENDING -> RUNNING transition
-        # allow both states to do the transition to RUNNING, due to synchronous transitions
-        if new_status.state in [ExecutorState.PREPARING, ExecutorState.PREPARED]:
-            set_state(job, State.RUNNING, code, message)
-        else:
-            if job.state != State.RUNNING:
-                # got an ExecutorState that should mean the job.state is RUNNING, but it is not
-                log.warning(
-                    f"state error: got {new_status.state} for job we thought was {job.state}"
-                )
-            set_code(job, code, message)
-
-        # does this api have synchronous_transitions?
-        synchronous_transitions = getattr(api, "synchronous_transitions", [])
-
-        if new_status.state in synchronous_transitions:
-            # we want to immediately run this function for this job again to
-            # avoid blocking it as we know the state transition has already
-            # completed.
-            return True
+        # we want to immediately run this function for this job again to
+        # avoid blocking it as we know the state transition has already
+        # completed.
+        return is_synchronous
 
     elif new_status.state == ExecutorState.ERROR:
         # all transitions can go straight to error
@@ -381,10 +390,11 @@ def save_results(job, definition, results):
     job.outputs = results.outputs
 
     message = None
+    error = False
 
     if results.exit_code != 0:
-        state = State.FAILED
         code = StatusCode.NONZERO_EXIT
+        error = True
         message = "Job exited with an error"
         if results.message:
             message += f": {results.message}"
@@ -395,8 +405,8 @@ def save_results(job, definition, results):
 
     elif results.unmatched_patterns:
         job.unmatched_outputs = results.unmatched_outputs
-        state = State.FAILED
         code = StatusCode.UNMATCHED_PATTERNS
+        error = True
         # If the job fails because an output was missing its very useful to
         # show the user what files were created as often the issue is just a
         # typo
@@ -405,11 +415,10 @@ def save_results(job, definition, results):
         )
 
     else:
-        state = State.SUCCEEDED
         code = StatusCode.SUCCEEDED
         message = "Completed successfully"
 
-    set_state(job, state, code, message, error=state == State.FAILED, results=results)
+    set_code(job, code, message, error=error, results=results)
 
 
 def get_obsolete_files(definition, outputs):
@@ -505,33 +514,7 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
     if error is None:
         error = True
 
-    set_state(job, State.FAILED, code, message, error=error, attrs=attrs)
-
-
-def set_state(job, state, code, message, error=None, results=None, **attrs):
-    """Update the high level state transitions.
-
-    Error can be an exception or a string message.
-
-    This sets the high level state and records the timestamps we currently use
-    for job-server metrics, then sets the granular code state via set_code.
-
-
-    Argubly these higher level states are not strictly required now we're
-    tracking the full status code progression. But that would be a big change,
-    so we'll leave for a later refactor.
-    """
-
-    timestamp = int(time.time())
-    job.state = state
-    if state == State.RUNNING:
-        job.started_at = timestamp
-    elif state == State.FAILED or state == State.SUCCEEDED:
-        job.completed_at = timestamp
-    elif state == State.PENDING:  # restarting the job gracefully
-        job.started_at = None
-
-    set_code(job, code, message, error=error, results=results, **attrs)
+    set_code(job, code, message, error=error, attrs=attrs)
 
 
 def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **attrs):
@@ -550,19 +533,41 @@ def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **
         timestamp_s = int(t)
         timestamp_ns = int(t * 1e9)
     else:
-        timestamp_s = int(timestamp_ns // 1e9)
-
-    if job.status_code_updated_at > timestamp_ns:
-        # we somehow have a negative duration, which honeycomb does funny things with.
-        # This can happen in tests, where things are fast, but we've seen it in production too.
-        log.warning(
-            f"negative state duration, clamping to 1ms ({job.status_code_updated_at} > {timestamp_ns})"
-        )
-        timestamp_ns = job.status_code_updated_at + 1e6  # set duration to 1ms
-        timestamp_s = int(timestamp_ns // 1e9)
+        timestamp_s = int(timestamp_ns / 1e9)
 
     # if code has changed then trace it and update
     if job.status_code != code:
+
+        # handle timer measurement errors
+        if job.status_code_updated_at > timestamp_ns:
+            # we somehow have a negative duration, which honeycomb does funny things with.
+            # This can happen in tests, where things are fast, but we've seen it in production too.
+            duration = datetime.timedelta(
+                microseconds=int((timestamp_ns - job.status_code_updated_at) / 1e3)
+            )
+            log.warning(
+                f"negative state duration of {duration}, clamping to 1ms\n"
+                f"before: {job.status_code:<24} at {ns_timestamp_to_datetime(job.status_code_updated_at)}\n"
+                f"after : {code:<24} at {ns_timestamp_to_datetime(timestamp_ns)}\n"
+            )
+            timestamp_ns = int(job.status_code_updated_at + 1e6)  # set duration to 1ms
+            timestamp_s = int(timestamp_ns // 1e9)
+
+        # update coarse state and timings for user
+        if code in [StatusCode.PREPARED, StatusCode.PREPARING]:
+            # we've started running
+            job.state = State.RUNNING
+            job.started_at = timestamp_s
+        elif code.is_final_code:
+            job.completed_at = timestamp_s
+            if code == StatusCode.SUCCEEDED:
+                job.state = State.SUCCEEDED
+            else:
+                job.state = State.FAILED
+        # we sometimes reset the job back to pending
+        elif code in [StatusCode.WAITING_ON_REBOOT, StatusCode.WAITING_DB_MAINTENANCE]:
+            job.state = State.PENDING
+            job.started_at = None
 
         # job trace: we finished the previous state
         tracing.finish_current_state(
@@ -578,7 +583,7 @@ def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **
         job.status_code_updated_at = timestamp_ns
         update_job(job)
 
-        if code in FINAL_STATUS_CODES:
+        if code.is_final_code:
             # transitioning to a final state, so just record that state
             tracing.record_final_state(
                 job,
