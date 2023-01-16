@@ -64,9 +64,13 @@ class DockerVolumeAPI:
         return docker.find_newer_files(docker_volume_name(job), path)
 
 
-def host_volume_path(job):
+def host_volume_path(job, create=True):
     path = config.HIGH_PRIVACY_VOLUME_DIR / job.id
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if create:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            raise Exception(f"Could not create {path.parent} due to permissions error")
     return path
 
 
@@ -89,7 +93,9 @@ class BindMountVolumeAPI:
         host_volume_path(job).mkdir()
 
     def volume_exists(job):
-        return host_volume_path(job).exists()
+        # create=False means this won't raise if we're not configured
+        # to use BindMountVolumeAPI
+        return host_volume_path(job, create=False).exists()
 
     def copy_to_volume(job, src, dst, timeout=None):
         # We don't respect the timeout.
@@ -154,7 +160,18 @@ class BindMountVolumeAPI:
         return found
 
 
-def get_volume_api():
+def default_volume_api():
     module_name, cls = config.LOCAL_VOLUME_API.split(":", 1)
     module = importlib.import_module(module_name)
     return getattr(module, cls)
+
+
+DEFAULT_VOLUME_API = default_volume_api()
+
+
+def get_volume_api(job):
+    for api in [BindMountVolumeAPI, DockerVolumeAPI]:
+        if api.volume_exists(job):
+            return api
+
+    return DEFAULT_VOLUME_API

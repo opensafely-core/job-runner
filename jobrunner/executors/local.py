@@ -40,7 +40,6 @@ RESULTS = {}
 LABEL = "jobrunner-local"
 
 log = logging.getLogger(__name__)
-volume_api = get_volume_api()
 
 
 def container_name(job):
@@ -142,7 +141,7 @@ class LocalDockerAPI(ExecutorAPI):
             docker.run(
                 container_name(job),
                 [job.image] + job.args,
-                volume=(volume_api.volume_name(job), "/workspace"),
+                volume=(get_volume_api(job).volume_name(job), "/workspace"),
                 env=job.env,
                 allow_network_access=job.allow_database_access,
                 label=LABEL,
@@ -178,7 +177,7 @@ class LocalDockerAPI(ExecutorAPI):
         if config.CLEAN_UP_DOCKER_OBJECTS:
             log.info("Cleaning up container and volume")
             docker.delete_container(container_name(job))
-            volume_api.delete_volume(job)
+            get_volume_api(job).delete_volume(job)
         else:
             log.info("Leaving container and volume in place for debugging")
 
@@ -200,7 +199,9 @@ class LocalDockerAPI(ExecutorAPI):
 
         if container is None:  # container doesn't exist
             # timestamp file presence means we have finished preparing
-            timestamp_ns = volume_api.read_timestamp(job, TIMESTAMP_REFERENCE_FILE, 10)
+            timestamp_ns = get_volume_api(job).read_timestamp(
+                job, TIMESTAMP_REFERENCE_FILE, 10
+            )
             # TODO: maybe log the case where the volume exists, but the
             # timestamp file does not? It's not a problems as the loop should
             # re-prepare it anyway.
@@ -252,6 +253,7 @@ def prepare_job(job):
     """Creates a volume and populates it with the repo and input files."""
     workspace_dir = get_high_privacy_workspace(job.workspace)
 
+    volume_api = get_volume_api(job)
     volume_api.create_volume(job, get_job_labels(job))
 
     # `docker cp` can't create parent directories for us so we make sure all
@@ -377,7 +379,7 @@ def persist_outputs(job, outputs, job_metadata):
 
     for filename in outputs.keys():
         log.info(f"Extracting output file: {filename}")
-        volume_api.copy_from_volume(job, filename, workspace_dir / filename)
+        get_volume_api(job).copy_from_volume(job, filename, workspace_dir / filename)
 
     # Copy out medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
@@ -398,7 +400,7 @@ def find_matching_outputs(job):
     Returns a dict mapping output filenames to their privacy level, plus a list
     of any patterns that had no matches at all
     """
-    all_matches = volume_api.glob_volume_files(job)
+    all_matches = get_volume_api(job).glob_volume_files(job)
     unmatched_patterns = []
     outputs = {}
     for pattern, privacy_level in job.output_spec.items():
@@ -424,7 +426,7 @@ def get_unmatched_outputs(job, outputs):
     debugging info and not for Serious Business Purposes, it should be
     sufficient.
     """
-    all_outputs = volume_api.find_newer_files(job, TIMESTAMP_REFERENCE_FILE)
+    all_outputs = get_volume_api(job).find_newer_files(job, TIMESTAMP_REFERENCE_FILE)
     return [filename for filename in all_outputs if filename not in outputs]
 
 
@@ -473,7 +475,7 @@ def copy_git_commit_to_volume(job, repo_url, commit, extra_dirs):
         for directory in extra_dirs:
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
         try:
-            volume_api.copy_to_volume(job, tmpdir, ".", timeout=60)
+            get_volume_api(job).copy_to_volume(job, tmpdir, ".", timeout=60)
         except docker.DockerTimeoutError:
             # Aborting a `docker cp` into a container at the wrong time can
             # leave the container in a completely broken state where any
@@ -515,6 +517,7 @@ def copy_local_workspace_to_volume(job, workspace_dir, extra_dirs):
     directories = set(Path(filename).parent for filename in code_files)
     directories.update(extra_dirs)
     directories.discard(Path("."))
+    volume_api = get_volume_api(job)
     if directories:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -524,7 +527,7 @@ def copy_local_workspace_to_volume(job, workspace_dir, extra_dirs):
 
     log.info(f"Copying in code from {workspace_dir}")
     for filename in code_files:
-        volume_api.copy_to_volume(job, workspace_dir / filename, filename)
+        get_volume_api(job).copy_to_volume(job, workspace_dir / filename, filename)
 
 
 # Environment variables whose values do not need to be hidden from the debug
