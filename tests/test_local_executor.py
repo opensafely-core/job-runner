@@ -13,7 +13,7 @@ from tests.factories import ensure_docker_images_present
 # for each volume api implementation
 @pytest.fixture(params=[volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI])
 def volume_api(request, monkeypatch):
-    monkeypatch.setattr(local, "volume_api", request.param)
+    monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", request.param)
     return request.param
 
 
@@ -737,3 +737,26 @@ def test_read_timestamp_stat_fallback(tmp_work_dir):
 
     # check its ns value in the right range
     assert before <= ts <= after
+
+
+@pytest.mark.needs_docker
+def test_get_volume_api(volume_api, tmp_work_dir):
+
+    job = JobDefinition(
+        id="test_get_volume_api",
+        job_request_id="test_request_id",
+        study=None,
+        workspace="test",
+        action="action",
+        created_at=int(time.time()),
+        image="ghcr.io/opensafely-core/busybox",
+        args=["sleep", "1"],
+        env={},
+        inputs=[],
+        output_spec={},
+        allow_database_access=False,
+    )
+
+    volume_api.create_volume(job)
+
+    assert volumes.get_volume_api(job) == volume_api

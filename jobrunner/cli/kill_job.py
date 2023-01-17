@@ -37,7 +37,7 @@ def main(partial_job_ids, cleanup=False):
 
         if cleanup:
             docker.delete_container(container)
-            local.volume_api.delete_volume(job)
+            local.get_volume_api(job).delete_volume(job)
 
 
 def get_jobs(partial_job_ids):
