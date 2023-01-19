@@ -281,7 +281,7 @@ def job_should_be_rerun(job_request, job):
 
 def assert_new_jobs_created(new_jobs, current_jobs):
     tracer = trace.get_tracer("new_jobs")
-    with tracer.start_as_current_span("assert_new_jobs_created"):
+    with tracer.start_as_current_span("assert_new_jobs_created") as span:
 
         span = trace.get_current_span()
         if new_jobs:
