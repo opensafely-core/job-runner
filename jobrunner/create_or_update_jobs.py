@@ -295,7 +295,6 @@ def assert_new_jobs_created(new_jobs, current_jobs):
             )
             return
 
-        # raise ValueError("BLAHA")
         span.set_attribute("new_jobs", False)
 
         pending = [job.action for job in current_jobs if job.state == State.PENDING]
