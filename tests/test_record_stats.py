@@ -1,20 +1,26 @@
-import logging
-import subprocess
-
 from jobrunner import record_stats
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import job_factory
 
 
-def test_record_tick_trace(db, freezer):
-
+def test_record_tick_trace(db, freezer, monkeypatch):
     jobs = []
     jobs.append(job_factory(status_code=StatusCode.CREATED))
     jobs.append(job_factory(status_code=StatusCode.WAITING_ON_DEPENDENCIES))
     jobs.append(job_factory(status_code=StatusCode.PREPARING))
-    jobs.append(job_factory(status_code=StatusCode.EXECUTING))
+    running_job = job_factory(status_code=StatusCode.EXECUTING)
+    jobs.append(running_job)
     jobs.append(job_factory(status_code=StatusCode.FINALIZING))
+
+    metrics = {
+        running_job.id: {
+            "cpu_percentage": 50.0,
+            "memory_used": 1000,
+        }
+    }
+
+    monkeypatch.setattr(record_stats, "get_job_stats", lambda: metrics)
 
     # this should not be tick'd
     job_factory(state=State.SUCCEEDED, status_code=StatusCode.SUCCEEDED)
@@ -38,21 +44,11 @@ def test_record_tick_trace(db, freezer):
         assert span.name == job.status_code.name
         assert span.start_time == last_run1
         assert span.end_time == last_run2
-        assert span.attributes["tick"] is True
         assert span.attributes["job"] == job.id
         assert span.parent.span_id == root.context.span_id
 
+        if job is running_job:
+            assert span.attributes["cpu_percentage"] == 50.0
+            assert span.attributes["memory_used"] == 1000
+
     assert "SUCCEEDED" not in [s.name for s in spans]
-
-
-def test_log_stats(db, caplog, monkeypatch):
-    def error():
-        raise subprocess.TimeoutExpired("test me", 10)
-
-    caplog.set_level(logging.INFO)
-    monkeypatch.setattr(record_stats, "get_all_stats", error)
-
-    record_stats.log_stats(None)
-
-    assert caplog.records[-1].msg == "Getting docker stats timed out"
-    assert "test me" in caplog.records[-1].exc_text

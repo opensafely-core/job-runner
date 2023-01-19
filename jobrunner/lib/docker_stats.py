@@ -6,33 +6,26 @@ from jobrunner.lib.subprocess_utils import subprocess_run
 DEFAULT_TIMEOUT = 10
 
 
-def get_volume_and_container_sizes(timeout=DEFAULT_TIMEOUT):
-    response = subprocess_run(
-        ["docker", "system", "df", "--verbose", "--format", "{{json .}}"],
-        capture_output=True,
-        check=True,
-        timeout=timeout,
-    )
-    data = json.loads(response.stdout)
-    volumes = {row["Name"]: _parse_size(row["Size"]) for row in data["Volumes"]}
-    containers = {row["Names"]: _parse_size(row["Size"]) for row in data["Containers"]}
-    return volumes, containers
+def get_job_stats(timeout=DEFAULT_TIMEOUT):
+    # TODO: add volume sizes
+    return get_container_stats(DEFAULT_TIMEOUT)
 
 
 def get_container_stats(timeout=DEFAULT_TIMEOUT):
     response = subprocess_run(
-        ["docker", "stats", "--no-stream", "--format", "{{json .}}"],
+        ["docker", "stats", "--no-stream", "--no-trunc", "--format", "{{json .}}"],
         capture_output=True,
         check=True,
         timeout=timeout,
     )
     data = [json.loads(line) for line in response.stdout.splitlines()]
     return {
-        row["Name"]: {
+        row["Name"].lstrip("os-job-"): {
             "cpu_percentage": float(row["CPUPerc"].rstrip("%")),
             "memory_used": _parse_size(row["MemUsage"].split()[0]),
         }
         for row in data
+        if row["Name"].startswith("os-job-")
     }
 
 
