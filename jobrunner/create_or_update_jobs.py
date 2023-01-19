@@ -283,7 +283,6 @@ def assert_new_jobs_created(new_jobs, current_jobs):
     tracer = trace.get_tracer("new_jobs")
     with tracer.start_as_current_span("assert_new_jobs_created") as span:
 
-        span = trace.get_current_span()
         if new_jobs:
             span.set_attribute("new_jobs", True)
             # want to have access to the job id that is causing these new jobs
