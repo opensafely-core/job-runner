@@ -64,6 +64,12 @@ def test_create_or_update_jobs(tmp_work_dir, db):
     new_job = find_one(Job)
     assert old_job == new_job
 
+    spans = get_trace("new_jobs")
+
+    assert spans[0].name == "assert_new_jobs_created"
+    assert spans[0].attributes["new_jobs"] is True
+    assert spans[0].attributes["new_job_actions"] == "generate_cohort"
+
 
 # Basic smoketest to test the error path
 def test_create_or_update_jobs_with_git_error(tmp_work_dir):
@@ -203,11 +209,33 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
         actions=["generate_cohort", "prepare_data_1", "prepare_data_2", "analyse_data"]
     )
     create_jobs_with_project_file(request, TEST_PROJECT)
+
     update_where(Job, {"state": State.SUCCEEDED}, job_request_id=request.id)
 
     with pytest.raises(NothingToDoError):
         # Now this should be a no-op because all the actions that are still part of the study have succeeded
         create_jobs_with_project_file(make_job_request(action="run_all"), TEST_PROJECT)
+
+    spans = get_trace("new_jobs")
+    assert spans[0].name == "assert_new_jobs_created"
+    assert spans[0].attributes["new_jobs"] is True
+    assert spans[0].attributes["new_job_actions"] == "obsolete_action"
+
+    assert spans[1].name == "assert_new_jobs_created"
+    assert spans[1].attributes["new_jobs"] is True
+    assert (
+        spans[1].attributes["new_job_actions"]
+        == "generate_cohort, prepare_data_1, prepare_data_2, analyse_data"
+    )
+
+    assert spans[2].name == "assert_new_jobs_created"
+    assert spans[2].attributes["new_jobs"] is False
+    assert (
+        spans[2].attributes["succeeded"]
+        == "analyse_data, generate_cohort, prepare_data_1, prepare_data_2"
+    )
+    assert spans[2].attributes["failed"] == ""
+    assert spans[2].attributes["current_jobs"] == 4
 
 
 def test_cancelled_jobs_are_flagged(tmp_work_dir):
