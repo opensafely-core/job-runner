@@ -66,6 +66,16 @@ def record_tick_trace(last_run):
         for job in active_jobs:
             span = tracer.start_span(job.status_code.name, start_time=start_time)
             metrics = stats.get(job.id, {})
+
+            # record high water marks for this job
+            if metrics:
+                if metrics["cpu_percentage"] > job.cpu_hwm:
+                    job.cpu_hwm = int(metrics["cpu_percentage"])
+                    database.update(job)
+                if metrics["memory_used"] > job.memory_hwm:
+                    job.memory_hwm = int(metrics["memory_used"])
+                    database.update(job)
+
             tracing.set_span_metadata(span, job, **metrics)
             span.end(end_time)
 

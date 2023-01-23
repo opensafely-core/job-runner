@@ -1,5 +1,6 @@
 from jobrunner import record_stats
-from jobrunner.models import State, StatusCode
+from jobrunner.lib import database
+from jobrunner.models import Job, State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import job_factory
 
@@ -9,7 +10,7 @@ def test_record_tick_trace(db, freezer, monkeypatch):
     jobs.append(job_factory(status_code=StatusCode.CREATED))
     jobs.append(job_factory(status_code=StatusCode.WAITING_ON_DEPENDENCIES))
     jobs.append(job_factory(status_code=StatusCode.PREPARING))
-    running_job = job_factory(status_code=StatusCode.EXECUTING)
+    running_job = job_factory(status_code=StatusCode.EXECUTING, cpu_hwm=100)
     jobs.append(running_job)
     jobs.append(job_factory(status_code=StatusCode.FINALIZING))
 
@@ -52,3 +53,9 @@ def test_record_tick_trace(db, freezer, monkeypatch):
             assert span.attributes["memory_used"] == 1000
 
     assert "SUCCEEDED" not in [s.name for s in spans]
+
+    running_job = database.find_one(Job, id=running_job.id)
+    # did not get updated
+    assert running_job.cpu_hwm == 100
+    # did get updated
+    assert running_job.memory_hwm == 1000

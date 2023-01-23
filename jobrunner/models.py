@@ -158,6 +158,9 @@ class Job:
             completed_at INT,
             trace_context TEXT,
             status_code_updated_at INT,
+            -- resource high water marks --
+            cpu_hwm INT,
+            memory_hwm INT,
 
             PRIMARY KEY (id)
         );
@@ -177,6 +180,7 @@ class Job:
         """
         ALTER TABLE job ADD COLUMN trace_context TEXT;
         ALTER TABLE job ADD COLUMN status_code_updated_at INT;
+        ALTER TABLE job ADD COLUMN cpu_hwm INT, memory_hwm INT;
         """,
     )
 
@@ -237,6 +241,10 @@ class Job:
     status_code_updated_at: int = None
     # used to track the OTel trace context for this job
     trace_context: dict = None
+
+    # resource usage high water marks
+    cpu_hwm: int = 0
+    memory_hwm: int = 0
 
     # used to cache the job_request json by the tracing code
     _job_request = None
