@@ -49,9 +49,10 @@ class DockerVolumeAPI:
         docker.delete_volume(docker_volume_name(job))
 
     def write_timestamp(job, path, timeout=None):
-        with tempfile.NamedTemporaryFile() as f:
+        with tempfile.NamedTemporaryFile("w") as f:
+            f.write(str(time.time_ns()))
+            f.flush()
             p = Path(f.name)
-            p.write_text(str(time.time_ns()))
             docker.copy_to_volume(docker_volume_name(job), p, path, timeout)
 
     def read_timestamp(job, path, timeout=None):
