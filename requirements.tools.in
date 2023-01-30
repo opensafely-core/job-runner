@@ -1,3 +1,2 @@
 # requirements for tools we want in prod, but not required
-litecli==1.5.0
 py-spy==0.3.4
