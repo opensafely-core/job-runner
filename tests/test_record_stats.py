@@ -1,3 +1,6 @@
+import subprocess
+import time
+
 from jobrunner import record_stats
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
@@ -52,3 +55,24 @@ def test_record_tick_trace(db, freezer, monkeypatch):
             assert span.attributes["memory_used"] == 1000
 
     assert "SUCCEEDED" not in [s.name for s in spans]
+
+
+def test_record_tick_trace_stats_timeout(db, freezer, monkeypatch):
+    job_factory(status_code=StatusCode.EXECUTING)
+
+    def timeout():
+        raise subprocess.TimeoutExpired("cmd", 10)
+
+    monkeypatch.setattr(record_stats, "get_job_stats", timeout)
+
+    last_run = time.time()
+    freezer.tick(10)
+
+    record_stats.record_tick_trace(last_run)
+    assert len(get_trace("ticks")) == 2
+
+    spans = get_trace("ticks")
+    span = spans[0]
+
+    assert "cpu_percentage" not in span.attributes
+    assert "memory_used" not in span.attributes
