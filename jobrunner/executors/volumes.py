@@ -132,6 +132,8 @@ class BindMountVolumeAPI:
 
     def read_timestamp(job, path, timeout=None):
         abs_path = host_volume_path(job) / path
+        if not abs_path.exists():
+            return None
         try:
             contents = abs_path.read_text()
             if contents:
