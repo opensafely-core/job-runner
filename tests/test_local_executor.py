@@ -670,7 +670,7 @@ def test_get_status_timeout(tmp_work_dir, monkeypatch):
 
 
 @pytest.mark.needs_docker
-def test_write_read_timestamps(tmp_work_dir, volume_api):
+def test_write_read_timestamps(docker_cleanup, tmp_work_dir, volume_api):
 
     job = JobDefinition(
         id="test_read_timestamp",
@@ -687,6 +687,8 @@ def test_write_read_timestamps(tmp_work_dir, volume_api):
         allow_database_access=False,
     )
 
+    assert volume_api.read_timestamp(job, "test") is None
+
     volume_api.create_volume(job)
     before = time.time_ns()
     volume_api.write_timestamp(job, "test")
@@ -697,7 +699,7 @@ def test_write_read_timestamps(tmp_work_dir, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_read_timestamp_stat_fallback(tmp_work_dir):
+def test_read_timestamp_stat_fallback(docker_cleanup, tmp_work_dir):
 
     job = JobDefinition(
         id="test_read_timestamp_stat",
