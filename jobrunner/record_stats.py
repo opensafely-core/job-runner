@@ -50,6 +50,8 @@ def record_tick_trace(last_run):
         stats = get_job_stats()
     except subprocess.TimeoutExpired:
         log.exception("Getting docker stats timed out")
+        # no metrics for this tick
+        stats = {}
 
     # record time once stats call has completed, as it can take a while
     now = time.time_ns()
