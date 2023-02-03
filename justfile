@@ -172,7 +172,13 @@ update-wheels: devenv
     else
         git clone git@github.com:opensafely/job-runner-dependencies.git lib
     fi
+    # wipe clean to remove old packages and start fresh each time
+    rm lib/* -rf
+    # restore README.md, as we don't want to delete that
+    git -C lib checkout README.md
+
+    # Now install the dependencies
     $BIN/pip install -U -r requirements.prod.txt -r requirements.tools.txt --target lib
     cp requirements.prod.txt requirements.tools.txt lib/
-    rm -rf lib/bin
+    # remove any .so libs 
     find lib/ -name \*.so -exec rm {} \;
