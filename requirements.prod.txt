@@ -12,11 +12,13 @@ chardet==3.0.4
     # via requests
 deprecated==1.2.13
     # via opentelemetry-api
+distro==1.8.0
+    # via ruyaml
 googleapis-common-protos==1.56.4
     # via opentelemetry-exporter-otlp-proto-http
 idna==2.10
     # via requests
-opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.2.1
+opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.2.5
     # via opensafely-jobrunner (pyproject.toml)
 opentelemetry-api==1.12.0
     # via
@@ -40,12 +42,10 @@ requests==2.25.0
     # via
     #   opensafely-jobrunner (pyproject.toml)
     #   opentelemetry-exporter-otlp-proto-http
-ruamel-yaml==0.16.12
+ruyaml==0.91.0
     # via
     #   opensafely-jobrunner (pyproject.toml)
     #   opensafely-pipeline
-ruamel-yaml-clib==0.2.6
-    # via ruamel-yaml
 typing-extensions==4.1.1
     # via
     #   opentelemetry-sdk
@@ -60,3 +60,4 @@ setuptools==65.3.0
     # via
     #   opentelemetry-api
     #   opentelemetry-sdk
+    #   ruyaml

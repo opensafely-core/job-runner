@@ -50,7 +50,6 @@ requirements-dev *args: requirements-prod
 requirements-tools *args: requirements-prod
     "{{ just_executable() }}" _compile requirements.tools.in requirements.tools.txt {{ args }}
 
-
 # ensure prod requirements installed and up to date
 prodenv: requirements-prod
     #!/usr/bin/env bash
