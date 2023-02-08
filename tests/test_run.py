@@ -715,7 +715,8 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
     assert len(spans) == 1
     assert spans[0].name == "LOOP_JOB"
     assert spans[0].attributes["job"] == job.id
-    assert spans[0].attributes["loop"] is True
+    assert spans[0].attributes["workspace"] == job.workspace
+    assert spans[0].attributes["user"] == job._job_request["created_by"]
     assert spans[0].attributes["initial_code"] == "EXECUTED"
     assert spans[0].attributes["initial_state"] == "RUNNING"
     assert "final_code" not in spans[0].attributes
