@@ -156,13 +156,12 @@ def handle_single_job(job, api):
 def trace_handle_job(job, api, mode, paused):
     """Call handle job with tracing."""
     attrs = {
-        "loop": True,
-        "job": job.id,
         "initial_state": job.state.name,
         "initial_code": job.status_code.name,
     }
 
-    with tracer.start_as_current_span("LOOP_JOB", attributes=attrs) as span:
+    with tracer.start_as_current_span("LOOP_JOB") as span:
+        tracing.set_span_metadata(span, job, **attrs)
         try:
             synchronous_transition = handle_job(job, api, mode, paused)
         except Exception as exc:
