@@ -10,7 +10,6 @@ import logging
 import re
 import time
 
-from opentelemetry import trace
 from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
 from jobrunner import config, tracing
@@ -280,59 +279,33 @@ def job_should_be_rerun(job_request, job):
 
 
 def assert_new_jobs_created(new_jobs, current_jobs):
-    tracer = trace.get_tracer("new_jobs")
-    with tracer.start_as_current_span("assert_new_jobs_created") as span:
+    if new_jobs:
+        return
 
-        if new_jobs:
-            span.set_attribute("new_jobs", True)
-            # want to have access to the job id that is causing these new jobs
-            # span.set_attribute("job_id", job.id)
-            span.set_attribute(
-                "new_job_actions", ", ".join(f"{job.action}" for job in new_jobs)
-            )
-            span.set_attribute(
-                "new_job_ids", ", ".join(f"{job.id}" for job in new_jobs)
-            )
-            return
+    pending = [job.action for job in current_jobs if job.state == State.PENDING]
+    running = [job.action for job in current_jobs if job.state == State.RUNNING]
+    succeeded = [job.action for job in current_jobs if job.state == State.SUCCEEDED]
+    failed = [job.action for job in current_jobs if job.state == State.FAILED]
 
-        span.set_attribute("new_jobs", False)
-
-        pending = [job.action for job in current_jobs if job.state == State.PENDING]
-        running = [job.action for job in current_jobs if job.state == State.RUNNING]
-        succeeded = [job.action for job in current_jobs if job.state == State.SUCCEEDED]
-        failed = [job.action for job in current_jobs if job.state == State.FAILED]
-
-        span.set_attribute("pending", ", ".join(pending))
-        span.set_attribute("running", ", ".join(running))
-        span.set_attribute("succeeded", ", ".join(succeeded))
-        span.set_attribute("failed", ", ".join(failed))
-        # do something better here
-        span.set_attribute("current_jobs", len(current_jobs))
-
-        # There are two legitimate reasons we can end up with no new jobs to run...
-        if len(succeeded) == len(current_jobs):
-            #  ...one is that the "run all" action was requested but everything has already run successfully
-            log.info(
-                f"run_all requested, but all jobs are already successful: {', '.join(succeeded)}"
-            )
-            span.set_attribute("status", "nothing_to_do")
-            raise NothingToDoError()
-
-        if len(pending) + len(running) == len(current_jobs):
-            # ...the other is that every requested action is already running or pending, this is considered a user error
-            statuses = ", ".join(
-                f"{job.action}({job.state.name})" for job in current_jobs
-            )
-            log.info(f"All requested actions were already scheduled to run: {statuses}")
-            span.set_attribute("status", "requested_actions_scheduled")
-            raise JobRequestError("All requested actions were already scheduled to run")
-
-        # But if we get here then we've somehow failed to schedule new jobs despite the fact that some of the actions we
-        # depend on have failed, which is a bug.
-        span.set_attribute("status", "unexpected_failed_jobs_error")
-        raise Exception(
-            f"Unexpected failed jobs in dependency graph after scheduling: {', '.join(failed)}"
+    # There are two legitimate reasons we can end up with no new jobs to run...
+    if len(succeeded) == len(current_jobs):
+        #  ...one is that the "run all" action was requested but everything has already run successfully
+        log.info(
+            f"run_all requested, but all jobs are already successful: {', '.join(succeeded)}"
         )
+        raise NothingToDoError()
+
+    if len(pending) + len(running) == len(current_jobs):
+        # ...the other is that every requested action is already running or pending, this is considered a user error
+        statuses = ", ".join(f"{job.action}({job.state.name})" for job in current_jobs)
+        log.info(f"All requested actions were already scheduled to run: {statuses}")
+        raise JobRequestError("All requested actions were already scheduled to run")
+
+    # But if we get here then we've somehow failed to schedule new jobs despite the fact that some of the actions we
+    # depend on have failed, which is a bug.
+    raise Exception(
+        f"Unexpected failed jobs in dependency graph after scheduling: {', '.join(failed)}"
+    )
 
 
 def create_failed_job(job_request, exception):
