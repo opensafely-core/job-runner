@@ -88,7 +88,7 @@ def create_jobs(job_request):
         job_request.workspace, pipeline_config
     )
     new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
-    assert_new_jobs_created(new_jobs, latest_jobs)
+    assert_new_jobs_created(job_request, new_jobs, latest_jobs)
     resolve_reusable_action_references(new_jobs)
     # There is a delay between getting the current jobs (which we fetch from
     # the database and the disk) and inserting our new jobs below. This means
@@ -278,34 +278,31 @@ def job_should_be_rerun(job_request, job):
         raise ValueError(f"Invalid state: {job}")
 
 
-def assert_new_jobs_created(new_jobs, current_jobs):
+def assert_new_jobs_created(job_request, new_jobs, current_jobs):
     if new_jobs:
         return
 
-    pending = [job.action for job in current_jobs if job.state == State.PENDING]
-    running = [job.action for job in current_jobs if job.state == State.RUNNING]
-    succeeded = [job.action for job in current_jobs if job.state == State.SUCCEEDED]
-    failed = [job.action for job in current_jobs if job.state == State.FAILED]
+    # There are two legitimate reasons we can end up with no new jobs to run:
 
-    # There are two legitimate reasons we can end up with no new jobs to run...
-    if len(succeeded) == len(current_jobs):
-        #  ...one is that the "run all" action was requested but everything has already run successfully
-        log.info(
-            f"run_all requested, but all jobs are already successful: {', '.join(succeeded)}"
-        )
+    # One is that the "run all" action was requested but everything has already run
+    # successfully or is already running. We raise the special `NothingToDoError` which
+    # is treated as a successful outcome because we've already done everything that was
+    # requested.
+    if RUN_ALL_COMMAND in job_request.requested_actions:
         raise NothingToDoError()
 
-    if len(pending) + len(running) == len(current_jobs):
-        # ...the other is that every requested action is already running or pending, this is considered a user error
-        statuses = ", ".join(f"{job.action}({job.state.name})" for job in current_jobs)
-        log.info(f"All requested actions were already scheduled to run: {statuses}")
+    # The other reason is that every requested action is already running or pending,
+    # this is considered a user error.
+    current_job_states = {job.action: job.state for job in current_jobs}
+    requested_action_states = {
+        current_job_states.get(action) for action in job_request.requested_actions
+    }
+    if requested_action_states <= {State.PENDING, State.RUNNING}:
         raise JobRequestError("All requested actions were already scheduled to run")
 
-    # But if we get here then we've somehow failed to schedule new jobs despite the fact that some of the actions we
-    # depend on have failed, which is a bug.
-    raise Exception(
-        f"Unexpected failed jobs in dependency graph after scheduling: {', '.join(failed)}"
-    )
+    # But if we get here then we've somehow failed to schedule new jobs despite the fact
+    # that some of the actions we depend on have failed, which is a bug.
+    raise Exception(f"Unexpected job states after scheduling: {current_job_states}")
 
 
 def create_failed_job(job_request, exception):
