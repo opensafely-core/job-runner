@@ -485,7 +485,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         # show them to the user
         e.valid_actions = [RUN_ALL_COMMAND] + pipeline_config.all_actions
         raise e
-    assert_new_jobs_created(new_jobs, latest_jobs_with_files_present)
+    assert_new_jobs_created(job_request, new_jobs, latest_jobs_with_files_present)
     resolve_reusable_action_references(new_jobs)
     insert_into_database(job_request, new_jobs)
     return job_request, new_jobs
