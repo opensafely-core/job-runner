@@ -98,7 +98,14 @@ class BindMountVolumeAPI:
         )
 
     def create_volume(job, labels=None):
-        host_volume_path(job).mkdir()
+        """Create a volume dir.
+
+        This can be called when the dir exists from a previous call to
+        create_volume (e.g. retry_job or db maintainence mode), but the files
+        didn't get properly written so its ok if it already exists - we'll
+        re-copy all the files in that case.
+        """
+        host_volume_path(job).mkdir(exist_ok=True)
 
     def volume_exists(job):
         # create=False means this won't raise if we're not configured
@@ -125,7 +132,11 @@ class BindMountVolumeAPI:
         copy_file(path, dst)
 
     def delete_volume(job):
-        shutil.rmtree(host_volume_path(job), ignore_errors=True)
+        path = host_volume_path(job)
+        try:
+            shutil.rmtree(path)
+        except Exception:
+            logger.exception(f"Failed to cleanup job volume {path}")
 
     def write_timestamp(job, path, timeout=None):
         (host_volume_path(job) / path).write_text(str(time.time_ns()))

@@ -1,3 +1,4 @@
+import logging
 import time
 
 import pytest
@@ -135,6 +136,19 @@ def test_prepare_already_prepared(docker_cleanup, job, volume_api):
 
 
 @pytest.mark.needs_docker
+def test_prepare_volume_exists_unprepared(docker_cleanup, job, volume_api):
+    # create the volume already
+    volume_api.create_volume(job)
+
+    # do not write the timestamp, so prepare will rerun
+
+    api = local.LocalDockerAPI()
+    status = api.prepare(job)
+
+    assert status.state == ExecutorState.PREPARED
+
+
+@pytest.mark.needs_docker
 def test_prepare_no_image(docker_cleanup, job, volume_api):
     job.image = "invalid-test-image"
     api = local.LocalDockerAPI()
@@ -144,6 +158,7 @@ def test_prepare_no_image(docker_cleanup, job, volume_api):
     assert job.image in status.message.lower()
 
 
+@pytest.mark.needs_docker
 @pytest.mark.parametrize("ext", config.ARCHIVE_FORMATS)
 def test_prepare_archived(ext, job):
     api = local.LocalDockerAPI()
@@ -451,6 +466,7 @@ def test_delete_files_bad_privacy(tmp_work_dir):
         api.delete_files("test", None, ["file.txt"])
 
 
+@pytest.mark.needs_docker
 def test_get_status_timeout(tmp_work_dir, job, monkeypatch):
     def inspect(*args, **kwargs):
         raise docker.DockerTimeoutError("timeout")
@@ -513,3 +529,32 @@ def test_read_timestamp_stat_fallback(docker_cleanup, job, tmp_work_dir):
 def test_get_volume_api(volume_api, job, tmp_work_dir):
     volume_api.create_volume(job)
     assert volumes.get_volume_api(job) == volume_api
+
+
+@pytest.mark.needs_docker
+def test_delete_volume(docker_cleanup, job, tmp_work_dir, volume_api):
+    # check it doesn't error
+    volume_api.delete_volume(job)
+
+    # check it does remove volume
+    volume_api.create_volume(job)
+    volume_api.write_timestamp(job, local.TIMESTAMP_REFERENCE_FILE)
+
+    volume_api.delete_volume(job)
+
+    assert not volume_api.volume_exists(job)
+
+
+def test_delete_volume_error_bindmount(
+    docker_cleanup, job, tmp_work_dir, monkeypatch, caplog
+):
+    def error(*args):
+        raise Exception("some error")
+
+    caplog.set_level(logging.ERROR)
+    monkeypatch.setattr(volumes.shutil, "rmtree", error)
+
+    volumes.BindMountVolumeAPI.delete_volume(job)
+
+    assert str(volumes.host_volume_path(job)) in caplog.records[-1].msg
+    assert "some error" in caplog.records[-1].exc_text
