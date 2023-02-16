@@ -35,7 +35,7 @@ It's implemented as a synchronous loop which polls the database for
 active jobs and takes appropriate actions.
 
 The bulk of the work here is done by the the [local Docker executor
-implementation] (./jobrunner/executors/local.py) module which starts new Docker
+implementation](./jobrunner/executors/local.py) module which starts new Docker
 containers and stores the appropriate outputs when they finish.
 
 ### Job State
