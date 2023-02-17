@@ -287,10 +287,7 @@ def prepare_job(job):
 
 
 def finalize_job(job):
-    if job.cancelled:
-        finalize_cancelled_job(job)
-    else:
-        finalize_finished_job(job)
+    finalize_finished_job(job)
 
 
 def finalize_finished_job(job):

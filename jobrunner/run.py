@@ -194,7 +194,7 @@ def handle_job(job, api, mode=None, paused=None):
         # cancelled is driven by user request, so is handled explicitly first
         # regardless of executor state.
         # TODO: copy logs
-        api.finalize_job(job)
+        api.finalize_cancelled_job(job)
         api.terminate(definition)
         mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
         api.cleanup(definition)
