@@ -1,3 +1,4 @@
+import logging
 import time
 
 import pytest
@@ -15,6 +16,34 @@ from tests.factories import ensure_docker_images_present
 def volume_api(request, monkeypatch):
     monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", request.param)
     return request.param
+
+
+@pytest.fixture
+def job(request, test_repo):
+    """Basic simple action with no inputs as base for testing."""
+    if "needs_docker" in list(m.name for m in request.node.iter_markers()):
+        ensure_docker_images_present("busybox")
+
+    # replace parameterized tests [/] chars
+    clean_name = request.node.name.replace("[", "_").replace("]", "_")
+    return JobDefinition(
+        id=clean_name,
+        job_request_id=f"job-request-{clean_name}",
+        study=test_repo.study,
+        workspace="test",
+        action="action",
+        created_at=int(time.time()),
+        image="ghcr.io/opensafely-core/busybox",
+        args=["/usr/bin/true"],
+        inputs=[],
+        env={},
+        # all files are outputs by default, for simplicity in tests
+        output_spec={
+            "*": "medium",
+            "**/*": "medium",
+        },
+        allow_database_access=False,
+    )
 
 
 def populate_workspace(workspace, filename, content=None, privacy="high"):
@@ -62,27 +91,11 @@ def list_repo_files(path):
 
 
 @pytest.mark.needs_docker
-def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir, volume_api, freezer):
-    ensure_docker_images_present("busybox")
+def test_prepare_success(
+    docker_cleanup, job, test_repo, tmp_work_dir, volume_api, freezer
+):
 
-    job = JobDefinition(
-        id="test-id",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["/usr/bin/true"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={
-            "*": "medium",
-            "**/*": "medium",
-        },
-        allow_database_access=False,
-    )
-
+    job.inputs = ["output/input.csv"]
     populate_workspace(job.workspace, "output/input.csv")
 
     expected_timestamp = time.time_ns()
@@ -112,23 +125,7 @@ def test_prepare_success(docker_cleanup, test_repo, tmp_work_dir, volume_api, fr
 
 
 @pytest.mark.needs_docker
-def test_prepare_already_prepared(docker_cleanup, test_repo, volume_api):
-    ensure_docker_images_present("busybox")
-
-    job = JobDefinition(
-        id="test_prepare_already_prepared",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["/usr/bin/true"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={},
-        allow_database_access=False,
-    )
+def test_prepare_already_prepared(docker_cleanup, job, volume_api):
 
     # create the volume already
     volume_api.create_volume(job)
@@ -141,22 +138,21 @@ def test_prepare_already_prepared(docker_cleanup, test_repo, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_prepare_no_image(docker_cleanup, test_repo, volume_api):
-    job = JobDefinition(
-        id="test_prepare_no_image",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="invalid-test-image",
-        args=["/usr/bin/true"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={},
-        allow_database_access=False,
-    )
+def test_prepare_volume_exists_unprepared(docker_cleanup, job, volume_api):
+    # create the volume already
+    volume_api.create_volume(job)
 
+    # do not write the timestamp, so prepare will rerun
+
+    api = local.LocalDockerAPI()
+    status = api.prepare(job)
+
+    assert status.state == ExecutorState.PREPARED
+
+
+@pytest.mark.needs_docker
+def test_prepare_no_image(docker_cleanup, job, volume_api):
+    job.image = "invalid-test-image"
     api = local.LocalDockerAPI()
     status = api.prepare(job)
 
@@ -164,23 +160,9 @@ def test_prepare_no_image(docker_cleanup, test_repo, volume_api):
     assert job.image in status.message.lower()
 
 
+@pytest.mark.needs_docker
 @pytest.mark.parametrize("ext", config.ARCHIVE_FORMATS)
-def test_prepare_archived(ext, test_repo):
-    job = JobDefinition(
-        id="test_prepare_archived",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["/usr/bin/true"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={},
-        allow_database_access=False,
-    )
-
+def test_prepare_archived(ext, job):
     api = local.LocalDockerAPI()
     archive = (config.HIGH_PRIVACY_ARCHIVE_DIR / job.workspace).with_suffix(ext)
     archive.parent.mkdir(parents=True, exist_ok=True)
@@ -192,21 +174,8 @@ def test_prepare_archived(ext, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_prepare_job_bad_commit(docker_cleanup, test_repo):
-    job = JobDefinition(
-        id="test_prepare_job_bad_commit",
-        job_request_id="test_request_id",
-        study=Study(git_repo_url=str(test_repo.path), commit="bad-commit"),
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="invalid-test-image",
-        args=["/usr/bin/true"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={},
-        allow_database_access=False,
-    )
+def test_prepare_job_bad_commit(docker_cleanup, job, test_repo):
+    job.study = Study(git_repo_url=str(test_repo.path), commit="bad-commit")
 
     with pytest.raises(local.LocalDockerError) as exc_info:
         local.prepare_job(job)
@@ -215,21 +184,9 @@ def test_prepare_job_bad_commit(docker_cleanup, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_prepare_job_no_input_file(docker_cleanup, test_repo, volume_api):
-    job = JobDefinition(
-        id="test_prepare_job_no_input_file",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="busybox",
-        args=["/usr/bin/true"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={},
-        allow_database_access=False,
-    )
+def test_prepare_job_no_input_file(docker_cleanup, job, volume_api):
+
+    job.inputs = ["output/input.csv"]
 
     with pytest.raises(local.LocalDockerError) as exc_info:
         local.prepare_job(job)
@@ -238,27 +195,11 @@ def test_prepare_job_no_input_file(docker_cleanup, test_repo, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_execute_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
-    ensure_docker_images_present("busybox")
+def test_execute_success(docker_cleanup, job, tmp_work_dir, volume_api):
 
-    job = JobDefinition(
-        id="test_execute_success",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["/usr/bin/true"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={},
-        allow_database_access=False,
-        cpu_count=1.5,
-        memory_limit="1G",
-    )
-
-    populate_workspace(job.workspace, "output/input.csv")
+    # check limits are applied
+    job.cpu_count = 1.5
+    job.memory_limit = "1G"
 
     api = local.LocalDockerAPI()
 
@@ -281,24 +222,7 @@ def test_execute_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_execute_not_prepared(docker_cleanup, test_repo, tmp_work_dir, volume_api):
-    ensure_docker_images_present("busybox")
-
-    job = JobDefinition(
-        id="test_execute_not_prepared",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["/usr/bin/true"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={},
-        allow_database_access=False,
-    )
-
+def test_execute_not_prepared(docker_cleanup, job, tmp_work_dir, volume_api):
     api = local.LocalDockerAPI()
 
     status = api.execute(job)
@@ -307,27 +231,18 @@ def test_execute_not_prepared(docker_cleanup, test_repo, tmp_work_dir, volume_ap
 
 
 @pytest.mark.needs_docker
-def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
-    ensure_docker_images_present("busybox")
+def test_finalize_success(docker_cleanup, job, tmp_work_dir, volume_api):
 
-    job = JobDefinition(
-        id="test_finalize_success",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["touch", "/workspace/output/output.csv", "/workspace/output/summary.csv"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={
-            "output/output.*": "high_privacy",
-            "output/summary.*": "medium_privacy",
-        },
-        allow_database_access=False,
-    )
-
+    job.args = [
+        "touch",
+        "/workspace/output/output.csv",
+        "/workspace/output/summary.csv",
+    ]
+    job.inputs = ["output/input.csv"]
+    job.output_spec = {
+        "output/output.*": "high_privacy",
+        "output/summary.*": "medium_privacy",
+    }
     populate_workspace(job.workspace, "output/input.csv")
 
     api = local.LocalDockerAPI()
@@ -363,28 +278,13 @@ def test_finalize_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed(docker_cleanup, test_repo, tmp_work_dir, volume_api):
-    ensure_docker_images_present("busybox")
+def test_finalize_failed(docker_cleanup, job, tmp_work_dir, volume_api):
 
-    job = JobDefinition(
-        id="test_finalize_failed",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["false"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={
-            "output/output.*": "high_privacy",
-            "output/summary.*": "medium_privacy",
-        },
-        allow_database_access=False,
-    )
-
-    populate_workspace(job.workspace, "output/input.csv")
+    job.args = ["false"]
+    job.output_spec = {
+        "output/output.*": "high_privacy",
+        "output/summary.*": "medium_privacy",
+    }
 
     api = local.LocalDockerAPI()
 
@@ -411,29 +311,14 @@ def test_finalize_failed(docker_cleanup, test_repo, tmp_work_dir, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_finalize_unmatched(docker_cleanup, test_repo, tmp_work_dir, volume_api):
-    ensure_docker_images_present("busybox")
+def test_finalize_unmatched(docker_cleanup, job, tmp_work_dir, volume_api):
 
-    job = JobDefinition(
-        id="test_finalize_unmatched",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        # the sleep is needed to make sure the unmatched file is *newer* enough
-        args=["sh", "-c", "sleep 1; touch /workspace/unmatched"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={
-            "output/output.*": "high_privacy",
-            "output/summary.*": "medium_privacy",
-        },
-        allow_database_access=False,
-    )
-
-    populate_workspace(job.workspace, "output/input.csv")
+    # the sleep is needed to make sure the unmatched file is *newer* enough
+    job.args = ["sh", "-c", "sleep 1; touch /workspace/unmatched"]
+    job.output_spec = {
+        "output/output.*": "high_privacy",
+        "output/summary.*": "medium_privacy",
+    }
 
     api = local.LocalDockerAPI()
 
@@ -461,28 +346,9 @@ def test_finalize_unmatched(docker_cleanup, test_repo, tmp_work_dir, volume_api)
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir, volume_api):
-    ensure_docker_images_present("busybox")
+def test_finalize_failed_137(docker_cleanup, job, tmp_work_dir, volume_api):
 
-    job = JobDefinition(
-        id="test_finalize_failed",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["sleep", "101"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={
-            "output/output.*": "high_privacy",
-            "output/summary.*": "medium_privacy",
-        },
-        allow_database_access=False,
-    )
-
-    populate_workspace(job.workspace, "output/input.csv")
+    job.args = ["sleep", "101"]
 
     api = local.LocalDockerAPI()
 
@@ -507,32 +373,13 @@ def test_finalize_failed_137(docker_cleanup, test_repo, tmp_work_dir, volume_api
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir):
-    ensure_docker_images_present("busybox")
+def test_finalize_failed_oomkilled(docker_cleanup, job, tmp_work_dir):
 
-    job = JobDefinition(
-        id="test_finalize_failed",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        # Consume memory by writing to the tmpfs at /dev/shm
-        # We write a lot more that our limit, to ensure the OOM killer kicks in
-        # regardless of our tests host's vm.overcommit_memory settings.
-        args=["sh", "-c", "head -c 1000m /dev/urandom >/dev/shm/foo"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={
-            "output/output.*": "high_privacy",
-            "output/summary.*": "medium_privacy",
-        },
-        allow_database_access=False,
-        memory_limit="6M",  # lowest allowable limit
-    )
-
-    populate_workspace(job.workspace, "output/input.csv")
+    # Consume memory by writing to the tmpfs at /dev/shm
+    # We write a lot more that our limit, to ensure the OOM killer kicks in
+    # regardless of our tests host's vm.overcommit_memory settings.
+    job.args = ["sh", "-c", "head -c 1000m /dev/urandom >/dev/shm/foo"]
+    job.memory_limit = "6M"  # lowest allowable limit
 
     api = local.LocalDockerAPI()
 
@@ -556,23 +403,7 @@ def test_finalize_failed_oomkilled(docker_cleanup, test_repo, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_cleanup_success(docker_cleanup, test_repo, tmp_work_dir, volume_api):
-    ensure_docker_images_present("busybox")
-
-    job = JobDefinition(
-        id="test_cleanup_success",
-        job_request_id="test_request_id",
-        study=test_repo.study,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["/usr/bin/true"],
-        env={},
-        inputs=["output/input.csv"],
-        output_spec={},
-        allow_database_access=False,
-    )
+def test_cleanup_success(docker_cleanup, job, tmp_work_dir, volume_api):
 
     populate_workspace(job.workspace, "output/input.csv")
 
@@ -637,23 +468,8 @@ def test_delete_files_bad_privacy(tmp_work_dir):
         api.delete_files("test", None, ["file.txt"])
 
 
-def test_get_status_timeout(tmp_work_dir, monkeypatch):
-
-    job = JobDefinition(
-        id="test_get_status_timeout",
-        job_request_id="test_request_id",
-        study=None,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["sleep", "1"],
-        env={},
-        inputs=[],
-        output_spec={},
-        allow_database_access=False,
-    )
-
+@pytest.mark.needs_docker
+def test_get_status_timeout(tmp_work_dir, job, monkeypatch):
     def inspect(*args, **kwargs):
         raise docker.DockerTimeoutError("timeout")
 
@@ -670,22 +486,7 @@ def test_get_status_timeout(tmp_work_dir, monkeypatch):
 
 
 @pytest.mark.needs_docker
-def test_write_read_timestamps(docker_cleanup, tmp_work_dir, volume_api):
-
-    job = JobDefinition(
-        id="test_read_timestamp",
-        job_request_id="test_request_id",
-        study=None,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["sleep", "1"],
-        env={},
-        inputs=[],
-        output_spec={},
-        allow_database_access=False,
-    )
+def test_write_read_timestamps(docker_cleanup, job, tmp_work_dir, volume_api):
 
     assert volume_api.read_timestamp(job, "test") is None
 
@@ -699,22 +500,7 @@ def test_write_read_timestamps(docker_cleanup, tmp_work_dir, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_read_timestamp_stat_fallback(docker_cleanup, tmp_work_dir):
-
-    job = JobDefinition(
-        id="test_read_timestamp_stat",
-        job_request_id="test_request_id",
-        study=None,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["sleep", "1"],
-        env={},
-        inputs=[],
-        output_spec={},
-        allow_database_access=False,
-    )
+def test_read_timestamp_stat_fallback(docker_cleanup, job, tmp_work_dir):
 
     volumes.DockerVolumeAPI.create_volume(job)
 
@@ -742,23 +528,35 @@ def test_read_timestamp_stat_fallback(docker_cleanup, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_get_volume_api(volume_api, tmp_work_dir):
-
-    job = JobDefinition(
-        id="test_get_volume_api",
-        job_request_id="test_request_id",
-        study=None,
-        workspace="test",
-        action="action",
-        created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        args=["sleep", "1"],
-        env={},
-        inputs=[],
-        output_spec={},
-        allow_database_access=False,
-    )
-
+def test_get_volume_api(volume_api, job, tmp_work_dir):
     volume_api.create_volume(job)
-
     assert volumes.get_volume_api(job) == volume_api
+
+
+@pytest.mark.needs_docker
+def test_delete_volume(docker_cleanup, job, tmp_work_dir, volume_api):
+    # check it doesn't error
+    volume_api.delete_volume(job)
+
+    # check it does remove volume
+    volume_api.create_volume(job)
+    volume_api.write_timestamp(job, local.TIMESTAMP_REFERENCE_FILE)
+
+    volume_api.delete_volume(job)
+
+    assert not volume_api.volume_exists(job)
+
+
+def test_delete_volume_error_bindmount(
+    docker_cleanup, job, tmp_work_dir, monkeypatch, caplog
+):
+    def error(*args):
+        raise Exception("some error")
+
+    caplog.set_level(logging.ERROR)
+    monkeypatch.setattr(volumes.shutil, "rmtree", error)
+
+    volumes.BindMountVolumeAPI.delete_volume(job)
+
+    assert str(volumes.host_volume_path(job)) in caplog.records[-1].msg
+    assert "some error" in caplog.records[-1].exc_text
