@@ -23,6 +23,7 @@ class LoggingExecutor(ExecutorAPI):
         self._add_logging(self._wrapped.prepare)
         self._add_logging(self._wrapped.execute)
         self._add_logging(self._wrapped.finalize)
+        # self._add_logging(self._wrapped.finalize, True)
         self._add_logging(self._wrapped.terminate)
         self._add_logging(self._wrapped.cleanup)
 

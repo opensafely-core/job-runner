@@ -195,6 +195,8 @@ def handle_job(job, api, mode=None, paused=None):
         # regardless of executor state.
         api.terminate(definition)
         mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+        # TODO: copy logs
+        api.finalize(definition)
         api.cleanup(definition)
         return
 

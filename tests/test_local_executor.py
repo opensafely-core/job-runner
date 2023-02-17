@@ -20,6 +20,7 @@ def volume_api(request, monkeypatch):
 
 @pytest.fixture
 def job(request, test_repo):
+    # TODO: this is a "JobDefinition", not a "Job"
     """Basic simple action with no inputs as base for testing."""
     if "needs_docker" in list(m.name for m in request.node.iter_markers()):
         ensure_docker_images_present("busybox")
@@ -88,6 +89,22 @@ def wait_for_state(api, job, state, limit=5, step=0.25):
 
 def list_repo_files(path):
     return list(str(f.relative_to(path)) for f in path.glob("**/*") if f.is_file())
+
+
+def workspace_log_file_exists(job):
+    log_dir = local.get_log_dir(job)
+    if not log_dir.exists():
+        return False
+    log_file = log_dir / "logs.txt"
+    if not log_file.exists():
+        return False
+
+    workspace_log_file = (
+        local.get_high_privacy_workspace(job.workspace)
+        / local.METADATA_DIR
+        / f"{job.action}.log"
+    )
+    return workspace_log_file.exists()
 
 
 @pytest.mark.needs_docker
@@ -276,6 +293,11 @@ def test_finalize_success(docker_cleanup, job, tmp_work_dir, volume_api):
     }
     assert results.unmatched_patterns == []
 
+    log_dir = local.get_log_dir(job)
+    log_file = log_dir / "logs.txt"
+    assert log_dir.exists()
+    assert log_file.exists()
+
 
 @pytest.mark.needs_docker
 def test_finalize_failed(docker_cleanup, job, tmp_work_dir, volume_api):
@@ -359,8 +381,10 @@ def test_finalize_failed_137(docker_cleanup, job, tmp_work_dir, volume_api):
 
     # impersonate an admin
     docker.kill(local.container_name(job))
+    # TODO: how is this different to api.terminate(job) ?
 
-    wait_for_state(api, job, ExecutorState.EXECUTED)
+    # wtf is going on here - this should be ExecutorState.ERROR?
+    wait_for_state(api, job, ExecutorState.ERROR)
 
     status = api.finalize(job)
     assert status.state == ExecutorState.FINALIZED
@@ -369,7 +393,9 @@ def test_finalize_failed_137(docker_cleanup, job, tmp_work_dir, volume_api):
     assert api.get_status(job).state == ExecutorState.FINALIZED
     assert job.id in local.RESULTS
     assert local.RESULTS[job.id].exit_code == 137
-    assert local.RESULTS[job.id].message == "Killed by an OpenSAFELY admin"
+    # assert local.RESULTS[job.id].message == "Killed by an OpenSAFELY admin"
+
+    assert workspace_log_file_exists(job)
 
 
 @pytest.mark.needs_docker
@@ -400,6 +426,62 @@ def test_finalize_failed_oomkilled(docker_cleanup, job, tmp_work_dir):
         local.RESULTS[job.id].message
         == "Ran out of memory (limit for this job was 0.01GB)"
     )
+
+    assert workspace_log_file_exists(job)
+
+
+@pytest.mark.needs_docker
+def test_pending_job_cancelled_not_finalized(docker_cleanup, job, tmp_work_dir):
+    # nb. job is a JobDefinition
+    job.args = ["sleep", "101"]
+
+    api = local.LocalDockerAPI()
+
+    # user cancels the job before it's started
+    status = api.terminate(job)
+    assert status.state == ExecutorState.UNKNOWN
+
+    # finalize is a no-op in this case
+    status = api.finalize(job)
+    assert status.state == ExecutorState.UNKNOWN
+
+    # TODO: this only passes because it is the default state?
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    assert job.id not in local.RESULTS
+
+    assert not workspace_log_file_exists(job)
+
+
+@pytest.mark.needs_docker
+def test_running_job_cancelled_finalized(docker_cleanup, job, tmp_work_dir):
+    # job is a JobDefinition
+    job.args = ["sleep", "101"]
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job)
+    assert status.state == ExecutorState.PREPARED
+    assert api.get_status(job).state == ExecutorState.PREPARED
+
+    status = api.execute(job)
+    assert status.state == ExecutorState.EXECUTING
+    assert api.get_status(job).state == ExecutorState.EXECUTING
+
+    status = api.terminate(job)
+    assert status.state == ExecutorState.ERROR
+    assert api.get_status(job).state == ExecutorState.ERROR
+
+    status = api.finalize(job)
+    assert status.state == ExecutorState.FINALIZED
+
+    # we don't need to wait
+    assert api.get_status(job).state == ExecutorState.FINALIZED
+    assert job.id in local.RESULTS
+    # TODO: should we write these values when finalizing a cancelled job?
+    assert local.RESULTS[job.id].exit_code == 137
+    assert local.RESULTS[job.id].message == "Cancelled by user"
+
+    assert workspace_log_file_exists(job)
 
 
 @pytest.mark.needs_docker

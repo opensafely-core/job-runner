@@ -156,21 +156,38 @@ class LocalDockerAPI(ExecutorAPI):
         return JobStatus(ExecutorState.EXECUTING)
 
     def finalize(self, job):
+        current_status = self.get_status(job)
 
-        current = self.get_status(job)
-        if current.state != ExecutorState.EXECUTED:
-            return current
+        if current_status.state == ExecutorState.UNKNOWN:
+            # job had not started running, so do not finalize
+            return current_status
+
+        # if the job didn't reach executed, assume it's been killed before finishing
+        # this is a problem because we need to not run anything if we killed the job before
+        logs_only = current_status.state == ExecutorState.ERROR
 
         try:
-            finalize_job(job)
+            finalize_job(job, logs_only)
         except LocalDockerError as exc:
             return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
         # this api is synchronous, so we are now FINALIZED
+
+        # TODO: what JobStatus should we return here if logs_only? is it FINALIZED?
+        # I think it probably is...!
+        # That's what I've done in the stubexecutorapi
         return JobStatus(ExecutorState.FINALIZED)
 
     def terminate(self, job):
+        initial_status = self.get_status(job)
+
         docker.kill(container_name(job))
+
+        if initial_status.state == ExecutorState.UNKNOWN:
+            # job had not started running, so stay at UNKNOWN to prevent finalizing
+            # nb. always run docker.kill just in case!
+            return initial_status
+
         return JobStatus(ExecutorState.ERROR, "terminated by api")
 
     def cleanup(self, job):
@@ -220,6 +237,15 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.FINALIZED, timestamp_ns=RESULTS[job.id].timestamp_ns
             )
         else:  # container present but not running, i.e. finished
+            # TODO: is this sort of wrong, if we have a container that started & was killed?
+            # alternatively - can we get the Job object & check StatusCode?
+            # (job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+            if (
+                container["State"]["ExitCode"] == 137
+                and not container["State"]["OOMKilled"]
+            ):
+                return JobStatus(ExecutorState.ERROR, "Job cancelled")
+
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
             return JobStatus(ExecutorState.EXECUTED, timestamp_ns=timestamp_ns)
 
@@ -286,16 +312,27 @@ def prepare_job(job):
     volume_api.write_timestamp(job, TIMESTAMP_REFERENCE_FILE)
 
 
-def finalize_job(job):
+def finalize_job(job, logs_only):
     container_metadata = docker.container_inspect(
         container_name(job), none_if_not_exists=True
     )
     if not container_metadata:
-        raise LocalDockerError("Job container has vanished")
+        if logs_only:
+            # no logs to retain if the container didn't start yet
+            return
+        else:
+            raise LocalDockerError("Job container has vanished")
     redact_environment_variables(container_metadata)
 
-    outputs, unmatched_patterns = find_matching_outputs(job)
-    unmatched_outputs = get_unmatched_outputs(job, outputs)
+    if logs_only:
+        # assume no outputs because our job didn't finish
+        outputs = {}
+        unmatched_patterns = []
+        unmatched_outputs = []
+    else:
+        outputs, unmatched_patterns = find_matching_outputs(job)
+        unmatched_outputs = get_unmatched_outputs(job, outputs)
+
     exit_code = container_metadata["State"]["ExitCode"]
     labels = container_metadata.get("Config", {}).get("Labels", {})
 
@@ -303,8 +340,10 @@ def finalize_job(job):
     # that have db access
     message = None
 
+    if logs_only:
+        message = "Cancelled by user"
     # special case OOMKilled
-    if container_metadata["State"]["OOMKilled"]:
+    elif container_metadata["State"]["OOMKilled"]:
         message = "Ran out of memory"
         memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
         if memory_limit > 0:
@@ -317,7 +356,7 @@ def finalize_job(job):
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,
         unmatched_outputs=unmatched_outputs,
-        exit_code=container_metadata["State"]["ExitCode"],
+        exit_code=exit_code,
         image_id=container_metadata["Image"],
         message=message,
         timestamp_ns=time.time_ns(),
@@ -329,7 +368,8 @@ def finalize_job(job):
     )
     job_metadata = get_job_metadata(job, outputs, container_metadata)
     write_job_logs(job, job_metadata)
-    persist_outputs(job, results.outputs, job_metadata)
+    if not logs_only:
+        persist_outputs(job, results.outputs, job_metadata)
     RESULTS[job.id] = results
 
 

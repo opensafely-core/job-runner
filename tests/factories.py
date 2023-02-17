@@ -128,6 +128,7 @@ class StubExecutorAPI:
             "prepare": set(),
             "execute": set(),
             "finalize": set(),
+            "finalize_log_only": set(),
             "terminate": set(),
             "cleanup": set(),
         }
@@ -186,11 +187,11 @@ class StubExecutorAPI:
         kwargs = {**defaults, **kwargs}
         self.results[definition.id] = JobResults(**kwargs)
 
-    def do_transition(self, definition, expected, next_state):
+    def do_transition(self, definition, expected, next_state, transition=""):
         current = self.get_status(definition)
         if current.state != expected:
             state = current.state
-            message = f"Invalid transition to {next_state}, currently state is {current.state}"
+            message = f"Invalid transition {transition} to {next_state}, currently state is {current.state}"
         elif definition.id in self.transitions:
             state, message, hook = self.transitions.pop(definition.id)
             if hook:
@@ -206,34 +207,61 @@ class StubExecutorAPI:
     def prepare(self, definition):
         self.tracker["prepare"].add(definition.id)
         if ExecutorState.PREPARING in self.synchronous_transitions:
-            expected = ExecutorState.PREPARED
+            next_state = ExecutorState.PREPARED
         else:
-            expected = ExecutorState.PREPARING
+            next_state = ExecutorState.PREPARING
 
-        return self.do_transition(definition, ExecutorState.UNKNOWN, expected)
+        return self.do_transition(
+            definition, ExecutorState.UNKNOWN, next_state, "prepare"
+        )
 
     def execute(self, definition):
         self.tracker["execute"].add(definition.id)
         return self.do_transition(
-            definition, ExecutorState.PREPARED, ExecutorState.EXECUTING
+            definition, ExecutorState.PREPARED, ExecutorState.EXECUTING, "execute"
         )
 
     def finalize(self, definition):
-        self.tracker["finalize"].add(definition.id)
+        if self.get_status(definition).state == ExecutorState.UNKNOWN:
+            # This happens if a job is cancelled before it started running
+            return self.get_status(definition)
+
         if ExecutorState.FINALIZING in self.synchronous_transitions:
-            expected = ExecutorState.FINALIZED
+            next_state = ExecutorState.FINALIZED
         else:
-            expected = ExecutorState.FINALIZING
-        return self.do_transition(definition, ExecutorState.EXECUTED, expected)
+            next_state = ExecutorState.FINALIZING
+
+        if self.get_status(definition).state == ExecutorState.ERROR:
+            # This happens if a job is cancelled whilst running
+            self.tracker["finalize_log_only"].add(definition.id)
+            return self.do_transition(
+                definition, ExecutorState.ERROR, next_state, "finalize"
+            )
+        else:
+            self.tracker["finalize"].add(definition.id)
+            return self.do_transition(
+                definition, ExecutorState.EXECUTED, next_state, "finalize"
+            )
 
     def terminate(self, definition):
         self.tracker["terminate"].add(definition.id)
-        return JobStatus(ExecutorState.ERROR)
+        current_state = self.get_status(definition).state
+        if current_state == ExecutorState.EXECUTING:
+            return self.do_transition(
+                definition, current_state, ExecutorState.ERROR, "finalize"
+            )
+        else:
+            return self.do_transition(
+                definition, ExecutorState.UNKNOWN, ExecutorState.UNKNOWN, "finalize"
+            )
 
     def cleanup(self, definition):
         self.tracker["cleanup"].add(definition.id)
         self.state.pop(definition.id, None)
-        return JobStatus(ExecutorState.UNKNOWN)
+        # TODO: this currently does a silent error in some tests, if the initial state is not ERROR
+        return self.do_transition(
+            definition, ExecutorState.ERROR, ExecutorState.UNKNOWN, "cleanup"
+        )
 
     def get_status(self, definition):
         return self.state.get(definition.id, JobStatus(ExecutorState.UNKNOWN))
