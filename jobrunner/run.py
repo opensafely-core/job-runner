@@ -195,7 +195,12 @@ def handle_job(job, api, mode=None, paused=None):
         # cancelled is driven by user request, so is handled explicitly first
         # regardless of executor state.
         api.terminate(job_definition)
+        job_definition.cancelled = "user"
+
         mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+        # considered getting the usual loop to do this, but it wouldn't pick up
+        # jobs cancelled before starting (in UNKNOWN state)
+        api.finalize(job_definition)
         api.cleanup(job_definition)
         return
 
