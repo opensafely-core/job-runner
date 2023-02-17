@@ -191,11 +191,15 @@ def handle_job(job, api, mode=None, paused=None):
     synchronous_transitions = getattr(api, "synchronous_transitions", [])
     is_synchronous = False
 
-    if job.cancelled:
+    if job_definition.cancelled:
         # cancelled is driven by user request, so is handled explicitly first
         # regardless of executor state.
         api.terminate(job_definition)
+
         mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+        # considered getting the usual loop to do this, but it wouldn't pick up
+        # jobs cancelled before starting (in UNKNOWN state)
+        api.finalize(job_definition)
         api.cleanup(job_definition)
         return
 
@@ -481,6 +485,11 @@ def job_to_job_definition(job):
         for name, pattern in named_patterns.items():
             outputs[pattern] = privacy_level
 
+    if job.cancelled:
+        job_definition_cancelled = "user"
+    else:
+        job_definition_cancelled = None
+
     return JobDefinition(
         id=job.id,
         job_request_id=job.job_request_id,
@@ -498,6 +507,7 @@ def job_to_job_definition(job):
         # config defaults.
         cpu_count=config.DEFAULT_JOB_CPU_COUNT,
         memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
+        cancelled=job_definition_cancelled,
     )
 
 

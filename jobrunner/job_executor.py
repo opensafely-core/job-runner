@@ -32,6 +32,8 @@ class JobDefinition:
     allow_database_access: bool  # whether this job should have access to the database
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
+    # if a job has been cancelled, the name of the canceller - either "user" or "admin"
+    cancelled: str = None
 
 
 class ExecutorState(Enum):
@@ -192,6 +194,8 @@ class ExecutorAPI:
 
         The action log file and any useful metadata from the job run should also be written to a separate log storage
         area in long-term storage.
+
+        If the job has been cancelled, it should only preserve the action log file.
 
         When the finalize task finishes, the get_status() call should now return FINALIZED for this job, and
         get_results() call should return the JobResults for this job.
