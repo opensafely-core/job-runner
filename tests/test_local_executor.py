@@ -21,8 +21,10 @@ def volume_api(request, monkeypatch):
 @pytest.fixture
 def job(request, test_repo):
     """Basic simple action with no inputs as base for testing."""
+    if "needs_docker" in list(m.name for m in request.node.iter_markers()):
+        ensure_docker_images_present("busybox")
+
     # replace parameterized tests [/] chars
-    ensure_docker_images_present("busybox")
     clean_name = request.node.name.replace("[", "_").replace("]", "_")
     return JobDefinition(
         id=clean_name,
