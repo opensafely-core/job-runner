@@ -173,6 +173,25 @@ def test_handle_pending_job_cancelled(db):
     assert job.status_code == StatusCode.CANCELLED_BY_USER
 
 
+def test_handle_running_job_cancelled(db, monkeypatch):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.EXECUTING, State.RUNNING, cancelled=True)
+
+    run.handle_job(job, api)
+
+    # executor state
+    assert job.id in api.tracker["terminate"]
+    assert job.id in api.tracker["finalize_log_only"]
+    assert job.id in api.tracker["cleanup"]
+    # TODO: this is wrong, or rather, the logic in local executor is now different
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
+    assert job.state == State.FAILED
+    assert job.status_message == "Cancelled by user"
+    assert job.status_code == StatusCode.CANCELLED_BY_USER
+
+
 @pytest.mark.parametrize(
     "state,code,message",
     [

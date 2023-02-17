@@ -22,7 +22,8 @@ class LoggingExecutor(ExecutorAPI):
         self._add_logging(self._wrapped.get_status)
         self._add_logging(self._wrapped.prepare)
         self._add_logging(self._wrapped.execute)
-        self._add_logging(self._wrapped.finalize)
+        # self._add_logging(self._wrapped.finalize)
+        self._add_logging(self._wrapped.finalize, True)
         self._add_logging(self._wrapped.terminate)
         self._add_logging(self._wrapped.cleanup)
 
@@ -36,13 +37,27 @@ class LoggingExecutor(ExecutorAPI):
     def synchronous_transitions(self):
         return getattr(self._wrapped, "synchronous_transitions", [])
 
-    def _add_logging(self, method: Callable[[JobDefinition], JobStatus]):
-        def wrapper(job: JobDefinition) -> JobStatus:
-            status = method(job)
-            if self._is_new_state(job, status.state):
-                self._write_log(job, status)
-                self._state_cache[job.id] = status.state
-            return status
+    def _add_logging(
+        self, method: Callable[[JobDefinition], JobStatus], logs_only=False
+    ):
+        # TODO: this is a bit unsatisfactory! but required for tests/test_integration
+        if logs_only:
+
+            def wrapper(job: JobDefinition, logs_only=False) -> JobStatus:
+                status = method(job, logs_only)
+                if self._is_new_state(job, status.state):
+                    self._write_log(job, status)
+                    self._state_cache[job.id] = status.state
+                return status
+
+        else:
+
+            def wrapper(job: JobDefinition) -> JobStatus:
+                status = method(job)
+                if self._is_new_state(job, status.state):
+                    self._write_log(job, status)
+                    self._state_cache[job.id] = status.state
+                return status
 
         setattr(self, method.__name__, wrapper)
 

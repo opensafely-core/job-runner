@@ -155,14 +155,17 @@ class LocalDockerAPI(ExecutorAPI):
 
         return JobStatus(ExecutorState.EXECUTING)
 
-    def finalize(self, job):
-
-        current = self.get_status(job)
-        if current.state != ExecutorState.EXECUTED:
-            return current
+    def finalize(self, job, logs_only=False):
+        # current = self.get_status(job)
+        self.get_status(job)
 
         try:
-            finalize_job(job)
+            # elif current.state != ExecutorState.EXECUTED:
+            if logs_only:
+                finalize_cancelled_job(job)
+                # TODO: what JobStatus should we return here?
+            else:
+                finalize_job(job)
         except LocalDockerError as exc:
             return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
@@ -220,6 +223,7 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.FINALIZED, timestamp_ns=RESULTS[job.id].timestamp_ns
             )
         else:  # container present but not running, i.e. finished
+            # TODO: is this sort of wrong, if we have a container that started & was killed?
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
             return JobStatus(ExecutorState.EXECUTED, timestamp_ns=timestamp_ns)
 
@@ -317,7 +321,7 @@ def finalize_job(job):
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,
         unmatched_outputs=unmatched_outputs,
-        exit_code=container_metadata["State"]["ExitCode"],
+        exit_code=exit_code,
         image_id=container_metadata["Image"],
         message=message,
         timestamp_ns=time.time_ns(),
@@ -330,6 +334,44 @@ def finalize_job(job):
     job_metadata = get_job_metadata(job, outputs, container_metadata)
     write_job_logs(job, job_metadata)
     persist_outputs(job, results.outputs, job_metadata)
+    RESULTS[job.id] = results
+
+
+def finalize_cancelled_job(job):
+    """Store the logs for user-cancelled jobs"""
+
+    container_metadata = docker.container_inspect(
+        container_name(job), none_if_not_exists=True
+    )
+    if not container_metadata:
+        # no logs to retain if the container didn't start yet
+        return
+
+    redact_environment_variables(container_metadata)
+
+    # assume no outputs because our job didn't finish
+    outputs = {}
+    exit_code = container_metadata["State"]["ExitCode"]
+    labels = container_metadata.get("Config", {}).get("Labels", {})
+    message = "Cancelled by user"
+
+    results = JobResults(
+        outputs=outputs,
+        unmatched_patterns={},
+        unmatched_outputs={},
+        exit_code=exit_code,
+        image_id=container_metadata["Image"],
+        message=message,
+        timestamp_ns=time.time_ns(),
+        action_version=labels.get("org.opencontainers.image.version", "unknown"),
+        action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
+        action_created=labels.get("org.opencontainers.image.created", "unknown"),
+        base_revision=labels.get("org.opensafely.base.vcs-ref", "unknown"),
+        base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
+    )
+    job_metadata = get_job_metadata(job, outputs, container_metadata)
+
+    write_job_logs(job, job_metadata)
     RESULTS[job.id] = results
 
 

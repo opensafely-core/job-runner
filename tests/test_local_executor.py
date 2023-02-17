@@ -20,6 +20,7 @@ def volume_api(request, monkeypatch):
 
 @pytest.fixture
 def job(request, test_repo):
+    # TODO: this is a "JobDefinition", not a "Job"
     """Basic simple action with no inputs as base for testing."""
     if "needs_docker" in list(m.name for m in request.node.iter_markers()):
         ensure_docker_images_present("busybox")
@@ -276,6 +277,11 @@ def test_finalize_success(docker_cleanup, job, tmp_work_dir, volume_api):
     }
     assert results.unmatched_patterns == []
 
+    log_dir = local.get_log_dir(job)
+    log_file = log_dir / "logs.txt"
+    assert log_dir.exists()
+    assert log_file.exists()
+
 
 @pytest.mark.needs_docker
 def test_finalize_failed(docker_cleanup, job, tmp_work_dir, volume_api):
@@ -400,6 +406,79 @@ def test_finalize_failed_oomkilled(docker_cleanup, job, tmp_work_dir):
         local.RESULTS[job.id].message
         == "Ran out of memory (limit for this job was 0.01GB)"
     )
+
+
+@pytest.mark.needs_docker
+def test_finalize_cancelled_notstarted(docker_cleanup, job, tmp_work_dir):
+    # job is a JobDefinition
+    job.args = ["sleep", "101"]
+
+    api = local.LocalDockerAPI()
+
+    # user cancels the job before it's started
+    status = api.terminate(job)
+    assert status.state == ExecutorState.ERROR
+
+    status = api.finalize(job, logs_only=True)
+    # TODO: it doesn't really make sense to transition ERROR->FINALIZED
+    assert status.state == ExecutorState.FINALIZED
+
+    # TODO: is this the appropriate status?
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    assert job.id not in local.RESULTS
+    # assert local.RESULTS[job.id].exit_code == 0
+    # assert local.RESULTS[job.id].message == "Cancelled by user"
+
+    log_dir = local.get_log_dir(job)
+    log_file = log_dir / "logs.txt"
+    assert not log_dir.exists()
+    assert not log_file.exists()
+
+    workspace_log_file = (
+        local.get_high_privacy_workspace(job.workspace)
+        / local.METADATA_DIR
+        / f"{job.action}.log"
+    )
+    assert not workspace_log_file.exists()
+
+
+@pytest.mark.needs_docker
+def test_finalize_cancelled(docker_cleanup, job, tmp_work_dir):
+    # job is a JobDefinition
+    job.args = ["sleep", "101"]
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job)
+    assert status.state == ExecutorState.EXECUTING
+
+    status = api.terminate(job)
+    assert status.state == ExecutorState.ERROR
+
+    status = api.finalize(job, logs_only=True)
+    # TODO: it doesn't really make sense to transition ERROR->FINALIZED ??
+    assert status.state == ExecutorState.FINALIZED
+
+    # we don't need to wait
+    assert api.get_status(job).state == ExecutorState.FINALIZED
+    assert job.id in local.RESULTS
+    # TODO: should we write these values when finalizing a cancelled job?
+    assert local.RESULTS[job.id].exit_code == 137
+    assert local.RESULTS[job.id].message == "Cancelled by user"
+
+    log_dir = local.get_log_dir(job)
+    log_file = log_dir / "logs.txt"
+    assert log_dir.exists()
+    assert log_file.exists()
+
+    workspace_log_file = (
+        local.get_high_privacy_workspace(job.workspace)
+        / local.METADATA_DIR
+        / f"{job.action}.log"
+    )
+    assert workspace_log_file.exists()
 
 
 @pytest.mark.needs_docker

@@ -128,6 +128,7 @@ class StubExecutorAPI:
             "prepare": set(),
             "execute": set(),
             "finalize": set(),
+            "finalize_log_only": set(),
             "terminate": set(),
             "cleanup": set(),
         }
@@ -218,7 +219,19 @@ class StubExecutorAPI:
             definition, ExecutorState.PREPARED, ExecutorState.EXECUTING
         )
 
-    def finalize(self, definition):
+    def finalize(self, definition, log_only=False):
+        # TODO: handle log_only?
+        if log_only:
+            self.tracker["finalize_log_only"].add(definition.id)
+        else:
+            self.tracker["finalize"].add(definition.id)
+        if ExecutorState.FINALIZING in self.synchronous_transitions:
+            expected = ExecutorState.FINALIZED
+        else:
+            expected = ExecutorState.FINALIZING
+        return self.do_transition(definition, ExecutorState.EXECUTED, expected)
+
+    def finalize_cancelled_job(self, definition):
         self.tracker["finalize"].add(definition.id)
         if ExecutorState.FINALIZING in self.synchronous_transitions:
             expected = ExecutorState.FINALIZED
