@@ -226,6 +226,14 @@ class StubExecutorAPI:
             expected = ExecutorState.FINALIZING
         return self.do_transition(definition, ExecutorState.EXECUTED, expected)
 
+    def finalize_job(self, definition):
+        self.tracker["finalize"].add(definition.id)
+        if ExecutorState.FINALIZING in self.synchronous_transitions:
+            expected = ExecutorState.FINALIZED
+        else:
+            expected = ExecutorState.FINALIZING
+        return self.do_transition(definition, ExecutorState.EXECUTED, expected)
+
     def terminate(self, definition):
         self.tracker["terminate"].add(definition.id)
         return JobStatus(ExecutorState.ERROR)

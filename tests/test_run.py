@@ -1,10 +1,12 @@
 import time
+from unittest import mock
 
 import pytest
 from opentelemetry import trace
 
 from jobrunner import config, run
-from jobrunner.job_executor import ExecutorState, JobStatus, Privacy
+from jobrunner.executors import local, volumes
+from jobrunner.job_executor import ExecutorState, JobStatus, Privacy, Study
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import StubExecutorAPI, job_factory
@@ -171,6 +173,55 @@ def test_handle_pending_job_cancelled(db):
     assert job.state == State.FAILED
     assert job.status_message == "Cancelled by user"
     assert job.status_code == StatusCode.CANCELLED_BY_USER
+
+
+def test_handle_running_job_cancelled(db, monkeypatch):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.EXECUTING, State.RUNNING, cancelled=True)
+    job.study = Study(git_repo_url="", commit="abcd1234")
+
+    mocker = mock.MagicMock(spec=local.docker)
+    mockume_api = mock.MagicMock(spec=volumes.DEFAULT_VOLUME_API)
+
+    def mock_get_jobs(partial_job_ids):
+        return [job]
+
+    # TODO: maybe not needed
+    mocker.container_inspect.return_value = {
+        "Image": "image",
+        "State": {"ExitCode": 74},
+        "Config": {"Env": ""},
+    }
+
+    # set both the docker module names used to the mocker version
+    monkeypatch.setattr(local, "docker", mocker)
+    monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", mockume_api)
+    # api is the StubExecutorAPI - that's why it's not running my modified code that dies
+    monkeypatch.setattr(api, "finalize", local.LocalDockerAPI.finalize)
+
+    run.handle_job(job, api)
+
+    # executor state
+    assert job.id in api.tracker["terminate"]
+    assert job.id in api.tracker["cleanup"]
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
+    assert job.state == State.FAILED
+    assert job.status_message == "Cancelled by user"
+    assert job.status_code == StatusCode.CANCELLED_BY_USER
+
+    # container = local.container_name(job)
+    # assert mocker.kill.call_args[0] == (container,)
+    # assert mocker.write_logs_to_file.call_args[0][0] == container
+
+    log_dir = local.get_log_dir(job)
+    log_file = log_dir / "logs.txt"
+    metadata_file = log_dir / "metadata.json"
+
+    assert log_dir.exists()
+    assert log_file.exists()
+    assert metadata_file.exists()
 
 
 @pytest.mark.parametrize(

@@ -287,6 +287,13 @@ def prepare_job(job):
 
 
 def finalize_job(job):
+    if job.cancelled:
+        finalize_cancelled_job(job)
+    else:
+        finalize_finished_job(job)
+
+
+def finalize_finished_job(job):
     container_metadata = docker.container_inspect(
         container_name(job), none_if_not_exists=True
     )
@@ -331,6 +338,26 @@ def finalize_job(job):
     write_job_logs(job, job_metadata)
     persist_outputs(job, results.outputs, job_metadata)
     RESULTS[job.id] = results
+
+
+def finalize_cancelled_job(job):
+    """Store the logs for user-cancelled jobs"""
+
+    # raise ValueError("ah come on")
+    # print("WE ARE HERE")
+    # raise ValueError('A very specific bad thing happened.')
+
+    container_metadata = docker.container_inspect(
+        container_name(job), none_if_not_exists=True
+    )
+    if not container_metadata:
+        # no logs to retain if the container didn't start yet
+        return
+
+    redact_environment_variables(container_metadata)
+
+    job_metadata = get_job_metadata(job, None, container_metadata)
+    write_job_logs(job, job_metadata)
 
 
 def get_job_metadata(job, outputs, container_metadata):
