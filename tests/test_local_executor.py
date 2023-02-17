@@ -416,9 +416,7 @@ def test_finalize_failed_137(docker_cleanup, job, tmp_work_dir, volume_api):
     # impersonate an admin
     docker.kill(local.container_name(job))
 
-    # status EXECUTED is in contrast to test_running_job_terminated_finalized,
-    # which produces status ERROR in similar circumstances.
-    wait_for_state(api, job, ExecutorState.EXECUTED)
+    wait_for_state(api, job, ExecutorState.ERROR)
 
     # In contrast to test_running_job_terminated_finalized , finalize would be run
     # if a job is externally killed rather than being terminated
@@ -429,7 +427,7 @@ def test_finalize_failed_137(docker_cleanup, job, tmp_work_dir, volume_api):
     assert api.get_status(job).state == ExecutorState.FINALIZED
     assert job.id in local.RESULTS
     assert local.RESULTS[job.id].exit_code == 137
-    assert local.RESULTS[job.id].message == "Killed by an OpenSAFELY admin"
+    assert local.RESULTS[job.id].message == "Job cancelled"
 
     assert workspace_log_file_exists(job)
 
@@ -474,19 +472,19 @@ def test_pending_job_terminated_not_finalized(docker_cleanup, job, tmp_work_dir)
 
     # user cancels the job before it's started
     status = api.terminate(job)
-    assert status.state == ExecutorState.ERROR
+    assert status.state == ExecutorState.UNKNOWN
     assert api.get_status(job).state == ExecutorState.UNKNOWN
 
-    # run.py does not run finalize for cancelled jobs
-    # status = api.finalize(job)
-    # assert status.state == ExecutorState.UNKNOWN
-    # assert api.get_status(job).state == ExecutorState.UNKNOWN
-
-    status = api.cleanup(job)
+    # finalize is a no-op in this case
+    status = api.finalize(job)
     assert status.state == ExecutorState.UNKNOWN
     assert api.get_status(job).state == ExecutorState.UNKNOWN
 
     assert job.id not in local.RESULTS
+
+    status = api.cleanup(job)
+    assert status.state == ExecutorState.UNKNOWN
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
 
     assert not workspace_log_file_exists(job)
 
@@ -507,23 +505,21 @@ def test_running_job_terminated_finalized(docker_cleanup, job, tmp_work_dir):
 
     status = api.terminate(job)
     assert status.state == ExecutorState.ERROR
-    assert api.get_status(job).state == ExecutorState.EXECUTED
+    assert api.get_status(job).state == ExecutorState.ERROR
 
-    # run.py does not run finalize for cancelled jobs
-    # status = api.finalize(job)
-    # assert status.state == ExecutorState.FINALIZED
-    # assert api.get_status(job).state == ExecutorState.FINALIZED
+    status = api.finalize(job)
+    assert status.state == ExecutorState.FINALIZED
+    assert api.get_status(job).state == ExecutorState.FINALIZED
+
+    assert job.id in local.RESULTS
+    assert local.RESULTS[job.id].exit_code == 137
+    assert local.RESULTS[job.id].message == "Job cancelled"
 
     status = api.cleanup(job)
     assert status.state == ExecutorState.UNKNOWN
     assert api.get_status(job).state == ExecutorState.UNKNOWN
 
-    assert job.id not in local.RESULTS
-    # TODO: should we write these values when finalizing a cancelled job?
-    # assert local.RESULTS[job.id].exit_code == 137
-    # assert local.RESULTS[job.id].message == "Killed by an OpenSAFELY admin"
-
-    assert not workspace_log_file_exists(job)
+    assert workspace_log_file_exists(job)
 
 
 @pytest.mark.needs_docker

@@ -162,6 +162,7 @@ def test_handle_pending_job_cancelled(db):
 
     assert job.id not in api.tracker["terminate"]
     assert job.id not in api.tracker["finalize"]
+    assert job.id not in api.tracker["finalize_log_only"]
     assert job.id not in api.tracker["cleanup"]
 
     run.handle_job(job, api)
@@ -169,6 +170,7 @@ def test_handle_pending_job_cancelled(db):
     # executor state
     assert job.id in api.tracker["terminate"]
     assert job.id not in api.tracker["finalize"]
+    assert job.id not in api.tracker["finalize_log_only"]
     assert job.id in api.tracker["cleanup"]
     assert api.get_status(job).state == ExecutorState.UNKNOWN
 
@@ -183,6 +185,7 @@ def test_handle_running_job_cancelled(db, monkeypatch):
     job = api.add_test_job(ExecutorState.EXECUTING, State.RUNNING, cancelled=True)
 
     assert job.id not in api.tracker["terminate"]
+    assert job.id not in api.tracker["finalize_log_only"]
     assert job.id not in api.tracker["finalize"]
     assert job.id not in api.tracker["cleanup"]
 
@@ -191,6 +194,7 @@ def test_handle_running_job_cancelled(db, monkeypatch):
     # executor state
     assert job.id in api.tracker["terminate"]
     assert job.id not in api.tracker["finalize"]
+    assert job.id in api.tracker["finalize_log_only"]
     assert job.id in api.tracker["cleanup"]
 
     definition = run.job_to_job_definition(job)

@@ -193,6 +193,8 @@ class ExecutorAPI:
         The action log file and any useful metadata from the job run should also be written to a separate log storage
         area in long-term storage.
 
+        If the job has been cancelled, it should only preserve the action log file.
+
         When the finalize task finishes, the get_status() call should now return FINALIZED for this job, and
         get_results() call should return the JobResults for this job.
 

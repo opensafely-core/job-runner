@@ -247,9 +247,11 @@ TMP_DIR = WORKDIR / "temp"
 # docker specific exit codes we understand
 DOCKER_EXIT_CODES = {
     # 137 = 128+9, which means was killed by signal 9, SIGKILL
+    # This could be killed externally by an admin, or terminated through the
+    # cancellation process.
     # Note: this can also mean killed by OOM killer, but that's explicitly
     # handled already.
-    137: "Killed by an OpenSAFELY admin",
+    137: "Job cancelled",
 }
 
 # BindMountVolumeAPI config

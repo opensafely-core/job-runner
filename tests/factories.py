@@ -128,6 +128,7 @@ class StubExecutorAPI:
             "prepare": set(),
             "execute": set(),
             "finalize": set(),
+            "finalize_log_only": set(),
             "terminate": set(),
             "cleanup": set(),
         }
@@ -221,22 +222,38 @@ class StubExecutorAPI:
         )
 
     def finalize(self, definition):
-        self.tracker["finalize"].add(definition.id)
+        if self.get_status(definition).state == ExecutorState.UNKNOWN:
+            # This happens if a job is cancelled before it started running
+            return self.get_status(definition)
 
         if ExecutorState.FINALIZING in self.synchronous_transitions:
             next_state = ExecutorState.FINALIZED
         else:
             next_state = ExecutorState.FINALIZING
 
-        return self.do_transition(
-            definition, ExecutorState.EXECUTED, next_state, "finalize"
-        )
+        if self.get_status(definition).state == ExecutorState.ERROR:
+            # This happens if a job is cancelled whilst running
+            self.tracker["finalize_log_only"].add(definition.id)
+            return self.do_transition(
+                definition, ExecutorState.ERROR, next_state, "finalize"
+            )
+        else:
+            self.tracker["finalize"].add(definition.id)
+            return self.do_transition(
+                definition, ExecutorState.EXECUTED, next_state, "finalize"
+            )
 
     def terminate(self, definition):
         self.tracker["terminate"].add(definition.id)
-        return self.do_transition(
-            definition, ExecutorState.UNKNOWN, ExecutorState.ERROR, "finalize"
-        )
+        current_state = self.get_status(definition).state
+        if current_state == ExecutorState.EXECUTING:
+            return self.do_transition(
+                definition, current_state, ExecutorState.ERROR, "finalize"
+            )
+        else:
+            return self.do_transition(
+                definition, ExecutorState.UNKNOWN, ExecutorState.UNKNOWN, "finalize"
+            )
 
     def cleanup(self, definition):
         self.tracker["cleanup"].add(definition.id)
