@@ -128,6 +128,7 @@ class StubExecutorAPI:
             "prepare": set(),
             "execute": set(),
             "finalize": set(),
+            "finalize_log_only": set(),
             "terminate": set(),
             "cleanup": set(),
         }
@@ -223,12 +224,22 @@ class StubExecutorAPI:
         )
 
     def finalize(self, job_definition):
-        self.tracker["finalize"].add(job_definition.id)
+        if self.get_status(job_definition).state == ExecutorState.UNKNOWN:
+            # job was cancelled before it started running
+            assert job_definition.cancelled
+            return self.get_status(job_definition)
 
         if ExecutorState.FINALIZING in self.synchronous_transitions:
             next_state = ExecutorState.FINALIZED
         else:
             next_state = ExecutorState.FINALIZING
+
+        if job_definition.cancelled:
+            # job was cancelled after it started running
+            self.tracker["finalize_log_only"].add(job_definition.id)
+        else:
+            # The job ran to completion
+            self.tracker["finalize"].add(job_definition.id)
 
         return self.do_transition(
             job_definition, ExecutorState.EXECUTED, next_state, "finalize"
@@ -236,9 +247,22 @@ class StubExecutorAPI:
 
     def terminate(self, job_definition):
         self.tracker["terminate"].add(job_definition.id)
-        return self.do_transition(
-            job_definition, ExecutorState.UNKNOWN, ExecutorState.ERROR, "finalize"
-        )
+        if self.get_status(job_definition).state == ExecutorState.UNKNOWN:
+            # job was cancelled before it started running
+            return self.do_transition(
+                job_definition,
+                ExecutorState.UNKNOWN,
+                ExecutorState.UNKNOWN,
+                "terminate",
+            )
+        else:
+            # job was cancelled after it started running
+            return self.do_transition(
+                job_definition,
+                ExecutorState.EXECUTING,
+                ExecutorState.EXECUTED,
+                "terminate",
+            )
 
     def cleanup(self, job_definition):
         self.tracker["cleanup"].add(job_definition.id)

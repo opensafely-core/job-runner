@@ -184,9 +184,12 @@ class LocalDockerAPI(ExecutorAPI):
 
     def finalize(self, job_definition):
 
-        current = self.get_status(job_definition)
-        if current.state != ExecutorState.EXECUTED:
-            return current
+        current_status = self.get_status(job_definition)
+        if current_status.state == ExecutorState.UNKNOWN:
+            # job had not started running, so do not finalize
+            return current_status
+
+        assert current_status.state in [ExecutorState.EXECUTED, ExecutorState.ERROR]
 
         try:
             finalize_job(job_definition)
@@ -197,8 +200,20 @@ class LocalDockerAPI(ExecutorAPI):
         return JobStatus(ExecutorState.FINALIZED)
 
     def terminate(self, job_definition):
+        initial_status = self.get_status(job_definition)
+
         docker.kill(container_name(job_definition))
-        return JobStatus(ExecutorState.ERROR, "terminated by api")
+
+        if initial_status.state == ExecutorState.UNKNOWN:
+            # job had not started running, so stay at UNKNOWN
+            # nb. but always run docker.kill just in case!
+            return initial_status
+
+        if initial_status.state == ExecutorState.PREPARED:
+            # job has been prepared, but there is no container yet
+            return JobStatus(ExecutorState.UNKNOWN, "cancelled by api")
+
+        return JobStatus(ExecutorState.EXECUTED, "terminated by api")
 
     def cleanup(self, job_definition):
         if config.CLEAN_UP_DOCKER_OBJECTS:
@@ -225,6 +240,9 @@ class LocalDockerAPI(ExecutorAPI):
             )
 
         if container is None:  # container doesn't exist
+            if job_definition.cancelled:
+                return JobStatus(ExecutorState.UNKNOWN, "Job was cancelled")
+
             # timestamp file presence means we have finished preparing
             timestamp_ns = volumes.get_volume_api(job_definition).read_timestamp(
                 job_definition, TIMESTAMP_REFERENCE_FILE, 10
@@ -247,7 +265,22 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.FINALIZED,
                 timestamp_ns=RESULTS[job_definition.id].timestamp_ns,
             )
-        else:  # container present but not running, i.e. finished
+        else:
+            # container present but not running, i.e. finished
+            if job_definition.cancelled:
+                return JobStatus(
+                    ExecutorState.EXECUTED,
+                    f"Job cancelled by {job_definition.cancelled}",
+                )
+            if container["State"]["ExitCode"] == 137:
+                if container["State"]["OOMKilled"]:
+                    return JobStatus(ExecutorState.ERROR, "Job ran out of memory")
+                else:
+                    return JobStatus(
+                        ExecutorState.ERROR,
+                        "Job either ran out of memory or was killed by an admin",
+                    )
+
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
             return JobStatus(ExecutorState.EXECUTED, timestamp_ns=timestamp_ns)
 
@@ -322,11 +355,23 @@ def finalize_job(job_definition):
         container_name(job_definition), none_if_not_exists=True
     )
     if not container_metadata:
-        raise LocalDockerError("Job container has vanished")
+        if job_definition.cancelled:
+            # no logs to retain if the container didn't start yet
+            return
+        else:
+            raise LocalDockerError(
+                f"Job container {container_name(job_definition)} has vanished"
+            )
     redact_environment_variables(container_metadata)
 
-    outputs, unmatched_patterns = find_matching_outputs(job_definition)
-    unmatched_outputs = get_unmatched_outputs(job_definition, outputs)
+    if job_definition.cancelled:
+        # assume no outputs because our job didn't finish
+        outputs = {}
+        unmatched_patterns = []
+        unmatched_outputs = []
+    else:
+        outputs, unmatched_patterns = find_matching_outputs(job_definition)
+        unmatched_outputs = get_unmatched_outputs(job_definition, outputs)
 
     exit_code = container_metadata["State"]["ExitCode"]
     labels = container_metadata.get("Config", {}).get("Labels", {})
@@ -336,12 +381,15 @@ def finalize_job(job_definition):
     message = None
 
     # special case OOMKilled
+    # Nb. this flag has been observed to be unreliable on some versions of Linux
     if container_metadata["State"]["OOMKilled"]:
         message = "Ran out of memory"
         memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
         if memory_limit > 0:
             gb_limit = memory_limit / (1024**3)
             message += f" (limit for this job was {gb_limit:.2f}GB)"
+    elif exit_code == 137 and job_definition.cancelled:
+        message = f"Job cancelled by {job_definition.cancelled}"
     else:
         message = config.DOCKER_EXIT_CODES.get(exit_code)
 
@@ -349,7 +397,7 @@ def finalize_job(job_definition):
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,
         unmatched_outputs=unmatched_outputs,
-        exit_code=container_metadata["State"]["ExitCode"],
+        exit_code=exit_code,
         image_id=container_metadata["Image"],
         message=message,
         timestamp_ns=time.time_ns(),
@@ -361,7 +409,8 @@ def finalize_job(job_definition):
     )
     job_metadata = get_job_metadata(job_definition, outputs, container_metadata)
     write_job_logs(job_definition, job_metadata)
-    persist_outputs(job_definition, results.outputs, job_metadata)
+    if not job_definition.cancelled:
+        persist_outputs(job_definition, results.outputs, job_metadata)
     RESULTS[job_definition.id] = results
 
 
