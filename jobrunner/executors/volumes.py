@@ -31,6 +31,10 @@ def docker_volume_name(job):
 
 
 class DockerVolumeAPI:
+
+    # don't run with UIDs for now. We maybe be able to support this in future.
+    requires_root = True
+
     def volume_name(job):
         return docker_volume_name(job)
 
@@ -83,6 +87,10 @@ def host_volume_path(job, create=True):
 
 
 class BindMountVolumeAPI:
+
+    # Only works running jobs with uid:gid
+    requires_root = False
+
     def volume_name(job):
         """Return the absolute path to the volume directory.
 

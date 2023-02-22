@@ -130,6 +130,7 @@ class LocalDockerAPI(ExecutorAPI):
         current = self.get_status(job)
         if current.state != ExecutorState.PREPARED:
             return current
+        volume_api = get_volume_api(job)
 
         extra_args = []
         if job.cpu_count:
@@ -137,11 +138,16 @@ class LocalDockerAPI(ExecutorAPI):
         if job.memory_limit:
             extra_args.extend(["--memory", job.memory_limit])
 
+        if not volume_api.requires_root:
+            extra_args.extend(
+                ["--user", f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}"]
+            )
+
         try:
             docker.run(
                 container_name(job),
                 [job.image] + job.args,
-                volume=(get_volume_api(job).volume_name(job), "/workspace"),
+                volume=(volume_api.volume_name(job), "/workspace"),
                 env=job.env,
                 allow_network_access=job.allow_database_access,
                 label=LABEL,
