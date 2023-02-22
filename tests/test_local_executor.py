@@ -550,7 +550,7 @@ def test_delete_volume(docker_cleanup, job, tmp_work_dir, volume_api):
 def test_delete_volume_error_bindmount(
     docker_cleanup, job, tmp_work_dir, monkeypatch, caplog
 ):
-    def error(*args):
+    def error(*args, **kwargs):
         raise Exception("some error")
 
     caplog.set_level(logging.ERROR)
@@ -560,3 +560,16 @@ def test_delete_volume_error_bindmount(
 
     assert str(volumes.host_volume_path(job)) in caplog.records[-1].msg
     assert "some error" in caplog.records[-1].exc_text
+
+
+def test_delete_volume_error_file_bindmount_skips_and_logs(job, caplog):
+    caplog.set_level(logging.ERROR)
+
+    # we can't easily manufacture a file permissions error, so we use
+    # a different error to test our onerror handling code: directory does not
+    # exist
+    volumes.BindMountVolumeAPI.delete_volume(job)
+
+    # check the error is logged
+    path = str(volumes.host_volume_path(job))
+    assert path in caplog.records[-1].msg
