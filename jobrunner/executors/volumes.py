@@ -2,6 +2,7 @@ import importlib
 import logging
 import os
 import shutil
+import sys
 import tempfile
 import time
 from collections import defaultdict
@@ -34,6 +35,7 @@ class DockerVolumeAPI:
 
     # don't run with UIDs for now. We maybe be able to support this in future.
     requires_root = True
+    supported_platforms = ("linux", "win32", "darwin")
 
     def volume_name(job):
         return docker_volume_name(job)
@@ -90,6 +92,7 @@ class BindMountVolumeAPI:
 
     # Only works running jobs with uid:gid
     requires_root = False
+    supported_platforms = ("linux",)
 
     def volume_name(job):
         """Return the absolute path to the volume directory.
@@ -205,7 +208,13 @@ class BindMountVolumeAPI:
 def default_volume_api():
     module_name, cls = config.LOCAL_VOLUME_API.split(":", 1)
     module = importlib.import_module(module_name)
-    return getattr(module, cls)
+    api = getattr(module, cls)
+    if sys.platform not in api.supported_platforms:
+        raise Exception(
+            f"LOCAL_VOLUME_API={config.LOCAL_VOLUME_API} is not supported on this machine ({sys.platform})"
+        )
+
+    return api
 
 
 DEFAULT_VOLUME_API = default_volume_api()

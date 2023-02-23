@@ -2,6 +2,7 @@ import configparser
 import os
 import re
 import subprocess
+import sys
 from multiprocessing import cpu_count
 from pathlib import Path
 
@@ -264,5 +265,9 @@ DOCKER_HOST_VOLUME_DIR = os.environ.get("DOCKER_HOST_VOLUME_DIR")
 # These are currently only used with the BindMountVolumeAPI.
 # It could work with DockerVolumeAPI if we can workaround docker cp only
 # writing files into containers as root.
-DOCKER_USER_ID = os.environ.get("DOCKER_USER_ID", str(os.geteuid()))
-DOCKER_GROUP_ID = os.environ.get("DOCKER_GROUP_ID", str(os.getegid()))
+if sys.platform == "linux":
+    DOCKER_USER_ID = os.environ.get("DOCKER_USER_ID", str(os.geteuid()))
+    DOCKER_GROUP_ID = os.environ.get("DOCKER_GROUP_ID", str(os.getegid()))
+else:
+    DOCKER_USER_ID = None
+    DOCKER_GROUP_ID = None

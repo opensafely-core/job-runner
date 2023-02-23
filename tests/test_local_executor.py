@@ -11,9 +11,15 @@ from jobrunner.lib import datestr_to_ns_timestamp, docker
 from tests.factories import ensure_docker_images_present
 
 
+if sys.platform == "linux":
+    SUPPORTED_VOLUME_APIS = [volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI]
+else:
+    SUPPORTED_VOLUME_APIS = [volumes.DockerVolumeAPI]
+
+
 # this is parametized fixture, and test using it will run multiple times, once
 # for each volume api implementation
-@pytest.fixture(params=[volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI])
+@pytest.fixture(params=SUPPORTED_VOLUME_APIS)
 def volume_api(request, monkeypatch):
     monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", request.param)
     return request.param
@@ -575,6 +581,7 @@ def test_delete_volume(docker_cleanup, job, tmp_work_dir, volume_api):
     assert not volume_api.volume_exists(job)
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="linux only")
 def test_delete_volume_error_bindmount(
     docker_cleanup, job, tmp_work_dir, monkeypatch, caplog
 ):
