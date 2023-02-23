@@ -573,3 +573,5 @@ def test_delete_volume_error_file_bindmount_skips_and_logs(job, caplog):
     # check the error is logged
     path = str(volumes.host_volume_path(job))
     assert path in caplog.records[-1].msg
+    # *not* an exception log, just an error one
+    assert caplog.records[-1].exc_text is None

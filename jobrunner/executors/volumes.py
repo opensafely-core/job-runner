@@ -137,19 +137,19 @@ class BindMountVolumeAPI:
 
         # if we logged each file error directly, it would spam the logs, so we collect them
         def onerror(function, path, excinfo):
-            failed_files[path] = str(excinfo[1])
+            failed_files[Path(path)] = str(excinfo[1])
 
         path = host_volume_path(job)
         try:
-            shutil.rmtree(path, onerror=onerror)
+            shutil.rmtree(str(path), onerror=onerror)
+
+            if failed_files:
+                relative_paths = [str(p.relative_to(path)) for p in failed_files]
+                logger.error(
+                    f"could not remove {len(failed_files)} files from {path}: {','.join(relative_paths)}"
+                )
         except Exception:
             logger.exception(f"Failed to cleanup job volume {path}")
-
-        if failed_files:
-            relative_paths = [str(p.relative_to(path)) for p in failed_files]
-            logger.error(
-                f"could not remove {len(failed_files)} files from {path}: {','.join(relative_paths)}"
-            )
 
     def write_timestamp(job, path, timeout=None):
         (host_volume_path(job) / path).write_text(str(time.time_ns()))
