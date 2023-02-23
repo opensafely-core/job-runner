@@ -435,6 +435,7 @@ def write_log_file(job, job_metadata, filename):
     This dumps the (timestamped) Docker logs for a job to disk, followed by
     some useful metadata about the job and its outputs
     """
+    assert False
     filename.parent.mkdir(parents=True, exist_ok=True)
     docker.write_logs_to_file(container_name(job), filename)
     outputs = sorted(job_metadata["outputs"].items())
