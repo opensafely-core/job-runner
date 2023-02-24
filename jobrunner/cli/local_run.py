@@ -280,6 +280,8 @@ def create_and_run_jobs(
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
+    # Support using the BindMount api locally for dev testing
+    config.HIGH_PRIVACY_VOLUME_DIR = project_dir / "metadata" / "volumes"
 
     configure_logging(
         fmt=log_format,

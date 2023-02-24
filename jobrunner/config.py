@@ -255,7 +255,12 @@ DOCKER_EXIT_CODES = {
 # BindMountVolumeAPI config
 #
 # used to store directories to be mounted into jobs with the BindMountVolumeAPI
-HIGH_PRIVACY_VOLUME_DIR = HIGH_PRIVACY_STORAGE_BASE / "volumes"
+HIGH_PRIVACY_VOLUME_DIR = Path(
+    os.environ.get(
+        "HIGH_PRIVACY_VOLUME_DIR",
+        HIGH_PRIVACY_STORAGE_BASE / "volumes",
+    )
+)
 
 # when running inside a docker container and using the BindMountVolumeAPI, this
 # needs to point to the path to the HIGH_PRIVACY_VOLUME_DIR from the *hosts*
