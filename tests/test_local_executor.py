@@ -1,4 +1,5 @@
 import logging
+import sys
 import time
 
 import pytest
@@ -10,9 +11,15 @@ from jobrunner.lib import datestr_to_ns_timestamp, docker
 from tests.factories import ensure_docker_images_present
 
 
+if sys.platform == "linux":
+    SUPPORTED_VOLUME_APIS = [volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI]
+else:
+    SUPPORTED_VOLUME_APIS = [volumes.DockerVolumeAPI]
+
+
 # this is parametized fixture, and test using it will run multiple times, once
 # for each volume api implementation
-@pytest.fixture(params=[volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI])
+@pytest.fixture(params=SUPPORTED_VOLUME_APIS)
 def volume_api(request, monkeypatch):
     monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", request.param)
     return request.param
@@ -34,7 +41,7 @@ def job(request, test_repo):
         action="action",
         created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
-        args=["/usr/bin/true"],
+        args=["true"],
         inputs=[],
         env={},
         # all files are outputs by default, for simplicity in tests
@@ -216,9 +223,36 @@ def test_execute_success(docker_cleanup, job, tmp_work_dir, volume_api):
         ExecutorState.EXECUTED,
     )
 
-    container_data = docker.container_inspect(local.container_name(job), "HostConfig")
-    assert container_data["NanoCpus"] == int(1.5 * 1e9)
-    assert container_data["Memory"] == 2**30  # 1G
+    container_data = docker.container_inspect(local.container_name(job))
+    assert container_data["State"]["ExitCode"] == 0
+    assert container_data["HostConfig"]["NanoCpus"] == int(1.5 * 1e9)
+    assert container_data["HostConfig"]["Memory"] == 2**30  # 1G
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="linux only")
+@pytest.mark.needs_docker
+def test_execute_user_bindmount(docker_cleanup, job, tmp_work_dir, monkeypatch):
+    monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", volumes.BindMountVolumeAPI)
+    api = local.LocalDockerAPI()
+    # use prepare step as test set up
+    status = api.prepare(job)
+    assert status.state == ExecutorState.PREPARED
+
+    status = api.execute(job)
+    assert status.state == ExecutorState.EXECUTING
+
+    # could be in either state
+    assert api.get_status(job).state in (
+        ExecutorState.EXECUTING,
+        ExecutorState.EXECUTED,
+    )
+
+    container_config = docker.container_inspect(local.container_name(job))
+    assert (
+        container_config["Config"]["User"]
+        == f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}"
+    )
+    assert container_config["State"]["ExitCode"] == 0
 
 
 @pytest.mark.needs_docker
@@ -547,6 +581,7 @@ def test_delete_volume(docker_cleanup, job, tmp_work_dir, volume_api):
     assert not volume_api.volume_exists(job)
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="linux only")
 def test_delete_volume_error_bindmount(
     docker_cleanup, job, tmp_work_dir, monkeypatch, caplog
 ):
