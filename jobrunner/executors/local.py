@@ -140,7 +140,12 @@ class LocalDockerAPI(ExecutorAPI):
 
         if not volume_api.requires_root:
             extra_args.extend(
-                ["--user", f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}"]
+                [
+                    "--user",
+                    f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}",
+                    "-e",
+                    "HOME=/tmp",  # set home dir to something writable by non-root user
+                ]
             )
 
         try:
