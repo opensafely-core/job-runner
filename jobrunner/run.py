@@ -184,7 +184,7 @@ def handle_job(job, api, mode=None, paused=None):
     well as supporting cancellation and various operational modes.
     """
     assert job.state in (State.PENDING, State.RUNNING)
-    definition = job_to_job_definition(job)
+    job_definition = job_to_job_definition(job)
 
     # does this api have synchronous_transitions?
     synchronous_transitions = getattr(api, "synchronous_transitions", [])
@@ -193,9 +193,9 @@ def handle_job(job, api, mode=None, paused=None):
     if job.cancelled:
         # cancelled is driven by user request, so is handled explicitly first
         # regardless of executor state.
-        api.terminate(definition)
+        api.terminate(job_definition)
         mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
-        api.cleanup(definition)
+        api.cleanup(job_definition)
         return
 
     # handle special modes before considering executor state, as they ignore it
@@ -209,12 +209,12 @@ def handle_job(job, api, mode=None, paused=None):
             )
             return
 
-    if mode == "db-maintenance" and definition.allow_database_access:
+    if mode == "db-maintenance" and job_definition.allow_database_access:
         if job.state == State.RUNNING:
             log.warning(f"DB maintenance mode active, killing db job {job.id}")
             # we ignore the JobStatus returned from these API calls, as this is not a hard error
-            api.terminate(definition)
-            api.cleanup(definition)
+            api.terminate(job_definition)
+            api.cleanup(job_definition)
 
         # reset state to pending and exit
         set_code(
@@ -225,7 +225,7 @@ def handle_job(job, api, mode=None, paused=None):
         return
 
     try:
-        initial_status = api.get_status(definition)
+        initial_status = api.get_status(job_definition)
     except ExecutorRetry as retry:
         job_retries = EXECUTOR_RETRIES.get(job.id, 0) + 1
         EXECUTOR_RETRIES[job.id] = job_retries
@@ -311,11 +311,11 @@ def handle_job(job, api, mode=None, paused=None):
         else:
             expected_state = ExecutorState.PREPARING
 
-        new_status = api.prepare(definition)
+        new_status = api.prepare(job_definition)
 
     elif initial_status.state == ExecutorState.PREPARED:
         expected_state = ExecutorState.EXECUTING
-        new_status = api.execute(definition)
+        new_status = api.execute(job_definition)
 
     elif initial_status.state == ExecutorState.EXECUTED:
 
@@ -330,26 +330,26 @@ def handle_job(job, api, mode=None, paused=None):
         else:
             expected_state = ExecutorState.FINALIZING
 
-        new_status = api.finalize(definition)
+        new_status = api.finalize(job_definition)
 
     elif initial_status.state == ExecutorState.FINALIZED:
         # final state - we have finished!
-        results = api.get_results(definition)
-        save_results(job, definition, results)
-        obsolete = get_obsolete_files(definition, results.outputs)
+        results = api.get_results(job_definition)
+        save_results(job, job_definition, results)
+        obsolete = get_obsolete_files(job_definition, results.outputs)
         if obsolete:
-            errors = api.delete_files(definition.workspace, Privacy.HIGH, obsolete)
+            errors = api.delete_files(job_definition.workspace, Privacy.HIGH, obsolete)
             if errors:
                 log.error(
-                    f"Failed to delete high privacy files from workspace {definition.workspace}: {errors}"
+                    f"Failed to delete high privacy files from workspace {job_definition.workspace}: {errors}"
                 )
-            api.delete_files(definition.workspace, Privacy.MEDIUM, obsolete)
+            api.delete_files(job_definition.workspace, Privacy.MEDIUM, obsolete)
             if errors:
                 log.error(
-                    f"Failed to delete medium privacy files from workspace {definition.workspace}: {errors}"
+                    f"Failed to delete medium privacy files from workspace {job_definition.workspace}: {errors}"
                 )
 
-        api.cleanup(definition)
+        api.cleanup(job_definition)
         # we are done here
         return
 
@@ -383,7 +383,7 @@ def handle_job(job, api, mode=None, paused=None):
         )
 
 
-def save_results(job, definition, results):
+def save_results(job, job_definition, results):
     """Extract the results of the execution and update the job accordingly."""
     # save job outputs
     job.outputs = results.outputs
@@ -397,7 +397,7 @@ def save_results(job, definition, results):
         message = "Job exited with an error"
         if results.message:
             message += f": {results.message}"
-        elif definition.allow_database_access:
+        elif job_definition.allow_database_access:
             error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
             if error_msg:
                 message += f": {error_msg}"
@@ -420,7 +420,7 @@ def save_results(job, definition, results):
     set_code(job, code, message, error=error, results=results)
 
 
-def get_obsolete_files(definition, outputs):
+def get_obsolete_files(job_definition, outputs):
     """Get files that need to be deleted.
 
     These are files that we previously output by this action but were not
@@ -432,7 +432,9 @@ def get_obsolete_files(definition, outputs):
     keep_files = {str(name).lower() for name in outputs}
     obsolete = []
 
-    for existing in list_outputs_from_action(definition.workspace, definition.action):
+    for existing in list_outputs_from_action(
+        job_definition.workspace, job_definition.action
+    ):
         name = str(existing).lower()
         if name not in keep_files:
             obsolete.append(str(existing))

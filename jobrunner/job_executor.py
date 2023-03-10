@@ -103,7 +103,7 @@ class ExecutorAPI:
 
     """
 
-    def prepare(self, job: JobDefinition) -> JobStatus:
+    def prepare(self, job_definition: JobDefinition) -> JobStatus:
         """
         Launch a prepare task for a job, transitioning to the initial PREPARING state.
 
@@ -135,7 +135,7 @@ class ExecutorAPI:
 
         """
 
-    def execute(self, job: JobDefinition) -> JobStatus:
+    def execute(self, job_definition: JobDefinition) -> JobStatus:
         """
         Launch the execution of a job that has been prepared, transitioning from PREPARED to EXECUTING.
 
@@ -156,7 +156,7 @@ class ExecutorAPI:
         The specified image must be run, with the provided arguments and environment variables. The implementation
         may add environment variables to those in the job definition as necessary for the backend.
 
-        The job should be run without any network access, unless definition.allow_database_access is set to True,
+        The job should be run without any network access, unless job_definition.allow_database_access is set to True,
         in which case it should be run with a network allowing access to the database and any configuration needed to
         contact and authenticate with the database should be provided as environment variables.
 
@@ -169,7 +169,7 @@ class ExecutorAPI:
 
         """
 
-    def finalize(self, job: JobDefinition) -> JobStatus:
+    def finalize(self, job_definition: JobDefinition) -> JobStatus:
         """
         Launch the finalization of a job, transitioning from EXECUTED to FINALIZING.
 
@@ -201,7 +201,7 @@ class ExecutorAPI:
 
         """
 
-    def terminate(self, job: JobDefinition) -> JobStatus:
+    def terminate(self, job_definition: JobDefinition) -> JobStatus:
         """
         Terminate a running job, transitioning to the ERROR state.
 
@@ -211,7 +211,7 @@ class ExecutorAPI:
 
         """
 
-    def cleanup(self, job: JobDefinition) -> JobStatus:
+    def cleanup(self, job_definition: JobDefinition) -> JobStatus:
         """
         Clean up any remaining state for a finished job, transitioning to the UNKNOWN state.
 
@@ -228,7 +228,7 @@ class ExecutorAPI:
         out-of-band mechanisms for cleaning up resources associated with such failures.
         """
 
-    def get_status(self, job: JobDefinition) -> JobStatus:
+    def get_status(self, job_definition: JobDefinition) -> JobStatus:
         """
         Return the current status of a job.
 
@@ -245,7 +245,7 @@ class ExecutorAPI:
 
         """
 
-    def get_results(self, job: JobDefinition) -> JobResults:
+    def get_results(self, job_definition: JobDefinition) -> JobResults:
         """
         Return the finalized results for a job.
 
@@ -272,25 +272,25 @@ class ExecutorAPI:
 class NullExecutorAPI(ExecutorAPI):
     """Null implementation of ExecutorAPI."""
 
-    def prepare(self, job):
+    def prepare(self, job_definition):
         raise NotImplementedError
 
-    def execute(self, job):
+    def execute(self, job_definition):
         raise NotImplementedError
 
-    def finalize(self, job):
+    def finalize(self, job_definition):
         raise NotImplementedError
 
-    def terminate(self, job):
+    def terminate(self, job_definition):
         raise NotImplementedError
 
-    def get_status(self, job):
+    def get_status(self, job_definition):
         raise NotImplementedError
 
-    def get_results(self, job):
+    def get_results(self, job_definition):
         raise NotImplementedError
 
-    def cleanup(self, job):
+    def cleanup(self, job_definition):
         raise NotImplementedError
 
     def delete_files(self, workspace, privacy, paths):

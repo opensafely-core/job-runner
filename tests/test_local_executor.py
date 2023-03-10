@@ -26,8 +26,7 @@ def volume_api(request, monkeypatch):
 
 
 @pytest.fixture
-def job(request, test_repo):
-    # TODO: this is a "JobDefinition", not a "Job"
+def job_definition(request, test_repo):
     """Basic simple action with no inputs as base for testing."""
     if "needs_docker" in list(m.name for m in request.node.iter_markers()):
         ensure_docker_images_present("busybox")
@@ -67,9 +66,9 @@ def populate_workspace(workspace, filename, content=None, privacy="high"):
 
 
 # used for tests and debugging
-def get_log(job):
+def get_log(job_definition):
     result = docker.docker(
-        ["container", "logs", local.container_name(job)],
+        ["container", "logs", local.container_name(job_definition)],
         check=True,
         text=True,
         capture_output=True,
@@ -77,19 +76,21 @@ def get_log(job):
     return result.stdout + result.stderr
 
 
-def wait_for_state(api, job, state, limit=5, step=0.25):
+def wait_for_state(api, job_definition, state, limit=5, step=0.25):
     """Utility to wait on a state change in the api."""
     start = time.time()
     elapsed = 0
 
     while True:
-        status = api.get_status(job)
+        status = api.get_status(job_definition)
         if status.state == state:
             return status
 
         elapsed = time.time() - start
         if elapsed > limit:
-            raise Exception(f"Timed out waiting for state {state} for job {job}")
+            raise Exception(
+                f"Timed out waiting for state {state} for job {job_definition}"
+            )
 
         time.sleep(step)
 
@@ -98,8 +99,8 @@ def list_repo_files(path):
     return list(str(f.relative_to(path)) for f in path.glob("**/*") if f.is_file())
 
 
-def workspace_log_file_exists(job):
-    log_dir = local.get_log_dir(job)
+def workspace_log_file_exists(job_definition):
+    log_dir = local.get_log_dir(job_definition)
     if not log_dir.exists():
         return False
     log_file = log_dir / "logs.txt"
@@ -107,140 +108,142 @@ def workspace_log_file_exists(job):
         return False
 
     workspace_log_file = (
-        local.get_high_privacy_workspace(job.workspace)
+        local.get_high_privacy_workspace(job_definition.workspace)
         / local.METADATA_DIR
-        / f"{job.action}.log"
+        / f"{job_definition.action}.log"
     )
     return workspace_log_file.exists()
 
 
 @pytest.mark.needs_docker
 def test_prepare_success(
-    docker_cleanup, job, test_repo, tmp_work_dir, volume_api, freezer
+    docker_cleanup, job_definition, test_repo, tmp_work_dir, volume_api, freezer
 ):
 
-    job.inputs = ["output/input.csv"]
-    populate_workspace(job.workspace, "output/input.csv")
+    job_definition.inputs = ["output/input.csv"]
+    populate_workspace(job_definition.workspace, "output/input.csv")
 
     expected_timestamp = time.time_ns()
 
     api = local.LocalDockerAPI()
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
 
     assert status.state == ExecutorState.PREPARED
 
     # we don't need to wait for this is currently synchronous
-    next_status = api.get_status(job)
+    next_status = api.get_status(job_definition)
 
     assert next_status.state == ExecutorState.PREPARED
     assert next_status.timestamp_ns == expected_timestamp
 
-    assert volume_api.volume_exists(job)
+    assert volume_api.volume_exists(job_definition)
 
     # check files have been copied
-    expected = set(list_repo_files(test_repo.source) + job.inputs)
+    expected = set(list_repo_files(test_repo.source) + job_definition.inputs)
     expected.add(local.TIMESTAMP_REFERENCE_FILE)
 
     # glob_volume_files uses find, and its '**/*' regex doesn't find files in
     # the root dir, which is arguably correct.
-    files = volume_api.glob_volume_files(job)
+    files = volume_api.glob_volume_files(job_definition)
     all_files = set(files["*"] + files["**/*"])
     assert all_files == expected
 
 
 @pytest.mark.needs_docker
-def test_prepare_already_prepared(docker_cleanup, job, volume_api):
+def test_prepare_already_prepared(docker_cleanup, job_definition, volume_api):
 
     # create the volume already
-    volume_api.create_volume(job)
-    volume_api.write_timestamp(job, local.TIMESTAMP_REFERENCE_FILE)
+    volume_api.create_volume(job_definition)
+    volume_api.write_timestamp(job_definition, local.TIMESTAMP_REFERENCE_FILE)
 
     api = local.LocalDockerAPI()
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
 
     assert status.state == ExecutorState.PREPARED
 
 
 @pytest.mark.needs_docker
-def test_prepare_volume_exists_unprepared(docker_cleanup, job, volume_api):
+def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition, volume_api):
     # create the volume already
-    volume_api.create_volume(job)
+    volume_api.create_volume(job_definition)
 
     # do not write the timestamp, so prepare will rerun
 
     api = local.LocalDockerAPI()
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
 
     assert status.state == ExecutorState.PREPARED
 
 
 @pytest.mark.needs_docker
-def test_prepare_no_image(docker_cleanup, job, volume_api):
-    job.image = "invalid-test-image"
+def test_prepare_no_image(docker_cleanup, job_definition, volume_api):
+    job_definition.image = "invalid-test-image"
     api = local.LocalDockerAPI()
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
 
     assert status.state == ExecutorState.ERROR
-    assert job.image in status.message.lower()
+    assert job_definition.image in status.message.lower()
 
 
 @pytest.mark.needs_docker
 @pytest.mark.parametrize("ext", config.ARCHIVE_FORMATS)
-def test_prepare_archived(ext, job):
+def test_prepare_archived(ext, job_definition):
     api = local.LocalDockerAPI()
-    archive = (config.HIGH_PRIVACY_ARCHIVE_DIR / job.workspace).with_suffix(ext)
+    archive = (config.HIGH_PRIVACY_ARCHIVE_DIR / job_definition.workspace).with_suffix(
+        ext
+    )
     archive.parent.mkdir(parents=True, exist_ok=True)
     archive.write_text("I exist")
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
 
     assert status.state == ExecutorState.ERROR
     assert "has been archived"
 
 
 @pytest.mark.needs_docker
-def test_prepare_job_bad_commit(docker_cleanup, job, test_repo):
-    job.study = Study(git_repo_url=str(test_repo.path), commit="bad-commit")
+def test_prepare_job_bad_commit(docker_cleanup, job_definition, test_repo):
+    job_definition.study = Study(git_repo_url=str(test_repo.path), commit="bad-commit")
 
     with pytest.raises(local.LocalDockerError) as exc_info:
-        local.prepare_job(job)
+        local.prepare_job(job_definition)
 
-    assert job.study.commit in str(exc_info.value)
+    assert job_definition.study.commit in str(exc_info.value)
 
 
 @pytest.mark.needs_docker
-def test_prepare_job_no_input_file(docker_cleanup, job, volume_api):
+def test_prepare_job_no_input_file(docker_cleanup, job_definition, volume_api):
 
-    job.inputs = ["output/input.csv"]
+    job_definition.inputs = ["output/input.csv"]
 
     with pytest.raises(local.LocalDockerError) as exc_info:
-        local.prepare_job(job)
+        local.prepare_job(job_definition)
 
     assert "output/input.csv" in str(exc_info.value)
 
 
 @pytest.mark.needs_docker
-def test_execute_success(docker_cleanup, job, tmp_work_dir, volume_api):
+def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
 
     # check limits are applied
-    job.cpu_count = 1.5
-    job.memory_limit = "1G"
+    job_definition.cpu_count = 1.5
+    job_definition.memory_limit = "1G"
 
     api = local.LocalDockerAPI()
 
     # use prepare step as test set up
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
     assert status.state == ExecutorState.PREPARED
 
-    status = api.execute(job)
+    status = api.execute(job_definition)
     assert status.state == ExecutorState.EXECUTING
 
     # could be in either state
-    assert api.get_status(job).state in (
+    assert api.get_status(job_definition).state in (
         ExecutorState.EXECUTING,
         ExecutorState.EXECUTED,
     )
 
-    container_data = docker.container_inspect(local.container_name(job))
+    container_data = docker.container_inspect(local.container_name(job_definition))
     assert container_data["State"]["ExitCode"] == 0
     assert container_data["HostConfig"]["NanoCpus"] == int(1.5 * 1e9)
     assert container_data["HostConfig"]["Memory"] == 2**30  # 1G
@@ -248,23 +251,25 @@ def test_execute_success(docker_cleanup, job, tmp_work_dir, volume_api):
 
 @pytest.mark.skipif(sys.platform != "linux", reason="linux only")
 @pytest.mark.needs_docker
-def test_execute_user_bindmount(docker_cleanup, job, tmp_work_dir, monkeypatch):
+def test_execute_user_bindmount(
+    docker_cleanup, job_definition, tmp_work_dir, monkeypatch
+):
     monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", volumes.BindMountVolumeAPI)
     api = local.LocalDockerAPI()
     # use prepare step as test set up
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
     assert status.state == ExecutorState.PREPARED
 
-    status = api.execute(job)
+    status = api.execute(job_definition)
     assert status.state == ExecutorState.EXECUTING
 
     # could be in either state
-    assert api.get_status(job).state in (
+    assert api.get_status(job_definition).state in (
         ExecutorState.EXECUTING,
         ExecutorState.EXECUTED,
     )
 
-    container_config = docker.container_inspect(local.container_name(job))
+    container_config = docker.container_inspect(local.container_name(job_definition))
     assert (
         container_config["Config"]["User"]
         == f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}"
@@ -273,53 +278,53 @@ def test_execute_user_bindmount(docker_cleanup, job, tmp_work_dir, monkeypatch):
 
 
 @pytest.mark.needs_docker
-def test_execute_not_prepared(docker_cleanup, job, tmp_work_dir, volume_api):
+def test_execute_not_prepared(docker_cleanup, job_definition, tmp_work_dir, volume_api):
     api = local.LocalDockerAPI()
 
-    status = api.execute(job)
+    status = api.execute(job_definition)
     # this will be turned into an error by the loop
     assert status.state == ExecutorState.UNKNOWN
 
 
 @pytest.mark.needs_docker
-def test_finalize_success(docker_cleanup, job, tmp_work_dir, volume_api):
+def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
 
-    job.args = [
+    job_definition.args = [
         "touch",
         "/workspace/output/output.csv",
         "/workspace/output/summary.csv",
     ]
-    job.inputs = ["output/input.csv"]
-    job.output_spec = {
+    job_definition.inputs = ["output/input.csv"]
+    job_definition.output_spec = {
         "output/output.*": "high_privacy",
         "output/summary.*": "medium_privacy",
     }
-    populate_workspace(job.workspace, "output/input.csv")
+    populate_workspace(job_definition.workspace, "output/input.csv")
 
     api = local.LocalDockerAPI()
 
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
     assert status.state == ExecutorState.PREPARED
-    status = api.execute(job)
+    status = api.execute(job_definition)
     assert status.state == ExecutorState.EXECUTING
 
-    status = wait_for_state(api, job, ExecutorState.EXECUTED)
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     # check that timestamp is as expected
-    container = docker.container_inspect(local.container_name(job))
+    container = docker.container_inspect(local.container_name(job_definition))
     assert status.timestamp_ns == datestr_to_ns_timestamp(
         container["State"]["FinishedAt"]
     )
 
-    status = api.finalize(job)
+    status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    assert api.get_status(job).state == ExecutorState.FINALIZED
-    assert job.id in local.RESULTS
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
-    print(get_log(job))
-    results = api.get_results(job)
+    print(get_log(job_definition))
+    results = api.get_results(job_definition)
     assert results.exit_code == 0
     assert results.outputs == {
         "output/output.csv": "high_privacy",
@@ -327,74 +332,74 @@ def test_finalize_success(docker_cleanup, job, tmp_work_dir, volume_api):
     }
     assert results.unmatched_patterns == []
 
-    log_dir = local.get_log_dir(job)
+    log_dir = local.get_log_dir(job_definition)
     log_file = log_dir / "logs.txt"
     assert log_dir.exists()
     assert log_file.exists()
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed(docker_cleanup, job, tmp_work_dir, volume_api):
+def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir, volume_api):
 
-    job.args = ["false"]
-    job.output_spec = {
+    job_definition.args = ["false"]
+    job_definition.output_spec = {
         "output/output.*": "high_privacy",
         "output/summary.*": "medium_privacy",
     }
 
     api = local.LocalDockerAPI()
 
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
     assert status.state == ExecutorState.PREPARED
-    status = api.execute(job)
+    status = api.execute(job_definition)
     assert status.state == ExecutorState.EXECUTING
 
-    wait_for_state(api, job, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
-    status = api.finalize(job)
+    status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
     # we don't need to wait
-    assert api.get_status(job).state == ExecutorState.FINALIZED
-    assert job.id in local.RESULTS
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
-    print(get_log(job))
-    results = api.get_results(job)
+    print(get_log(job_definition))
+    results = api.get_results(job_definition)
     assert results.exit_code == 1
     assert results.outputs == {}
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
 
 
 @pytest.mark.needs_docker
-def test_finalize_unmatched(docker_cleanup, job, tmp_work_dir, volume_api):
+def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume_api):
 
     # the sleep is needed to make sure the unmatched file is *newer* enough
-    job.args = ["sh", "-c", "sleep 1; touch /workspace/unmatched"]
-    job.output_spec = {
+    job_definition.args = ["sh", "-c", "sleep 1; touch /workspace/unmatched"]
+    job_definition.output_spec = {
         "output/output.*": "high_privacy",
         "output/summary.*": "medium_privacy",
     }
 
     api = local.LocalDockerAPI()
 
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
     assert status.state == ExecutorState.PREPARED
-    status = api.execute(job)
+    status = api.execute(job_definition)
     assert status.state == ExecutorState.EXECUTING
 
-    wait_for_state(api, job, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
-    status = api.finalize(job)
+    status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
     # we don't need to wait
-    assert api.get_status(job).state == ExecutorState.FINALIZED
-    assert job.id in local.RESULTS
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
-    print(get_log(job))
-    results = api.get_results(job)
+    print(get_log(job_definition))
+    results = api.get_results(job_definition)
     assert results.exit_code == 0
     assert results.outputs == {}
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
@@ -402,150 +407,152 @@ def test_finalize_unmatched(docker_cleanup, job, tmp_work_dir, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_137(docker_cleanup, job, tmp_work_dir, volume_api):
+def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir, volume_api):
 
-    job.args = ["sleep", "101"]
+    job_definition.args = ["sleep", "101"]
 
     api = local.LocalDockerAPI()
 
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
     assert status.state == ExecutorState.PREPARED
-    status = api.execute(job)
+    status = api.execute(job_definition)
     assert status.state == ExecutorState.EXECUTING
 
     # impersonate an admin
-    docker.kill(local.container_name(job))
+    docker.kill(local.container_name(job_definition))
 
     # status EXECUTED is in contrast to test_running_job_terminated_finalized,
     # which produces status ERROR in similar circumstances.
-    wait_for_state(api, job, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     # In contrast to test_running_job_terminated_finalized , finalize would be run
     # if a job is externally killed rather than being terminated
-    status = api.finalize(job)
+    status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
     # we don't need to wait
-    assert api.get_status(job).state == ExecutorState.FINALIZED
-    assert job.id in local.RESULTS
-    assert local.RESULTS[job.id].exit_code == 137
-    assert local.RESULTS[job.id].message == "Killed by an OpenSAFELY admin"
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    assert job_definition.id in local.RESULTS
+    assert local.RESULTS[job_definition.id].exit_code == 137
+    assert local.RESULTS[job_definition.id].message == "Killed by an OpenSAFELY admin"
 
-    assert workspace_log_file_exists(job)
+    assert workspace_log_file_exists(job_definition)
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_oomkilled(docker_cleanup, job, tmp_work_dir):
+def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir):
 
     # Consume memory by writing to the tmpfs at /dev/shm
     # We write a lot more that our limit, to ensure the OOM killer kicks in
     # regardless of our tests host's vm.overcommit_memory settings.
-    job.args = ["sh", "-c", "head -c 1000m /dev/urandom >/dev/shm/foo"]
-    job.memory_limit = "6M"  # lowest allowable limit
+    job_definition.args = ["sh", "-c", "head -c 1000m /dev/urandom >/dev/shm/foo"]
+    job_definition.memory_limit = "6M"  # lowest allowable limit
 
     api = local.LocalDockerAPI()
 
-    status = api.prepare(job)
-    status = api.execute(job)
+    status = api.prepare(job_definition)
+    status = api.execute(job_definition)
 
-    wait_for_state(api, job, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
-    status = api.finalize(job)
+    status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
     # we don't need to wait
-    assert api.get_status(job).state == ExecutorState.FINALIZED
-    assert job.id in local.RESULTS
-    assert local.RESULTS[job.id].exit_code == 137
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    assert job_definition.id in local.RESULTS
+    assert local.RESULTS[job_definition.id].exit_code == 137
     # Note, 6MB is rounded to 0.01GBM by the formatter
     assert (
-        local.RESULTS[job.id].message
+        local.RESULTS[job_definition.id].message
         == "Ran out of memory (limit for this job was 0.01GB)"
     )
 
-    assert workspace_log_file_exists(job)
+    assert workspace_log_file_exists(job_definition)
 
 
 @pytest.mark.needs_docker
-def test_pending_job_terminated_not_finalized(docker_cleanup, job, tmp_work_dir):
-    job.args = ["sleep", "101"]
+def test_pending_job_terminated_not_finalized(
+    docker_cleanup, job_definition, tmp_work_dir
+):
+    job_definition.args = ["sleep", "101"]
 
     api = local.LocalDockerAPI()
 
     # user cancels the job before it's started
-    status = api.terminate(job)
+    status = api.terminate(job_definition)
     assert status.state == ExecutorState.ERROR
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
     # run.py does not run finalize for cancelled jobs
-    # status = api.finalize(job)
+    # status = api.finalize(job_definition)
     # assert status.state == ExecutorState.UNKNOWN
-    # assert api.get_status(job).state == ExecutorState.UNKNOWN
+    # assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
-    status = api.cleanup(job)
+    status = api.cleanup(job_definition)
     assert status.state == ExecutorState.UNKNOWN
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
-    assert job.id not in local.RESULTS
+    assert job_definition.id not in local.RESULTS
 
-    assert not workspace_log_file_exists(job)
+    assert not workspace_log_file_exists(job_definition)
 
 
 @pytest.mark.needs_docker
-def test_running_job_terminated_finalized(docker_cleanup, job, tmp_work_dir):
-    job.args = ["sleep", "101"]
+def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_work_dir):
+    job_definition.args = ["sleep", "101"]
 
     api = local.LocalDockerAPI()
 
-    status = api.prepare(job)
+    status = api.prepare(job_definition)
     assert status.state == ExecutorState.PREPARED
-    assert api.get_status(job).state == ExecutorState.PREPARED
+    assert api.get_status(job_definition).state == ExecutorState.PREPARED
 
-    status = api.execute(job)
+    status = api.execute(job_definition)
     assert status.state == ExecutorState.EXECUTING
-    assert api.get_status(job).state == ExecutorState.EXECUTING
+    assert api.get_status(job_definition).state == ExecutorState.EXECUTING
 
-    status = api.terminate(job)
+    status = api.terminate(job_definition)
     assert status.state == ExecutorState.ERROR
-    assert api.get_status(job).state == ExecutorState.EXECUTED
+    assert api.get_status(job_definition).state == ExecutorState.EXECUTED
 
     # run.py does not run finalize for cancelled jobs
-    # status = api.finalize(job)
+    # status = api.finalize(job_definition)
     # assert status.state == ExecutorState.FINALIZED
-    # assert api.get_status(job).state == ExecutorState.FINALIZED
+    # assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
-    status = api.cleanup(job)
+    status = api.cleanup(job_definition)
     assert status.state == ExecutorState.UNKNOWN
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
-    assert job.id not in local.RESULTS
+    assert job_definition.id not in local.RESULTS
     # TODO: should we write these values when finalizing a cancelled job?
-    # assert local.RESULTS[job.id].exit_code == 137
-    # assert local.RESULTS[job.id].message == "Killed by an OpenSAFELY admin"
+    # assert local.RESULTS[job_definition.id].exit_code == 137
+    # assert local.RESULTS[job_definition.id].message == "Killed by an OpenSAFELY admin"
 
-    assert not workspace_log_file_exists(job)
+    assert not workspace_log_file_exists(job_definition)
 
 
 @pytest.mark.needs_docker
-def test_cleanup_success(docker_cleanup, job, tmp_work_dir, volume_api):
+def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
 
-    populate_workspace(job.workspace, "output/input.csv")
+    populate_workspace(job_definition.workspace, "output/input.csv")
 
     api = local.LocalDockerAPI()
-    api.prepare(job)
-    api.execute(job)
+    api.prepare(job_definition)
+    api.execute(job_definition)
 
-    container = local.container_name(job)
-    assert volume_api.volume_exists(job)
+    container = local.container_name(job_definition)
+    assert volume_api.volume_exists(job_definition)
     assert docker.container_exists(container)
 
-    status = api.cleanup(job)
+    status = api.cleanup(job_definition)
     assert status.state == ExecutorState.UNKNOWN
 
-    status = api.get_status(job)
+    status = api.get_status(job_definition)
     assert status.state == ExecutorState.UNKNOWN
 
-    assert not volume_api.volume_exists(job)
+    assert not volume_api.volume_exists(job_definition)
     assert not docker.container_exists(container)
 
 
@@ -593,7 +600,7 @@ def test_delete_files_bad_privacy(tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_get_status_timeout(tmp_work_dir, job, monkeypatch):
+def test_get_status_timeout(tmp_work_dir, job_definition, monkeypatch):
     def inspect(*args, **kwargs):
         raise docker.DockerTimeoutError("timeout")
 
@@ -601,7 +608,7 @@ def test_get_status_timeout(tmp_work_dir, job, monkeypatch):
     api = local.LocalDockerAPI()
 
     with pytest.raises(local.ExecutorRetry) as exc:
-        api.get_status(job, timeout=11)
+        api.get_status(job_definition, timeout=11)
 
     assert (
         str(exc.value)
@@ -610,25 +617,27 @@ def test_get_status_timeout(tmp_work_dir, job, monkeypatch):
 
 
 @pytest.mark.needs_docker
-def test_write_read_timestamps(docker_cleanup, job, tmp_work_dir, volume_api):
+def test_write_read_timestamps(
+    docker_cleanup, job_definition, tmp_work_dir, volume_api
+):
 
-    assert volume_api.read_timestamp(job, "test") is None
+    assert volume_api.read_timestamp(job_definition, "test") is None
 
-    volume_api.create_volume(job)
+    volume_api.create_volume(job_definition)
     before = time.time_ns()
-    volume_api.write_timestamp(job, "test")
+    volume_api.write_timestamp(job_definition, "test")
     after = time.time_ns()
-    ts = volume_api.read_timestamp(job, "test")
+    ts = volume_api.read_timestamp(job_definition, "test")
 
     assert before <= ts <= after
 
 
 @pytest.mark.needs_docker
-def test_read_timestamp_stat_fallback(docker_cleanup, job, tmp_work_dir):
+def test_read_timestamp_stat_fallback(docker_cleanup, job_definition, tmp_work_dir):
 
-    volumes.DockerVolumeAPI.create_volume(job)
+    volumes.DockerVolumeAPI.create_volume(job_definition)
 
-    volume_name = volumes.DockerVolumeAPI.volume_name(job)
+    volume_name = volumes.DockerVolumeAPI.volume_name(job_definition)
     before = time.time_ns()
 
     path = "test"
@@ -645,35 +654,35 @@ def test_read_timestamp_stat_fallback(docker_cleanup, job, tmp_work_dir):
     )
 
     after = time.time_ns()
-    ts = volumes.DockerVolumeAPI.read_timestamp(job, path)
+    ts = volumes.DockerVolumeAPI.read_timestamp(job_definition, path)
 
     # check its ns value in the right range
     assert before <= ts <= after
 
 
 @pytest.mark.needs_docker
-def test_get_volume_api(volume_api, job, tmp_work_dir):
-    volume_api.create_volume(job)
-    assert volumes.get_volume_api(job) == volume_api
+def test_get_volume_api(volume_api, job_definition, tmp_work_dir):
+    volume_api.create_volume(job_definition)
+    assert volumes.get_volume_api(job_definition) == volume_api
 
 
 @pytest.mark.needs_docker
-def test_delete_volume(docker_cleanup, job, tmp_work_dir, volume_api):
+def test_delete_volume(docker_cleanup, job_definition, tmp_work_dir, volume_api):
     # check it doesn't error
-    volume_api.delete_volume(job)
+    volume_api.delete_volume(job_definition)
 
     # check it does remove volume
-    volume_api.create_volume(job)
-    volume_api.write_timestamp(job, local.TIMESTAMP_REFERENCE_FILE)
+    volume_api.create_volume(job_definition)
+    volume_api.write_timestamp(job_definition, local.TIMESTAMP_REFERENCE_FILE)
 
-    volume_api.delete_volume(job)
+    volume_api.delete_volume(job_definition)
 
-    assert not volume_api.volume_exists(job)
+    assert not volume_api.volume_exists(job_definition)
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="linux only")
 def test_delete_volume_error_bindmount(
-    docker_cleanup, job, tmp_work_dir, monkeypatch, caplog
+    docker_cleanup, job_definition, tmp_work_dir, monkeypatch, caplog
 ):
     def error(*args, **kwargs):
         raise Exception("some error")
@@ -681,22 +690,22 @@ def test_delete_volume_error_bindmount(
     caplog.set_level(logging.ERROR)
     monkeypatch.setattr(volumes.shutil, "rmtree", error)
 
-    volumes.BindMountVolumeAPI.delete_volume(job)
+    volumes.BindMountVolumeAPI.delete_volume(job_definition)
 
-    assert str(volumes.host_volume_path(job)) in caplog.records[-1].msg
+    assert str(volumes.host_volume_path(job_definition)) in caplog.records[-1].msg
     assert "some error" in caplog.records[-1].exc_text
 
 
-def test_delete_volume_error_file_bindmount_skips_and_logs(job, caplog):
+def test_delete_volume_error_file_bindmount_skips_and_logs(job_definition, caplog):
     caplog.set_level(logging.ERROR)
 
     # we can't easily manufacture a file permissions error, so we use
     # a different error to test our onerror handling code: directory does not
     # exist
-    volumes.BindMountVolumeAPI.delete_volume(job)
+    volumes.BindMountVolumeAPI.delete_volume(job_definition)
 
     # check the error is logged
-    path = str(volumes.host_volume_path(job))
+    path = str(volumes.host_volume_path(job_definition))
     assert path in caplog.records[-1].msg
     # *not* an exception log, just an error one
     assert caplog.records[-1].exc_text is None

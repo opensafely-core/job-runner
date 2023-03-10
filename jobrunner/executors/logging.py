@@ -26,8 +26,8 @@ class LoggingExecutor(ExecutorAPI):
         self._add_logging(self._wrapped.terminate)
         self._add_logging(self._wrapped.cleanup)
 
-    def get_results(self, job: JobDefinition) -> JobResults:
-        return self._wrapped.get_results(job)
+    def get_results(self, job_definition: JobDefinition) -> JobResults:
+        return self._wrapped.get_results(job_definition)
 
     def delete_files(self, workspace: str, privacy: Privacy, paths: [str]) -> List[str]:
         return self._wrapped.delete_files(workspace, privacy, paths)
@@ -37,20 +37,23 @@ class LoggingExecutor(ExecutorAPI):
         return getattr(self._wrapped, "synchronous_transitions", [])
 
     def _add_logging(self, method: Callable[[JobDefinition], JobStatus]):
-        def wrapper(job: JobDefinition) -> JobStatus:
-            status = method(job)
-            if self._is_new_state(job, status.state):
-                self._write_log(job, status)
-                self._state_cache[job.id] = status.state
+        def wrapper(job_definition: JobDefinition) -> JobStatus:
+            status = method(job_definition)
+            if self._is_new_state(job_definition, status.state):
+                self._write_log(job_definition, status)
+                self._state_cache[job_definition.id] = status.state
             return status
 
         setattr(self, method.__name__, wrapper)
 
-    def _is_new_state(self, job, state):
-        return job.id not in self._state_cache or self._state_cache[job.id] != state
+    def _is_new_state(self, job_definition, state):
+        return (
+            job_definition.id not in self._state_cache
+            or self._state_cache[job_definition.id] != state
+        )
 
-    def _write_log(self, job, status):
-        log = f"State change for job {job.id}: {self._state_cache.get(job.id)} -> {status.state}"
+    def _write_log(self, job_definition, status):
+        log = f"State change for job {job_definition.id}: {self._state_cache.get(job_definition.id)} -> {status.state}"
         if status.message:
             log += f" ({status.message})"
         self._logger.info(log)

@@ -193,8 +193,8 @@ def test_handle_running_job_cancelled(db, monkeypatch):
     assert job.id not in api.tracker["finalize"]
     assert job.id in api.tracker["cleanup"]
 
-    definition = run.job_to_job_definition(job)
-    assert api.get_status(definition).state == ExecutorState.UNKNOWN
+    job_definition = run.job_to_job_definition(job)
+    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
     # our state
     assert job.state == State.FAILED
@@ -833,7 +833,7 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
         api,
     )
 
-    assert api.job.inputs == ["output-from-completed-run"]
+    assert api.job_definition.inputs == ["output-from-completed-run"]
 
 
 def test_get_obsolete_files_nothing_to_delete(db):
@@ -847,9 +847,9 @@ def test_get_obsolete_files_nothing_to_delete(db):
         status_code=StatusCode.SUCCEEDED,
         outputs=outputs,
     )
-    definition = run.job_to_job_definition(job)
+    job_definition = run.job_to_job_definition(job)
 
-    obsolete = run.get_obsolete_files(definition, outputs)
+    obsolete = run.get_obsolete_files(job_definition, outputs)
     assert obsolete == []
 
 
@@ -869,9 +869,9 @@ def test_get_obsolete_files_things_to_delete(db):
         state=State.SUCCEEDED,
         outputs=old_outputs,
     )
-    definition = run.job_to_job_definition(job)
+    job_definition = run.job_to_job_definition(job)
 
-    obsolete = run.get_obsolete_files(definition, new_outputs)
+    obsolete = run.get_obsolete_files(job_definition, new_outputs)
     assert obsolete == ["old_high.txt", "old_medium.txt"]
 
 
@@ -887,17 +887,17 @@ def test_get_obsolete_files_case_change(db):
         state=State.SUCCEEDED,
         outputs=old_outputs,
     )
-    definition = run.job_to_job_definition(job)
+    job_definition = run.job_to_job_definition(job)
 
-    obsolete = run.get_obsolete_files(definition, new_outputs)
+    obsolete = run.get_obsolete_files(job_definition, new_outputs)
     assert obsolete == []
 
 
 def test_job_definition_limits(db):
     job = job_factory()
-    definition = run.job_to_job_definition(job)
-    assert definition.cpu_count == 2
-    assert definition.memory_limit == "4G"
+    job_definition = run.job_to_job_definition(job)
+    assert job_definition.cpu_count == 2
+    assert job_definition.memory_limit == "4G"
 
 
 def test_mark_job_as_failed_adds_error(db):

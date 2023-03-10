@@ -37,6 +37,7 @@ def main(partial_job_ids, cleanup=False):
 
         if cleanup:
             docker.delete_container(container)
+            # nb. `job` could potentially be a Job or a JobDefinition
             local.get_volume_api(job).delete_volume(job)
 
 
