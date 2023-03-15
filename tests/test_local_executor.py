@@ -456,7 +456,7 @@ def test_pending_job_terminated_not_finalized(docker_cleanup, job, tmp_work_dir)
 
 
 @pytest.mark.needs_docker
-def test_running_job_cancelled_finalized(docker_cleanup, job, tmp_work_dir):
+def test_running_job_terminated_finalized(docker_cleanup, job, tmp_work_dir):
     job.args = ["sleep", "101"]
 
     api = local.LocalDockerAPI()
