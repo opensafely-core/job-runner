@@ -382,7 +382,8 @@ def test_finalize_failed_137(docker_cleanup, job, tmp_work_dir, volume_api):
     # impersonate an admin
     docker.kill(local.container_name(job))
 
-    # slightly strange that this is EXECUTED and not ERROR
+    # status EXECUTED is in contrast to test_running_job_terminated_finalized,
+    # which produces status ERROR in similar circumstances.
     wait_for_state(api, job, ExecutorState.EXECUTED)
 
     # In contrast to test_running_job_terminated_finalized , finalize would be run
