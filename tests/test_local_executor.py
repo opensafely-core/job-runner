@@ -385,7 +385,8 @@ def test_finalize_failed_137(docker_cleanup, job, tmp_work_dir, volume_api):
     # slightly strange that this is EXECUTED and not ERROR
     wait_for_state(api, job, ExecutorState.EXECUTED)
 
-    # This does run finalize, because the cancelled bit is not set
+    # In contrast to test_running_job_terminated_finalized , finalize would be run
+    # if a job is externally killed rather than being terminated
     status = api.finalize(job)
     assert status.state == ExecutorState.FINALIZED
 
