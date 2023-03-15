@@ -160,12 +160,41 @@ def test_handle_pending_job_cancelled(db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, cancelled=True)
 
+    assert job.id not in api.tracker["terminate"]
+    assert job.id not in api.tracker["finalize"]
+    assert job.id not in api.tracker["cleanup"]
+
     run.handle_job(job, api)
 
     # executor state
     assert job.id in api.tracker["terminate"]
+    assert job.id not in api.tracker["finalize"]
     assert job.id in api.tracker["cleanup"]
     assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
+    assert job.state == State.FAILED
+    assert job.status_message == "Cancelled by user"
+    assert job.status_code == StatusCode.CANCELLED_BY_USER
+
+
+def test_handle_running_job_cancelled(db, monkeypatch):
+    api = StubExecutorAPI()
+    job = api.add_test_job(ExecutorState.EXECUTING, State.RUNNING, cancelled=True)
+
+    assert job.id not in api.tracker["terminate"]
+    assert job.id not in api.tracker["finalize"]
+    assert job.id not in api.tracker["cleanup"]
+
+    run.handle_job(job, api)
+
+    # executor state
+    assert job.id in api.tracker["terminate"]
+    assert job.id not in api.tracker["finalize"]
+    assert job.id in api.tracker["cleanup"]
+
+    definition = run.job_to_job_definition(job)
+    assert api.get_status(definition).state == ExecutorState.UNKNOWN
 
     # our state
     assert job.state == State.FAILED
