@@ -65,6 +65,8 @@ DESCRIPTION = __doc__.partition("\n\n")[0]
 # local run logging format
 LOCAL_RUN_FORMAT = "{action}{message}"
 
+# allow us to monkeypatch this in order to clean-up after pytest
+DEBUG_LABEL = "job-runner-debug"
 
 STATA_ERROR_MESSGE = """
 The docker image 'stata-mp' requires a license to function.
@@ -190,7 +192,7 @@ def main(
     else:
         # In debug mode (where we don't automatically delete containers and
         # volumes) we use a consistent label to make manual clean up easier
-        docker_label = "job-runner-debug"
+        docker_label = DEBUG_LABEL
 
     log_format = LOCAL_RUN_FORMAT
     if timestamps:
