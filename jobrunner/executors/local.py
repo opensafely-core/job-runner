@@ -67,11 +67,11 @@ class LocalDockerError(Exception):
     pass
 
 
-def get_job_labels(job: JobDefinition):
+def get_job_labels(job_definition: JobDefinition):
     """Useful metadata to label docker objects with."""
     return {
-        "workspace": job.workspace,
-        "action": job.action,
+        "workspace": job_definition.workspace,
+        "action": job_definition.action,
     }
 
 

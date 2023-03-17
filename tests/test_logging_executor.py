@@ -24,7 +24,7 @@ def test_logs(method):
 
     executor._logger.info = record
 
-    getattr(executor, method)(job_definition("the-job-id"))
+    getattr(executor, method)(create_job_definition("the-job-id"))
 
     assert "the-job-id" in log
     assert "doing the thing" in log
@@ -36,16 +36,16 @@ def test_delegates(method):
     status = JobStatus(ExecutorState.EXECUTED)
     recording = RecordingExecutor(status)
     executor = LoggingExecutor(recording)
-    job = job_definition("the-job-id")
+    job_definition = create_job_definition("the-job-id")
 
-    returned_status = getattr(executor, method)(job)
+    returned_status = getattr(executor, method)(job_definition)
 
-    assert recording.job == job
+    assert recording.job_definition == job_definition
     assert returned_status == status
 
 
-def job_definition(job_id="a-job-id"):
-    job = JobDefinition(
+def create_job_definition(job_id="a-job-id"):
+    job_definition = JobDefinition(
         id=job_id,
         job_request_id="test_request_id",
         study=Study(git_repo_url="", commit=""),
@@ -59,4 +59,4 @@ def job_definition(job_id="a-job-id"):
         output_spec={},
         allow_database_access=False,
     )
-    return job
+    return job_definition
