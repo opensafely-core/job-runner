@@ -11,7 +11,7 @@ from jobrunner.lib import datestr_to_ns_timestamp, docker
 from tests.factories import ensure_docker_images_present
 
 
-if sys.platform == "linux":
+if sys.platform == "linux" or sys.platform == "darwin":
     SUPPORTED_VOLUME_APIS = [volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI]
 else:
     SUPPORTED_VOLUME_APIS = [volumes.DockerVolumeAPI]
@@ -249,7 +249,9 @@ def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, volume_ap
     assert container_data["HostConfig"]["Memory"] == 2**30  # 1G
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="linux only")
+@pytest.mark.skipif(
+    sys.platform != "linux" and sys.platform != "darwin", reason="linux/darwin only"
+)
 @pytest.mark.needs_docker
 def test_execute_user_bindmount(
     docker_cleanup, job_definition, tmp_work_dir, monkeypatch
@@ -680,7 +682,9 @@ def test_delete_volume(docker_cleanup, job_definition, tmp_work_dir, volume_api)
     assert not volume_api.volume_exists(job_definition)
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="linux only")
+@pytest.mark.skipif(
+    sys.platform != "linux" and sys.platform != "darwin", reason="linux/darwin only"
+)
 def test_delete_volume_error_bindmount(
     docker_cleanup, job_definition, tmp_work_dir, monkeypatch, caplog
 ):
