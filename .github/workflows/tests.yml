@@ -65,11 +65,11 @@ jobs:
       - uses: extractions/setup-just@95b912dc5d3ed106a72907f2f9b91e76d60bdb76  # 1.4
 
       - name: Run actual tests on ${{ matrix.os }}
-        if: ${{ matrix.os == 'ubuntu-20.04' }}
+        if: ${{ matrix.os == 'ubuntu-20.04' || matrix.os == 'macos-12' }}
         run: just test -vvv
 
       - name: Run actual tests on ${{ matrix.os }}
-        if: ${{ matrix.os == 'windows-2019' || matrix.os == 'macos-12' }}
+        if: ${{ matrix.os == 'windows-2019' }}
         run: just test-no-docker -vvv
 
   test-package-build:
