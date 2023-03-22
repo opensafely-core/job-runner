@@ -661,7 +661,7 @@ def test_read_timestamp_stat_fallback(docker_cleanup, job_definition, tmp_work_d
 
 
 @pytest.mark.needs_docker
-def test_get_volume_api(volume_api, job_definition, tmp_work_dir):
+def test_get_volume_api(docker_cleanup, volume_api, job_definition, tmp_work_dir):
     volume_api.create_volume(job_definition)
     assert volumes.get_volume_api(job_definition) == volume_api
 
