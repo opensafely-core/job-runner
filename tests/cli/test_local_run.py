@@ -36,8 +36,8 @@ def test_local_run_limits_applied(db, tmp_path, docker_cleanup):
 
     for job in database.find_all(Job):
         metadata = docker.container_inspect(f"os-job-{job.id}")
-        assert metadata["HostConfig"]["Memory"] == 1.5 * 1024**3
-        assert metadata["HostConfig"]["NanoCpus"] == 1.5 * 1e9
+        assert metadata["HostConfig"]["Memory"] == 15 * 1024**3
+        assert metadata["HostConfig"]["NanoCpus"] == 15 * 1e9
 
 
 @pytest.mark.parametrize("extraction_tool", ["cohortextractor", "databuilder"])
