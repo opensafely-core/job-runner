@@ -5,24 +5,17 @@ loops to run entire pipeline
 """
 import json
 import logging
-import sys
 
 import pytest
 
 import jobrunner.run
 import jobrunner.sync
-from jobrunner.executors import get_executor_api, volumes
-from tests.conftest import get_trace
+from jobrunner.executors import get_executor_api
+from tests.conftest import SUPPORTED_VOLUME_APIS, get_trace
 from tests.factories import ensure_docker_images_present
 
 
 log = logging.getLogger(__name__)
-
-# TODO: share this with elsewhere in the codebase?
-if sys.platform == "linux" or sys.platform == "darwin":
-    SUPPORTED_VOLUME_APIS = [volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI]
-else:
-    SUPPORTED_VOLUME_APIS = [volumes.DockerVolumeAPI]
 
 
 # this is parametized fixture, and test using it will run multiple times, once

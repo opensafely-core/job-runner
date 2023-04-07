@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import tempfile
 from collections import deque
 from dataclasses import dataclass, field
@@ -12,6 +13,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 import jobrunner.executors.local
 from jobrunner import config, tracing
+from jobrunner.executors import volumes
 from jobrunner.job_executor import Study
 from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
@@ -225,3 +227,9 @@ def mock_subprocess_run():
     assert (
         len(stub.calls) == 0
     ), f"subprocess_run expected the following calls: {stub.calls}"
+
+
+if sys.platform == "linux" or sys.platform == "darwin":
+    SUPPORTED_VOLUME_APIS = [volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI]
+else:
+    SUPPORTED_VOLUME_APIS = [volumes.DockerVolumeAPI]
