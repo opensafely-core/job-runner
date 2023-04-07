@@ -380,16 +380,16 @@ def finalize_job(job_definition):
     # that have db access
     message = None
 
+    if exit_code == 137 and job_definition.cancelled:
+        message = f"Job cancelled by {job_definition.cancelled}"
     # special case OOMKilled
     # Nb. this flag has been observed to be unreliable on some versions of Linux
-    if container_metadata["State"]["OOMKilled"]:
+    elif container_metadata["State"]["OOMKilled"]:
         message = "Ran out of memory"
         memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
         if memory_limit > 0:
             gb_limit = memory_limit / (1024**3)
             message += f" (limit for this job was {gb_limit:.2f}GB)"
-    elif exit_code == 137 and job_definition.cancelled:
-        message = f"Job cancelled by {job_definition.cancelled}"
     else:
         message = config.DOCKER_EXIT_CODES.get(exit_code)
 
