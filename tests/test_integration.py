@@ -11,17 +11,27 @@ import pytest
 import jobrunner.run
 import jobrunner.sync
 from jobrunner.executors import get_executor_api
-from tests.conftest import get_trace
+from tests.conftest import SUPPORTED_VOLUME_APIS, get_trace
 from tests.factories import ensure_docker_images_present
 
 
 log = logging.getLogger(__name__)
 
 
+# this is parametized fixture, and test using it will run multiple times, once
+# for each volume api implementation
+@pytest.fixture(params=SUPPORTED_VOLUME_APIS)
+def volume_api(request, monkeypatch):
+    monkeypatch.setattr(
+        jobrunner.executors.local.volumes, "DEFAULT_VOLUME_API", request.param
+    )
+    return request.param
+
+
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_integration_with_cohortextractor(
-    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
+    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo, volume_api
 ):
     # TODO: add the following parametrize decorator back to this test:
     #
@@ -207,7 +217,7 @@ def test_integration_with_cohortextractor(
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_integration_with_databuilder(
-    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
+    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo, volume_api
 ):
     # TODO: merge this test into test_integration
     #

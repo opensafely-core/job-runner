@@ -9,7 +9,7 @@ from pathlib import Path
 from pipeline.legacy import get_all_output_patterns_from_project_file
 
 from jobrunner import config
-from jobrunner.executors.volumes import copy_file, get_volume_api
+from jobrunner.executors import volumes
 from jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorRetry,
@@ -132,7 +132,7 @@ class LocalDockerAPI(ExecutorAPI):
         current = self.get_status(job_definition)
         if current.state != ExecutorState.PREPARED:
             return current
-        volume_api = get_volume_api(job_definition)
+        volume_api = volumes.get_volume_api(job_definition)
 
         extra_args = []
         if job_definition.cpu_count:
@@ -195,7 +195,7 @@ class LocalDockerAPI(ExecutorAPI):
         if config.CLEAN_UP_DOCKER_OBJECTS:
             log.info("Cleaning up container and volume")
             docker.delete_container(container_name(job_definition))
-            get_volume_api(job_definition).delete_volume(job_definition)
+            volumes.get_volume_api(job_definition).delete_volume(job_definition)
         else:
             log.info("Leaving container and volume in place for debugging")
 
@@ -217,7 +217,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         if container is None:  # container doesn't exist
             # timestamp file presence means we have finished preparing
-            timestamp_ns = get_volume_api(job_definition).read_timestamp(
+            timestamp_ns = volumes.get_volume_api(job_definition).read_timestamp(
                 job_definition, TIMESTAMP_REFERENCE_FILE, 10
             )
             # TODO: maybe log the case where the volume exists, but the
@@ -272,7 +272,7 @@ def prepare_job(job_definition):
     """Creates a volume and populates it with the repo and input files."""
     workspace_dir = get_high_privacy_workspace(job_definition.workspace)
 
-    volume_api = get_volume_api(job_definition)
+    volume_api = volumes.get_volume_api(job_definition)
     volume_api.create_volume(job_definition, get_job_labels(job_definition))
 
     # `docker cp` can't create parent directories for us so we make sure all
@@ -386,12 +386,12 @@ def write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True):
         workspace_log_file = (
             workspace_dir / METADATA_DIR / f"{job_definition.action}.log"
         )
-        copy_file(log_dir / "logs.txt", workspace_log_file)
+        volumes.copy_file(log_dir / "logs.txt", workspace_log_file)
         log.info(f"Logs written to: {workspace_log_file}")
 
         medium_privacy_dir = get_medium_privacy_workspace(job_definition.workspace)
         if medium_privacy_dir:
-            copy_file(
+            volumes.copy_file(
                 workspace_log_file,
                 medium_privacy_dir / METADATA_DIR / f"{job_definition.action}.log",
             )
@@ -404,7 +404,7 @@ def persist_outputs(job_definition, outputs, job_metadata):
 
     for filename in outputs.keys():
         log.info(f"Extracting output file: {filename}")
-        get_volume_api(job_definition).copy_from_volume(
+        volumes.get_volume_api(job_definition).copy_from_volume(
             job_definition, filename, workspace_dir / filename
         )
 
@@ -413,7 +413,9 @@ def persist_outputs(job_definition, outputs, job_metadata):
     if medium_privacy_dir:
         for filename, privacy_level in outputs.items():
             if privacy_level == "moderately_sensitive":
-                copy_file(workspace_dir / filename, medium_privacy_dir / filename)
+                volumes.copy_file(
+                    workspace_dir / filename, medium_privacy_dir / filename
+                )
 
         # this can be removed once osrelease is dead
         write_manifest_file(
@@ -430,7 +432,9 @@ def find_matching_outputs(job_definition):
     Returns a dict mapping output filenames to their privacy level, plus a list
     of any patterns that had no matches at all
     """
-    all_matches = get_volume_api(job_definition).glob_volume_files(job_definition)
+    all_matches = volumes.get_volume_api(job_definition).glob_volume_files(
+        job_definition
+    )
     unmatched_patterns = []
     outputs = {}
     for pattern, privacy_level in job_definition.output_spec.items():
@@ -456,7 +460,7 @@ def get_unmatched_outputs(job_definition, outputs):
     debugging info and not for Serious Business Purposes, it should be
     sufficient.
     """
-    all_outputs = get_volume_api(job_definition).find_newer_files(
+    all_outputs = volumes.get_volume_api(job_definition).find_newer_files(
         job_definition, TIMESTAMP_REFERENCE_FILE
     )
     return [filename for filename in all_outputs if filename not in outputs]
@@ -507,7 +511,7 @@ def copy_git_commit_to_volume(job_definition, repo_url, commit, extra_dirs):
         for directory in extra_dirs:
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
         try:
-            get_volume_api(job_definition).copy_to_volume(
+            volumes.get_volume_api(job_definition).copy_to_volume(
                 job_definition, tmpdir, ".", timeout=60
             )
         except docker.DockerTimeoutError:
@@ -551,7 +555,7 @@ def copy_local_workspace_to_volume(job_definition, workspace_dir, extra_dirs):
     directories = set(Path(filename).parent for filename in code_files)
     directories.update(extra_dirs)
     directories.discard(Path("."))
-    volume_api = get_volume_api(job_definition)
+    volume_api = volumes.get_volume_api(job_definition)
     if directories:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -561,7 +565,7 @@ def copy_local_workspace_to_volume(job_definition, workspace_dir, extra_dirs):
 
     log.info(f"Copying in code from {workspace_dir}")
     for filename in code_files:
-        get_volume_api(job_definition).copy_to_volume(
+        volumes.get_volume_api(job_definition).copy_to_volume(
             job_definition, workspace_dir / filename, filename
         )
 
