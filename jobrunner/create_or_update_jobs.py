@@ -13,7 +13,7 @@ import time
 from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
 from jobrunner import config, tracing
-from jobrunner.actions import get_action_specification
+from jobrunner.actions import get_action_specification, resolve_aliases
 from jobrunner.lib.database import exists_where, insert, transaction, update_where
 from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
 from jobrunner.lib.github_validators import (
@@ -89,6 +89,7 @@ def create_jobs(job_request):
     )
     new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
     assert_new_jobs_created(job_request, new_jobs, latest_jobs)
+    resolve_aliases(new_jobs)
     resolve_reusable_action_references(new_jobs)
     # There is a delay between getting the current jobs (which we fetch from
     # the database and the disk) and inserting our new jobs below. This means

@@ -37,7 +37,7 @@ from pathlib import Path
 from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
 from jobrunner import config, executors, tracing
-from jobrunner.actions import UnknownActionError
+from jobrunner.actions import UnknownActionError, resolve_aliases
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
@@ -490,6 +490,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         e.valid_actions = [RUN_ALL_COMMAND] + pipeline_config.all_actions
         raise e
     assert_new_jobs_created(job_request, new_jobs, latest_jobs_with_files_present)
+    resolve_aliases(new_jobs)
     resolve_reusable_action_references(new_jobs)
     insert_into_database(job_request, new_jobs)
     return job_request, new_jobs

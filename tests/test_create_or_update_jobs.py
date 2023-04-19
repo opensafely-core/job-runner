@@ -110,6 +110,12 @@ actions:
       highly_sensitive:
         cohort: input.csv
 
+  generate_dataset_with_ehrql:
+    run: ehrql:v0 generate_dataset analysis/dataset_definition.py --output dataset.csv --dummy-data-file dummy.csv
+    outputs:
+      highly_sensitive:
+        dataset: dataset.csv
+
   prepare_data_1:
     run: stata-mp:latest analysis/prepare_data_1.do
     needs: [generate_cohort]
@@ -200,7 +206,13 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
 
     # Since then all the healthy, vigorous actions have been successfully run individually
     request = make_job_request(
-        actions=["generate_cohort", "prepare_data_1", "prepare_data_2", "analyse_data"]
+        actions=[
+            "generate_cohort",
+            "generate_dataset_with_ehrql",
+            "prepare_data_1",
+            "prepare_data_2",
+            "analyse_data",
+        ]
     )
     create_jobs_with_project_file(request, TEST_PROJECT)
     update_where(Job, {"state": State.SUCCEEDED}, job_request_id=request.id)
@@ -332,3 +344,11 @@ def test_create_failed_job_nothing_to_do(db):
     assert spans[0].status.status_code == trace.StatusCode.UNSET
     assert spans[1].name == "JOB"
     assert spans[1].status.status_code == trace.StatusCode.UNSET
+
+
+def test_create_job_with_aliased_action(tmp_work_dir):
+    create_jobs_with_project_file(
+        make_job_request(action="generate_dataset_with_ehrql"), TEST_PROJECT
+    )
+    ehrql_job = find_one(Job, action="generate_dataset_with_ehrql")
+    assert ehrql_job.run_command.startswith("databuilder:v0")

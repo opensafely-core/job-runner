@@ -76,11 +76,18 @@ else:
 ALLOWED_IMAGES = {
     "cohortextractor",
     "databuilder",
+    "ehrql",
     "stata-mp",
     "r",
     "jupyter",
     "python",
     "sqlrunner",
+}
+
+IMAGE_ALIASES = {
+    # Alias ehrql to databuilder
+    # This should be removed when the databuilder -> ehrql renaming work is complete
+    "ehrql": "databuilder"
 }
 
 DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")

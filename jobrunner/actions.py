@@ -6,6 +6,7 @@ from typing import Dict, List
 from pipeline.exceptions import ProjectValidationError
 from pipeline.outputs import get_output_dirs
 
+from jobrunner import config
 from jobrunner.lib.path_utils import ensure_unix_path
 
 from .extractors import is_extraction_command
@@ -98,3 +99,30 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
         needs=action_spec.needs,
         outputs=action_spec.outputs.dict(exclude_unset=True),
     )
+
+
+def resolve_aliases(jobs):
+    """
+    Accepts a list of Job instances, identifies any which are aliased to other
+    actions (i.e. have an alias in config.IMAGE_ALIASES) and modifies them by:
+        * rewriting their `run` command to use the aliased image
+
+    Args:
+        jobs: list of Job instances
+
+    Returns:
+        None - it modifies its arguments in place
+
+    """
+    for job in jobs:
+        job.run_command = handle_alias(job.run_command)
+
+
+def handle_alias(run_command):
+    run_args = shlex.split(run_command)
+    image, _ = run_args[0].split(":")
+
+    alias = config.IMAGE_ALIASES.get(image)
+    if alias is not None:
+        run_command = run_command.replace(image, alias)
+    return run_command
