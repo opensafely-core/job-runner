@@ -9,7 +9,7 @@ def is_extraction_command(args, require_version=None):
         if args[0].startswith("cohortextractor:"):
             version_found = 1
         # databuilder is a rebranded cohortextractor-v2.
-        elif args[0].startswith("databuilder:"):
+        elif args[0].startswith("databuilder:") or args[0].startswith("ehrql:"):
             version_found = 2
 
     # If we're not looking for a specific version then return True if any
