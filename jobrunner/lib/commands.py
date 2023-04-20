@@ -5,6 +5,7 @@ def requires_db_access(args):
     valid_commands = {
         "cohortextractor": ("generate_cohort", "generate_codelist_report"),
         "databuilder": ("generate-dataset",),
+        "ehrql": ("generate-dataset",),
         "sqlrunner": None,  # all commands are valid
     }
     if len(args) <= 1:

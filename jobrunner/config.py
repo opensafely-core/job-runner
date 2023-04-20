@@ -76,6 +76,7 @@ else:
 ALLOWED_IMAGES = {
     "cohortextractor",
     "databuilder",
+    "ehrql",
     "stata-mp",
     "r",
     "jupyter",
