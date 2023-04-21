@@ -18,7 +18,7 @@ googleapis-common-protos==1.56.4
     # via opentelemetry-exporter-otlp-proto-http
 idna==2.10
     # via requests
-opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.2.5
+opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.3.0
     # via opensafely-jobrunner (pyproject.toml)
 opentelemetry-api==1.12.0
     # via
