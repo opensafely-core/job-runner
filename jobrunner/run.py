@@ -5,6 +5,7 @@ updates its state as appropriate.
 """
 import datetime
 import logging
+import os
 import random
 import sys
 import time
@@ -637,6 +638,18 @@ def get_reason_job_not_started(job):
                 StatusCode.WAITING_ON_DB_WORKERS,
                 "Waiting on available database workers",
             )
+
+    if os.environ.get("FUNTIMES", False):
+        # allow any db job to run
+        if job.requires_db:
+            return None
+
+        # allow OSI non-db jobs to run
+        if job.workspace.endswith("-interactive"):
+            return None
+
+        # nope all other jobs
+        return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
 
 
 def list_outputs_from_action(workspace, action):
