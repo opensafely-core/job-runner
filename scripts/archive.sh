@@ -3,7 +3,7 @@ set -euo pipefail
 
 workspace=$1
 workspace_dir=$HIGH_PRIVACY_STORAGE_BASE/workspaces/$workspace
-archive=$HIGH_PRIVACY_STORAGE_BASE/archives/$workspace.tar.xz
+archive=$HIGH_PRIVACY_STORAGE_BASE/archives/$workspace.tar.gz
 tmp_archive=$archive.tmp
 
 if ! test -d "$workspace_dir"; then
@@ -44,5 +44,5 @@ fi
 echo
 
 rm -r "$workspace_dir"
-# on TPP windows this needs to be docker 
+# on TPP windows this needs to be docker
 #docker run --rm --volume //e://e --entrypoint rm ghcr.io/opensafely-core/cohortextractor" -r "/$workspace_dir"
