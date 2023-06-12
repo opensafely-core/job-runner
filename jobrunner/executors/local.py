@@ -139,6 +139,10 @@ class LocalDockerAPI(ExecutorAPI):
             extra_args.extend(["--cpus", str(job_definition.cpu_count)])
         if job_definition.memory_limit:
             extra_args.extend(["--memory", job_definition.memory_limit])
+        # We use a custom Docker network configured so that database jobs can access the
+        # database and nothing else
+        if job_definition.allow_database_access and config.DATABASE_ACCESS_NETWORK:
+            extra_args.extend(["--network", config.DATABASE_ACCESS_NETWORK])
 
         if not volume_api.requires_root:
             if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:

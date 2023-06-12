@@ -277,3 +277,10 @@ if sys.platform == "linux":
 else:
     DOCKER_USER_ID = None
     DOCKER_GROUP_ID = None
+
+
+# The name of a Docker network configured to allow access to just the database and
+# nothing else. Setup and configuration of this network is expected to be managed
+# externally. See:
+# https://github.com/opensafely-core/backend-server/pull/105
+DATABASE_ACCESS_NETWORK = os.environ.get("DATABASE_ACCESS_NETWORK", "jobrunner-db")
