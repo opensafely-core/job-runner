@@ -1,9 +1,11 @@
 import datetime
 import json
 import logging
+import socket
 import subprocess
 import tempfile
 import time
+import urllib.parse
 from pathlib import Path
 
 from pipeline.legacy import get_all_output_patterns_from_project_file
@@ -143,6 +145,9 @@ class LocalDockerAPI(ExecutorAPI):
         # database and nothing else
         if job_definition.allow_database_access and config.DATABASE_ACCESS_NETWORK:
             extra_args.extend(["--network", config.DATABASE_ACCESS_NETWORK])
+            extra_args.extend(
+                get_dns_args_for_docker(job_definition.env.get("DATABASE_URL"))
+            )
 
         if not volume_api.requires_root:
             if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:
@@ -606,3 +611,27 @@ def write_manifest_file(workspace_dir, manifest):
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)
+
+
+def get_dns_args_for_docker(database_url):
+    # This is various shades of horrible. For containers on a custom network, Docker
+    # creates an embedded DNS server, available on 127.0.0.11 from within the container.
+    # This proxies non-local requests out to the host DNS server. We want to lock these
+    # containers down the absolute bare minimum of network access, which does not
+    # include DNS. However there is no way of disabling this embedded server, see:
+    # https://github.com/moby/moby/issues/19474
+    #
+    # As a workaround, we give it a "dummy" IP in place of the host resolver so that
+    # requests from inside the container never go anywhere. This IP was taken from the
+    # reserved test range specified in:
+    # https://www.rfc-editor.org/rfc/rfc5737
+    args = ["--dns", "192.0.2.0"]
+
+    # Where the database URL uses a hostname rather than an IP, we resolve that here and
+    # use the `--add-host` option to include it in the container's `/etc/hosts` file.
+    if database_url:
+        database_host = urllib.parse.urlparse(database_url).hostname
+        database_ip = socket.gethostbyname(database_host)
+        if database_host != database_ip:
+            args.extend(["--add-host", f"{database_host}:{database_ip}"])
+    return args
