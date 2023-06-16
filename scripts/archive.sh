@@ -44,5 +44,3 @@ fi
 echo
 
 rm -r "$workspace_dir"
-# on TPP windows this needs to be docker
-#docker run --rm --volume //e://e --entrypoint rm ghcr.io/opensafely-core/cohortextractor" -r "/$workspace_dir"
