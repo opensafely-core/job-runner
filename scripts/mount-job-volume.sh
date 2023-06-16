@@ -29,7 +29,7 @@ fi
 volume_list="$(
   docker volume ls \
     --filter "name=$name_search" \
-    --filter 'label=job-runner' \
+    --filter 'label=jobrunner-local' \
     --format='{{.Name}}'
 )"
 volume_array=($volume_list)
