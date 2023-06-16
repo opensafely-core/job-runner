@@ -3,7 +3,7 @@ set -euo pipefail
 
 workspace=$1
 workspace_dir=$HIGH_PRIVACY_STORAGE_BASE/workspaces/$workspace
-archive=$HIGH_PRIVACY_STORAGE_BASE/archives/$workspace.tar.xz
+archive=/archive/archived_workspaces/$workspace.tar.gz
 tmp_archive=$archive.tmp
 
 if ! test -d "$workspace_dir"; then
@@ -27,8 +27,8 @@ echo "after: $(du -sh "$tmp_archive")"
 
 
 # compare the list of files we expect to check that the tar seems good.
-if ! diff -u "$index" <(tar --list --file "$archive"); then
-    echo "$archive does not contain the expected list of files!"
+if ! diff -u "$index" <(tar --list --file "$tmp_archive"); then
+    echo "$tmp_archive does not contain the expected list of files!"
     echo "Exiting *without* deleting $workspace_dir"
     rm "$tmp_archive"
     exit 1
@@ -44,5 +44,5 @@ fi
 echo
 
 rm -r "$workspace_dir"
-# on TPP windows this needs to be docker 
+# on TPP windows this needs to be docker
 #docker run --rm --volume //e://e --entrypoint rm ghcr.io/opensafely-core/cohortextractor" -r "/$workspace_dir"
