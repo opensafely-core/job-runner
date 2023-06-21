@@ -3,7 +3,7 @@ set -euo pipefail
 
 workspace=$1
 workspace_dir=$HIGH_PRIVACY_STORAGE_BASE/workspaces/$workspace
-archive=/archive/archived_workspaces/$workspace.tar.gz
+archive=$HIGH_PRIVACY_STORAGE_BASE/archive/archived_workspaces/$workspace.tar.gz
 tmp_archive=$archive.tmp
 
 if ! test -d "$workspace_dir"; then
