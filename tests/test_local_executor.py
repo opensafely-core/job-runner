@@ -94,14 +94,15 @@ def list_repo_files(path):
     return list(str(f.relative_to(path)) for f in path.glob("**/*") if f.is_file())
 
 
-def workspace_log_file_exists(job_definition):
+def log_dir_log_file_exists(job_definition):
     log_dir = local.get_log_dir(job_definition)
     if not log_dir.exists():
         return False
     log_file = log_dir / "logs.txt"
-    if not log_file.exists():
-        return False
+    return log_file.exists()
 
+
+def workspace_log_file_exists(job_definition):
     workspace_log_file = (
         local.get_high_privacy_workspace(job_definition.workspace)
         / local.METADATA_DIR
@@ -439,6 +440,7 @@ def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir, volum
         == "Job killed by OpenSAFELY admin or memory limits"
     )
 
+    assert log_dir_log_file_exists(job_definition)
     assert workspace_log_file_exists(job_definition)
 
 
@@ -472,6 +474,7 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
         == "Ran out of memory (limit for this job was 0.01GB)"
     )
 
+    assert log_dir_log_file_exists(job_definition)
     assert workspace_log_file_exists(job_definition)
 
 
@@ -489,22 +492,15 @@ def test_pending_job_terminated_not_finalized(
     assert status.state == ExecutorState.UNKNOWN
     assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
-    # finalize is a no-op in this case
-    status = api.finalize(job_definition)
-    assert status.state == ExecutorState.UNKNOWN
-    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
+    # nb. no need to run terminate(), finalize() or cleanup()
 
     assert job_definition.id not in local.RESULTS
-
-    status = api.cleanup(job_definition)
-    assert status.state == ExecutorState.UNKNOWN
-    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
-
+    assert not log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
 
 
 @pytest.mark.needs_docker
-def test_pending_job_terminated_prepared_not_finalized(
+def test_prepared_job_terminated_not_finalized(
     docker_cleanup, job_definition, tmp_work_dir
 ):
     job_definition.args = ["sleep", "101"]
@@ -515,15 +511,11 @@ def test_pending_job_terminated_prepared_not_finalized(
     assert status.state == ExecutorState.PREPARED
     assert api.get_status(job_definition).state == ExecutorState.PREPARED
 
-    status = api.terminate(job_definition)
     job_definition.cancelled = "user"
-    assert status.state == ExecutorState.UNKNOWN
-    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
-    # finalize is a no-op in this case
-    status = api.finalize(job_definition)
-    assert status.state == ExecutorState.UNKNOWN
-    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
+    # nb. do not run terminate() or finalize() because we do not have a container
+
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
     assert job_definition.id not in local.RESULTS
 
@@ -531,6 +523,7 @@ def test_pending_job_terminated_prepared_not_finalized(
     assert status.state == ExecutorState.UNKNOWN
     assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
+    assert not log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
 
 
@@ -548,8 +541,8 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
     assert status.state == ExecutorState.EXECUTING
     assert api.get_status(job_definition).state == ExecutorState.EXECUTING
 
-    status = api.terminate(job_definition)
     job_definition.cancelled = "user"
+    status = api.terminate(job_definition)
     assert status.state == ExecutorState.EXECUTED
     assert api.get_status(job_definition).state == ExecutorState.EXECUTED
 
@@ -567,7 +560,8 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
 
     assert job_definition.id not in local.RESULTS
 
-    assert workspace_log_file_exists(job_definition)
+    assert log_dir_log_file_exists(job_definition)
+    assert not workspace_log_file_exists(job_definition)
 
 
 @pytest.mark.needs_docker
