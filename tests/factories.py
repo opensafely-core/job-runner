@@ -128,7 +128,6 @@ class StubExecutorAPI:
             "prepare": set(),
             "execute": set(),
             "finalize": set(),
-            "finalize_log_only": set(),
             "terminate": set(),
             "cleanup": set(),
         }
@@ -154,6 +153,8 @@ class StubExecutorAPI:
             self.set_job_state(job, exec_state, message)
         return job
 
+    # TODO: rename to set_job_executor_state
+    # and rename state param to executor_state
     def set_job_state(
         self, job_definition, state, message="message", timestamp_ns=None
     ):
@@ -234,12 +235,7 @@ class StubExecutorAPI:
         else:
             next_state = ExecutorState.FINALIZING
 
-        if job_definition.cancelled:
-            # job was cancelled after it started running
-            self.tracker["finalize_log_only"].add(job_definition.id)
-        else:
-            # The job ran to completion
-            self.tracker["finalize"].add(job_definition.id)
+        self.tracker["finalize"].add(job_definition.id)
 
         return self.do_transition(
             job_definition, ExecutorState.EXECUTED, next_state, "finalize"
@@ -253,6 +249,15 @@ class StubExecutorAPI:
                 job_definition,
                 ExecutorState.UNKNOWN,
                 ExecutorState.UNKNOWN,
+                "terminate",
+            )
+        elif self.get_status(job_definition).state == ExecutorState.PREPARED:
+            # job was cancelled after it was prepared, but before it started running
+            # We do not need to terminate, so proceed directly to FINALIZED
+            return self.do_transition(
+                job_definition,
+                ExecutorState.PREPARED,
+                ExecutorState.FINALIZED,
                 "terminate",
             )
         else:

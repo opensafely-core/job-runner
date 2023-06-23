@@ -207,11 +207,15 @@ class ExecutorAPI:
 
     def terminate(self, job_definition: JobDefinition) -> JobStatus:
         """
-        Terminate a running job, transitioning to the ERROR state.
+        Terminate a running job, transitioning to the EXECUTED state.
 
         1. If any task for this job is running, terminate it, do not wait for it to complete.
 
-        2. Return ERROR state with a message.
+        2. Return EXECUTED state with a message.
+
+        Terminating a running job is considered an expected state, not an error state. This decision
+        also makes it easier for current executor implementations to cleanup after termination, and
+        is consistent with the handling of programs that exit of their own accord with a return code.
 
         """
 

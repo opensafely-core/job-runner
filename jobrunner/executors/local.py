@@ -200,20 +200,22 @@ class LocalDockerAPI(ExecutorAPI):
         return JobStatus(ExecutorState.FINALIZED)
 
     def terminate(self, job_definition):
-        initial_status = self.get_status(job_definition)
+        current_status = self.get_status(job_definition)
+        if current_status.state == ExecutorState.UNKNOWN:
+            # job was pending, so do not go to EXECUTED
+            return current_status
+
+        assert current_status.state in [
+            ExecutorState.EXECUTING,
+            ExecutorState.ERROR,
+            ExecutorState.PREPARED,
+        ]
 
         docker.kill(container_name(job_definition))
 
-        if initial_status.state == ExecutorState.UNKNOWN:
-            # job had not started running, so stay at UNKNOWN
-            # nb. but always run docker.kill just in case!
-            return initial_status
-
-        if initial_status.state == ExecutorState.PREPARED:
-            # job has been prepared, but there is no container yet
-            return JobStatus(ExecutorState.UNKNOWN, "cancelled by api")
-
-        return JobStatus(ExecutorState.EXECUTED, "terminated by api")
+        return JobStatus(
+            ExecutorState.EXECUTED, f"Job terminated by {job_definition.cancelled}"
+        )
 
     def cleanup(self, job_definition):
         if config.CLEAN_UP_DOCKER_OBJECTS:
@@ -241,7 +243,14 @@ class LocalDockerAPI(ExecutorAPI):
 
         if container is None:  # container doesn't exist
             if job_definition.cancelled:
-                return JobStatus(ExecutorState.UNKNOWN, "Job was cancelled")
+                if volumes.get_volume_api(job_definition).volume_exists(job_definition):
+                    # jobs prepared but not running do not need to finalize, so we
+                    # proceed directly to the FINALIZED state here
+                    return JobStatus(
+                        ExecutorState.FINALIZED, "Prepared job was cancelled"
+                    )
+                else:
+                    return JobStatus(ExecutorState.UNKNOWN, "Pending job was cancelled")
 
             # timestamp file presence means we have finished preparing
             timestamp_ns = volumes.get_volume_api(job_definition).read_timestamp(
@@ -267,6 +276,7 @@ class LocalDockerAPI(ExecutorAPI):
             )
         else:
             # container present but not running, i.e. finished
+            # Nb. this does not include prepared jobs, as they have a volume but not a container
             if job_definition.cancelled:
                 return JobStatus(
                     ExecutorState.EXECUTED,
@@ -408,8 +418,11 @@ def finalize_job(job_definition):
         base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
     job_metadata = get_job_metadata(job_definition, outputs, container_metadata)
-    write_job_logs(job_definition, job_metadata)
-    if not job_definition.cancelled:
+
+    if job_definition.cancelled:
+        write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
+    else:
+        write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True)
         persist_outputs(job_definition, results.outputs, job_metadata)
     RESULTS[job_definition.id] = results
 
