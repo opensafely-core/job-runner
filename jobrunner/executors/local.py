@@ -86,6 +86,20 @@ def workspace_is_archived(workspace):
     return False
 
 
+def was_oomkilled(container):
+    # Nb. this flag has been observed to be unreliable on some versions of Linux
+    return container["State"]["ExitCode"] == 137 and container["State"]["OOMKilled"]
+
+
+def oomkilled_message(container):
+    message = "Job ran out of memory"
+    memory_limit = container.get("HostConfig", {}).get("Memory", 0)
+    if memory_limit > 0:
+        gb_limit = memory_limit / (1024**3)
+        message += f" (limit was {gb_limit:.2f}GB)"
+    return message
+
+
 class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
@@ -282,14 +296,13 @@ class LocalDockerAPI(ExecutorAPI):
                     ExecutorState.EXECUTED,
                     f"Job cancelled by {job_definition.cancelled}",
                 )
+            if was_oomkilled(container):
+                return JobStatus(ExecutorState.ERROR, oomkilled_message(container))
             if container["State"]["ExitCode"] == 137:
-                if container["State"]["OOMKilled"]:
-                    return JobStatus(ExecutorState.ERROR, "Job ran out of memory")
-                else:
-                    return JobStatus(
-                        ExecutorState.ERROR,
-                        "Job either ran out of memory or was killed by an admin",
-                    )
+                return JobStatus(
+                    ExecutorState.ERROR,
+                    "Job either ran out of memory or was killed by an admin",
+                )
 
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
             return JobStatus(ExecutorState.EXECUTED, timestamp_ns=timestamp_ns)
@@ -392,14 +405,8 @@ def finalize_job(job_definition):
 
     if exit_code == 137 and job_definition.cancelled:
         message = f"Job cancelled by {job_definition.cancelled}"
-    # special case OOMKilled
-    # Nb. this flag has been observed to be unreliable on some versions of Linux
-    elif container_metadata["State"]["OOMKilled"]:
-        message = "Ran out of memory"
-        memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
-        if memory_limit > 0:
-            gb_limit = memory_limit / (1024**3)
-            message += f" (limit for this job was {gb_limit:.2f}GB)"
+    elif was_oomkilled(container_metadata):
+        message = oomkilled_message(container_metadata)
     else:
         message = config.DOCKER_EXIT_CODES.get(exit_code)
 
