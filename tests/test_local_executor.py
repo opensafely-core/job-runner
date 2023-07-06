@@ -459,7 +459,10 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
     status = api.execute(job_definition)
 
     wait_for_state(api, job_definition, ExecutorState.ERROR)
-    assert api.get_status(job_definition).message == "Job ran out of memory"
+    assert (
+        api.get_status(job_definition).message
+        == "Job ran out of memory (limit was 0.01GB)"
+    )
 
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
@@ -471,7 +474,7 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
     # Note, 6MB is rounded to 0.01GBM by the formatter
     assert (
         local.RESULTS[job_definition.id].message
-        == "Ran out of memory (limit for this job was 0.01GB)"
+        == "Job ran out of memory (limit was 0.01GB)"
     )
 
     assert log_dir_log_file_exists(job_definition)
