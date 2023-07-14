@@ -286,7 +286,7 @@ def test_handle_running_job_cancelled(db, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "state,code,message",
+    "executor_state,status_code,message",
     [
         (
             ExecutorState.PREPARING,
@@ -297,9 +297,11 @@ def test_handle_running_job_cancelled(db, monkeypatch):
         (ExecutorState.FINALIZING, StatusCode.FINALIZING, "Recording job results"),
     ],
 )
-def test_handle_job_stable_states(state, code, message, db):
+def test_handle_job_stable_states(executor_state, status_code, message, db):
     api = StubExecutorAPI()
-    job = api.add_test_job(state, State.RUNNING, code, status_message=message)
+    job = api.add_test_job(
+        executor_state, State.RUNNING, status_code, status_message=message
+    )
 
     run.handle_job(job, api)
 
@@ -307,7 +309,7 @@ def test_handle_job_stable_states(state, code, message, db):
     assert job.id not in api.tracker["prepare"]
     assert job.id not in api.tracker["execute"]
     assert job.id not in api.tracker["finalize"]
-    assert api.get_status(job).state == state
+    assert api.get_status(job).state == executor_state
 
     # our state
     assert job.state == State.RUNNING
@@ -452,7 +454,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
 
 
 @pytest.mark.parametrize(
-    "executor_state,job_state,code,tracker",
+    "executor_state,job_state,status_code,tracker",
     [
         (ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED, "prepare"),
         (ExecutorState.PREPARED, State.RUNNING, StatusCode.PREPARED, "execute"),
@@ -460,10 +462,10 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     ],
 )
 def test_handle_job_waiting_on_workers_via_executor(
-    executor_state, job_state, code, tracker, db
+    executor_state, job_state, status_code, tracker, db
 ):
     api = StubExecutorAPI()
-    job = api.add_test_job(executor_state, job_state, code)
+    job = api.add_test_job(executor_state, job_state, status_code)
     api.set_job_transition(job, executor_state)
 
     run.handle_job(job, api)
@@ -477,7 +479,7 @@ def test_handle_job_waiting_on_workers_via_executor(
 
     # tracing
     spans = get_trace("jobs")
-    expected_trace_state = code.name
+    expected_trace_state = status_code.name
     assert spans[-1].name == expected_trace_state
 
 
