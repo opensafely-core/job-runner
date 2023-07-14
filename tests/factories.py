@@ -139,7 +139,7 @@ class StubExecutorAPI:
 
     def add_test_job(
         self,
-        exec_state,
+        executor_state,
         job_state,
         status_code=StatusCode.CREATED,
         message="message",
@@ -149,26 +149,24 @@ class StubExecutorAPI:
         """Create and track a db job object."""
 
         job = job_factory(state=job_state, status_code=status_code, **kwargs)
-        if exec_state != ExecutorState.UNKNOWN:
-            self.set_job_state(job, exec_state, message)
+        if executor_state != ExecutorState.UNKNOWN:
+            self.set_job_state(job, executor_state, message)
         return job
 
-    # TODO: rename to set_job_executor_state
-    # and rename state param to executor_state
     def set_job_state(
-        self, job_definition, state, message="message", timestamp_ns=None
+        self, job_definition, executor_state, message="message", timestamp_ns=None
     ):
-        """Directly set a job state."""
+        """Directly set a job state from an ExecutorState."""
         # handle the synchronous state meaning the state has completed
         if timestamp_ns is None:
             timestamp_ns = time.time_ns()
         synchronous = getattr(self, "synchronous_transitions", [])
-        if state in synchronous:
-            if state == ExecutorState.PREPARING:
-                state = ExecutorState.PREPARED
-            if state == ExecutorState.FINALIZING:
-                state = ExecutorState.FINALIZED
-        self.state[job_definition.id] = JobStatus(state, message, timestamp_ns)
+        if executor_state in synchronous:
+            if executor_state == ExecutorState.PREPARING:
+                executor_state = ExecutorState.PREPARED
+            if executor_state == ExecutorState.FINALIZING:
+                executor_state = ExecutorState.FINALIZED
+        self.state[job_definition.id] = JobStatus(executor_state, message, timestamp_ns)
 
     def set_job_transition(
         self, job_definition, state, message="executor message", hook=None

@@ -452,7 +452,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
 
 
 @pytest.mark.parametrize(
-    "exec_state,job_state,code,tracker",
+    "executor_state,job_state,code,tracker",
     [
         (ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED, "prepare"),
         (ExecutorState.PREPARED, State.RUNNING, StatusCode.PREPARED, "execute"),
@@ -460,16 +460,16 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     ],
 )
 def test_handle_job_waiting_on_workers_via_executor(
-    exec_state, job_state, code, tracker, db
+    executor_state, job_state, code, tracker, db
 ):
     api = StubExecutorAPI()
-    job = api.add_test_job(exec_state, job_state, code)
-    api.set_job_transition(job, exec_state)
+    job = api.add_test_job(executor_state, job_state, code)
+    api.set_job_transition(job, executor_state)
 
     run.handle_job(job, api)
 
     assert job.id in api.tracker[tracker]
-    assert api.get_status(job).state == exec_state
+    assert api.get_status(job).state == executor_state
 
     assert job.state == job_state
     assert job.status_message == "Waiting on available resources"
