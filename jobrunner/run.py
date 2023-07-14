@@ -3,10 +3,10 @@ Script which polls the database for active (i.e. non-terminated) jobs, takes
 the appropriate action for each job depending on its current state, and then
 updates its state as appropriate.
 """
+import collections
 import datetime
 import logging
 import os
-import random
 import sys
 import time
 from typing import Optional
@@ -66,19 +66,40 @@ def handle_jobs(api: Optional[ExecutorAPI]):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
-    # Randomising the job order is a crude but effective way to ensure that a
-    # single large job request doesn't hog all the workers. We make this
-    # optional as, when running locally, having jobs run in a predictable order
-    # is preferable
-    if config.RANDOMISE_JOB_ORDER:
-        random.shuffle(active_jobs)
 
-    for job in active_jobs:
+    running_for_workspace = collections.defaultdict(int)
+    handled_jobs = []
+
+    while active_jobs:
+        # We need to re-sort on each loop because the number of running jobs per
+        # workspace will change as we work our way through
+        active_jobs.sort(
+            key=lambda job: (
+                # Process all running jobs first. Once we've processed all of these, the
+                # counts in `running_for_workspace` will be up-to-date.
+                0 if job.state == State.RUNNING else 1,
+                # Then process PENDING jobs in order of how many are running in the
+                # workspace. This gives a fairer allocation of capacity among
+                # workspaces.
+                running_for_workspace[job.workspace],
+                # Finally use job age as a tie-breaker
+                job.created_at,
+            )
+        )
+        job = active_jobs.pop(0)
+
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             handle_single_job(job, api)
-    return active_jobs
+
+        # Add running jobs to the workspace count
+        if job.state == State.RUNNING:
+            running_for_workspace[job.workspace] += 1
+
+        handled_jobs.append(job)
+
+    return handled_jobs
 
 
 # we do not control the transition from these states, the executor does

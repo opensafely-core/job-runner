@@ -55,8 +55,6 @@ def test_integration_with_cohortextractor(
     )
     # Disable repo URL checking so we can run using a local test repo
     monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
-    # Make job execution order deterministic
-    monkeypatch.setattr("jobrunner.config.RANDOMISE_JOB_ORDER", False)
 
     if extraction_tool == "cohortextractor":
         image = "cohortextractor"
@@ -234,8 +232,6 @@ def test_integration_with_databuilder(
     )
     # Disable repo URL checking so we can run using a local test repo
     monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
-    # Make job execution order deterministic
-    monkeypatch.setattr("jobrunner.config.RANDOMISE_JOB_ORDER", False)
 
     ensure_docker_images_present("databuilder:v0.36.0", "python")
 

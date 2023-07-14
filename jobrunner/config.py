@@ -127,12 +127,6 @@ MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", 0))
 
-# This is a crude mechanism for preventing a single large JobRequest with lots
-# of associated Jobs from hogging all the resources. We want this configurable
-# because it's useful to be able to disable this during tests and when running
-# locally
-RANDOMISE_JOB_ORDER = True
-
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
