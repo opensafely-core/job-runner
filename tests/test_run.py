@@ -28,7 +28,7 @@ def test_handle_job_full_execution_async(db, freezer):
     assert job.status_code == StatusCode.PREPARING
 
     freezer.tick(1)
-    api.set_job_state(job, ExecutorState.PREPARED)
+    api.set_job_status_from_executor_state(job, ExecutorState.PREPARED)
 
     freezer.tick(1)
     run.handle_job(job, api)
@@ -36,7 +36,7 @@ def test_handle_job_full_execution_async(db, freezer):
     assert job.status_code == StatusCode.EXECUTING
 
     freezer.tick(1)
-    api.set_job_state(job, ExecutorState.EXECUTED)
+    api.set_job_status_from_executor_state(job, ExecutorState.EXECUTED)
 
     freezer.tick(1)
     run.handle_job(job, api)
@@ -44,7 +44,7 @@ def test_handle_job_full_execution_async(db, freezer):
     assert job.status_code == StatusCode.FINALIZING
 
     freezer.tick(1)
-    api.set_job_state(job, ExecutorState.FINALIZED)
+    api.set_job_status_from_executor_state(job, ExecutorState.FINALIZED)
     api.set_job_result(job)
 
     freezer.tick(1)
@@ -107,7 +107,7 @@ def test_handle_job_full_execution_synchronous(db, freezer):
     assert job.status_code == StatusCode.EXECUTING
 
     freezer.tick(1)
-    api.set_job_state(job, ExecutorState.EXECUTED)
+    api.set_job_status_from_executor_state(job, ExecutorState.EXECUTED)
 
     freezer.tick(1)
     # finalize is synchronous
@@ -202,7 +202,7 @@ def test_handle_prepared_job_cancelled(db, monkeypatch):
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.PREPARING
 
-    api.set_job_state(job, ExecutorState.PREPARED)
+    api.set_job_status_from_executor_state(job, ExecutorState.PREPARED)
 
     job.cancelled = True
 
@@ -213,7 +213,7 @@ def test_handle_prepared_job_cancelled(db, monkeypatch):
 
     # StubExecutorAPI needs state setting to FINALIZED, local executor is able to
     # determine this for itself based on the presence of volume & absence of container
-    api.set_job_state(job, ExecutorState.FINALIZED)
+    api.set_job_status_from_executor_state(job, ExecutorState.FINALIZED)
 
     # put this here for completeness so that we can compare to other executors
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
@@ -246,7 +246,7 @@ def test_handle_running_job_cancelled(db, monkeypatch):
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.PREPARING
 
-    api.set_job_state(job, ExecutorState.PREPARED)
+    api.set_job_status_from_executor_state(job, ExecutorState.PREPARED)
 
     assert job.id not in api.tracker["execute"]
     run.handle_job(job, api)
@@ -271,7 +271,7 @@ def test_handle_running_job_cancelled(db, monkeypatch):
     run.handle_job(job, api)
     assert job.id in api.tracker["finalize"]
 
-    api.set_job_state(job, ExecutorState.FINALIZED)
+    api.set_job_status_from_executor_state(job, ExecutorState.FINALIZED)
 
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.FINALIZING
