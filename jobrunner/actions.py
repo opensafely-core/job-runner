@@ -8,8 +8,6 @@ from pipeline.outputs import get_output_dirs
 
 from jobrunner.lib.path_utils import ensure_unix_path
 
-from .extractors import is_extraction_command
-
 
 class UnknownActionError(ProjectValidationError):
     pass
@@ -56,7 +54,7 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
         ]
 
     # Special case handling for the `cohortextractor generate_cohort` command
-    if is_extraction_command(run_parts, require_version=1):
+    if is_cohortextractor_generate_cohort(run_parts):
         # Set the size of the dummy data population, if that's what we're
         # generating.  Possibly this should be moved to the study definition
         # anyway, which would make this unnecessary.
@@ -76,25 +74,18 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
             # directory the `outputs` spec is expecting.
             run_parts.append(f"--output-dir={output_dirs[0]}")
 
-    elif is_extraction_command(run_parts, require_version=2):
-        # databuilder expects all command line arguments to be
-        # specified in the run command
-        target = "--dummy-data-file"
-        if using_dummy_data_backend and not any(
-            arg == target or arg.startswith(f"{target}=") for arg in run_parts
-        ):
-            raise ProjectValidationError(
-                "--dummy-data-file is required for a local run"
-            )
-
-    # TODO: we can probably remove this fork since the v1&2 forks cover it
-    elif is_extraction_command(run_parts):  # pragma: no cover
-        raise RuntimeError("Unhandled cohortextractor version")
-
     run_command = shlex.join(run_parts)
 
     return ActionSpecification(
         run=run_command,
         needs=action_spec.needs,
         outputs=action_spec.outputs.dict(exclude_unset=True),
+    )
+
+
+def is_cohortextractor_generate_cohort(args):
+    return (
+        len(args) > 1
+        and args[0].startswith("cohortextractor:")
+        and args[1] == "generate_cohort"
     )
