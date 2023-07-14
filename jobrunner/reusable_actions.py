@@ -3,8 +3,8 @@ import shlex
 import textwrap
 
 from jobrunner import config
-from jobrunner.extractors import is_extraction_command
 from jobrunner.lib import git
+from jobrunner.lib.commands import requires_db_access
 from jobrunner.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
@@ -182,9 +182,9 @@ def apply_reusable_action(run_args, reusable_action):
         action_image, action_tag = action_run_args[0].split(":")
         if action_image not in config.ALLOWED_IMAGES:
             raise ReusableActionError(f"Unrecognised runtime: {action_image}")
-        if is_extraction_command(action_run_args):
+        if requires_db_access(action_run_args):
             raise ReusableActionError(
-                "Re-usable actions cannot invoke cohortextractor/databuilder"
+                "Re-usable actions cannot run commands which access the database"
             )
     except (YAMLError, ReusableActionError) as e:
         formatted_error = textwrap.indent(f"{type(e).__name__}: {e}", "  ")
