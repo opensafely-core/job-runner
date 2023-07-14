@@ -106,7 +106,7 @@ class StubExecutorAPI:
     """Dummy implementation of the ExecutorAPI, for use in tests.
 
     It tracks the current state of any jobs based the calls to the various API
-    methods, and get_status() will return the current state.
+    methods, and get_status() will return the current JobStatus.
 
     You can inject new jobs to the executor with add_test_job(), for which you
     must supply a current ExecutorState and also job State.
@@ -133,7 +133,7 @@ class StubExecutorAPI:
         }
         self.transitions = {}
         self.results = {}
-        self.state = {}
+        self.job_statuses = {}
         self.deleted = defaultdict(lambda: defaultdict(list))
         self.last_time = int(time.time())
 
@@ -150,13 +150,13 @@ class StubExecutorAPI:
 
         job = job_factory(state=job_state, status_code=status_code, **kwargs)
         if executor_state != ExecutorState.UNKNOWN:
-            self.set_job_state(job, executor_state, message)
+            self.set_job_status_from_executor_state(job, executor_state, message)
         return job
 
-    def set_job_state(
+    def set_job_status_from_executor_state(
         self, job_definition, executor_state, message="message", timestamp_ns=None
     ):
-        """Directly set a job state from an ExecutorState."""
+        """Directly set a job status from an ExecutorState."""
         # handle the synchronous state meaning the state has completed
         if timestamp_ns is None:
             timestamp_ns = time.time_ns()
@@ -166,7 +166,9 @@ class StubExecutorAPI:
                 executor_state = ExecutorState.PREPARED
             if executor_state == ExecutorState.FINALIZING:
                 executor_state = ExecutorState.FINALIZED
-        self.state[job_definition.id] = JobStatus(executor_state, message, timestamp_ns)
+        self.job_statuses[job_definition.id] = JobStatus(
+            executor_state, message, timestamp_ns
+        )
 
     def set_job_transition(
         self, job_definition, state, message="executor message", hook=None
@@ -202,7 +204,9 @@ class StubExecutorAPI:
             message = "executor message"
 
         timestamp_ns = time.time_ns()
-        self.set_job_state(job_definition, state, message, timestamp_ns)
+        self.set_job_status_from_executor_state(
+            job_definition, state, message, timestamp_ns
+        )
         return JobStatus(state, message, timestamp_ns)
 
     def prepare(self, job_definition):
@@ -269,14 +273,17 @@ class StubExecutorAPI:
 
     def cleanup(self, job_definition):
         self.tracker["cleanup"].add(job_definition.id)
-        self.state.pop(job_definition.id, None)
-        # TODO: this currently does a silent error in some tests, if the initial state is not ERROR
+        self.job_statuses.pop(job_definition.id, None)
+        # TODO: this currently does a silent error in some tests, if the initial
+        # ExecutorState is not ERROR
         return self.do_transition(
             job_definition, ExecutorState.ERROR, ExecutorState.UNKNOWN, "cleanup"
         )
 
     def get_status(self, job_definition):
-        return self.state.get(job_definition.id, JobStatus(ExecutorState.UNKNOWN))
+        return self.job_statuses.get(
+            job_definition.id, JobStatus(ExecutorState.UNKNOWN)
+        )
 
     def get_results(self, job_definition):
         return self.results.get(job_definition.id)
