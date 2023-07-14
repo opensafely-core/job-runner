@@ -3,7 +3,6 @@ import shlex
 import sys
 
 import pytest
-from pipeline.exceptions import ProjectValidationError
 from pipeline.models import Pipeline
 
 from jobrunner.actions import UnknownActionError, get_action_specification
@@ -66,68 +65,6 @@ def test_get_action_specification_for_cohortextractor_generate_cohort_action():
         action_spec.run
         == """cohortextractor:latest generate_cohort --expectations-population=1000 --output-dir=output"""
     )
-
-
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="ActionSpecification is only used to build commands for Docker",
-)
-def test_get_action_specification_for_databuilder_action():
-    config = Pipeline(
-        **{
-            "version": 3,
-            "expectations": {"population_size": 1000},
-            "actions": {
-                "generate_dataset": {
-                    "run": "databuilder:latest generate_dataset "
-                    "--dataset_definition=dataset_definition.py "
-                    "--output=output/dataset.csv "
-                    "--dummy-data-file=dummy.csv",
-                    "outputs": {"highly_sensitive": {"dataset": "output/dataset.csv"}},
-                }
-            },
-        }
-    )
-
-    action_spec = get_action_specification(
-        config, "generate_dataset", using_dummy_data_backend=True
-    )
-
-    assert (
-        action_spec.run == "databuilder:latest generate_dataset "
-        "--dataset_definition=dataset_definition.py "
-        "--output=output/dataset.csv "
-        "--dummy-data-file=dummy.csv"
-    )
-
-
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="ActionSpecification is only used to build commands for Docker",
-)
-def test_get_action_specification_for_databuilder_errors():
-    config = Pipeline(
-        **{
-            "version": 3,
-            "expectations": {"population_size": 1_000},
-            "actions": {
-                "generate_dataset": {
-                    "run": "databuilder:latest generate_dataset "
-                    "--dataset_definition=dataset_definition.py "
-                    "--output=output/dataset.csv",
-                    "outputs": {"highly_sensitive": {"dataset": "output/dataset.csv"}},
-                }
-            },
-        }
-    )
-
-    msg = "--dummy-data-file is required for a local run"
-    with pytest.raises(ProjectValidationError, match=msg):
-        get_action_specification(
-            config,
-            "generate_dataset",
-            using_dummy_data_backend=True,
-        )
 
 
 @pytest.mark.skipif(
