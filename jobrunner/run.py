@@ -491,7 +491,6 @@ def job_to_job_definition(job):
 
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
-    # Check `is True` so we fail closed if we ever get anything else
     if job.requires_db:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
