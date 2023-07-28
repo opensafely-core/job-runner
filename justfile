@@ -23,6 +23,8 @@ clean:
 # ensure valid virtualenv
 virtualenv:
     #!/usr/bin/env bash
+    set -euo pipefail
+
     # allow users to specify python version in .env
     PYTHON_VERSION=${PYTHON_VERSION:-$DEFAULT_PYTHON}
 
@@ -34,6 +36,8 @@ virtualenv:
 
 _compile src dst *args: virtualenv
     #!/usr/bin/env bash
+    set -euo pipefail
+
     # exit if src file is older than dst file (-nt = 'newer than', but we negate with || to avoid error exit code)
     test "${FORCE:-}" = "true" -o {{ src }} -nt {{ dst }} || exit 0
     $BIN/pip-compile --allow-unsafe --output-file={{ dst }} {{ src }} {{ args }}
@@ -53,6 +57,8 @@ requirements-tools *args: requirements-prod
 # ensure prod requirements installed and up to date
 prodenv: requirements-prod
     #!/usr/bin/env bash
+    set -euo pipefail
+
     # exit if .txt file has not changed since we installed them (-nt == "newer than', but we negate with || to avoid error exit code)
     test requirements.prod.txt -nt $VIRTUAL_ENV/.prod || exit 0
 
@@ -66,6 +72,8 @@ prodenv: requirements-prod
 # ensure dev requirements installed and up to date
 devenv: prodenv requirements-dev && install-precommit
     #!/usr/bin/env bash
+    set -euo pipefail
+
     # exit if .txt file has not changed since we installed them (-nt == "newer than', but we negate with || to avoid error exit code)
     test requirements.dev.txt -nt $VIRTUAL_ENV/.dev || exit 0
 
@@ -75,12 +83,16 @@ devenv: prodenv requirements-dev && install-precommit
 # ensure precommit is installed
 install-precommit:
     #!/usr/bin/env bash
+    set -euo pipefail
+
     BASE_DIR=$(git rev-parse --show-toplevel)
     test -f $BASE_DIR/.git/hooks/pre-commit || $BIN/pre-commit install
 
 # upgrade dev or prod dependencies (specify package to upgrade single package, all by default)
 upgrade env package="": virtualenv
     #!/usr/bin/env bash
+    set -euo pipefail
+
     opts="--upgrade"
     test -z "{{ package }}" || opts="--upgrade-package {{ package }}"
     FORCE=true "{{ just_executable() }}" requirements-{{ env }} $opts
@@ -113,6 +125,8 @@ package-build: virtualenv
 
 package-test type: package-build
     #!/usr/bin/env bash
+    set -euo pipefail
+
     VENV="test-{{ type }}"
     distribution_suffix="{{ if type == "wheel" { "whl" } else { "tar.gz" } }}"
 
@@ -132,7 +146,7 @@ package-test type: package-build
     $VENV/bin/local_run --help
 
     # check we haven't packaged tests with it
-    unzip -Z -1 dist/*.whl | grep -vq "^tests/"
+    unzip -Z -1 dist/*.whl | grep -v "^tests/"
 
     # clean up after ourselves
     rm -rf $VENV
@@ -166,7 +180,9 @@ dotenv:
     cp dotenv-sample .env
 
 update-wheels: devenv
-    #!/bin/bash
+    #!/usr/bin/env bash
+    set -euo pipefail
+
     if test -d lib; then
         git -C lib pull
     else
@@ -180,5 +196,5 @@ update-wheels: devenv
     # Now install the dependencies
     $BIN/pip install -U -r requirements.prod.txt -r requirements.tools.txt --target lib
     cp requirements.prod.txt requirements.tools.txt lib/
-    # remove any .so libs 
+    # remove any .so libs
     find lib/ -name \*.so -exec rm {} \;
