@@ -112,7 +112,10 @@ def create_volume(volume_name, labels=None):
         # If a volume and its manager already exist we don't want to throw an
         # error. `docker volume create` is naturally idempotent, but we have to
         # handle this manually here.
-        if e.returncode != 125 or b"is already in use by container" not in e.stderr:
+        if (
+            e.returncode != 125
+            or b"is already in use by container" not in e.stderr.lower()
+        ):
             raise
 
 
@@ -138,7 +141,7 @@ def delete_volume(volume_name):
         )
     except subprocess.CalledProcessError as e:
         # Ignore error if container has already been removed
-        if e.returncode != 1 or b"No such container" not in e.stderr:
+        if e.returncode != 1 or b"no such container" not in e.stderr.lower():
             raise
     try:
         docker(
@@ -152,7 +155,7 @@ def delete_volume(volume_name):
         )
     except subprocess.CalledProcessError as e:
         # Ignore error if container has already been removed
-        if e.returncode != 1 or b"No such volume" not in e.stderr:
+        if e.returncode != 1 or b"no such volume" not in e.stderr.lower():
             raise
 
 
@@ -383,7 +386,7 @@ def container_inspect(name, key="", none_if_not_exists=False, timeout=None):
         if (
             none_if_not_exists
             and e.returncode == 1
-            and b"No such container" in e.stderr
+            and b"no such container" in e.stderr.lower()
         ):
             return
         else:
@@ -436,7 +439,7 @@ def image_exists_locally(image_name_and_version):
         )
         return True
     except subprocess.CalledProcessError as e:
-        if e.returncode == 1 and b"No such image" in e.stderr:
+        if e.returncode == 1 and b"no such image" in e.stderr.lower():
             return False
         raise
 
@@ -450,7 +453,7 @@ def delete_container(name):
         )
     except subprocess.CalledProcessError as e:
         # Ignore error if container has already been removed
-        if e.returncode != 1 or b"No such container" not in e.stderr:
+        if e.returncode != 1 or b"no such container" not in e.stderr.lower():
             raise
 
 
@@ -463,8 +466,9 @@ def kill(name):
         )
     except subprocess.CalledProcessError as e:
         # Ignore error if container has already been killed or removed
+        error = e.stderr.lower()
         if e.returncode != 1 or (
-            b"No such container" not in e.stderr and b"is not running" not in e.stderr
+            b"no such container" not in error and b"is not running" not in error
         ):
             raise
 
