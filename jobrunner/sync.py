@@ -141,6 +141,7 @@ def job_to_remote_format(job):
         "identifier": job.id,
         "job_request_id": job.job_request_id,
         "action": job.action,
+        "run_command": job.run_command,
         "status": job.state.value,
         "status_code": job.status_code.value if job.status_code else "",
         "status_message": job.status_message or "",
