@@ -36,7 +36,7 @@ protobuf==3.20.2
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
-pydantic==1.9.0
+pydantic==1.10.12
     # via opensafely-pipeline
 requests==2.25.0
     # via
@@ -46,7 +46,7 @@ ruyaml==0.91.0
     # via
     #   opensafely-jobrunner (pyproject.toml)
     #   opensafely-pipeline
-typing-extensions==4.1.1
+typing-extensions==4.7.1
     # via
     #   opentelemetry-sdk
     #   pydantic
