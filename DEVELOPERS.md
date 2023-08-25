@@ -282,6 +282,7 @@ Connect to the relevant backend server:
 1. SSH into EMIS
 
 
+When you're connected to the relevant server:
 1. [Switch to the jobrunner user](https://github.com/opensafely-core/backend-server/blob/main/services/jobrunner/playbook.md#jobrunner-user)
 1. Change to the `/srv/backend-server` directory
 1. [Deploy job-runner](https://github.com/opensafely-core/backend-server/blob/main/services/jobrunner/playbook.md#deploy-job-runner)
