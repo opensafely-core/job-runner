@@ -264,3 +264,26 @@ python -m jobrunner.cli.migrate
 
 Note that for `jobrunner.cli.local_run`, which is used by opensafely-cli,
 migrations are automatically applied.
+
+
+## Deploying
+jobrunner is currently deployed by hand because of the difficulties of adding automated deploys to backend servers.
+
+Connect to the relevant backend server:
+
+### TPP
+1. Log onto the VPN
+1. RDP onto L3
+1. SSH into the linux VM running on L3
+1. Switch to the [jobrunner user](https://github.com/opensafely-core/backend-server/blob/main/services/jobrunner/playbook.md#jobrunner-user)
+
+
+### EMIS
+1. SSH into EMIS
+
+
+1. [Switch to the jobrunner user](https://github.com/opensafely-core/backend-server/blob/main/services/jobrunner/playbook.md#jobrunner-user)
+1. Change to the `/srv/backend-server` directory
+1. [Deploy job-runner](https://github.com/opensafely-core/backend-server/blob/main/services/jobrunner/playbook.md#deploy-job-runner)
+  1. Note the sections on dependencies and config, if those are relevant to your deploy
+1. [Watch the logs for errors](https://github.com/opensafely-core/backend-server/blob/main/services/jobrunner/playbook.md#viewing-job-runner-logs)
