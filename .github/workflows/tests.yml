@@ -145,3 +145,20 @@ jobs:
             --project-dir=tests/fixtures/full_project \
             --continue-on-error --timestamps --format-output-for-github \
             || true
+
+  required-checks:
+    if: always()
+
+    needs:
+    - check
+    - test-job
+    - test-package-build
+    - test-github-workflow-output
+
+    runs-on: Ubuntu-latest
+
+    steps:
+    - name: Decide whether the needed jobs succeeded or failed
+      uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe  # v1.2.2
+      with:
+        jobs: ${{ toJSON(needs) }}
