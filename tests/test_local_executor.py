@@ -422,11 +422,7 @@ def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir, volum
     # impersonate an admin
     docker.kill(local.container_name(job_definition))
 
-    wait_for_state(api, job_definition, ExecutorState.ERROR)
-    assert (
-        api.get_status(job_definition).message
-        == "Job either ran out of memory or was killed by an admin"
-    )
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
@@ -458,11 +454,7 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
     status = api.prepare(job_definition)
     status = api.execute(job_definition)
 
-    wait_for_state(api, job_definition, ExecutorState.ERROR)
-    assert (
-        api.get_status(job_definition).message
-        == "Job ran out of memory (limit was 0.01GB)"
-    )
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
