@@ -6,6 +6,13 @@ from jobrunner.lib.subprocess_utils import subprocess_run
 DEFAULT_TIMEOUT = 10
 
 
+# backport of 3.9s removeprefix
+def removeprefix(s, prefix):
+    if s.startswith(prefix):
+        return s[len(prefix) :]
+    return s
+
+
 def get_job_stats(timeout=DEFAULT_TIMEOUT):
     # TODO: add volume sizes
     return get_container_stats(DEFAULT_TIMEOUT)
@@ -20,7 +27,7 @@ def get_container_stats(timeout=DEFAULT_TIMEOUT):
     )
     data = [json.loads(line) for line in response.stdout.splitlines()]
     return {
-        row["Name"].lstrip("os-job-"): {
+        removeprefix(row["Name"], "os-job-"): {
             "cpu_percentage": float(row["CPUPerc"].rstrip("%")),
             "memory_used": _parse_size(row["MemUsage"].split()[0]),
         }
