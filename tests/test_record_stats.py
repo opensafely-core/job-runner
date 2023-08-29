@@ -50,9 +50,15 @@ def test_record_tick_trace(db, freezer, monkeypatch):
         assert span.attributes["job"] == job.id
         assert span.parent.span_id == root.context.span_id
 
+        assert span.attributes["stats_timeout"] is False
+        assert span.attributes["stats_error"] is False
+
         if job is running_job:
+            assert span.attributes["has_metrics"] is True
             assert span.attributes["cpu_percentage"] == 50.0
             assert span.attributes["memory_used"] == 1000
+        else:
+            assert span.attributes["has_metrics"] is False
 
     assert "SUCCEEDED" not in [s.name for s in spans]
 
@@ -76,3 +82,38 @@ def test_record_tick_trace_stats_timeout(db, freezer, monkeypatch):
 
     assert "cpu_percentage" not in span.attributes
     assert "memory_used" not in span.attributes
+    assert span.attributes["has_metrics"] is False
+    assert span.attributes["stats_timeout"] is True
+    assert span.attributes["stats_error"] is False
+
+
+def test_record_tick_trace_stats_error(db, freezer, monkeypatch):
+    job_factory(status_code=StatusCode.EXECUTING)
+
+    def error():
+        raise subprocess.CalledProcessError(
+            returncode=1, cmd=["test", "cmd"], output="stdout", stderr="stderr"
+        )
+
+    monkeypatch.setattr(record_stats, "get_job_stats", error)
+
+    last_run = time.time()
+    record_stats.record_tick_trace(last_run)
+    assert len(get_trace("ticks")) == 2
+
+    spans = get_trace("ticks")
+    span = spans[0]
+
+    assert "cpu_percentage" not in span.attributes
+    assert "memory_used" not in span.attributes
+    assert span.attributes["has_metrics"] is False
+    assert span.attributes["stats_timeout"] is False
+    assert span.attributes["stats_error"] is True
+
+    root = spans[1]
+    assert root.attributes["stats_timeout"] is False
+    assert root.attributes["stats_error"] is True
+    assert root.events[0].attributes["exit_code"] == 1
+    assert root.events[0].attributes["cmd"] == "test cmd"
+    assert root.events[0].attributes["output"] == "stderr\n\nstdout"
+    assert root.events[0].name == "stats_error"
