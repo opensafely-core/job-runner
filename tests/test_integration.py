@@ -42,11 +42,8 @@ def test_integration_with_cohortextractor(
     # alongside cohortextractor in this test, however once it supports a close
     # enough set of dummy data we can merge them into a single test.
     extraction_tool = "cohortextractor"
-
-    if extraction_tool == "cohortextractor":
-        generate_action = "generate_cohort"
-    else:
-        generate_action = "generate_dataset"
+    generate_action = "generate_cohort"
+    image = "cohortextractor"
 
     api = get_executor_api()
 
@@ -56,10 +53,6 @@ def test_integration_with_cohortextractor(
     # Disable repo URL checking so we can run using a local test repo
     monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
 
-    if extraction_tool == "cohortextractor":
-        image = "cohortextractor"
-    else:
-        image = "databuilder:v0.36.0"
     ensure_docker_images_present(image, "python")
 
     # Set up a mock job-server with a single job request
@@ -96,6 +89,7 @@ def test_integration_with_cohortextractor(
     # Check that expected number of pending jobs are created
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == ["pending"] * 7
+
     # Execute one tick of the run loop and then sync
     jobrunner.run.handle_jobs(api)
     jobrunner.sync.sync()
@@ -142,6 +136,7 @@ def test_integration_with_cohortextractor(
     jobrunner.sync.sync()
 
     # Run the main loop until there are no jobs left and then sync
+
     jobrunner.run.main(exit_callback=lambda active_jobs: len(active_jobs) == 0)
     jobrunner.sync.sync()
 
@@ -168,7 +163,7 @@ def test_integration_with_cohortextractor(
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.loads(manifest_file.read_text())
     assert manifest["workspace"] == "testing"
-    assert manifest["repo"] == str(test_repo.path)
+    assert manifest["repo"] is None
 
     if extraction_tool == "cohortextractor":
         output_name = "input"
@@ -335,7 +330,7 @@ def test_integration_with_databuilder(
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.loads(manifest_file.read_text())
     assert manifest["workspace"] == "testing"
-    assert manifest["repo"] == str(test_repo.path)
+    assert manifest["repo"] is None
 
     # Check that all the outputs have been produced
     assert (high_privacy_workspace / "output/dataset.csv").exists()

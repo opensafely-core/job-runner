@@ -480,7 +480,8 @@ def persist_outputs(job_definition, outputs, job_metadata):
         write_manifest_file(
             medium_privacy_dir,
             {
-                "repo": job_definition.study.git_repo_url,
+                # this currently needs to exist, but is not used
+                "repo": None,
                 "workspace": job_definition.workspace,
             },
         )
