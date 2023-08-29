@@ -46,12 +46,22 @@ def record_tick_trace(last_run):
     if last_run is None:
         return time.time_ns()
 
+    trace_attrs = {"stats_timeout": False, "stats_error": False}
+    stats = {}
+    error_attrs = {}
+
     try:
         stats = get_job_stats()
     except subprocess.TimeoutExpired:
         log.exception("Getting docker stats timed out")
-        # no metrics for this tick
-        stats = {}
+        trace_attrs["stats_timeout"] = True
+    except subprocess.CalledProcessError as exc:
+        log.exception("Error getting docker stats")
+        trace_attrs["stats_error"] = True
+
+        error_attrs["cmd"] = " ".join(exc.cmd)
+        error_attrs["exit_code"] = exc.returncode
+        error_attrs["output"] = exc.stderr + "\n\n" + exc.output
 
     # record time once stats call has completed, as it can take a while
     now = time.time_ns()
@@ -64,11 +74,25 @@ def record_tick_trace(last_run):
         models.Job, state__in=[models.State.PENDING, models.State.RUNNING]
     )
 
-    with tracer.start_as_current_span("TICK", start_time=start_time):
+    with tracer.start_as_current_span(
+        "TICK", start_time=start_time, attributes=trace_attrs
+    ) as root:
+        # add error event so we can see the error from the docker command
+        if error_attrs:
+            root.add_event("stats_error", attributes=error_attrs, timestamp=start_time)
+
         for job in active_jobs:
             span = tracer.start_span(job.status_code.name, start_time=start_time)
+
+            # set up attributes
+            job_span_attrs = {}
+            job_span_attrs.update(trace_attrs)
             metrics = stats.get(job.id, {})
-            tracing.set_span_metadata(span, job, **metrics)
+            job_span_attrs["has_metrics"] = metrics != {}
+            job_span_attrs.update(metrics)
+
+            # record span
+            tracing.set_span_metadata(span, job, **job_span_attrs)
             span.end(end_time)
 
     return end_time
