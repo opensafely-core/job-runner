@@ -146,7 +146,10 @@ package-test type: package-build
     $VENV/bin/local_run --help
 
     # check we haven't packaged tests with it
-    unzip -Z -1 dist/*.whl | grep -v "^tests/"
+    if unzip -Z -1 dist/*.whl | grep -q "^tests"; then
+      echo "Built wheel contains tests!"
+      exit 1
+    fi
 
     # clean up after ourselves
     rm -rf $VENV
