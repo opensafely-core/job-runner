@@ -37,13 +37,21 @@ class JobDefinition:
 
 
 class ExecutorState(Enum):
+    # Job is currently preparing to run: creating volumes,copying files, etc
     PREPARING = "preparing"
+    # Job volume is prepared and ready to run
     PREPARED = "prepared"
+    # Job currently executing
     EXECUTING = "executing"
+    # Job process has finished executing, and has an exit code
     EXECUTED = "executed"
+    # Job is currently being inspected and finalized
     FINALIZING = "finalizing"
+    # Job has finished finalization
     FINALIZED = "finalized"
+    # Executor doesn't know anything about this job (it only tracks active jobs)
     UNKNOWN = "unknown"
+    # There was an error with the executor (*not* the same thing as an error with job)
     ERROR = "error"
 
 

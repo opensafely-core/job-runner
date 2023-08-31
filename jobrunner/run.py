@@ -566,7 +566,7 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
     if error is None:
         error = True
 
-    set_code(job, code, message, error=error, attrs=attrs)
+    set_code(job, code, message, error=error, **attrs)
 
 
 def set_code(
