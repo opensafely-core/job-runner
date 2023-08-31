@@ -82,6 +82,8 @@ def handle_jobs(api: Optional[ExecutorAPI]):
                 # workspace. This gives a fairer allocation of capacity among
                 # workspaces.
                 running_for_workspace[job.workspace],
+                # DB jobs are more important than cpu jobs
+                0 if job.requires_db else 1,
                 # Finally use job age as a tie-breaker
                 job.created_at,
             )
