@@ -545,6 +545,7 @@ def job_to_job_definition(job):
         inputs=input_files,
         output_spec=outputs,
         allow_database_access=allow_database_access,
+        database_name=job.database_name if allow_database_access else None,
         # in future, these may come from the JobRequest, but for now, we have
         # config defaults.
         cpu_count=config.DEFAULT_JOB_CPU_COUNT,
