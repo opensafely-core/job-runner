@@ -59,7 +59,7 @@ def add_maintenance_command(mock_subprocess_run, current):
     )
 
 
-def test_maintenance_mode_off(mock_subprocess_run, db):
+def test_maintenance_mode_off(mock_subprocess_run, db, db_config):
     ps = add_maintenance_command(mock_subprocess_run, current=None)
     ps.stdout = ""
     assert service.maintenance_mode() is None
@@ -70,7 +70,7 @@ def test_maintenance_mode_off(mock_subprocess_run, db):
     assert service.maintenance_mode() is None
 
 
-def test_maintenance_mode_on(mock_subprocess_run, db):
+def test_maintenance_mode_on(mock_subprocess_run, db, db_config):
     ps = add_maintenance_command(mock_subprocess_run, current=None)
     ps.stdout = "db-maintenance"
     ps.stderr = "other stuff"
@@ -83,7 +83,7 @@ def test_maintenance_mode_on(mock_subprocess_run, db):
     assert service.maintenance_mode() == "db-maintenance"
 
 
-def test_maintenance_mode_error(mock_subprocess_run, db):
+def test_maintenance_mode_error(mock_subprocess_run, db, db_config):
     ps = add_maintenance_command(mock_subprocess_run, current=None)
     ps.returncode = 1
     ps.stdout = ""
@@ -91,3 +91,8 @@ def test_maintenance_mode_error(mock_subprocess_run, db):
 
     with pytest.raises(subprocess.CalledProcessError):
         service.maintenance_mode()
+
+
+@pytest.fixture
+def db_config(monkeypatch):
+    monkeypatch.setitem(config.DATABASE_URLS, "full", "mssql://localhost")
