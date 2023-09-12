@@ -88,8 +88,6 @@ DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")
 
 DATABASE_URLS = {
     "full": os.environ.get("FULL_DATABASE_URL"),
-    "slice": os.environ.get("SLICE_DATABASE_URL"),
-    "dummy": os.environ.get("DUMMY_DATABASE_URL"),
 }
 
 TEMP_DATABASE_NAME = os.environ.get("TEMP_DATABASE_NAME")
