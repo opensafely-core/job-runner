@@ -429,6 +429,7 @@ def get_job_metadata(job_definition, outputs, container_metadata):
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job_definition.study.commit
+    job_metadata["database_name"] = job_definition.database_name
     return job_metadata
 
 
@@ -553,6 +554,7 @@ KEYS_TO_LOG = [
     "exit_code",
     "created_at",
     "completed_at",
+    "database_name",
 ]
 
 

@@ -285,6 +285,15 @@ def make_job_request(action=None, actions=None, **kwargs):
     return job_request
 
 
+def test_create_jobs_already_requested(db, tmp_work_dir):
+    create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
+
+    with pytest.raises(NothingToDoError):
+        create_jobs_with_project_file(
+            make_job_request(action="analyse_data"), TEST_PROJECT
+        )
+
+
 def create_jobs_with_project_file(job_request, project_file):
     with mock.patch("jobrunner.create_or_update_jobs.get_project_file") as f:
         f.return_value = project_file

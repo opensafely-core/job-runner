@@ -289,7 +289,7 @@ def assert_new_jobs_created(job_request, new_jobs, current_jobs):
     # is treated as a successful outcome because we've already done everything that was
     # requested.
     if RUN_ALL_COMMAND in job_request.requested_actions:
-        raise NothingToDoError()
+        raise NothingToDoError("All actions have already completed succesfully")
 
     # The other reason is that every requested action is already running or pending,
     # this is considered a user error.
@@ -298,7 +298,7 @@ def assert_new_jobs_created(job_request, new_jobs, current_jobs):
         current_job_states.get(action) for action in job_request.requested_actions
     }
     if requested_action_states <= {State.PENDING, State.RUNNING}:
-        raise JobRequestError("All requested actions were already scheduled to run")
+        raise NothingToDoError("All requested actions were already scheduled to run")
 
     # But if we get here then we've somehow failed to schedule new jobs despite the fact
     # that some of the actions we depend on have failed, which is a bug.

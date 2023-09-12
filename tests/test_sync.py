@@ -13,6 +13,39 @@ def test_job_request_from_remote_format():
             "name": "testing",
             "repo": "https://github.com/opensafely/foo",
             "branch": "master",
+        },
+        "database_name": "full",
+        "requested_actions": ["generate_cohort"],
+        "cancelled_actions": ["analyse"],
+        "force_run_dependencies": True,
+        "sha": "abcdef",
+        "created_by": "user",
+        "project": "project",
+        "orgs": ["org"],
+    }
+    expected = JobRequest(
+        id="123",
+        repo_url="https://github.com/opensafely/foo",
+        commit="abcdef",
+        branch="master",
+        workspace="testing",
+        database_name="full",
+        requested_actions=["generate_cohort"],
+        cancelled_actions=["analyse"],
+        force_run_dependencies=True,
+        original=remote_job_request,
+    )
+    job_request = sync.job_request_from_remote_format(remote_job_request)
+    assert job_request == expected
+
+
+def test_job_request_from_remote_format_database_name_fallback():
+    remote_job_request = {
+        "identifier": "123",
+        "workspace": {
+            "name": "testing",
+            "repo": "https://github.com/opensafely/foo",
+            "branch": "master",
             "db": "full",
         },
         "requested_actions": ["generate_cohort"],

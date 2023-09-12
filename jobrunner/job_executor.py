@@ -30,6 +30,9 @@ class JobDefinition:
         str, str
     ]  # the files that the job should produce (globs mapped to privacy levels)
     allow_database_access: bool  # whether this job should have access to the database
+    # our internal name for the database this job uses (actual connection details are
+    # passed in `env`)
+    database_name: str = None
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
     # if a job has been cancelled, the name of the canceller - either "user" or "admin"
