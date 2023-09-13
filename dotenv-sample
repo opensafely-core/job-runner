@@ -20,16 +20,7 @@ MEDIUM_PRIVACY_STORAGE_BASE=/workdir/workspaces
 # A Github developer token that has read access to private repos
 PRIVATE_REPO_ACCESS_TOKEN=
 
-# A database containing dummy data; results from this could be freely
-# published without review
-DUMMY_DATABASE_URL=mssql+pyodbc://xxxx
-
-# A database containing a slice of the full data; useful for checking
-# or debuggin real data without potentially having to wait for hours
-# for completion
-SLICE_DATABASE_URL=mssql+pyodbc://xxxx
-
-# The full database
+# The DSN for accessing the database
 FULL_DATABASE_URL=mssql+pyodbc://xxxx
 
 # Database in which we can create temporary tables
