@@ -86,15 +86,21 @@ ALLOWED_IMAGES = {
 
 DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")
 
-db_names = ["full", "default", "include_t1oo"]
-DATABASE_URLS = {
-    db_name: db_url
-    for db_name, db_url in [
-        (db_name, os.environ.get("{db_name.upper()}_DATABASE_URL"))
-        for db_name in db_names
-    ]
-    if db_url
-}
+
+def database_urls_from_env(env):
+    db_names = ["full", "default", "include_t1oo"]
+    return {
+        db_name: db_url
+        for db_name, db_url in [
+            (db_name, env.get(f"{db_name.upper()}_DATABASE_URL"))
+            for db_name in db_names
+        ]
+        if db_url
+    }
+
+
+DATABASE_URLS = database_urls_from_env(os.environ)
+
 
 TEMP_DATABASE_NAME = os.environ.get("TEMP_DATABASE_NAME")
 

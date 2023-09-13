@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from jobrunner.config import _is_valid_backend_name
+from jobrunner.config import _is_valid_backend_name, database_urls_from_env
 
 
 script = """
@@ -113,3 +113,16 @@ def test_config_presto_paths_not_exist(tmp_path):
 )
 def test_is_valid_backend_name(name, is_valid):
     assert _is_valid_backend_name(name) == is_valid
+
+
+def test_database_urls_from_env():
+    db_urls = database_urls_from_env(
+        {
+            "DEFAULT_DATABASE_URL": "mssql://localhost/db1",
+            "INCLUDE_T1OO_DATABASE_URL": "mssql://localhost/db2",
+        }
+    )
+    assert db_urls == {
+        "default": "mssql://localhost/db1",
+        "include_t1oo": "mssql://localhost/db2",
+    }
