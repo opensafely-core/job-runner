@@ -265,15 +265,9 @@ def job_should_be_rerun(job_request, job):
     # Otherwise if it succeeded last time there's no need to run again
     if job.state == State.SUCCEEDED:
         return False
-    # If it failed last time ...
+    # If it failed last time, re-run it by default
     elif job.state == State.FAILED:
-        # ... and we're forcing failed jobs to re-run then re-run it
-        if job_request.force_run_failed:
-            return True
-        # Otherwise it's an error condition
-        raise JobRequestError(
-            f"{job.action} failed on a previous run and must be re-run"
-        )
+        return True
     else:
         raise ValueError(f"Invalid state: {job}")
 
