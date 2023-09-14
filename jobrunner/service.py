@@ -105,7 +105,7 @@ def maintenance_mode():
             "--current-mode",
             str(current),
         ],
-        env={"DATABASE_URL": config.DATABASE_URLS["full"]},
+        env={"DATABASE_URL": config.DATABASE_URLS["default"]},
         check=True,
         capture_output=True,
         text=True,

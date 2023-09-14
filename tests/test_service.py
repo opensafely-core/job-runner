@@ -51,7 +51,7 @@ def add_maintenance_command(mock_subprocess_run, current):
             "--current-mode",
             str(current),
         ],
-        env={"DATABASE_URL": config.DATABASE_URLS["full"]},
+        env={"DATABASE_URL": config.DATABASE_URLS["default"]},
         capture_output=True,
         text=True,
         check=True,
@@ -95,4 +95,4 @@ def test_maintenance_mode_error(mock_subprocess_run, db, db_config):
 
 @pytest.fixture
 def db_config(monkeypatch):
-    monkeypatch.setitem(config.DATABASE_URLS, "full", "mssql://localhost")
+    monkeypatch.setitem(config.DATABASE_URLS, "default", "mssql://localhost")
