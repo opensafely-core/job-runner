@@ -450,9 +450,6 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         workspace=project_dir.name,
         database_name="dummy",
         force_run_dependencies=force_run_dependencies,
-        # The default behaviour of refusing to run if a dependency has failed
-        # makes for an awkward workflow when iterating in development
-        force_run_failed=True,
         branch="",
         original={"created_by": getuser()},
     )
