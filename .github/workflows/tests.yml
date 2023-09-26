@@ -56,12 +56,7 @@ jobs:
 
       - name: install Docker/Colima on MacOS
         if: ${{ matrix.os == 'macos-12' }}
-        run: |
-          # https://github.com/opensafely-core/job-server/issues/3429
-          brew remove --ignore-dependencies qemu
-          curl -o ./qemu.rb https://raw.githubusercontent.com/Homebrew/homebrew-core/dc0669eca9479e9eeb495397ba3a7480aaa45c2e/Formula/qemu.rb
-          brew install ./qemu.rb
-          brew install docker
+        run: brew install docker
 
       - name: start Colima on MacOS
         if: ${{ matrix.os == 'macos-12' }}
