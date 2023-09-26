@@ -103,7 +103,6 @@ class JobRequest:
     workspace: str
     database_name: str
     force_run_dependencies: bool = False
-    force_run_failed: bool = False
     branch: str = None
     original: dict = None
 
