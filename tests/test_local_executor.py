@@ -297,8 +297,8 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
     ]
     job_definition.inputs = ["output/input.csv"]
     job_definition.output_spec = {
-        "output/output.*": "high_privacy",
-        "output/summary.*": "medium_privacy",
+        "output/output.*": "highly_sensitive",
+        "output/summary.*": "moderately_sensitive",
     }
     populate_workspace(job_definition.workspace, "output/input.csv")
 
@@ -328,8 +328,8 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
     results = api.get_results(job_definition)
     assert results.exit_code == 0
     assert results.outputs == {
-        "output/output.csv": "high_privacy",
-        "output/summary.csv": "medium_privacy",
+        "output/output.csv": "highly_sensitive",
+        "output/summary.csv": "moderately_sensitive",
     }
     assert results.unmatched_patterns == []
 
@@ -344,8 +344,8 @@ def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir, volume_ap
 
     job_definition.args = ["false"]
     job_definition.output_spec = {
-        "output/output.*": "high_privacy",
-        "output/summary.*": "medium_privacy",
+        "output/output.*": "highly_sensitive",
+        "output/summary.*": "moderately_sensitive",
     }
 
     api = local.LocalDockerAPI()
@@ -378,8 +378,8 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume
     # the sleep is needed to make sure the unmatched file is *newer* enough
     job_definition.args = ["sh", "-c", "sleep 1; touch /workspace/unmatched"]
     job_definition.output_spec = {
-        "output/output.*": "high_privacy",
-        "output/summary.*": "medium_privacy",
+        "output/output.*": "highly_sensitive",
+        "output/summary.*": "moderately_sensitive",
     }
 
     api = local.LocalDockerAPI()

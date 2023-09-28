@@ -542,11 +542,11 @@ def test_handle_job_finalized_success_with_delete(db):
     job_factory(
         state=State.SUCCEEDED,
         status_code=StatusCode.SUCCEEDED,
-        outputs={"output/old.csv": "medium"},
+        outputs={"output/old.csv": "highly_sensitive"},
     )
 
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
-    api.set_job_result(job, outputs={"output/file.csv": "medium"})
+    api.set_job_result(job, outputs={"output/file.csv": "highly_sensitive"})
 
     run.handle_job(job, api)
 
@@ -558,7 +558,7 @@ def test_handle_job_finalized_success_with_delete(db):
     # our state
     assert job.state == State.SUCCEEDED
     assert job.status_message == "Completed successfully"
-    assert job.outputs == {"output/file.csv": "medium"}
+    assert job.outputs == {"output/file.csv": "highly_sensitive"}
     assert api.deleted["workspace"][Privacy.MEDIUM] == ["output/old.csv"]
     assert api.deleted["workspace"][Privacy.HIGH] == ["output/old.csv"]
 
@@ -607,7 +607,10 @@ def test_handle_job_finalized_failed_exit_code(
         run_command=run_command,
     )
     api.set_job_result(
-        job, outputs={"output/file.csv": "medium"}, exit_code=exit_code, message=None
+        job,
+        outputs={"output/file.csv": "highly_sensitive"},
+        exit_code=exit_code,
+        message=None,
     )
 
     run.handle_job(job, api)
@@ -624,7 +627,7 @@ def test_handle_job_finalized_failed_exit_code(
     if extra_message:
         expected += f": {extra_message}"
     assert job.status_message == expected
-    assert job.outputs == {"output/file.csv": "medium"}
+    assert job.outputs == {"output/file.csv": "highly_sensitive"}
 
     spans = get_trace("jobs")
     assert spans[-3].name == "FINALIZED"
@@ -644,7 +647,7 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
     api.set_job_result(
         job,
-        outputs={"output/file.csv": "medium"},
+        outputs={"output/file.csv": "highly_sensitive"},
         unmatched_patterns=["badfile.csv"],
         unmatched_outputs=["otherbadfile.csv"],
     )
@@ -659,7 +662,7 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     # our state
     assert job.state == State.FAILED
     assert job.status_message == "No outputs found matching patterns:\n - badfile.csv"
-    assert job.outputs == {"output/file.csv": "medium"}
+    assert job.outputs == {"output/file.csv": "highly_sensitive"}
     assert job.unmatched_outputs == ["otherbadfile.csv"]
 
     spans = get_trace("jobs")
@@ -925,8 +928,8 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
 def test_get_obsolete_files_nothing_to_delete(db):
 
     outputs = {
-        "high.txt": "high_privacy",
-        "medium.txt": "medium_privacy",
+        "high.txt": "highly_sensitive",
+        "medium.txt": "moderately_sensitive",
     }
     job = job_factory(
         state=State.SUCCEEDED,
@@ -942,14 +945,14 @@ def test_get_obsolete_files_nothing_to_delete(db):
 def test_get_obsolete_files_things_to_delete(db):
 
     old_outputs = {
-        "old_high.txt": "high_privacy",
-        "old_medium.txt": "medium_privacy",
-        "current.txt": "high_privacy",
+        "old_high.txt": "highly_sensitive",
+        "old_medium.txt": "moderately_sensitive",
+        "current.txt": "highly_sensitive",
     }
     new_outputs = {
-        "new_high.txt": "high_privacy",
-        "new_medium.txt": "medium_privacy",
-        "current.txt": "high_privacy",
+        "new_high.txt": "highly_sensitive",
+        "new_medium.txt": "moderately_sensitive",
+        "current.txt": "highly_sensitive",
     }
     job = job_factory(
         state=State.SUCCEEDED,
@@ -964,10 +967,10 @@ def test_get_obsolete_files_things_to_delete(db):
 def test_get_obsolete_files_case_change(db):
 
     old_outputs = {
-        "high.txt": "high_privacy",
+        "high.txt": "highly_sensitive",
     }
     new_outputs = {
-        "HIGH.txt": "high_privacy",
+        "HIGH.txt": "highly_sensitive",
     }
     job = job_factory(
         state=State.SUCCEEDED,
