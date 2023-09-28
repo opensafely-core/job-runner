@@ -294,16 +294,20 @@ class LocalDockerAPI(ExecutorAPI):
         else:
             raise Exception(f"unknown privacy of {privacy}")
 
-        errors = []
-        for name in files:
-            path = root / name
-            try:
-                path.unlink(missing_ok=True)
-            except Exception:
-                log.exception(f"Could not delete {path}")
-                errors.append(name)
+        return delete_files_from_directory(root, files)
 
-        return errors
+
+def delete_files_from_directory(directory, files):
+    errors = []
+    for name in files:
+        path = directory / name
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:
+            log.exception(f"Could not delete {path}")
+            errors.append(name)
+
+    return errors
 
 
 def prepare_job(job_definition):
@@ -411,8 +415,13 @@ def finalize_job(job_definition):
         write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
     else:
         write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True)
-        persist_outputs(job_definition, results.outputs, job_metadata)
+        excluded = persist_outputs(job_definition, results.outputs, job_metadata)
+        results.level4_excluded_files.update(**excluded)
+
     RESULTS[job_definition.id] = results
+
+    # for ease of testing
+    return results
 
 
 def get_job_metadata(job_definition, outputs, container_metadata):
@@ -457,25 +466,59 @@ def write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True):
             )
 
 
+MAX_SIZE_MSG = """
+The file {filename} was {size}Mb, which is above the limit for
+moderately_sensitive files of {limit}Mb.
+
+As such, it has *not* been copied to Level 4 storage. Please double check that
+{filename} contains only aggregate information, and is an appropriate size to
+be able to be output checked.
+"""
+
+
 def persist_outputs(job_definition, outputs, job_metadata):
     """Copy generated outputs to persistant storage."""
     # Extract outputs to workspace
     workspace_dir = get_high_privacy_workspace(job_definition.workspace)
 
+    excluded_files = {}
+
+    def mb(b):
+        return round(b / (1024 * 1024), 2)
+
+    sizes = {}
     for filename in outputs.keys():
         log.info(f"Extracting output file: {filename}")
-        volumes.get_volume_api(job_definition).copy_from_volume(
+        size = volumes.get_volume_api(job_definition).copy_from_volume(
             job_definition, filename, workspace_dir / filename
         )
+        sizes[filename] = size
 
     # Copy out medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job_definition.workspace)
     if medium_privacy_dir:
         for filename, privacy_level in outputs.items():
             if privacy_level == "moderately_sensitive":
-                volumes.copy_file(
-                    workspace_dir / filename, medium_privacy_dir / filename
-                )
+                size = sizes[filename]
+                message_file = medium_privacy_dir / (filename + ".txt")
+
+                if size < job_definition.max_level4_filesize:
+                    volumes.copy_file(
+                        workspace_dir / filename, medium_privacy_dir / filename
+                    )
+                    # if it previously had a too big notice, delete it
+                    delete_files_from_directory(medium_privacy_dir, [message_file])
+                else:
+                    msg = f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.max_level4_filesize)}Mb."
+                    excluded_files[filename] = msg
+                    message_file.parent.mkdir(exist_ok=True, parents=True)
+                    message_file.write_text(
+                        MAX_SIZE_MSG.format(
+                            filename=filename,
+                            size=mb(size),
+                            limit=mb(job_definition.max_level4_filesize),
+                        )
+                    )
 
         # this can be removed once osrelease is dead
         write_manifest_file(
@@ -486,6 +529,8 @@ def persist_outputs(job_definition, outputs, job_metadata):
                 "workspace": job_definition.workspace,
             },
         )
+
+    return excluded_files
 
 
 def find_matching_outputs(job_definition):

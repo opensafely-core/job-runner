@@ -26,6 +26,8 @@ def copy_file(source, dest, follow_symlinks=True):
     with atomic_writer(dest) as tmp:
         shutil.copy(source, tmp, follow_symlinks=follow_symlinks)
 
+    return dest.stat().st_size
+
 
 def docker_volume_name(job):
     return f"os-volume-{job.id}"
@@ -50,7 +52,7 @@ class DockerVolumeAPI:
         docker.copy_to_volume(docker_volume_name(job), src, dst, timeout)
 
     def copy_from_volume(job, src, dst, timeout=None):
-        docker.copy_from_volume(docker_volume_name(job), src, dst, timeout)
+        return docker.copy_from_volume(docker_volume_name(job), src, dst, timeout)
 
     def delete_volume(job):
         docker.delete_volume(docker_volume_name(job))
@@ -140,7 +142,7 @@ class BindMountVolumeAPI:
     def copy_from_volume(job, src, dst, timeout=None):
         # this is only used to copy final outputs/logs.
         path = host_volume_path(job) / src
-        copy_file(path, dst)
+        return copy_file(path, dst)
 
     def delete_volume(job):
 

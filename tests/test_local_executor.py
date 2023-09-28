@@ -474,6 +474,87 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
 
 
 @pytest.mark.needs_docker
+def test_finalize_large_level4_outputs(
+    docker_cleanup, job_definition, tmp_work_dir, volume_api
+):
+    job_definition.args = [
+        "truncate",
+        "-s",
+        str(1024 * 1024),
+        "/workspace/output/output.csv",
+    ]
+    job_definition.output_spec = {
+        "output/output.csv": "moderately_sensitive",
+    }
+    job_definition.max_level4_filesize = 512 * 1024
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    result = api.get_results(job_definition)
+
+    assert result.exit_code == 0
+    assert result.level4_excluded_files == {
+        "output/output.csv": "File size of 1.0Mb is larger that limit of 0.5Mb.",
+    }
+
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    message_file = level4_dir / "output/output.csv.txt"
+    txt = message_file.read_text()
+    assert "output/output.csv" in txt
+    assert "1.0Mb" in txt
+    assert "0.5Mb" in txt
+
+
+@pytest.mark.needs_docker
+def test_finalize_large_level4_outputs_cleanup(
+    docker_cleanup, job_definition, tmp_work_dir, volume_api
+):
+    job_definition.args = [
+        "truncate",
+        "-s",
+        str(256 * 1024),
+        "/workspace/output/output.csv",
+    ]
+    job_definition.output_spec = {
+        "output/output.csv": "moderately_sensitive",
+    }
+    job_definition.max_level4_filesize = 512 * 1024
+
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    message_file = level4_dir / "output/output.csv.txt"
+    message_file.parent.mkdir(exist_ok=True, parents=True)
+    message_file.write_text("message")
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    result = api.get_results(job_definition)
+
+    assert result.exit_code == 0
+    assert result.level4_excluded_files == {}
+    assert not message_file.exists()
+
+
+@pytest.mark.needs_docker
 def test_pending_job_terminated_not_finalized(
     docker_cleanup, job_definition, tmp_work_dir
 ):

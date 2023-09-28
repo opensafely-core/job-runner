@@ -569,6 +569,37 @@ def test_handle_job_finalized_success_with_delete(db):
     assert spans[-1].name == "JOB"
 
 
+def test_handle_job_finalized_success_with_large_file(db):
+    api = StubExecutorAPI()
+
+    # insert previous outputs
+    job_factory(
+        state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
+        outputs={"output/output.csv": "moderately_sensitive"},
+    )
+
+    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
+    api.set_job_result(
+        job,
+        outputs={"output/output.csv": "moderately_sensitive"},
+        level4_excluded_files={"output/output.csv": "too big"},
+    )
+
+    run.handle_job(job, api)
+
+    # executor state
+    assert job.id in api.tracker["cleanup"]
+    # its been cleaned up and is now unknown
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+
+    # our state
+    assert job.state == State.SUCCEEDED
+    assert "Completed successfully" in job.status_message
+    assert "were excluded" in job.status_message
+    assert "output/output.csv: too big" in job.status_message
+
+
 @pytest.mark.parametrize(
     "exit_code,run_command,extra_message",
     [

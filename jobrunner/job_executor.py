@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Mapping, Optional
 
@@ -35,6 +35,7 @@ class JobDefinition:
     database_name: str = None
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
+    max_level4_filesize: int = 16 * 1024 * 1024
     # if a job has been cancelled, the name of the canceller - either "user" or "admin"
     cancelled: str = None
 
@@ -77,6 +78,9 @@ class JobResults:
     message: str = None
     # timestamp these results were finalized, in integer nanoseconds
     timestamp_ns: int = None
+
+    # files not copied to level 4 (too big or similar reason)
+    level4_excluded_files: Mapping[str, str] = field(default_factory=dict)
 
     # to be extracted from the image labels
     action_version: str = "unknown"
