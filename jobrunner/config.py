@@ -136,10 +136,29 @@ if PRESTO_TLS_CERT_PATH:
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", 0))
-MAX_LEVEL4_FILESIZE = int(
-    os.environ.get("MAX_LEVEL4_FILESIZE", 16 * 1024 * 1024)
+
+
+LEVEL4_MAX_FILESIZE = int(
+    os.environ.get("LEVEL4_MAX_FILESIZE", 16 * 1024 * 1024)
 )  # 16mb
 
+
+# TODO: we might want to take this list from pipeline if we implement it there.
+LEVEL4_FILE_TYPES = [
+    # tables
+    ".csv",
+    ".tsv",
+    # images
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".svg",
+    # reports
+    ".html",
+    ".pdf",
+    ".txt",
+    ".json",
+]
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(

@@ -1,3 +1,4 @@
+import csv
 import datetime
 import json
 import logging
@@ -466,25 +467,12 @@ def write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True):
             )
 
 
-MAX_SIZE_MSG = """
-The file {filename} was {size}Mb, which is above the limit for
-moderately_sensitive files of {limit}Mb.
-
-As such, it has *not* been copied to Level 4 storage. Please double check that
-{filename} contains only aggregate information, and is an appropriate size to
-be able to be output checked.
-"""
-
-
 def persist_outputs(job_definition, outputs, job_metadata):
     """Copy generated outputs to persistant storage."""
     # Extract outputs to workspace
     workspace_dir = get_high_privacy_workspace(job_definition.workspace)
 
     excluded_files = {}
-
-    def mb(b):
-        return round(b / (1024 * 1024), 2)
 
     sizes = {}
     for filename in outputs.keys():
@@ -499,26 +487,22 @@ def persist_outputs(job_definition, outputs, job_metadata):
     if medium_privacy_dir:
         for filename, privacy_level in outputs.items():
             if privacy_level == "moderately_sensitive":
-                size = sizes[filename]
+                ok, job_msg, file_msg = check_l4_file(
+                    job_definition, filename, sizes[filename], workspace_dir
+                )
+
                 message_file = medium_privacy_dir / (filename + ".txt")
 
-                if size < job_definition.max_level4_filesize:
+                if ok:
                     volumes.copy_file(
                         workspace_dir / filename, medium_privacy_dir / filename
                     )
                     # if it previously had a too big notice, delete it
                     delete_files_from_directory(medium_privacy_dir, [message_file])
                 else:
-                    msg = f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.max_level4_filesize)}Mb."
-                    excluded_files[filename] = msg
+                    excluded_files[filename] = job_msg
                     message_file.parent.mkdir(exist_ok=True, parents=True)
-                    message_file.write_text(
-                        MAX_SIZE_MSG.format(
-                            filename=filename,
-                            size=mb(size),
-                            limit=mb(job_definition.max_level4_filesize),
-                        )
-                    )
+                    message_file.write_text(file_msg)
 
         # this can be removed once osrelease is dead
         write_manifest_file(
@@ -531,6 +515,93 @@ def persist_outputs(job_definition, outputs, job_metadata):
         )
 
     return excluded_files
+
+
+MAX_SIZE_MSG = """
+The file:
+
+{filename}
+
+was {size}Mb, which is above the limit for moderately_sensitive files of
+{limit}Mb.
+
+As such, it has *not* been copied to Level 4 storage. Please double check that
+{filename} contains only aggregate information, and is an appropriate size to
+be able to be output checked.
+"""
+
+INVALID_FILE_TYPE_MSG = """
+The file:
+
+{filename}
+
+is of type {suffix}. This is not a valid file type for moderately_sensitive files.
+
+Level 4 files should be aggregate information easily viewable by output checkers.
+
+See available list of file types here: https://docs.opensafely.org/releasing-files/#allowed-file-types
+"""
+
+PATIENT_ID = """
+The file:
+
+{filename}
+
+has not been made available in level 4 because it has a `patient_id` column.
+
+Patient level data is not allowed by policy in level 4.
+
+You should change this file's privacy to `highly_sensitive` in your
+project.yaml. Or, if is aggregrate data, you should remove the patient_id
+column from your data.
+
+"""
+
+
+def check_l4_file(job_definition, filename, size, workspace_dir):
+    def mb(b):
+        return round(b / (1024 * 1024), 2)
+
+    job_msgs = []
+    file_msgs = []
+
+    suffix = Path(filename).suffix
+    if suffix not in config.LEVEL4_FILE_TYPES:
+        job_msgs.append(f"File type of {suffix} is not valid level 4 file")
+        file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
+
+    elif suffix == ".csv":
+
+        # note: this assumes the local executor can directly access the long term storage on disk
+        # this may need to be abstracted in future
+        actual_file = workspace_dir / filename
+        try:
+            with actual_file.open() as f:
+                reader = csv.DictReader(f)
+                headers = reader.fieldnames
+        except Exception:
+            pass
+        else:
+            if headers and "patient_id" in headers:
+                job_msgs.append("File has patient_id column")
+                file_msgs.append(PATIENT_ID.format(filename=filename))
+
+    if size > job_definition.level4_max_filesize:
+        job_msgs.append(
+            f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.level4_max_filesize)}Mb."
+        )
+        file_msgs.append(
+            MAX_SIZE_MSG.format(
+                filename=filename,
+                size=mb(size),
+                limit=mb(job_definition.level4_max_filesize),
+            )
+        )
+
+    if job_msgs:
+        return False, ",".join(job_msgs), "\n\n".join(file_msgs)
+    else:
+        return True, None, None
 
 
 def find_matching_outputs(job_definition):
