@@ -276,6 +276,8 @@ def copy_from_volume(volume_name, source, dest, timeout=None):
             timeout=timeout,
         )
 
+    return dest.stat().st_size
+
 
 def glob_volume_files(volume_name, glob_patterns):
     """

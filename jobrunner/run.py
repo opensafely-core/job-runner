@@ -465,6 +465,12 @@ def save_results(job, job_definition, results):
         code = StatusCode.SUCCEEDED
         message = "Completed successfully"
 
+        if results.level4_excluded_files:
+            files = "\n".join(
+                f"{f}: {msg}" for f, msg in results.level4_excluded_files.items()
+            )
+            message += f", but {len(results.level4_excluded_files)} file(s) marked as moderately_sensitive were excluded:\n{files}"
+
     set_code(job, code, message, error=error, results=results)
 
 
@@ -550,6 +556,7 @@ def job_to_job_definition(job):
         # config defaults.
         cpu_count=config.DEFAULT_JOB_CPU_COUNT,
         memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
+        max_level4_filesize=config.MAX_LEVEL4_FILESIZE,
         cancelled=job_definition_cancelled,
     )
 
