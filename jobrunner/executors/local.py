@@ -535,7 +535,7 @@ The file:
 
 {filename}
 
-is of type {suffix}. This is not a valid file type for moderately_sensitive file.
+is of type {suffix}. This is not a valid file type for moderately_sensitive files.
 
 Level 4 files should be aggregate information easily viewable by output checkers.
 
@@ -551,7 +551,7 @@ has not been made available in level 4 because it has a `patient_id` column.
 
 Patient level data is not allowed by policy in level 4.
 
-You should change this files privacy to `moderately_sensitive` in your
+You should change this file's privacy to `highly_sensitive` in your
 project.yaml. Or, if is aggregrate data, you should remove the patient_id
 column from your data.
 
