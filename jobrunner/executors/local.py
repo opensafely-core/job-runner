@@ -502,21 +502,21 @@ def persist_outputs(job_definition, outputs, job_metadata):
                 size = sizes[filename]
                 message_file = medium_privacy_dir / (filename + ".txt")
 
-                if size < job_definition.max_level4_filesize:
+                if size < job_definition.level4_max_filesize:
                     volumes.copy_file(
                         workspace_dir / filename, medium_privacy_dir / filename
                     )
                     # if it previously had a too big notice, delete it
                     delete_files_from_directory(medium_privacy_dir, [message_file])
                 else:
-                    msg = f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.max_level4_filesize)}Mb."
+                    msg = f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.level4_max_filesize)}Mb."
                     excluded_files[filename] = msg
                     message_file.parent.mkdir(exist_ok=True, parents=True)
                     message_file.write_text(
                         MAX_SIZE_MSG.format(
                             filename=filename,
                             size=mb(size),
-                            limit=mb(job_definition.max_level4_filesize),
+                            limit=mb(job_definition.level4_max_filesize),
                         )
                     )
 

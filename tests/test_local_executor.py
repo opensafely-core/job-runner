@@ -486,7 +486,7 @@ def test_finalize_large_level4_outputs(
     job_definition.output_spec = {
         "output/output.csv": "moderately_sensitive",
     }
-    job_definition.max_level4_filesize = 512 * 1024
+    job_definition.level4_max_filesize = 512 * 1024
 
     api = local.LocalDockerAPI()
 
@@ -528,7 +528,7 @@ def test_finalize_large_level4_outputs_cleanup(
     job_definition.output_spec = {
         "output/output.csv": "moderately_sensitive",
     }
-    job_definition.max_level4_filesize = 512 * 1024
+    job_definition.level4_max_filesize = 512 * 1024
 
     level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
     message_file = level4_dir / "output/output.csv.txt"

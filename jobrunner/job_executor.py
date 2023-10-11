@@ -35,7 +35,7 @@ class JobDefinition:
     database_name: str = None
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
-    max_level4_filesize: int = 16 * 1024 * 1024
+    level4_max_filesize: int = 16 * 1024 * 1024
     # if a job has been cancelled, the name of the canceller - either "user" or "admin"
     cancelled: str = None
 

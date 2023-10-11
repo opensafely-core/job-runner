@@ -556,7 +556,7 @@ def job_to_job_definition(job):
         # config defaults.
         cpu_count=config.DEFAULT_JOB_CPU_COUNT,
         memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
-        max_level4_filesize=config.MAX_LEVEL4_FILESIZE,
+        level4_max_filesize=config.LEVEL4_MAX_FILESIZE,
         cancelled=job_definition_cancelled,
     )
 
