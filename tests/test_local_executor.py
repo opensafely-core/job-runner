@@ -481,10 +481,10 @@ def test_finalize_large_level4_outputs(
         "truncate",
         "-s",
         str(1024 * 1024),
-        "/workspace/output/output.csv",
+        "/workspace/output/output.txt",
     ]
     job_definition.output_spec = {
-        "output/output.csv": "moderately_sensitive",
+        "output/output.txt": "moderately_sensitive",
     }
     job_definition.level4_max_filesize = 512 * 1024
 
@@ -504,15 +504,86 @@ def test_finalize_large_level4_outputs(
 
     assert result.exit_code == 0
     assert result.level4_excluded_files == {
-        "output/output.csv": "File size of 1.0Mb is larger that limit of 0.5Mb.",
+        "output/output.txt": "File size of 1.0Mb is larger that limit of 0.5Mb.",
+    }
+
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    message_file = level4_dir / "output/output.txt.txt"
+    txt = message_file.read_text()
+    assert "output/output.txt" in txt
+    assert "1.0Mb" in txt
+    assert "0.5Mb" in txt
+
+
+@pytest.mark.needs_docker
+def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir):
+    job_definition.args = ["touch", "/workspace/output/output.rds"]
+    job_definition.output_spec = {
+        "output/output.rds": "moderately_sensitive",
+    }
+    job_definition.level4_file_types = [".csv"]
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    result = api.get_results(job_definition)
+
+    assert result.exit_code == 0
+    assert result.level4_excluded_files == {
+        "output/output.rds": "File type of .rds is not valid level 4 file",
+    }
+
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    message_file = level4_dir / "output/output.rds.txt"
+    txt = message_file.read_text()
+    assert "output/output.rds" in txt
+
+
+@pytest.mark.needs_docker
+def test_finalize_patient_id_header(docker_cleanup, job_definition, tmp_work_dir):
+    job_definition.args = [
+        "sh",
+        "-c",
+        "echo 'patient_id,foo,bar\n1,2,3' > /workspace/output/output.csv",
+    ]
+    job_definition.output_spec = {
+        "output/output.csv": "moderately_sensitive",
+    }
+    job_definition.level4_file_types = [".csv"]
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    result = api.get_results(job_definition)
+
+    assert result.exit_code == 0
+    assert result.level4_excluded_files == {
+        "output/output.csv": "File has patient_id column",
     }
 
     level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
     message_file = level4_dir / "output/output.csv.txt"
     txt = message_file.read_text()
     assert "output/output.csv" in txt
-    assert "1.0Mb" in txt
-    assert "0.5Mb" in txt
+    assert "patient_id" in txt
 
 
 @pytest.mark.needs_docker
@@ -523,15 +594,15 @@ def test_finalize_large_level4_outputs_cleanup(
         "truncate",
         "-s",
         str(256 * 1024),
-        "/workspace/output/output.csv",
+        "/workspace/output/output.txt",
     ]
     job_definition.output_spec = {
-        "output/output.csv": "moderately_sensitive",
+        "output/output.txt": "moderately_sensitive",
     }
     job_definition.level4_max_filesize = 512 * 1024
 
     level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
-    message_file = level4_dir / "output/output.csv.txt"
+    message_file = level4_dir / "output/output.txt.txt"
     message_file.parent.mkdir(exist_ok=True, parents=True)
     message_file.write_text("message")
 

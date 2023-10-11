@@ -143,6 +143,23 @@ LEVEL4_MAX_FILESIZE = int(
 )  # 16mb
 
 
+# TODO: we might want to take this list from pipeline if we implement it there.
+LEVEL4_FILE_TYPES = [
+    # tables
+    ".csv",
+    ".tsv",
+    # images
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".svg",
+    # reports
+    ".html",
+    ".pdf",
+    ".txt",
+    ".json",
+]
+
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
     "STATA_LICENSE_REPO",
