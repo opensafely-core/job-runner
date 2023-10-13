@@ -466,10 +466,7 @@ def save_results(job, job_definition, results):
         message = "Completed successfully"
 
         if results.level4_excluded_files:
-            files = "\n".join(
-                f"{f}: {msg}" for f, msg in results.level4_excluded_files.items()
-            )
-            message += f", but {len(results.level4_excluded_files)} file(s) marked as moderately_sensitive were excluded:\n{files}"
+            message += f", but {len(results.level4_excluded_files)} file(s) marked as moderately_sensitive were excluded. See job log for details."
 
     set_code(job, code, message, error=error, results=results)
 

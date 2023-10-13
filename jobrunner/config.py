@@ -157,6 +157,7 @@ LEVEL4_FILE_TYPES = [
     ".html",
     ".pdf",
     ".txt",
+    ".log",
     ".json",
 ]
 

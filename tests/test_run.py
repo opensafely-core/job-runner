@@ -597,7 +597,7 @@ def test_handle_job_finalized_success_with_large_file(db):
     assert job.state == State.SUCCEEDED
     assert "Completed successfully" in job.status_message
     assert "were excluded" in job.status_message
-    assert "output/output.csv: too big" in job.status_message
+    assert "output/output.csv: too big" not in job.status_message
 
 
 @pytest.mark.parametrize(

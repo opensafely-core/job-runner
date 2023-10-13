@@ -415,8 +415,10 @@ def finalize_job(job_definition):
     if job_definition.cancelled:
         write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
     else:
-        write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True)
         excluded = persist_outputs(job_definition, results.outputs, job_metadata)
+        write_job_logs(
+            job_definition, job_metadata, copy_log_to_workspace=True, excluded=excluded
+        )
         results.level4_excluded_files.update(**excluded)
 
     RESULTS[job_definition.id] = results
@@ -443,11 +445,13 @@ def get_job_metadata(job_definition, outputs, container_metadata):
     return job_metadata
 
 
-def write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True):
+def write_job_logs(
+    job_definition, job_metadata, copy_log_to_workspace=True, excluded=None
+):
     """Copy logs to log dir and workspace."""
     # Dump useful info in log directory
     log_dir = get_log_dir(job_definition)
-    write_log_file(job_definition, job_metadata, log_dir / "logs.txt")
+    write_log_file(job_definition, job_metadata, log_dir / "logs.txt", excluded)
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
 
@@ -643,7 +647,7 @@ def get_unmatched_outputs(job_definition, outputs):
     return [filename for filename in all_outputs if filename not in outputs]
 
 
-def write_log_file(job_definition, job_metadata, filename):
+def write_log_file(job_definition, job_metadata, filename, excluded):
     """
     This dumps the (timestamped) Docker logs for a job to disk, followed by
     some useful metadata about the job and its outputs
@@ -659,6 +663,10 @@ def write_log_file(job_definition, job_metadata, filename):
             f.write(f"{key}: {job_metadata[key]}\n")
         f.write("\noutputs:\n")
         f.write(tabulate(outputs, separator="  - ", indent=2, empty="(no outputs)"))
+        if excluded:
+            f.write("\nexcluded files:\n")
+            for excluded_file, msg in excluded.items():
+                f.write(f"{excluded_file}: {msg}")
 
 
 # Keys of fields to log in manifest.json and log file
@@ -776,7 +784,7 @@ def redact_environment_variables(container_metadata):
 
 def write_manifest_file(workspace_dir, manifest):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
-    manifest_file.parent.mkdir(exist_ok=True)
+    manifest_file.parent.mkdir(exist_ok=True, parents=True)
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)
