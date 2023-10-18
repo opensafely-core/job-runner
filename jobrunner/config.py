@@ -153,12 +153,14 @@ LEVEL4_FILE_TYPES = [
     ".jpeg",
     ".png",
     ".svg",
+    ".svgz",
     # reports
     ".html",
     ".pdf",
     ".txt",
     ".log",
     ".json",
+    ".md",
 ]
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
