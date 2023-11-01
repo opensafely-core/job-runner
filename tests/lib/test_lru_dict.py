@@ -8,7 +8,7 @@ from hypothesis.stateful import Bundle, RuleBasedStateMachine, invariant, rule
 from jobrunner.lib.lru_dict import LRUDict
 
 
-@settings(max_examples=500, deadline=500)
+@settings(max_examples=500)
 class LRUDictValidation(RuleBasedStateMachine):
     capacity = 5
     keys = st.integers(min_value=1)
