@@ -88,7 +88,7 @@ DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")
 
 
 def database_urls_from_env(env):
-    db_names = ["full", "default", "include_t1oo"]
+    db_names = ["default", "include_t1oo"]
     return {
         db_name: db_url
         for db_name, db_url in [

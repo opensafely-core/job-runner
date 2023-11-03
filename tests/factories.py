@@ -19,7 +19,7 @@ JOB_REQUEST_DEFAULTS = {
     "requested_actions": ["action"],
     "cancelled_actions": [],
     "workspace": "workspace",
-    "database_name": "full",
+    "database_name": "default",
     "original": {
         "created_by": "testuser",
         "project": "project",

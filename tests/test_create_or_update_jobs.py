@@ -245,7 +245,7 @@ def test_validate_job_request(params, exc_msg, monkeypatch):
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
         workspace="1",
-        database_name="full",  # note db from from job-server is 'full'
+        database_name="default",  # note db from from job-server is 'default'
         original=dict(
             created_by="user",
             project="project",
@@ -271,7 +271,7 @@ def make_job_request(action=None, actions=None, **kwargs):
         repo_url="https://example.com/repo.git",
         commit="abcdef0123456789",
         workspace="1",
-        database_name="full",
+        database_name="default",
         requested_actions=actions,
         cancelled_actions=[],
         original=dict(
