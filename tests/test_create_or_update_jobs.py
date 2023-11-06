@@ -191,7 +191,7 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
     run: python:latest -c pass
     outputs:
       moderately_sensitive:
-        name: path
+        name: path.csv
     """
     create_jobs_with_project_file(
         make_job_request(action="obsolete_action"), TEST_PROJECT + obsolete_action_def
