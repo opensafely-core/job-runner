@@ -23,21 +23,21 @@ actions:
     needs: [generate_cohort]
     outputs:
       highly_sensitive:
-        male_cohort: cohortextractor-male.*
+        male_cohort: cohortextractor-male*.csv
 
   prepare_data_f_cohortextractor:
     run: python:latest python analysis/filter_by_sex.py F output/input.csv cohortextractor-female.csv
     needs: [generate_cohort]
     outputs:
       highly_sensitive:
-        female_cohort: cohortextractor-female.*
+        female_cohort: cohortextractor-female*.csv
 
   prepare_data_with_quote_in_filename_cohortextractor:
     run: python:latest python analysis/filter_by_sex.py F output/input.csv "cohortextractor-qu'ote.csv"
     needs: [generate_cohort]
     outputs:
       highly_sensitive:
-        quote_cohort: "cohortextractor-qu'ote.*"
+        quote_cohort: "cohortextractor-qu'ote.csv"
 
   analyse_data_cohortextractor:
     run: python:latest python analysis/count_lines.py cohortextractor-counts.txt
