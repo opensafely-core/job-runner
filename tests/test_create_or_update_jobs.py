@@ -36,6 +36,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
         workspace="1",
+        codelists_ok=True,
         database_name="dummy",
         original=dict(
             created_by="user",
@@ -77,6 +78,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
         workspace="1",
+        codelists_ok=True,
         database_name="dummy",
         original=dict(
             created_by="user",
@@ -245,6 +247,7 @@ def test_validate_job_request(params, exc_msg, monkeypatch):
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
         workspace="1",
+        codelists_ok=True,
         database_name="default",  # note db from from job-server is 'default'
         original=dict(
             created_by="user",
@@ -271,6 +274,7 @@ def make_job_request(action=None, actions=None, **kwargs):
         repo_url="https://example.com/repo.git",
         commit="abcdef0123456789",
         workspace="1",
+        codelists_ok=True,
         database_name="default",
         requested_actions=actions,
         cancelled_actions=[],

@@ -19,6 +19,7 @@ JOB_REQUEST_DEFAULTS = {
     "requested_actions": ["action"],
     "cancelled_actions": [],
     "workspace": "workspace",
+    "codelists_ok": True,
     "database_name": "default",
     "original": {
         "created_by": "testuser",

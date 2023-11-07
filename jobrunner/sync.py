@@ -126,6 +126,7 @@ def job_request_from_remote_format(job_request):
         requested_actions=job_request["requested_actions"],
         cancelled_actions=job_request["cancelled_actions"],
         workspace=job_request["workspace"]["name"],
+        codelists_ok=job_request["codelists_ok"],
         # Transitional code while we move the location of the `database_name` attribute
         database_name=(
             job_request["database_name"]

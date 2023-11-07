@@ -101,6 +101,7 @@ class JobRequest:
     requested_actions: list
     cancelled_actions: list
     workspace: str
+    codelists_ok: bool
     database_name: str
     force_run_dependencies: bool = False
     branch: str = None
