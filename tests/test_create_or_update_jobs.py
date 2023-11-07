@@ -345,3 +345,27 @@ def test_create_failed_job_nothing_to_do(db):
     assert spans[0].status.status_code == trace.StatusCode.UNSET
     assert spans[1].name == "JOB"
     assert spans[1].status.status_code == trace.StatusCode.UNSET
+
+
+@pytest.mark.parametrize(
+    "requested_action,expect_error",
+    [("generate_cohort", True), ("analyse_data", True), ("standalone_action", False)],
+)
+def test_create_or_update_jobs_with_out_of_date_codelists(
+    tmp_work_dir, requested_action, expect_error
+):
+    project = TEST_PROJECT + (
+        """
+  standalone_action:
+    run: python:latest analysis/do_something.py
+    outputs:
+      moderately_sensitive:
+        something: done.txt
+"""
+    )
+    job_request = make_job_request(action=requested_action, codelists_ok=False)
+    if expect_error:
+        with pytest.raises(JobRequestError, match="Codelists are out of date"):
+            create_jobs_with_project_file(job_request, project)
+    else:
+        assert create_jobs_with_project_file(job_request, project) == 1
