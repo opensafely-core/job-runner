@@ -37,7 +37,6 @@ class State(Enum):
 
 
 class StatusCode(Enum):
-
     # PENDING states
     #
     # initial state of a job, not yet running

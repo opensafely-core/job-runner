@@ -197,7 +197,6 @@ def db(monkeypatch, request):
 
 @dataclass
 class SubprocessStub:
-
     calls: deque = field(default_factory=deque)
 
     def add_call(self, cmd, **kwargs):

@@ -440,7 +440,6 @@ def create_and_run_jobs(
 
 
 def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
-
     job_request = JobRequest(
         id=random_id(),
         repo_url=str(project_dir),

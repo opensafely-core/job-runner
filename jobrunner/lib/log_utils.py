@@ -72,7 +72,6 @@ def configure_logging(
 
 
 class JobRunnerFormatter(logging.Formatter):
-
     converter = time.gmtime  # utc rather than local
     default_msec_format = "%s.%03dZ"  # s/,/. and append Z
 

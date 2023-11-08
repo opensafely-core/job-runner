@@ -184,7 +184,6 @@ class LocalDockerAPI(ExecutorAPI):
         return JobStatus(ExecutorState.EXECUTING)
 
     def finalize(self, job_definition):
-
         current_status = self.get_status(job_definition)
         if current_status.state == ExecutorState.UNKNOWN:
             # job had not started running, so do not finalize
@@ -575,7 +574,6 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
 
     elif suffix == ".csv":
-
         # note: this assumes the local executor can directly access the long term storage on disk
         # this may need to be abstracted in future
         actual_file = workspace_dir / filename

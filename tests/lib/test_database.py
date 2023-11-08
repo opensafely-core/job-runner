@@ -179,7 +179,6 @@ def test_migrate_in_transaction(tmp_path):
 
 
 def test_ensure_valid_db(tmp_path):
-
     # db doesn't exists
     with pytest.raises(MigrationNeeded) as exc:
         ensure_valid_db("not_exists")

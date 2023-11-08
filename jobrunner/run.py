@@ -356,7 +356,6 @@ def handle_job(job, api, mode=None, paused=None):
         new_status = api.execute(job_definition)
 
     elif initial_status.state == ExecutorState.EXECUTED:
-
         if ExecutorState.FINALIZING in synchronous_transitions:
             # finalize is synchronous, which means set our code to FINALIZING
             # before calling  api.finalize(), and we expect it to be FINALIZED
@@ -493,7 +492,6 @@ def get_obsolete_files(job_definition, outputs):
 
 
 def job_to_job_definition(job):
-
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
     if job.requires_db:
@@ -599,7 +597,6 @@ def set_code(
 
     # if status code has changed then trace it and update
     if job.status_code != new_status_code:
-
         # handle timer measurement errors
         if job.status_code_updated_at > timestamp_ns:
             # we somehow have a negative duration, which honeycomb does funny things with.
