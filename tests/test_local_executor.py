@@ -506,8 +506,10 @@ def test_finalize_large_level4_outputs(
     assert "0.5Mb" in txt
     log_file = level4_dir / "metadata/action.log"
     log = log_file.read_text()
-    assert "excluded files:" in log
-    assert "output/output.txt: File size of 1.0Mb is larger that limit of 0.5Mb." in log
+    assert "Invalid moderately_sensitive outputs:" in log
+    assert (
+        "output/output.txt  - File size of 1.0Mb is larger that limit of 0.5Mb." in log
+    )
 
 
 @pytest.mark.needs_docker
@@ -544,8 +546,8 @@ def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir
 
     log_file = level4_dir / "metadata/action.log"
     log = log_file.read_text()
-    assert "excluded files:" in log
-    assert "output/output.rds: File type of .rds is not valid level 4 file" in log
+    assert "Invalid moderately_sensitive outputs:" in log
+    assert "output/output.rds  - File type of .rds is not valid level 4 file" in log
 
 
 @pytest.mark.needs_docker
@@ -587,8 +589,8 @@ def test_finalize_patient_id_header(docker_cleanup, job_definition, tmp_work_dir
 
     log_file = level4_dir / "metadata/action.log"
     log = log_file.read_text()
-    assert "excluded files:" in log
-    assert "output/output.csv: File has patient_id column" in log
+    assert "Invalid moderately_sensitive outputs:" in log
+    assert "output/output.csv  - File has patient_id column" in log
 
 
 @pytest.mark.needs_docker

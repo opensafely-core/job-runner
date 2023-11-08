@@ -662,9 +662,10 @@ def write_log_file(job_definition, job_metadata, filename, excluded):
         f.write("\noutputs:\n")
         f.write(tabulate(outputs, separator="  - ", indent=2, empty="(no outputs)"))
         if excluded:
-            f.write("\nexcluded files:\n")
-            for excluded_file, msg in excluded.items():
-                f.write(f"{excluded_file}: {msg}")
+            f.write("\n")
+            f.write("\nInvalid moderately_sensitive outputs:\n")
+            f.write(tabulate(excluded.items(), separator="  - ", indent=2))
+        f.write("\n")
 
 
 # Keys of fields to log in manifest.json and log file
