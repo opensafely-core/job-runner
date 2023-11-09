@@ -24,6 +24,7 @@ test_request = JobRequest(
     commit="commit",
     requested_actions=["action"],
     cancelled_actions=[],
+    codelists_ok=True,
     database_name="dummy",
 )
 

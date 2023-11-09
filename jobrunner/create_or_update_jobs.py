@@ -90,6 +90,11 @@ def create_jobs(job_request):
     new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
     assert_new_jobs_created(job_request, new_jobs, latest_jobs)
     resolve_reusable_action_references(new_jobs)
+
+    # check for database actions in the new jobs, and raise an exception if
+    # codelists are out of date
+    assert_codelists_ok(job_request, new_jobs)
+
     # There is a delay between getting the current jobs (which we fetch from
     # the database and the disk) and inserting our new jobs below. This means
     # the state of the world may have changed in the meantime. Why is this OK?
@@ -297,6 +302,18 @@ def assert_new_jobs_created(job_request, new_jobs, current_jobs):
     # But if we get here then we've somehow failed to schedule new jobs despite the fact
     # that some of the actions we depend on have failed, which is a bug.
     raise Exception(f"Unexpected job states after scheduling: {current_job_states}")
+
+
+def assert_codelists_ok(job_request, new_jobs):
+    if job_request.codelists_ok:
+        return True
+    for job in new_jobs:
+        # Codelists are out of date; fail the entire job request if any job
+        # requires database access
+        if job.requires_db:
+            raise JobRequestError(
+                f"Codelists are out of date (required by action {job.action})"
+            )
 
 
 def create_failed_job(job_request, exception):

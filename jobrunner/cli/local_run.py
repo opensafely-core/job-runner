@@ -448,6 +448,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         requested_actions=actions,
         cancelled_actions=[],
         workspace=project_dir.name,
+        codelists_ok=True,
         database_name="dummy",
         force_run_dependencies=force_run_dependencies,
         branch="",

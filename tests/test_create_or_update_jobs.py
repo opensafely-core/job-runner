@@ -1,3 +1,4 @@
+import re
 import uuid
 from pathlib import Path
 from unittest import mock
@@ -36,6 +37,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
         workspace="1",
+        codelists_ok=True,
         database_name="dummy",
         original=dict(
             created_by="user",
@@ -77,6 +79,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
         workspace="1",
+        codelists_ok=True,
         database_name="dummy",
         original=dict(
             created_by="user",
@@ -245,6 +248,7 @@ def test_validate_job_request(params, exc_msg, monkeypatch):
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
         workspace="1",
+        codelists_ok=True,
         database_name="default",  # note db from from job-server is 'default'
         original=dict(
             created_by="user",
@@ -271,6 +275,7 @@ def make_job_request(action=None, actions=None, **kwargs):
         repo_url="https://example.com/repo.git",
         commit="abcdef0123456789",
         workspace="1",
+        codelists_ok=True,
         database_name="default",
         requested_actions=actions,
         cancelled_actions=[],
@@ -341,3 +346,34 @@ def test_create_failed_job_nothing_to_do(db):
     assert spans[0].status.status_code == trace.StatusCode.UNSET
     assert spans[1].name == "JOB"
     assert spans[1].status.status_code == trace.StatusCode.UNSET
+
+
+@pytest.mark.parametrize(
+    "requested_action,expect_error",
+    [("generate_cohort", True), ("analyse_data", True), ("standalone_action", False)],
+)
+def test_create_or_update_jobs_with_out_of_date_codelists(
+    tmp_work_dir, requested_action, expect_error
+):
+    project = TEST_PROJECT + (
+        """
+  standalone_action:
+    run: python:latest analysis/do_something.py
+    outputs:
+      moderately_sensitive:
+        something: done.txt
+"""
+    )
+    job_request = make_job_request(action=requested_action, codelists_ok=False)
+    if expect_error:
+        # The error reports the action that needed the up-to-date codelists, even if that
+        # wasn't the action explicitly requested
+        with pytest.raises(
+            JobRequestError,
+            match=re.escape(
+                "Codelists are out of date (required by action generate_cohort)"
+            ),
+        ):
+            create_jobs_with_project_file(job_request, project)
+    else:
+        assert create_jobs_with_project_file(job_request, project) == 1
