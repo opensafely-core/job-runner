@@ -1,3 +1,4 @@
+import re
 import uuid
 from pathlib import Path
 from unittest import mock
@@ -365,7 +366,14 @@ def test_create_or_update_jobs_with_out_of_date_codelists(
     )
     job_request = make_job_request(action=requested_action, codelists_ok=False)
     if expect_error:
-        with pytest.raises(JobRequestError, match="Codelists are out of date"):
+        # The error reports the action that needed the up-to-date codelists, even if that
+        # wasn't the action explicitly requested
+        with pytest.raises(
+            JobRequestError,
+            match=re.escape(
+                "Codelists are out of date (required by action generate_cohort)"
+            ),
+        ):
             create_jobs_with_project_file(job_request, project)
     else:
         assert create_jobs_with_project_file(job_request, project) == 1

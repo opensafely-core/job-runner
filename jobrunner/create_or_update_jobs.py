@@ -311,7 +311,9 @@ def assert_codelists_ok(job_request, new_jobs):
         # Codelists are out of date; fail the entire job request if any job
         # requires database access
         if job.requires_db:
-            raise JobRequestError("Codelists are out of date")
+            raise JobRequestError(
+                f"Codelists are out of date (required by action {job.action})"
+            )
 
 
 def create_failed_job(job_request, exception):
