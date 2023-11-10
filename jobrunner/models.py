@@ -157,6 +157,7 @@ class Job:
             completed_at INT,
             trace_context TEXT,
             status_code_updated_at INT,
+            level4_excluded_files TEXT,
 
             PRIMARY KEY (id)
         );
@@ -176,6 +177,13 @@ class Job:
         """
         ALTER TABLE job ADD COLUMN trace_context TEXT;
         ALTER TABLE job ADD COLUMN status_code_updated_at INT;
+        """,
+    )
+
+    migration(
+        2,
+        """
+        ALTER TABLE job ADD COLUMN level4_excluded_files TEXT;
         """,
     )
 
@@ -236,6 +244,8 @@ class Job:
     status_code_updated_at: int = None
     # used to track the OTel trace context for this job
     trace_context: dict = None
+
+    level4_excluded_files: dict = None
 
     # used to cache the job_request json by the tracing code
     _job_request = None

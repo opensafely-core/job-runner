@@ -434,6 +434,7 @@ def save_results(job, job_definition, results):
     """Extract the results of the execution and update the job accordingly."""
     # save job outputs
     job.outputs = results.outputs
+    job.level4_excluded_files = results.level4_excluded_files
 
     message = None
     error = False

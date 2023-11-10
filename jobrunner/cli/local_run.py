@@ -426,6 +426,13 @@ def create_and_run_jobs(
         print("   outputs:")
         outputs = sorted(job.outputs.items()) if job.outputs else []
         print(tabulate(outputs, separator="  - ", indent=5, empty="(no outputs)"))
+
+        if job.level4_excluded_files:
+            print("   invalid moderately_sensitive outputs:")
+            print(
+                tabulate(job.level4_excluded_files.items(), separator="  - ", indent=5)
+            )
+
         # If a job exited with an error code then try to display the end of the
         # log output in case that makes the problem immediately obvious
         if job.status_code == StatusCode.NONZERO_EXIT:
