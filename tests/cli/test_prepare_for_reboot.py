@@ -9,7 +9,6 @@ from tests.factories import job_factory
 
 
 def test_prepare_for_reboot(db, monkeypatch):
-
     j1 = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
     j2 = job_factory(
         state=State.PENDING, status_code=StatusCode.WAITING_ON_DEPENDENCIES

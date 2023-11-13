@@ -957,7 +957,6 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
 
 
 def test_get_obsolete_files_nothing_to_delete(db):
-
     outputs = {
         "high.txt": "highly_sensitive",
         "medium.txt": "moderately_sensitive",
@@ -974,7 +973,6 @@ def test_get_obsolete_files_nothing_to_delete(db):
 
 
 def test_get_obsolete_files_things_to_delete(db):
-
     old_outputs = {
         "old_high.txt": "highly_sensitive",
         "old_medium.txt": "moderately_sensitive",
@@ -996,7 +994,6 @@ def test_get_obsolete_files_things_to_delete(db):
 
 
 def test_get_obsolete_files_case_change(db):
-
     old_outputs = {
         "high.txt": "highly_sensitive",
     }

@@ -34,7 +34,6 @@ def docker_volume_name(job):
 
 
 class DockerVolumeAPI:
-
     # don't run with UIDs for now. We maybe be able to support this in future.
     requires_root = True
     supported_platforms = ("linux", "win32", "darwin")
@@ -91,7 +90,6 @@ def host_volume_path(job, create=True):
 
 
 class BindMountVolumeAPI:
-
     # Only works running jobs with uid:gid
     requires_root = False
     supported_platforms = ("linux",)
@@ -145,7 +143,6 @@ class BindMountVolumeAPI:
         return copy_file(path, dst)
 
     def delete_volume(job):
-
         failed_files = {}
 
         # if we logged each file error directly, it would spam the logs, so we collect them

@@ -264,7 +264,6 @@ COMMIT;
 
 
 def migrate_db(conn, migrations=None, verbose=False):
-
     current_version = conn.execute("PRAGMA user_version").fetchone()[0]
     applied = []
 

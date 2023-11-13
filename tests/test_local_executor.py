@@ -115,7 +115,6 @@ def workspace_log_file_exists(job_definition):
 def test_prepare_success(
     docker_cleanup, job_definition, test_repo, tmp_work_dir, volume_api, freezer
 ):
-
     job_definition.inputs = ["output/input.csv"]
     populate_workspace(job_definition.workspace, "output/input.csv")
 
@@ -147,7 +146,6 @@ def test_prepare_success(
 
 @pytest.mark.needs_docker
 def test_prepare_already_prepared(docker_cleanup, job_definition, volume_api):
-
     # create the volume already
     volume_api.create_volume(job_definition)
     volume_api.write_timestamp(job_definition, local.TIMESTAMP_REFERENCE_FILE)
@@ -208,7 +206,6 @@ def test_prepare_job_bad_commit(docker_cleanup, job_definition, test_repo):
 
 @pytest.mark.needs_docker
 def test_prepare_job_no_input_file(docker_cleanup, job_definition, volume_api):
-
     job_definition.inputs = ["output/input.csv"]
 
     with pytest.raises(local.LocalDockerError) as exc_info:
@@ -219,7 +216,6 @@ def test_prepare_job_no_input_file(docker_cleanup, job_definition, volume_api):
 
 @pytest.mark.needs_docker
 def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
-
     # check limits are applied
     job_definition.cpu_count = 1.5
     job_definition.memory_limit = "1G"
@@ -289,7 +285,6 @@ def test_execute_not_prepared(docker_cleanup, job_definition, tmp_work_dir, volu
 
 @pytest.mark.needs_docker
 def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
-
     job_definition.args = [
         "touch",
         "/workspace/output/output.csv",
@@ -341,7 +336,6 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
 
 @pytest.mark.needs_docker
 def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir, volume_api):
-
     job_definition.args = ["false"]
     job_definition.output_spec = {
         "output/output.*": "highly_sensitive",
@@ -374,7 +368,6 @@ def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir, volume_ap
 
 @pytest.mark.needs_docker
 def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume_api):
-
     # the sleep is needed to make sure the unmatched file is *newer* enough
     job_definition.args = ["sh", "-c", "sleep 1; touch /workspace/unmatched"]
     job_definition.output_spec = {
@@ -409,7 +402,6 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume
 
 @pytest.mark.needs_docker
 def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir, volume_api):
-
     job_definition.args = ["sleep", "101"]
 
     api = local.LocalDockerAPI()
@@ -442,7 +434,6 @@ def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir, volum
 
 @pytest.mark.needs_docker
 def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir):
-
     # Consume memory by writing to the tmpfs at /dev/shm
     # We write a lot more that our limit, to ensure the OOM killer kicks in
     # regardless of our tests host's vm.overcommit_memory settings.
@@ -473,9 +464,17 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
     assert workspace_log_file_exists(job_definition)
 
 
+@pytest.fixture(params=[True, False])
+def local_run(request, monkeypatch):
+    # local_run does not have a level 4 configured
+    if request.param:
+        monkeypatch.setattr(config, "MEDIUM_PRIVACY_WORKSPACES_DIR", None)
+    return request.param
+
+
 @pytest.mark.needs_docker
 def test_finalize_large_level4_outputs(
-    docker_cleanup, job_definition, tmp_work_dir, volume_api
+    docker_cleanup, job_definition, tmp_work_dir, volume_api, local_run
 ):
     job_definition.args = [
         "truncate",
@@ -507,16 +506,20 @@ def test_finalize_large_level4_outputs(
         "output/output.txt": "File size of 1.0Mb is larger that limit of 0.5Mb.",
     }
 
-    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
-    message_file = level4_dir / "output/output.txt.txt"
-    txt = message_file.read_text()
-    assert "output/output.txt" in txt
-    assert "1.0Mb" in txt
-    assert "0.5Mb" in txt
-    log_file = level4_dir / "metadata/action.log"
+    log_file = local.get_log_dir(job_definition) / "logs.txt"
     log = log_file.read_text()
-    assert "excluded files:" in log
-    assert "output/output.txt: File size of 1.0Mb is larger that limit of 0.5Mb." in log
+    assert "Invalid moderately_sensitive outputs:" in log
+    assert (
+        "output/output.txt  - File size of 1.0Mb is larger that limit of 0.5Mb." in log
+    )
+
+    if not local_run:
+        level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+        message_file = level4_dir / "output/output.txt.txt"
+        txt = message_file.read_text()
+        assert "output/output.txt" in txt
+        assert "1.0Mb" in txt
+        assert "0.5Mb" in txt
 
 
 @pytest.mark.needs_docker
@@ -551,14 +554,16 @@ def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir
     txt = message_file.read_text()
     assert "output/output.rds" in txt
 
-    log_file = level4_dir / "metadata/action.log"
+    log_file = local.get_log_dir(job_definition) / "logs.txt"
     log = log_file.read_text()
-    assert "excluded files:" in log
-    assert "output/output.rds: File type of .rds is not valid level 4 file" in log
+    assert "Invalid moderately_sensitive outputs:" in log
+    assert "output/output.rds  - File type of .rds is not valid level 4 file" in log
 
 
 @pytest.mark.needs_docker
-def test_finalize_patient_id_header(docker_cleanup, job_definition, tmp_work_dir):
+def test_finalize_patient_id_header(
+    docker_cleanup, job_definition, tmp_work_dir, local_run
+):
     job_definition.args = [
         "sh",
         "-c",
@@ -588,16 +593,18 @@ def test_finalize_patient_id_header(docker_cleanup, job_definition, tmp_work_dir
         "output/output.csv": "File has patient_id column",
     }
 
-    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
-    message_file = level4_dir / "output/output.csv.txt"
-    txt = message_file.read_text()
-    assert "output/output.csv" in txt
-    assert "patient_id" in txt
-
-    log_file = level4_dir / "metadata/action.log"
+    log_file = local.get_log_dir(job_definition) / "logs.txt"
     log = log_file.read_text()
-    assert "excluded files:" in log
-    assert "output/output.csv: File has patient_id column" in log
+    assert "Invalid moderately_sensitive outputs:" in log
+    assert "output/output.csv  - File has patient_id column" in log
+
+    if not local_run:
+        level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+
+        message_file = level4_dir / "output/output.csv.txt"
+        txt = message_file.read_text()
+        assert "output/output.csv" in txt
+        assert "patient_id" in txt
 
 
 @pytest.mark.needs_docker
@@ -727,7 +734,6 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
 
 @pytest.mark.needs_docker
 def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
-
     populate_workspace(job_definition.workspace, "output/input.csv")
 
     api = local.LocalDockerAPI()
@@ -749,7 +755,6 @@ def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir, volume_ap
 
 
 def test_delete_files_success(tmp_work_dir):
-
     high = populate_workspace("test", "file.txt")
     medium = populate_workspace("test", "file.txt", privacy="medium")
 
@@ -774,7 +779,6 @@ def test_delete_files_success(tmp_work_dir):
 
 
 def test_delete_files_error(tmp_work_dir):
-
     # use the fact that unlink() on a director raises an error
     populate_workspace("test", "bad/_")
 
@@ -812,7 +816,6 @@ def test_get_status_timeout(tmp_work_dir, job_definition, monkeypatch):
 def test_write_read_timestamps(
     docker_cleanup, job_definition, tmp_work_dir, volume_api
 ):
-
     assert volume_api.read_timestamp(job_definition, "test") is None
 
     volume_api.create_volume(job_definition)
@@ -826,7 +829,6 @@ def test_write_read_timestamps(
 
 @pytest.mark.needs_docker
 def test_read_timestamp_stat_fallback(docker_cleanup, job_definition, tmp_work_dir):
-
     volumes.DockerVolumeAPI.create_volume(job_definition)
 
     volume_name = volumes.DockerVolumeAPI.volume_name(job_definition)

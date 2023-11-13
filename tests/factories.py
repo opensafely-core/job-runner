@@ -124,7 +124,6 @@ class StubExecutorAPI:
     synchronous_transitions = []
 
     def __init__(self):
-
         self.tracker = {
             "prepare": set(),
             "execute": set(),

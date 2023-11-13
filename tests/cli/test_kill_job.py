@@ -11,7 +11,6 @@ from tests.factories import job_factory
 
 @pytest.mark.parametrize("cleanup", [False, True])
 def test_kill_job(cleanup, tmp_work_dir, db, monkeypatch):
-
     job = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
 
     mocker = mock.MagicMock(spec=local.docker)

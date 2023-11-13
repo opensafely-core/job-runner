@@ -184,7 +184,6 @@ class LocalDockerAPI(ExecutorAPI):
         return JobStatus(ExecutorState.EXECUTING)
 
     def finalize(self, job_definition):
-
         current_status = self.get_status(job_definition)
         if current_status.state == ExecutorState.UNKNOWN:
             # job had not started running, so do not finalize
@@ -488,13 +487,18 @@ def persist_outputs(job_definition, outputs, job_metadata):
 
     # Copy out medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job_definition.workspace)
-    if medium_privacy_dir:
-        for filename, privacy_level in outputs.items():
-            if privacy_level == "moderately_sensitive":
-                ok, job_msg, file_msg = check_l4_file(
-                    job_definition, filename, sizes[filename], workspace_dir
-                )
 
+    for filename, privacy_level in outputs.items():
+        if privacy_level == "moderately_sensitive":
+            ok, job_msg, file_msg = check_l4_file(
+                job_definition, filename, sizes[filename], workspace_dir
+            )
+
+            if not ok:
+                excluded_files[filename] = job_msg
+
+            # local run currently does not have a level 4 directory
+            if medium_privacy_dir:
                 message_file = medium_privacy_dir / (filename + ".txt")
 
                 if ok:
@@ -504,19 +508,18 @@ def persist_outputs(job_definition, outputs, job_metadata):
                     # if it previously had a too big notice, delete it
                     delete_files_from_directory(medium_privacy_dir, [message_file])
                 else:
-                    excluded_files[filename] = job_msg
                     message_file.parent.mkdir(exist_ok=True, parents=True)
                     message_file.write_text(file_msg)
 
-        # this can be removed once osrelease is dead
-        write_manifest_file(
-            medium_privacy_dir,
-            {
-                # this currently needs to exist, but is not used
-                "repo": None,
-                "workspace": job_definition.workspace,
-            },
-        )
+                # this can be removed once osrelease is dead
+                write_manifest_file(
+                    medium_privacy_dir,
+                    {
+                        # this currently needs to exist, but is not used
+                        "repo": None,
+                        "workspace": job_definition.workspace,
+                    },
+                )
 
     return excluded_files
 
@@ -575,7 +578,6 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
 
     elif suffix == ".csv":
-
         # note: this assumes the local executor can directly access the long term storage on disk
         # this may need to be abstracted in future
         actual_file = workspace_dir / filename
@@ -664,9 +666,10 @@ def write_log_file(job_definition, job_metadata, filename, excluded):
         f.write("\noutputs:\n")
         f.write(tabulate(outputs, separator="  - ", indent=2, empty="(no outputs)"))
         if excluded:
-            f.write("\nexcluded files:\n")
-            for excluded_file, msg in excluded.items():
-                f.write(f"{excluded_file}: {msg}")
+            f.write("\n")
+            f.write("\nInvalid moderately_sensitive outputs:\n")
+            f.write(tabulate(excluded.items(), separator="  - ", indent=2))
+        f.write("\n")
 
 
 # Keys of fields to log in manifest.json and log file
