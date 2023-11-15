@@ -5,6 +5,7 @@ job-server
 import argparse
 import dataclasses
 import pprint
+import sys
 import textwrap
 from pathlib import Path
 from urllib.parse import urlparse
@@ -36,6 +37,7 @@ def main(
             requested_actions=actions,
             force_run_dependencies=force_run_dependencies,
             cancelled_actions=[],
+            codelists_ok=True,
         )
     )
     print("Submitting JobRequest:\n")
@@ -45,6 +47,8 @@ def main(
     print(f"Created {len(jobs)} new jobs:\n")
     for job in jobs:
         display_obj(job)
+
+    return job_request, jobs
 
 
 def display_obj(obj):
@@ -57,7 +61,10 @@ def display_obj(obj):
     print()
 
 
-def run():
+def run(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+
     configure_logging()
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument("repo_url", help="URL (or local path) of git repository")
@@ -82,8 +89,8 @@ def run():
     )
     parser.add_argument("-f", "--force-run-dependencies", action="store_true")
 
-    args = parser.parse_args()
-    main(**vars(args))
+    args = parser.parse_args(argv)
+    return main(**vars(args))
 
 
 if __name__ == "__main__":

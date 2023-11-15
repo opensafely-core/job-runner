@@ -114,7 +114,8 @@ def create_jobs(job_request):
 
 
 def validate_job_request(job_request):
-    if config.ALLOWED_GITHUB_ORGS:
+    # http prefix allows local git repos, useful for tests
+    if job_request.repo_url.startswith("http") and config.ALLOWED_GITHUB_ORGS:
         validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
     if not job_request.requested_actions:
         raise JobRequestError("At least one action must be supplied")
