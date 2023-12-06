@@ -42,7 +42,7 @@ jobs:
     if: needs.tag-new-version.outputs.tag
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Set up Just
       uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d
     - name: Build image
