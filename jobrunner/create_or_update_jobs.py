@@ -380,7 +380,10 @@ def set_cancelled_flag_for_actions(job_request_id, actions):
     # working.
     update_where(
         Job,
-        {"cancelled": True},
+        {
+            "cancelled": True,
+            "completed_at": int(time.time()),
+        },
         job_request_id=job_request_id,
         action__in=actions,
     )
