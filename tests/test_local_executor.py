@@ -4,12 +4,12 @@ import time
 
 import pytest
 
-from jobrunner import config
+from jobrunner import config, models, record_stats
 from jobrunner.executors import local, volumes
 from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import datestr_to_ns_timestamp, docker
 from tests.conftest import SUPPORTED_VOLUME_APIS
-from tests.factories import ensure_docker_images_present
+from tests.factories import ensure_docker_images_present, job_factory
 
 
 # this is parametized fixture, and test using it will run multiple times, once
@@ -215,7 +215,7 @@ def test_prepare_job_no_input_file(docker_cleanup, job_definition, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
+def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, db, volume_api):
     # check limits are applied
     job_definition.cpu_count = 1.5
     job_definition.memory_limit = "1G"
@@ -229,16 +229,50 @@ def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, volume_ap
     status = api.execute(job_definition)
     assert status.state == ExecutorState.EXECUTING
 
-    # could be in either state
-    assert api.get_status(job_definition).state in (
-        ExecutorState.EXECUTING,
-        ExecutorState.EXECUTED,
-    )
-
     container_data = docker.container_inspect(local.container_name(job_definition))
     assert container_data["State"]["ExitCode"] == 0
     assert container_data["HostConfig"]["NanoCpus"] == int(1.5 * 1e9)
     assert container_data["HostConfig"]["Memory"] == 2**30  # 1G
+
+
+@pytest.mark.needs_docker
+def test_execute_metrics(docker_cleanup, job_definition, tmp_work_dir, db):
+    job_definition.args = ["sleep", "10"]
+    last_run = time.time_ns()
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+
+    # we need scheduler job state to be able to collect stats
+    job = job_factory(
+        id=job_definition.id,
+        state=models.State.RUNNING,
+        status_code=models.StatusCode.EXECUTING,
+        started_at=int(last_run / 1e9),
+    )
+
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    # simulate stats thread collecting stats
+    record_stats.record_tick_trace(last_run, [job])
+
+    docker.kill(local.container_name(job_definition))
+
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    assert list(status.metrics.keys()) == [
+        "cpu_sample",
+        "cpu_cumsum",
+        "cpu_mean",
+        "cpu_peak",
+        "mem_sample",
+        "mem_cumsum",
+        "mem_mean",
+        "mem_peak",
+    ]
 
 
 @pytest.mark.skipif(

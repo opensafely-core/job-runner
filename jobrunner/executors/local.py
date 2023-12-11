@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pipeline.legacy import get_all_output_patterns_from_project_file
 
-from jobrunner import config
+from jobrunner import config, record_stats
 from jobrunner.executors import volumes
 from jobrunner.job_executor import (
     ExecutorAPI,
@@ -241,16 +241,24 @@ class LocalDockerAPI(ExecutorAPI):
                 f"docker timed out after {timeout}s inspecting container {name}"
             )
 
+        metrics = record_stats.read_job_metrics(job_definition.id)
+
         if container is None:  # container doesn't exist
             if job_definition.cancelled:
                 if volumes.get_volume_api(job_definition).volume_exists(job_definition):
                     # jobs prepared but not running do not need to finalize, so we
                     # proceed directly to the FINALIZED state here
                     return JobStatus(
-                        ExecutorState.FINALIZED, "Prepared job was cancelled"
+                        ExecutorState.FINALIZED,
+                        "Prepared job was cancelled",
+                        metrics=metrics,
                     )
                 else:
-                    return JobStatus(ExecutorState.UNKNOWN, "Pending job was cancelled")
+                    return JobStatus(
+                        ExecutorState.UNKNOWN,
+                        "Pending job was cancelled",
+                        metrics=metrics,
+                    )
 
             # timestamp file presence means we have finished preparing
             timestamp_ns = volumes.get_volume_api(job_definition).read_timestamp(
@@ -261,24 +269,31 @@ class LocalDockerAPI(ExecutorAPI):
             # re-prepare it anyway.
             if timestamp_ns is None:
                 # we are Jon Snow
-                return JobStatus(ExecutorState.UNKNOWN)
+                return JobStatus(ExecutorState.UNKNOWN, metrics={})
             else:
                 # we've finish preparing
-                return JobStatus(ExecutorState.PREPARED, timestamp_ns=timestamp_ns)
+                return JobStatus(
+                    ExecutorState.PREPARED, timestamp_ns=timestamp_ns, metrics=metrics
+                )
 
         if container["State"]["Running"]:
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["StartedAt"])
-            return JobStatus(ExecutorState.EXECUTING, timestamp_ns=timestamp_ns)
+            return JobStatus(
+                ExecutorState.EXECUTING, timestamp_ns=timestamp_ns, metrics=metrics
+            )
         elif job_definition.id in RESULTS:
             return JobStatus(
                 ExecutorState.FINALIZED,
                 timestamp_ns=RESULTS[job_definition.id].timestamp_ns,
+                metrics=metrics,
             )
         else:
             # container present but not running, i.e. finished
             # Nb. this does not include prepared jobs, as they have a volume but not a container
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
-            return JobStatus(ExecutorState.EXECUTED, timestamp_ns=timestamp_ns)
+            return JobStatus(
+                ExecutorState.EXECUTED, timestamp_ns=timestamp_ns, metrics=metrics
+            )
 
     def get_results(self, job_definition):
         if job_definition.id not in RESULTS:
