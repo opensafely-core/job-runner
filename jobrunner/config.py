@@ -46,6 +46,7 @@ if GIT_SHA == "unknown":
 
 WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()
 DATABASE_FILE = WORKDIR / "db.sqlite"
+METRICS_FILE = WORKDIR / "metrics.sqlite"
 GIT_REPO_DIR = WORKDIR / "repos"
 
 # valid archive formats
