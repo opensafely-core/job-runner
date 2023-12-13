@@ -1,10 +1,12 @@
 """
 Super crude docker/system stats logger
 """
+import json
 import logging
 import subprocess
 import sys
 import time
+from collections import defaultdict
 
 from opentelemetry import trace
 
@@ -17,12 +19,62 @@ from jobrunner.lib.log_utils import configure_logging
 log = logging.getLogger(__name__)
 tracer = trace.get_tracer("ticks")
 
+# Simplest possible table. We're only storing aggregate data
+DDL = """
+CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT,
+    metrics TEXT,
+    PRIMARY KEY (id)
+)
+"""
+
+_conn = None
+
+
+def ensure_metrics_db():
+    global _conn
+    _conn = database.get_connection(config.METRICS_FILE)
+    _conn.execute("PRAGMA journal_mode = WAL")
+    _conn.execute(DDL)
+
+
+def read_job_metrics(job_id, **metrics):
+    if _conn is None:
+        ensure_metrics_db()
+
+    raw_metrics = _conn.execute(
+        "SELECT metrics FROM jobs WHERE id = ?",
+        (job_id,),
+    ).fetchone()
+    if raw_metrics is None:
+        metrics = {}
+    else:
+        metrics = json.loads(raw_metrics["metrics"])
+    return defaultdict(float, metrics)
+
+
+def write_job_metrics(job_id, metrics):
+    if _conn is None:
+        ensure_metrics_db()
+
+    raw_metrics = json.dumps(metrics)
+    _conn.execute(
+        """
+        INSERT INTO jobs (id, metrics) VALUES (?, ?)
+        ON CONFLICT(id) DO UPDATE set metrics = ?
+        """,
+        (job_id, raw_metrics, raw_metrics),
+    )
+
 
 def main():
     last_run = None
     while True:
         before = time.time()
-        last_run = record_tick_trace(last_run)
+        active_jobs = database.find_where(
+            models.Job, state__in=[models.State.PENDING, models.State.RUNNING]
+        )
+        last_run = record_tick_trace(last_run, active_jobs)
 
         # record_tick_trace might have take a while, so sleep the remainding interval
         # enforce a minimum time of 3s to ensure we don't hammer honeycomb or
@@ -31,7 +83,7 @@ def main():
         time.sleep(max(2, config.STATS_POLL_INTERVAL - elapsed))
 
 
-def record_tick_trace(last_run):
+def record_tick_trace(last_run, active_jobs):
     """Record a period tick trace of current jobs.
 
     This will give us more realtime information than the job traces, which only
@@ -69,10 +121,7 @@ def record_tick_trace(last_run):
     # every span has the same timings
     start_time = last_run
     end_time = now
-
-    active_jobs = database.find_where(
-        models.Job, state__in=[models.State.PENDING, models.State.RUNNING]
-    )
+    duration_s = int((end_time - start_time) / 1e9)
 
     with tracer.start_as_current_span(
         "TICK", start_time=start_time, attributes=trace_attrs
@@ -82,20 +131,59 @@ def record_tick_trace(last_run):
             root.add_event("stats_error", attributes=error_attrs, timestamp=start_time)
 
         for job in active_jobs:
-            span = tracer.start_span(job.status_code.name, start_time=start_time)
+            # we are using seconds for our metric calculations
+
+            metrics = stats.get(job.id, {})
 
             # set up attributes
             job_span_attrs = {}
             job_span_attrs.update(trace_attrs)
-            metrics = stats.get(job.id, {})
             job_span_attrs["has_metrics"] = metrics != {}
             job_span_attrs.update(metrics)
 
+            # this means the job is running
+            if metrics:
+                runtime_s = int(now / 1e9) - job.started_at
+                # protect against unexpected runtimes
+                if runtime_s > 0:
+                    job_metrics = update_job_metrics(
+                        job,
+                        metrics,
+                        duration_s,
+                        runtime_s,
+                    )
+                    job_span_attrs.update(job_metrics)
+                else:
+                    job_span_attrs.set("bad_tick_runtime", runtime_s)
+
             # record span
+            span = tracer.start_span(job.status_code.name, start_time=start_time)
             tracing.set_span_metadata(span, job, **job_span_attrs)
             span.end(end_time)
 
     return end_time
+
+
+def update_job_metrics(job, raw_metrics, duration_s, runtime_s):
+    """Update and persist per-job aggregate stats in the metrics db"""
+
+    job_metrics = read_job_metrics(job.id)
+
+    cpu = raw_metrics["cpu_percentage"]
+    mem = raw_metrics["memory_used"]
+
+    job_metrics["cpu_sample"] = cpu
+    job_metrics["cpu_cumsum"] += duration_s * cpu
+    job_metrics["cpu_mean"] = job_metrics["cpu_cumsum"] / runtime_s
+    job_metrics["cpu_peak"] = max(job_metrics["cpu_peak"], cpu)
+    job_metrics["mem_sample"] = mem
+    job_metrics["mem_cumsum"] += duration_s * mem
+    job_metrics["mem_mean"] = job_metrics["mem_cumsum"] / runtime_s
+    job_metrics["mem_peak"] = max(job_metrics["mem_peak"], mem)
+
+    write_job_metrics(job.id, job_metrics)
+
+    return job_metrics
 
 
 if __name__ == "__main__":
