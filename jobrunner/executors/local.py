@@ -424,7 +424,9 @@ def finalize_job(job_definition):
         base_revision=labels.get("org.opensafely.base.vcs-ref", "unknown"),
         base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
-    job_metadata = get_job_metadata(job_definition, outputs, container_metadata)
+    job_metadata = get_job_metadata(
+        job_definition, outputs, container_metadata, results
+    )
 
     if job_definition.cancelled:
         write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
@@ -441,7 +443,7 @@ def finalize_job(job_definition):
     return results
 
 
-def get_job_metadata(job_definition, outputs, container_metadata):
+def get_job_metadata(job_definition, outputs, container_metadata, results):
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
     job_metadata = dict()
@@ -452,6 +454,7 @@ def get_job_metadata(job_definition, outputs, container_metadata):
     job_metadata["docker_image_id"] = container_metadata["Image"]
     # convert exit code to str so 0 exit codes get logged
     job_metadata["exit_code"] = str(container_metadata["State"]["ExitCode"])
+    job_metadata["status_message"] = results.message
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job_definition.study.commit
@@ -694,6 +697,7 @@ KEYS_TO_LOG = [
     "commit",
     "docker_image_id",
     "exit_code",
+    "status_message",
     "created_at",
     "completed_at",
     "database_name",
