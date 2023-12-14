@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from copy import deepcopy
 
-from jobrunner import config, record_stats, tracing
+from jobrunner import config, tracing
 from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from jobrunner.lib import docker
 from jobrunner.lib.database import insert
@@ -78,12 +78,6 @@ def job_factory(job_request=None, **kwargs):
         values["created_at"] = int(timestamp)
     if "updated_at" not in kwargs:
         values["updated_at"] = int(timestamp)
-
-    if "started_at" not in kwargs:
-        status_code = kwargs.get("status_code", values["status_code"])
-        if status_code and status_code >= StatusCode.EXECUTING:
-            values["started_at"] = int(timestamp)
-
     if "status_code_updated_at" not in kwargs:
         values["status_code_updated_at"] = int(timestamp * 1e9)
     values.update(kwargs)
@@ -107,15 +101,6 @@ def job_results_factory(timestamp_ns=None, **kwargs):
     values = deepcopy(JOB_RESULTS_DEFAULTS)
     values.update(kwargs)
     return JobResults(timestamp_ns=timestamp_ns, **values)
-
-
-def metrics_factory(job=None, metrics=None):
-    if job is None:
-        job = job_factory()
-    if metrics is None:
-        metrics = {}
-
-    record_stats.write_job_metrics(job.id, metrics)
 
 
 class StubExecutorAPI:

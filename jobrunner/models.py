@@ -14,7 +14,6 @@ import hashlib
 import secrets
 import shlex
 from enum import Enum
-from functools import total_ordering
 
 from jobrunner.lib.commands import requires_db_access
 from jobrunner.lib.database import databaseclass, migration
@@ -37,7 +36,6 @@ class State(Enum):
 # affordances in the web, cli and telemetry.
 
 
-@total_ordering
 class StatusCode(Enum):
     # PENDING states
     #
@@ -78,10 +76,6 @@ class StatusCode(Enum):
     @property
     def is_final_code(self):
         return self in StatusCode._FINAL_STATUS_CODES
-
-    def __lt__(self, other):
-        order = list(self.__class__)
-        return order.index(self) < order.index(other)
 
 
 # used for tracing to know if a state is final or not
@@ -251,7 +245,6 @@ class Job:
     # used to track the OTel trace context for this job
     trace_context: dict = None
 
-    # map of file -> error
     level4_excluded_files: dict = None
 
     # used to cache the job_request json by the tracing code

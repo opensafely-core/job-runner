@@ -67,7 +67,6 @@ class JobStatus:
     timestamp_ns: int = (
         None  # timestamp this JobStatus occurred, in integer nanoseconds
     )
-    metrics: dict = field(default_factory=dict)
 
 
 @dataclass
