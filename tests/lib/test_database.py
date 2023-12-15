@@ -9,12 +9,19 @@ from jobrunner.lib.database import (
     ensure_db,
     ensure_valid_db,
     find_one,
+    get_connection,
     insert,
     migrate_db,
     select_values,
     update,
 )
 from jobrunner.models import Job, State
+
+
+def test_get_connection():
+    db = "file:test_get_connection?mode=memory&cache=shared"
+    conn = get_connection(db)
+    assert conn is get_connection(db)
 
 
 def test_basic_roundtrip(tmp_work_dir):

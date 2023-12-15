@@ -196,14 +196,15 @@ def db(monkeypatch, request):
 
 
 @pytest.fixture(autouse=True)
-def metrics_db(monkeypatch, request):
-    """Create a throwaway metrics db."""
-    record_stats._conn = None
-    database_file = f"file:metrics-{request.node.name}?mode=memory&cache=shared"
-    monkeypatch.setattr(config, "METRICS_FILE", database_file)
+def metrics_db(monkeypatch, tmp_path, request):
+    """Create a throwaway metrics db.
+
+    It must be a file, not memory, because we use readonly connections.
+    """
+    db_path = tmp_path / "metrics.db"
+    monkeypatch.setattr(config, "METRICS_FILE", str(db_path))
     yield
-    database.CONNECTION_CACHE.__dict__.pop(database_file, None)
-    record_stats._conn = None
+    record_stats.CONNECTION_CACHE.__dict__.clear()
 
 
 @dataclass

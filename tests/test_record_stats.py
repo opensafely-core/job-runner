@@ -1,10 +1,56 @@
+import sqlite3
 import subprocess
 import time
 
-from jobrunner import record_stats
+from jobrunner import config, record_stats
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import job_factory, metrics_factory
+
+
+def test_get_connection_readonly():
+    conn = record_stats.get_connection(readonly=True)
+    assert conn is None
+
+    conn = record_stats.get_connection(readonly=False)
+    assert conn is record_stats.get_connection(readonly=False)  # cached
+    assert conn.isolation_level is None
+    assert conn.row_factory is sqlite3.Row
+    assert conn.execute("PRAGMA journal_mode").fetchone()["journal_mode"] == "wal"
+    assert (
+        conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", ("jobs",)
+        ).fetchone()["name"]
+        == "jobs"
+    )
+
+    ro_conn = record_stats.get_connection(readonly=True)
+    assert ro_conn is record_stats.get_connection(readonly=True)  # cached
+    assert ro_conn is not conn
+    assert conn.isolation_level is None
+    assert conn.row_factory is sqlite3.Row
+    assert conn.execute("PRAGMA journal_mode").fetchone()["journal_mode"] == "wal"
+    assert (
+        conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", ("jobs",)
+        ).fetchone()["name"]
+        == "jobs"
+    )
+
+
+def test_read_write_job_metrics():
+
+    assert record_stats.read_job_metrics("id") == {}
+
+    # create db file
+    sqlite3.connect(config.METRICS_FILE)
+
+    # possible race condition, no table yet, should still report no metrics
+    assert record_stats.read_job_metrics("id") == {}
+
+    record_stats.write_job_metrics("id", {"test": 1.0})
+
+    assert record_stats.read_job_metrics("id") == {"test": 1.0}
 
 
 def test_record_tick_trace(db, freezer, monkeypatch):

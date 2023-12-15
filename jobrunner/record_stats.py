@@ -3,8 +3,10 @@ Super crude docker/system stats logger
 """
 import json
 import logging
+import sqlite3
 import subprocess
 import sys
+import threading
 import time
 from collections import defaultdict
 
@@ -28,24 +30,63 @@ CREATE TABLE IF NOT EXISTS jobs (
 )
 """
 
-_conn = None
+CONNECTION_CACHE = threading.local()
 
 
-def ensure_metrics_db():
-    global _conn
-    _conn = database.get_connection(config.METRICS_FILE)
-    _conn.execute("PRAGMA journal_mode = WAL")
-    _conn.execute(DDL)
+def get_connection(readonly=True):
+    db_file = config.METRICS_FILE
+
+    # developer check against using memory dbs, which cannot be used with this
+    # function, as we need to set mode ourselves
+    assert not db_file.startswith(
+        "file:"
+    ), "urls not supported for metrics db - must be path"
+
+    if readonly:
+        db = f"file:{db_file}?mode=ro"
+    else:
+        db = f"file:{db_file}?mode=rwc"
+
+    cache = CONNECTION_CACHE.__dict__
+    if db not in cache:
+        try:
+            conn = sqlite3.connect(db, uri=True)
+        except sqlite3.OperationalError as exc:
+            # if its readonly, we cannot create file, so fail gracefully.
+            # Caller should check for conn being None.
+            if readonly and "unable to open" in str(exc).lower():
+                return None
+            raise
+
+        # manual transactions
+        conn.isolation_level = None
+        # Support dict-like access to rows
+        conn.row_factory = sqlite3.Row
+
+        if not readonly:
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute(DDL)
+
+        cache[db] = conn
+
+    return cache[db]
 
 
 def read_job_metrics(job_id, **metrics):
-    if _conn is None:
-        ensure_metrics_db()
+    conn = get_connection(readonly=True)
 
-    raw_metrics = _conn.execute(
-        "SELECT metrics FROM jobs WHERE id = ?",
-        (job_id,),
-    ).fetchone()
+    raw_metrics = None
+
+    if conn is not None:
+        try:
+            raw_metrics = conn.execute(
+                "SELECT metrics FROM jobs WHERE id = ?",
+                (job_id,),
+            ).fetchone()
+        except sqlite3.OperationalError as exc:
+            if "no such table" not in str(exc).lower():
+                raise
+
     if raw_metrics is None:
         metrics = {}
     else:
@@ -54,11 +95,8 @@ def read_job_metrics(job_id, **metrics):
 
 
 def write_job_metrics(job_id, metrics):
-    if _conn is None:
-        ensure_metrics_db()
-
     raw_metrics = json.dumps(metrics)
-    _conn.execute(
+    get_connection(readonly=False).execute(
         """
         INSERT INTO jobs (id, metrics) VALUES (?, ?)
         ON CONFLICT(id) DO UPDATE set metrics = ?
