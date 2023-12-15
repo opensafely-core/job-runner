@@ -156,7 +156,6 @@ LEVEL4_FILE_TYPES = [
     ".svgz",
     # reports
     ".html",
-    ".pdf",
     ".txt",
     ".log",
     ".json",
