@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
+from pathlib import Path
 
 from opentelemetry import trace
 
@@ -38,9 +39,10 @@ def get_connection(readonly=True):
 
     # developer check against using memory dbs, which cannot be used with this
     # function, as we need to set mode ourselves
-    assert not db_file.startswith(
+    assert isinstance(db_file, Path), "config.METRICS_FILE db must be file path"
+    assert not str(db_file).startswith(
         "file:"
-    ), "urls not supported for metrics db - must be path"
+    ), "config.METRICS_FILE db must be file path, not url"
 
     if readonly:
         db = f"file:{db_file}?mode=ro"

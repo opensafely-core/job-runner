@@ -202,7 +202,7 @@ def metrics_db(monkeypatch, tmp_path, request):
     It must be a file, not memory, because we use readonly connections.
     """
     db_path = tmp_path / "metrics.db"
-    monkeypatch.setattr(config, "METRICS_FILE", str(db_path))
+    monkeypatch.setattr(config, "METRICS_FILE", db_path)
     yield
     record_stats.CONNECTION_CACHE.__dict__.clear()
 
