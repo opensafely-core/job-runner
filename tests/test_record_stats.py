@@ -62,10 +62,11 @@ def test_record_tick_trace(db, freezer, monkeypatch):
     jobs.append(running_job)
     jobs.append(job_factory(status_code=StatusCode.FINALIZING))
 
+    mb = 1024 * 1024
     metrics = {
         running_job.id: {
             "cpu_percentage": 50.0,
-            "memory_used": 1000,
+            "memory_used": 1000 * mb,
         }
     }
 
@@ -108,11 +109,11 @@ def test_record_tick_trace(db, freezer, monkeypatch):
             assert span.attributes["cpu_cumsum"] == 500.0  # 50% * 10s
             assert span.attributes["cpu_mean"] == 50.0
 
-            assert span.attributes["memory_used"] == 1000
-            assert span.attributes["mem_sample"] == 1000
-            assert span.attributes["mem_peak"] == 1000
-            assert span.attributes["mem_cumsum"] == 10000  # 1000 * 10s
-            assert span.attributes["mem_mean"] == 1000
+            assert span.attributes["memory_used"] == 1000 * mb
+            assert span.attributes["mem_mb_sample"] == 1000
+            assert span.attributes["mem_mb_peak"] == 1000
+            assert span.attributes["mem_mb_cumsum"] == 10000  # 1000 * 10s
+            assert span.attributes["mem_mb_mean"] == 1000
         else:
             assert span.attributes["has_metrics"] is False
 
@@ -138,7 +139,7 @@ def test_record_tick_trace_stats_timeout(db, freezer, monkeypatch):
 
     assert "cpu_percentage" not in span.attributes
     assert "memory_used" not in span.attributes
-    assert "mem_peak" not in span.attributes
+    assert "mem_mb_peak" not in span.attributes
     assert span.attributes["has_metrics"] is False
     assert span.attributes["stats_timeout"] is True
     assert span.attributes["stats_error"] is False
@@ -163,7 +164,7 @@ def test_record_tick_trace_stats_error(db, freezer, monkeypatch):
 
     assert "cpu_percentage" not in span.attributes
     assert "memory_used" not in span.attributes
-    assert "mem_peak" not in span.attributes
+    assert "mem_mb_peak" not in span.attributes
     assert span.attributes["has_metrics"] is False
     assert span.attributes["stats_timeout"] is False
     assert span.attributes["stats_error"] is True
@@ -185,11 +186,12 @@ def test_update_job_metrics(db):
     metrics = record_stats.read_job_metrics(job.id)
 
     assert metrics == {}
+    mb = 1024.0 * 1024.0
 
     # 50%/100m for 1s
     record_stats.update_job_metrics(
         job,
-        {"cpu_percentage": 50, "memory_used": 100},
+        {"cpu_percentage": 50, "memory_used": 100 * mb},
         duration_s=1.0,
         runtime_s=1.0,
     )
@@ -200,16 +202,16 @@ def test_update_job_metrics(db):
         "cpu_mean": 50.0,
         "cpu_peak": 50,
         "cpu_sample": 50,
-        "mem_cumsum": 100.0,
-        "mem_mean": 100.0,
-        "mem_peak": 100,
-        "mem_sample": 100,
+        "mem_mb_cumsum": 100.0,
+        "mem_mb_mean": 100.0,
+        "mem_mb_peak": 100,
+        "mem_mb_sample": 100,
     }
 
     # 100%/1000m for 1s
     record_stats.update_job_metrics(
         job,
-        {"cpu_percentage": 100, "memory_used": 1000},
+        {"cpu_percentage": 100, "memory_used": 1000 * mb},
         duration_s=1.0,
         runtime_s=2.0,
     )
@@ -220,16 +222,16 @@ def test_update_job_metrics(db):
         "cpu_mean": 75.0,
         "cpu_peak": 100,
         "cpu_sample": 100,
-        "mem_cumsum": 1100.0,
-        "mem_mean": 550.0,
-        "mem_peak": 1000,
-        "mem_sample": 1000,
+        "mem_mb_cumsum": 1100.0,
+        "mem_mb_mean": 550.0,
+        "mem_mb_peak": 1000,
+        "mem_mb_sample": 1000,
     }
 
     # 100%/1000m for 8s
     record_stats.update_job_metrics(
         job,
-        {"cpu_percentage": 100, "memory_used": 1000},
+        {"cpu_percentage": 100, "memory_used": 1000 * mb},
         duration_s=8.0,
         runtime_s=10.0,
     )
@@ -240,8 +242,8 @@ def test_update_job_metrics(db):
         "cpu_mean": 95.0,
         "cpu_peak": 100,
         "cpu_sample": 100,
-        "mem_cumsum": 9100.0,
-        "mem_mean": 910.0,
-        "mem_peak": 1000,
-        "mem_sample": 1000,
+        "mem_mb_cumsum": 9100.0,
+        "mem_mb_mean": 910.0,
+        "mem_mb_peak": 1000,
+        "mem_mb_sample": 1000,
     }
