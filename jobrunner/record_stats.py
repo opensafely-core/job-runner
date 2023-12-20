@@ -210,16 +210,16 @@ def update_job_metrics(job, raw_metrics, duration_s, runtime_s):
     job_metrics = read_job_metrics(job.id)
 
     cpu = raw_metrics["cpu_percentage"]
-    mem = raw_metrics["memory_used"]
+    mem_mb = raw_metrics["memory_used"] / (1024.0 * 1024.0)
 
     job_metrics["cpu_sample"] = cpu
     job_metrics["cpu_cumsum"] += duration_s * cpu
     job_metrics["cpu_mean"] = job_metrics["cpu_cumsum"] / runtime_s
     job_metrics["cpu_peak"] = max(job_metrics["cpu_peak"], cpu)
-    job_metrics["mem_sample"] = mem
-    job_metrics["mem_cumsum"] += duration_s * mem
-    job_metrics["mem_mean"] = job_metrics["mem_cumsum"] / runtime_s
-    job_metrics["mem_peak"] = max(job_metrics["mem_peak"], mem)
+    job_metrics["mem_mb_sample"] = mem_mb
+    job_metrics["mem_mb_cumsum"] += duration_s * mem_mb
+    job_metrics["mem_mb_mean"] = job_metrics["mem_mb_cumsum"] / runtime_s
+    job_metrics["mem_mb_peak"] = max(job_metrics["mem_mb_peak"], mem_mb)
 
     write_job_metrics(job.id, job_metrics)
 
