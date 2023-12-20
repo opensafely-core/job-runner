@@ -12,7 +12,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 import jobrunner.executors.local
-from jobrunner import config, tracing
+from jobrunner import config, record_stats, tracing
 from jobrunner.executors import volumes
 from jobrunner.job_executor import Study
 from jobrunner.lib import database
@@ -193,6 +193,18 @@ def db(monkeypatch, request):
     database.ensure_db(database_file)
     yield
     del database.CONNECTION_CACHE.__dict__[database_file]
+
+
+@pytest.fixture(autouse=True)
+def metrics_db(monkeypatch, tmp_path, request):
+    """Create a throwaway metrics db.
+
+    It must be a file, not memory, because we use readonly connections.
+    """
+    db_path = tmp_path / "metrics.db"
+    monkeypatch.setattr(config, "METRICS_FILE", db_path)
+    yield
+    record_stats.CONNECTION_CACHE.__dict__.clear()
 
 
 @dataclass
