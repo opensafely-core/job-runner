@@ -36,6 +36,10 @@ class JobRequestError(Exception):
     pass
 
 
+class StaleCodelistError(JobRequestError):
+    pass
+
+
 class NothingToDoError(JobRequestError):
     pass
 
@@ -62,10 +66,10 @@ def create_or_update_jobs(job_request):
             JobRequestError,
         ) as e:
             log.info(f"JobRequest failed:\n{e}")
-            create_failed_job(job_request, e)
+            create_job_from_exception(job_request, e)
         except Exception:
             log.exception("Uncaught error while creating jobs")
-            create_failed_job(job_request, JobRequestError("Internal error"))
+            create_job_from_exception(job_request, JobRequestError("Internal error"))
     else:
         if job_request.cancelled_actions:
             log.debug("Cancelling actions: %s", job_request.cancelled_actions)
@@ -312,12 +316,12 @@ def assert_codelists_ok(job_request, new_jobs):
         # Codelists are out of date; fail the entire job request if any job
         # requires database access
         if job.requires_db:
-            raise JobRequestError(
+            raise StaleCodelistError(
                 f"Codelists are out of date (required by action {job.action})"
             )
 
 
-def create_failed_job(job_request, exception):
+def create_job_from_exception(job_request, exception):
     """
     Sometimes we want to say to the job-server (and the user): your JobRequest
     was broken so we weren't able to create any jobs for it. But the only way
@@ -328,19 +332,25 @@ def create_failed_job(job_request, exception):
 
     This is a bit of a hack, but it keeps the sync protocol simple.
     """
+    action = "__error__"
+    error = exception
+    state = State.FAILED
+    status_message = str(exception)
+
     # Special case for the NothingToDoError which we treat as a success
     if isinstance(exception, NothingToDoError):
         state = State.SUCCEEDED
         code = StatusCode.SUCCEEDED
-        status_message = "All actions have already run"
         action = job_request.requested_actions[0]
         error = None
+    # StaleCodelistError is a failure but not an INTERNAL_ERROR
+    elif isinstance(exception, StaleCodelistError):
+        code = StatusCode.STALE_CODELISTS
     else:
-        state = State.FAILED
         code = StatusCode.INTERNAL_ERROR
+        # include exception name in message to aid debugging
         status_message = f"{type(exception).__name__}: {exception}"
-        action = "__error__"
-        error = exception
+
     now = time.time()
     job = Job(
         job_request_id=job_request.id,

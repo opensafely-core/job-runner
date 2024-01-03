@@ -74,6 +74,7 @@ class StatusCode(Enum):
     UNMATCHED_PATTERNS = "unmatched_patterns"
     INTERNAL_ERROR = "internal_error"
     KILLED_BY_ADMIN = "killed_by_admin"
+    STALE_CODELISTS = "stale_codelists"
 
     @property
     def is_final_code(self):
@@ -93,6 +94,7 @@ StatusCode._FINAL_STATUS_CODES = [
     StatusCode.UNMATCHED_PATTERNS,
     StatusCode.INTERNAL_ERROR,
     StatusCode.KILLED_BY_ADMIN,
+    StatusCode.STALE_CODELISTS,
 ]
 
 
