@@ -278,6 +278,9 @@ def trace_attributes(job, results=None):
         orgs=",".join(job._job_request.get("orgs", [])),
         state=job.state.name,
         message=job.status_message,
+        # convert float seconds to ns integer
+        created_at=int(job.created_at * 1e9),
+        started_at=int(job.started_at * 1e9) if job.started_at else None,
         requires_db=job.requires_db,
         jobrunner_version=config.VERSION,
         jobrunner_sha=config.GIT_SHA,
