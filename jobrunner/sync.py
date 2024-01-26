@@ -158,6 +158,7 @@ def job_to_remote_format(job):
         "completed_at": job.completed_at_isoformat,
         "trace_context": job.trace_context,
         "metrics": record_stats.read_job_metrics(job.id),
+        "requires_db": job.requires_db,
     }
 
 
