@@ -87,6 +87,7 @@ def test_job_to_remote_format_default(db):
     assert json["status"] == "pending"
     assert json["status_code"] == "created"
     assert json["metrics"] == {}
+    assert json["requires_db"] is False
 
 
 def test_job_to_remote_format_null_status_message(db):
