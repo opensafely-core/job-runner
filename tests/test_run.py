@@ -437,6 +437,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
         ExecutorState.UNKNOWN,
         State.PENDING,
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
     )
 
     run.handle_job(job, api)
@@ -636,6 +637,7 @@ def test_handle_job_finalized_failed_exit_code(
         State.RUNNING,
         StatusCode.FINALIZED,
         run_command=run_command,
+        requires_db="cohortextractor" in run_command,
     )
     api.set_job_result(
         job,
@@ -720,6 +722,7 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
         ExecutorState.UNKNOWN,
         State.PENDING,
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
     )
 
     run.handle_job(job, api, mode="db-maintenance")
@@ -742,6 +745,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
         State.RUNNING,
         StatusCode.EXECUTING,
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
     )
 
     run.handle_job(job, api, mode="db-maintenance")
@@ -766,6 +770,7 @@ def test_handle_pending_pause_mode(db, backend_db_config):
         ExecutorState.UNKNOWN,
         State.PENDING,
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
     )
 
     run.handle_job(job, api, paused=True)
@@ -789,6 +794,7 @@ def test_handle_running_pause_mode(db, backend_db_config):
         StatusCode.EXECUTING,
         status_message="doing my thang",
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
     )
 
     run.handle_job(job, api, paused=True)
