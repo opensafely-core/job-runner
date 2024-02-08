@@ -272,6 +272,7 @@ def test_execute_metrics(docker_cleanup, job_definition, tmp_work_dir, db):
         "mem_mb_cumsum",
         "mem_mb_mean",
         "mem_mb_peak",
+        "container_id",
     ]
 
 
