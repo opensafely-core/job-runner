@@ -74,7 +74,7 @@ def get_connection(readonly=True):
     return cache[db]
 
 
-def read_job_metrics(job_id, **metrics):
+def read_job_metrics(job_id):
     conn = get_connection(readonly=True)
 
     raw_metrics = None
