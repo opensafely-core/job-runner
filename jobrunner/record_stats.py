@@ -74,7 +74,7 @@ def get_connection(readonly=True):
     return cache[db]
 
 
-def read_job_metrics(job_id, **metrics):
+def read_job_metrics(job_id):
     conn = get_connection(readonly=True)
 
     raw_metrics = None
@@ -209,6 +209,16 @@ def update_job_metrics(job, raw_metrics, duration_s, runtime_s):
 
     job_metrics = read_job_metrics(job.id)
 
+    # If the job has been restarted so it's now running in a new container then we need
+    # to zero out all the previous stats.
+    if (
+        # This check is only needed for smooth deployment as previous metrics dicts
+        # won't have the container_id populated yet
+        "container_id" in job_metrics
+        and job_metrics["container_id"] != raw_metrics["container_id"]
+    ):
+        job_metrics = defaultdict(float)
+
     cpu = raw_metrics["cpu_percentage"]
     mem_mb = raw_metrics["memory_used"] / (1024.0 * 1024.0)
 
@@ -220,6 +230,7 @@ def update_job_metrics(job, raw_metrics, duration_s, runtime_s):
     job_metrics["mem_mb_cumsum"] += duration_s * mem_mb
     job_metrics["mem_mb_mean"] = job_metrics["mem_mb_cumsum"] / runtime_s
     job_metrics["mem_mb_peak"] = max(job_metrics["mem_mb_peak"], mem_mb)
+    job_metrics["container_id"] = raw_metrics["container_id"]
 
     write_job_metrics(job.id, job_metrics)
 

@@ -30,6 +30,7 @@ def get_container_stats(timeout=DEFAULT_TIMEOUT):
         removeprefix(row["Name"], "os-job-"): {
             "cpu_percentage": float(row["CPUPerc"].rstrip("%")),
             "memory_used": _parse_size(row["MemUsage"].split()[0]),
+            "container_id": row["Container"],
         }
         for row in data
         if row["Name"].startswith("os-job-")

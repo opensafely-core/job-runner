@@ -67,6 +67,7 @@ def test_record_tick_trace(db, freezer, monkeypatch):
         running_job.id: {
             "cpu_percentage": 50.0,
             "memory_used": 1000 * mb,
+            "container_id": "a0b1c2d3",
         }
     }
 
@@ -191,7 +192,11 @@ def test_update_job_metrics(db):
     # 50%/100m for 1s
     record_stats.update_job_metrics(
         job,
-        {"cpu_percentage": 50, "memory_used": 100 * mb},
+        {
+            "cpu_percentage": 50,
+            "memory_used": 100 * mb,
+            "container_id": "a0b1c2d3",
+        },
         duration_s=1.0,
         runtime_s=1.0,
     )
@@ -206,12 +211,17 @@ def test_update_job_metrics(db):
         "mem_mb_mean": 100.0,
         "mem_mb_peak": 100,
         "mem_mb_sample": 100,
+        "container_id": "a0b1c2d3",
     }
 
     # 100%/1000m for 1s
     record_stats.update_job_metrics(
         job,
-        {"cpu_percentage": 100, "memory_used": 1000 * mb},
+        {
+            "cpu_percentage": 100,
+            "memory_used": 1000 * mb,
+            "container_id": "a0b1c2d3",
+        },
         duration_s=1.0,
         runtime_s=2.0,
     )
@@ -226,12 +236,17 @@ def test_update_job_metrics(db):
         "mem_mb_mean": 550.0,
         "mem_mb_peak": 1000,
         "mem_mb_sample": 1000,
+        "container_id": "a0b1c2d3",
     }
 
     # 100%/1000m for 8s
     record_stats.update_job_metrics(
         job,
-        {"cpu_percentage": 100, "memory_used": 1000 * mb},
+        {
+            "cpu_percentage": 100,
+            "memory_used": 1000 * mb,
+            "container_id": "a0b1c2d3",
+        },
         duration_s=8.0,
         runtime_s=10.0,
     )
@@ -246,4 +261,31 @@ def test_update_job_metrics(db):
         "mem_mb_mean": 910.0,
         "mem_mb_peak": 1000,
         "mem_mb_sample": 1000,
+        "container_id": "a0b1c2d3",
+    }
+
+    # Job has been restarted (note reset `runtime_s` and new container_id)
+    record_stats.update_job_metrics(
+        job,
+        {
+            "cpu_percentage": 50,
+            "memory_used": 100 * mb,
+            "container_id": "e4f5a6b7",
+        },
+        duration_s=1.0,
+        runtime_s=1.0,
+    )
+
+    # Metrics should be reset as a result of the container_id changing
+    metrics = record_stats.read_job_metrics(job.id)
+    assert metrics == {
+        "cpu_cumsum": 50.0,
+        "cpu_mean": 50.0,
+        "cpu_peak": 50,
+        "cpu_sample": 50,
+        "mem_mb_cumsum": 100.0,
+        "mem_mb_mean": 100.0,
+        "mem_mb_peak": 100,
+        "mem_mb_sample": 100,
+        "container_id": "e4f5a6b7",
     }
