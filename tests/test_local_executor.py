@@ -882,6 +882,33 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
 
 
 @pytest.mark.needs_docker
+def test_executed_job_db_maintenance_mode(docker_cleanup, job_definition, tmp_work_dir):
+    job_definition.args = ["sleep", "50"]
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    assert api.get_status(job_definition).state == ExecutorState.PREPARED
+
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+    assert api.get_status(job_definition).state == ExecutorState.EXECUTING
+
+    # the job completes successfully, although job.state remains RUNNING
+    # wait >50 seconds here to simulate this
+    time.sleep(75)
+
+    assert api.get_status(job_definition).state == ExecutorState.EXECUTED
+
+    # if we're not in db maintenance mode, we do not run terminate(), but
+    # if we are then we currently do
+    status = api.terminate(job_definition)
+    assert status.state == ExecutorState.EXECUTED
+    assert api.get_status(job_definition).state == ExecutorState.EXECUTED
+
+
+@pytest.mark.needs_docker
 def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
     populate_workspace(job_definition.workspace, "output/input.csv")
 
