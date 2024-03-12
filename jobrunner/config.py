@@ -148,7 +148,6 @@ LEVEL4_MAX_FILESIZE = int(
 LEVEL4_FILE_TYPES = [
     # tables
     ".csv",
-    ".tsv",
     # images
     ".jpg",
     ".jpeg",
