@@ -218,16 +218,22 @@ def test_complete_job(db):
     results = job_results_factory(exit_code=1)
     ts = int(time.time() * 1e9)
 
+    # send span with no current span
     tracing.complete_job(job, ts, results=results)
+
+    # send span with current active span, to ensure it doesn't pick it up as parent span
+    tracer = trace.get_tracer("test")
+    with tracer.start_as_current_span("other"):
+        tracing.complete_job(job, ts, results=results)
 
     ctx = tracing.load_root_span(job)
 
-    spans = get_trace("jobs")
-    assert spans[0].name == "JOB"
-    assert spans[0].context.trace_id == ctx.trace_id
-    assert spans[0].context.span_id == ctx.span_id
-    assert spans[0].parent is None
-    assert spans[0].attributes["exit_code"] == 1
+    for span in get_trace("jobs"):
+        assert span.name == "JOB"
+        assert span.context.trace_id == ctx.trace_id
+        assert span.context.span_id == ctx.span_id
+        assert span.parent is None
+        assert span.attributes["exit_code"] == 1
 
 
 def test_set_span_metadata_attrs(db):

@@ -219,7 +219,7 @@ def complete_job(job, timestamp_ns, error=None, results=None, **attrs):
     # to send it.
 
     # this effectively starts a new trace
-    root_span = tracer.start_span("JOB", start_time=job_start_time)
+    root_span = tracer.start_span("JOB", context={}, start_time=job_start_time)
 
     # replace the context with the one from the original root span
     root_span._context = root_ctx
