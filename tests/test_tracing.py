@@ -1,16 +1,14 @@
+import os
 import time
 
 from opentelemetry import trace
 
-from jobrunner import models, tracing
+from jobrunner import config, models, tracing
 from tests.conftest import get_trace
 from tests.factories import job_factory, job_request_factory, job_results_factory
 
 
-def test_trace_attributes(db, monkeypatch):
-    monkeypatch.setattr(tracing.config, "VERSION", "v1.2.3")
-    monkeypatch.setattr(tracing.config, "GIT_SHA", "abcdefg")
-
+def test_trace_attributes(db):
     jr = job_request_factory(
         original=dict(
             created_by="testuser",
@@ -62,8 +60,6 @@ def test_trace_attributes(db, monkeypatch):
         exit_code=1,
         image_id="image_id",
         executor_message="message",
-        jobrunner_version="v1.2.3",
-        jobrunner_sha="abcdefg",
         action_version="unknown",
         action_revision="unknown",
         action_created="unknown",
@@ -72,10 +68,7 @@ def test_trace_attributes(db, monkeypatch):
     )
 
 
-def test_trace_attributes_missing(db, monkeypatch):
-    monkeypatch.setattr(tracing.config, "VERSION", "v1.2.3")
-    monkeypatch.setattr(tracing.config, "GIT_SHA", "abcdefg")
-
+def test_trace_attributes_missing(db):
     jr = job_request_factory(
         original=dict(
             created_by="testuser",
@@ -109,9 +102,20 @@ def test_trace_attributes_missing(db, monkeypatch):
         created_at=int(job.created_at * 1e9),
         started_at=None,
         requires_db=False,
-        jobrunner_version="v1.2.3",
-        jobrunner_sha="abcdefg",
     )
+
+
+def test_tracing_resource_config():
+    tracer = trace.get_tracer("test")
+    with tracer.start_as_current_span("test") as span:
+        pass
+
+    span = get_trace("test")[0]
+    assert span.resource.attributes["service.name"] == "jobrunner"
+    assert span.resource.attributes["service.namespace"] == os.environ.get(
+        "BACKEND", "unknown"
+    )
+    assert span.resource.attributes["service.version"] == config.VERSION
 
 
 def test_initialise_trace(db):
