@@ -17,19 +17,20 @@ from jobrunner.models import Job, SavedJobRequest, State, StatusCode
 
 logger = logging.getLogger(__name__)
 
-# https://github.com/open-telemetry/semantic-conventions/tree/main/docs/resource#service
-resource = Resource.create(
-    attributes={
-        "service.name": "jobrunner",
-        "service.namespace": os.environ.get("BACKEND", "unknown"),
-        "service.version": config.VERSION,
-    }
-)
-provider = TracerProvider(resource=resource)
-trace.set_tracer_provider(provider)
+
+def get_provider():
+    # https://github.com/open-telemetry/semantic-conventions/tree/main/docs/resource#service
+    resource = Resource.create(
+        attributes={
+            "service.name": os.environ.get("OTEL_SERVICE_NAME", "jobrunner"),
+            "service.namespace": os.environ.get("BACKEND", "unknown"),
+            "service.version": config.VERSION,
+        }
+    )
+    return TracerProvider(resource=resource)
 
 
-def add_exporter(exporter, processor=BatchSpanProcessor):
+def add_exporter(provider, exporter, processor=BatchSpanProcessor):
     """Utility method to add an exporter.
 
     We use the BatchSpanProcessor by default, which is the default for
@@ -43,18 +44,24 @@ def add_exporter(exporter, processor=BatchSpanProcessor):
     provider.add_span_processor(processor(exporter))
 
 
-def setup_default_tracing():
+def setup_default_tracing(set_global=True):
     """Inspect environment variables and set up exporters accordingly."""
+
+    provider = get_provider()
+
     if "OTEL_EXPORTER_OTLP_HEADERS" in os.environ:
-        if "OTEL_SERVICE_NAME" not in os.environ:
-            os.environ["OTEL_SERVICE_NAME"] == "jobrunner"
         if "OTEL_EXPORTER_OTLP_ENDPOINT" not in os.environ:
             os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://api.honeycomb.io"
 
-        add_exporter(OTLPSpanExporter())
+        add_exporter(provider, OTLPSpanExporter())
 
     if "OTEL_EXPORTER_CONSOLE" in os.environ:
-        add_exporter(ConsoleSpanExporter())
+        add_exporter(provider, ConsoleSpanExporter())
+
+    if set_global:
+        trace.set_tracer_provider(provider)
+
+    return provider
 
 
 @warn_assertions
