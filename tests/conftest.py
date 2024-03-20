@@ -19,9 +19,11 @@ from jobrunner.lib import database
 from jobrunner.lib.subprocess_utils import subprocess_run
 
 
-# set up tracing
+# set up test tracing
+provider = tracing.get_provider()
+tracing.trace.set_tracer_provider(provider)
 test_exporter = InMemorySpanExporter()
-tracing.add_exporter(test_exporter, processor=SimpleSpanProcessor)
+tracing.add_exporter(provider, test_exporter, processor=SimpleSpanProcessor)
 
 
 def pytest_configure(config):
