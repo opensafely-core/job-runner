@@ -6,6 +6,8 @@ import sys
 from multiprocessing import cpu_count
 from pathlib import Path
 
+import pipeline
+
 
 class ConfigException(Exception):
     pass
@@ -144,23 +146,7 @@ LEVEL4_MAX_FILESIZE = int(
 )  # 16mb
 
 
-# TODO: we might want to take this list from pipeline if we implement it there.
-LEVEL4_FILE_TYPES = [
-    # tables
-    ".csv",
-    # images
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".svg",
-    ".svgz",
-    # reports
-    ".html",
-    ".txt",
-    ".log",
-    ".json",
-    ".md",
-]
+LEVEL4_FILE_TYPES = pipeline.constants.LEVEL4_FILE_TYPES
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
