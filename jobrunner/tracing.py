@@ -50,9 +50,15 @@ def setup_default_tracing(set_global=True):
     provider = get_provider()
 
     if "OTEL_EXPORTER_OTLP_HEADERS" in os.environ:
+        # workaround for env file parsing issues
+        cleaned_headers = os.environ["OTEL_EXPORTER_OTLP_HEADERS"].strip("\"'")
+        # put back into env to be parsed properly
+        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = cleaned_headers
+
         if "OTEL_EXPORTER_OTLP_ENDPOINT" not in os.environ:
             os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://api.honeycomb.io"
 
+        # now we can created OTLP exporter
         add_exporter(provider, OTLPSpanExporter())
 
     if "OTEL_EXPORTER_CONSOLE" in os.environ:

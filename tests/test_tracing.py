@@ -28,7 +28,7 @@ def test_setup_default_tracing_console(monkeypatch):
 
 
 def test_setup_default_tracing_otlp_defaults(monkeypatch):
-    env = {"OTEL_EXPORTER_OTLP_HEADERS": "foo=bar"}
+    env = {"OTEL_EXPORTER_OTLP_HEADERS": "'foo=bar'"}
     monkeypatch.setattr(os, "environ", env)
     monkeypatch.setattr(
         opentelemetry.exporter.otlp.proto.http.trace_exporter, "environ", env
