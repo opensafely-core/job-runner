@@ -368,6 +368,22 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
     assert log_dir.exists()
     assert log_file.exists()
 
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    manifest = local.read_manifest_file(level4_dir, job_definition)
+
+    metadata = manifest["outputs"]["output/summary.csv"]
+    assert metadata["level"] == "moderately_sensitive"
+    assert metadata["job_id"] == job_definition.id
+    assert metadata["job_request"] == job_definition.job_request_id
+    assert metadata["action"] == job_definition.action
+    assert metadata["commit"] == job_definition.study.commit
+    assert metadata["excluded"] is False
+    assert metadata["size"] == 0
+    assert (
+        metadata["content_hash"]
+        == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    )
+
 
 @pytest.mark.needs_docker
 def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir, volume_api):
@@ -550,11 +566,20 @@ def test_finalize_large_level4_outputs(
 
     if not local_run:
         level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+
         message_file = level4_dir / "output/output.txt.txt"
         txt = message_file.read_text()
         assert "output/output.txt" in txt
         assert "1.0Mb" in txt
         assert "0.5Mb" in txt
+
+        manifest = local.read_manifest_file(level4_dir, job_definition)
+
+        assert manifest["outputs"]["output/output.txt"]["excluded"]
+        assert (
+            manifest["outputs"]["output/output.txt"]["message"]
+            == "File size of 1.0Mb is larger that limit of 0.5Mb."
+        )
 
 
 @pytest.mark.needs_docker
@@ -593,6 +618,14 @@ def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert "output/output.rds  - File type of .rds is not valid level 4 file" in log
+
+    manifest = local.read_manifest_file(level4_dir, job_definition)
+
+    assert manifest["outputs"]["output/output.rds"]["excluded"]
+    assert (
+        manifest["outputs"]["output/output.rds"]["message"]
+        == "File type of .rds is not valid level 4 file"
+    )
 
 
 @pytest.mark.needs_docker
@@ -640,6 +673,14 @@ def test_finalize_patient_id_header(
         txt = message_file.read_text()
         assert "output/output.csv" in txt
         assert "patient_id" in txt
+
+        manifest = local.read_manifest_file(level4_dir, job_definition)
+
+        assert manifest["outputs"]["output/output.csv"]["excluded"]
+        assert (
+            manifest["outputs"]["output/output.csv"]["message"]
+            == "File has patient_id column"
+        )
 
 
 @pytest.mark.needs_docker
