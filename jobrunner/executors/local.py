@@ -622,6 +622,17 @@ column from your data.
 
 """
 
+MAX_CSV_ROWS_MSG = """
+The file:
+
+{filename}
+
+contained {row_count} rows, which is above the limit for moderately_sensitive files of
+{limit} rows.
+
+As such, it has *not* been copied to Level 4 storage.
+"""
+
 
 def check_l4_file(job_definition, filename, size, workspace_dir):
     def mb(b):
@@ -643,12 +654,24 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
             with actual_file.open() as f:
                 reader = csv.DictReader(f)
                 headers = reader.fieldnames
+                row_count = sum(1 for _ in reader)
         except Exception:
             pass
         else:
             if headers and "patient_id" in headers:
                 job_msgs.append("File has patient_id column")
                 file_msgs.append(PATIENT_ID.format(filename=filename))
+            if row_count > job_definition.level4_max_csv_rows:
+                job_msgs.append(
+                    f"File row count ({row_count}) exceeds maximum allowed rows ({job_definition.level4_max_csv_rows})"
+                )
+                file_msgs.append(
+                    MAX_CSV_ROWS_MSG.format(
+                        filename=filename,
+                        row_count=row_count,
+                        limit=job_definition.level4_max_csv_rows,
+                    )
+                )
 
     if size > job_definition.level4_max_filesize:
         job_msgs.append(

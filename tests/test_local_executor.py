@@ -684,6 +684,55 @@ def test_finalize_patient_id_header(
 
 
 @pytest.mark.needs_docker
+def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir, local_run):
+    rows = "1,2\n" * 11
+    job_definition.args = [
+        "sh",
+        "-c",
+        f"echo 'foo,bar\n{rows}' > /workspace/output/output.csv",
+    ]
+    job_definition.output_spec = {
+        "output/output.csv": "moderately_sensitive",
+    }
+    job_definition.level4_max_csv_rows = 10
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    result = api.get_results(job_definition)
+
+    assert result.exit_code == 0
+    assert result.level4_excluded_files == {
+        "output/output.csv": "File row count (11) exceeds maximum allowed rows (10)",
+    }
+
+    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log = log_file.read_text()
+    assert "Invalid moderately_sensitive outputs:" in log
+    assert (
+        "output/output.csv  - File row count (11) exceeds maximum allowed rows (10)"
+        in log
+    )
+
+    if not local_run:
+        level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+
+        message_file = level4_dir / "output/output.csv.txt"
+        txt = message_file.read_text()
+        assert "output/output.csv" in txt
+        assert "contained 11 rows" in txt
+
+
+@pytest.mark.needs_docker
 def test_finalize_large_level4_outputs_cleanup(
     docker_cleanup, job_definition, tmp_work_dir, volume_api
 ):

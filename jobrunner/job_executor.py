@@ -36,6 +36,7 @@ class JobDefinition:
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
     level4_max_filesize: int = 16 * 1024 * 1024
+    level4_max_csv_rows: int = 5000
     level4_file_types: list = field(default_factory=lambda: [".csv"])
     # if a job has been cancelled, the name of the canceller - either "user" or "admin"
     cancelled: str = None
