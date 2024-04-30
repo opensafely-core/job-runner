@@ -615,7 +615,7 @@ is of type {suffix}. This is not a valid file type for moderately_sensitive file
 
 Level 4 files should be aggregate information easily viewable by output checkers.
 
-See available list of file types here: https://docs.opensafely.org/releasing-files/#allowed-file-types
+See available list of file types here: https://docs.opensafely.org/requesting-file-release/#allowed-file-types.
 """
 
 PATIENT_ID = """
