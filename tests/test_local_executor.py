@@ -324,6 +324,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
         "touch",
         "/workspace/output/output.csv",
         "/workspace/output/summary.csv",
+        "/workspace/output/summary.txt",
     ]
     job_definition.inputs = ["output/input.csv"]
     job_definition.output_spec = {
@@ -360,6 +361,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
     assert results.outputs == {
         "output/output.csv": "highly_sensitive",
         "output/summary.csv": "moderately_sensitive",
+        "output/summary.txt": "moderately_sensitive",
     }
     assert results.unmatched_patterns == []
 
@@ -383,6 +385,13 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
         metadata["content_hash"]
         == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     )
+    assert metadata["row_count"] == 0
+    assert metadata["col_count"] == 0
+
+    txt_metadata = manifest["outputs"]["output/summary.txt"]
+    assert txt_metadata["excluded"] is False
+    assert txt_metadata["row_count"] is None
+    assert txt_metadata["col_count"] is None
 
 
 @pytest.mark.needs_docker
@@ -681,6 +690,8 @@ def test_finalize_patient_id_header(
             manifest["outputs"]["output/output.csv"]["message"]
             == "File has patient_id column"
         )
+        assert manifest["outputs"]["output/output.csv"]["row_count"] == 1
+        assert manifest["outputs"]["output/output.csv"]["col_count"] == 3
 
 
 @pytest.mark.needs_docker
@@ -730,6 +741,17 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir, loc
         txt = message_file.read_text()
         assert "output/output.csv" in txt
         assert "contained 11 rows" in txt
+
+        manifest = local.read_manifest_file(level4_dir, job_definition)
+
+        assert manifest["outputs"]["output/output.csv"]["excluded"]
+        assert (
+            manifest["outputs"]["output/output.csv"]["message"]
+            == "File row count (11) exceeds maximum allowed rows (10)"
+        )
+
+        assert manifest["outputs"]["output/output.csv"]["row_count"] == 11
+        assert manifest["outputs"]["output/output.csv"]["col_count"] == 2
 
 
 @pytest.mark.needs_docker

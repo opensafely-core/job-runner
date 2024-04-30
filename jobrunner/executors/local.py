@@ -511,15 +511,16 @@ def persist_outputs(job_definition, outputs, job_metadata):
         if level == "moderately_sensitive"
     ]
 
+    csv_metadata = {}
     # check any L4 files are vaild
     for filename in l4_files:
-        ok, job_msg, file_msg = check_l4_file(
+        ok, job_msg, file_msg, csv_counts = check_l4_file(
             job_definition, filename, sizes[filename], workspace_dir
         )
         if not ok:
             excluded_job_msgs[filename] = job_msg
             excluded_file_msgs[filename] = file_msg
-
+        csv_metadata[filename] = csv_counts
     medium_privacy_dir = get_medium_privacy_workspace(job_definition.workspace)
 
     # local run currently does not have a level 4 directory, so exit early
@@ -554,20 +555,28 @@ def persist_outputs(job_definition, outputs, job_metadata):
             commit=job_definition.study.commit,
             excluded=filename in excluded_file_msgs,
             message=excluded_job_msgs.get(filename),
+            csv_counts=csv_metadata.get(filename),
         )
-
     write_manifest_file(medium_privacy_dir, manifest)
 
     return excluded_job_msgs
 
 
 def get_output_metadata(
-    abspath, level, job_id, job_request, action, commit, excluded, message=None
+    abspath,
+    level,
+    job_id,
+    job_request,
+    action,
+    commit,
+    excluded,
+    message=None,
+    csv_counts=None,
 ):
     stat = abspath.stat()
     with abspath.open("rb") as fp:
         content_hash = file_digest(fp, "sha256").hexdigest()
-
+    csv_counts = csv_counts or {}
     return {
         "level": level,
         "job_id": job_id,
@@ -579,6 +588,8 @@ def get_output_metadata(
         "content_hash": content_hash,
         "excluded": excluded,
         "message": message,
+        "row_count": csv_counts.get("rows"),
+        "col_count": csv_counts.get("cols"),
     }
 
 
@@ -640,6 +651,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
 
     job_msgs = []
     file_msgs = []
+    csv_counts = {"rows": None, "cols": None}
 
     suffix = Path(filename).suffix
     if suffix not in config.LEVEL4_FILE_TYPES:
@@ -654,21 +666,26 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
             with actual_file.open() as f:
                 reader = csv.DictReader(f)
                 headers = reader.fieldnames
-                row_count = sum(1 for _ in reader)
+                first_row = next(reader, None)
+                if first_row:
+                    csv_counts["cols"] = len(first_row)
+                    csv_counts["rows"] = sum(1 for _ in reader) + 1
+                else:
+                    csv_counts["cols"] = csv_counts["rows"] = 0
         except Exception:
             pass
         else:
             if headers and "patient_id" in headers:
                 job_msgs.append("File has patient_id column")
                 file_msgs.append(PATIENT_ID.format(filename=filename))
-            if row_count > job_definition.level4_max_csv_rows:
+            if csv_counts["rows"] > job_definition.level4_max_csv_rows:
                 job_msgs.append(
-                    f"File row count ({row_count}) exceeds maximum allowed rows ({job_definition.level4_max_csv_rows})"
+                    f"File row count ({csv_counts['rows']}) exceeds maximum allowed rows ({job_definition.level4_max_csv_rows})"
                 )
                 file_msgs.append(
                     MAX_CSV_ROWS_MSG.format(
                         filename=filename,
-                        row_count=row_count,
+                        row_count=csv_counts["rows"],
                         limit=job_definition.level4_max_csv_rows,
                     )
                 )
@@ -686,9 +703,9 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         )
 
     if job_msgs:
-        return False, ",".join(job_msgs), "\n\n".join(file_msgs)
+        return False, ",".join(job_msgs), "\n\n".join(file_msgs), csv_counts
     else:
-        return True, None, None
+        return True, None, None, csv_counts
 
 
 def find_matching_outputs(job_definition):
