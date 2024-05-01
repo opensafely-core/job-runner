@@ -641,7 +641,8 @@ The file:
 contained {row_count} rows, which is above the limit for moderately_sensitive files of
 {limit} rows.
 
-As such, it has *not* been copied to Level 4 storage.
+As such, it has *not* been copied to Level 4 storage. Please contact tech-support for
+further assistance.
 """
 
 
