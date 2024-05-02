@@ -145,6 +145,7 @@ LEVEL4_MAX_FILESIZE = int(
     os.environ.get("LEVEL4_MAX_FILESIZE", 16 * 1024 * 1024)
 )  # 16mb
 
+LEVEL4_MAX_CSV_ROWS = int(os.environ.get("LEVEL4_MAX_CSV_ROWS", 5000))
 
 LEVEL4_FILE_TYPES = pipeline.constants.LEVEL4_FILE_TYPES
 

@@ -30,12 +30,13 @@ class JobDefinition:
         str, str
     ]  # the files that the job should produce (globs mapped to privacy levels)
     allow_database_access: bool  # whether this job should have access to the database
+    level4_max_csv_rows: int
+    level4_max_filesize: int
     # our internal name for the database this job uses (actual connection details are
     # passed in `env`)
     database_name: str = None
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
-    level4_max_filesize: int = 16 * 1024 * 1024
     level4_file_types: list = field(default_factory=lambda: [".csv"])
     # if a job has been cancelled, the name of the canceller - either "user" or "admin"
     cancelled: str = None
