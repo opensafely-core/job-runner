@@ -177,6 +177,12 @@ def get_connection(filename=None):
         conn.row_factory = sqlite3.Row
         cache[filename] = conn
 
+        # use WAL to enable other processes (e.g. operational tasks) to read the DB.
+        # job-runner should be the only active writer, which means if we need
+        # some other process to write the db (e.g. a backfill), then we should
+        # stop job-runner.
+        conn.execute("PRAGMA journal_mode=WAL")
+
     return cache[filename]
 
 

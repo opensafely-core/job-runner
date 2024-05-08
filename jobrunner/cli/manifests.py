@@ -21,7 +21,7 @@ def main():
 
         workspace_dir = local.get_high_privacy_workspace(workspace)
         if not workspace_dir.exists():
-            print(f" - workspace is archived")
+            print(f" - workspace {workspace} is archived")
             continue
 
         level4_dir = local.get_medium_privacy_workspace(workspace)
