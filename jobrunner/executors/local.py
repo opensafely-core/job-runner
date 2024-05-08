@@ -541,12 +541,11 @@ def persist_outputs(job_definition, outputs, job_metadata):
             # if it previously had a message, delete it
             delete_files_from_directory(medium_privacy_dir, [message_file])
 
-    # Update manifest with file metdata
-    manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
+    new_outputs = {}
 
     for filename, level in outputs.items():
         abspath = workspace_dir / filename
-        manifest["outputs"][filename] = get_output_metadata(
+        new_outputs[filename] = get_output_metadata(
             abspath,
             level,
             job_id=job_definition.id,
@@ -557,6 +556,10 @@ def persist_outputs(job_definition, outputs, job_metadata):
             message=excluded_job_msgs.get(filename),
             csv_counts=csv_metadata.get(filename),
         )
+
+    # Update manifest with file metdata
+    manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
+    manifest["outputs"].update(**new_outputs)
     write_manifest_file(medium_privacy_dir, manifest)
 
     return excluded_job_msgs

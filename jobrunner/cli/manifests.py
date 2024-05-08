@@ -8,8 +8,9 @@ from jobrunner.lib import database
 from jobrunner.models import Job
 
 
-def main(workspaces=None):
+def main():
     conn = database.get_connection()
+
     workspaces = [
         w["workspace"] for w in conn.execute("SELECT DISTINCT(workspace) FROM job;")
     ]
@@ -17,6 +18,11 @@ def main(workspaces=None):
     n_workspaces = len(workspaces)
     for i, workspace in enumerate(workspaces):
         print(f"workspace {i+1}/{n_workspaces}: {workspace}")
+
+        workspace_dir = local.get_high_privacy_workspace(workspace)
+        if not workspace_dir.exists():
+            print(f" - workspace is archived")
+            continue
 
         level4_dir = local.get_medium_privacy_workspace(workspace)
 
@@ -61,6 +67,10 @@ def write_manifest(workspace):
                 continue
 
             abspath = workspace_dir / output
+
+            if not abspath.exists():
+                print(f" - {output}, {level}: old output no longer on disk")
+                continue
 
             # use presence of message file to detect excluded files
             message_file = level4_dir / (output + ".txt")
