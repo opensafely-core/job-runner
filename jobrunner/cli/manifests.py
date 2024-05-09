@@ -20,6 +20,11 @@ def main():
         print(f"workspace {i+1}/{n_workspaces}: {workspace}")
 
         level4_dir = local.get_medium_privacy_workspace(workspace)
+
+        if not level4_dir.exists():
+            print(" - L4 dir doesn't exist")
+            continue
+
         manifest_path = level4_dir / "metadata/manifest.json"
 
         if manifest_path.exists():
@@ -30,6 +35,9 @@ def main():
             # work. But its constructed differently - we'll only have l4 output
             # files available.
             write_archived_manifest(workspace)
+
+
+LIMIT = 16 * 1024 * 1024
 
 
 def update_manifest(workspace):
@@ -45,17 +53,21 @@ def update_manifest(workspace):
             print(f" - updating repo for {output}")
 
         if metadata["level"] == "moderately_sensitive" and output.endswith(".csv"):
-            abspath = workspace_dir / output
+            abspath = level4_dir / output
             if not abspath.exists():
-                # archived L3 dir
-                abspath = level4_dir / output
+                # excluded file, so look at L3 file
+                abspath = workspace_dir / output
 
                 if not abspath.exists():
-                    # excluded file
+                    print(f" - {output} does not exist any more")
+                    continue
+
+                if abspath.stat().st_size > LIMIT:
+                    print(f" - {output} is too large to measure rows")
                     continue
 
             try:
-                csv_counts = local.get_csv_counts(abspath)
+                csv_counts, headers = local.get_csv_counts(abspath)
             except Exception:
                 csv_counts = {}
 
@@ -134,7 +146,7 @@ def write_archived_manifest(workspace):
                     "commit": job.commit,
                     "repo": job.repo_url,
                     "size": 0,
-                    "timestamp": message_file.stat().st_mtime,
+                    "timestamp": message_file.stat().st_mtime if excluded else None,
                     "content_hash": None,
                     "excluded": excluded,
                     "message": None,
