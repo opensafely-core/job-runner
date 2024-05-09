@@ -552,6 +552,7 @@ def persist_outputs(job_definition, outputs, job_metadata):
             job_request=job_definition.job_request_id,
             action=job_definition.action,
             commit=job_definition.study.commit,
+            repo=job_definition.study.git_repo_url,
             excluded=filename in excluded_file_msgs,
             message=excluded_job_msgs.get(filename),
             csv_counts=csv_metadata.get(filename),
@@ -572,6 +573,7 @@ def get_output_metadata(
     job_request,
     action,
     commit,
+    repo,
     excluded,
     message=None,
     csv_counts=None,
@@ -585,6 +587,7 @@ def get_output_metadata(
         "job_id": job_id,
         "job_request": job_request,
         "action": action,
+        "repo": repo,
         "commit": commit,
         "size": stat.st_size,
         "timestamp": stat.st_mtime,
@@ -649,6 +652,21 @@ further assistance.
 """
 
 
+def get_csv_counts(path):
+    csv_counts = {}
+    with path.open() as f:
+        reader = csv.DictReader(f)
+        headers = reader.fieldnames
+        first_row = next(reader, None)
+        if first_row:
+            csv_counts["cols"] = len(first_row)
+            csv_counts["rows"] = sum(1 for _ in reader) + 1
+        else:
+            csv_counts["cols"] = csv_counts["rows"] = 0
+
+    return csv_counts, headers
+
+
 def check_l4_file(job_definition, filename, size, workspace_dir):
     def mb(b):
         return round(b / (1024 * 1024), 2)
@@ -656,6 +674,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
     job_msgs = []
     file_msgs = []
     csv_counts = {"rows": None, "cols": None}
+    headers = []
 
     suffix = Path(filename).suffix
     if suffix not in config.LEVEL4_FILE_TYPES:
@@ -667,15 +686,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         # this may need to be abstracted in future
         actual_file = workspace_dir / filename
         try:
-            with actual_file.open() as f:
-                reader = csv.DictReader(f)
-                headers = reader.fieldnames
-                first_row = next(reader, None)
-                if first_row:
-                    csv_counts["cols"] = len(first_row)
-                    csv_counts["rows"] = sum(1 for _ in reader) + 1
-                else:
-                    csv_counts["cols"] = csv_counts["rows"] = 0
+            csv_counts, headers = get_csv_counts(actual_file)
         except Exception:
             pass
         else:

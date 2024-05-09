@@ -19,26 +19,58 @@ def main():
     for i, workspace in enumerate(workspaces):
         print(f"workspace {i+1}/{n_workspaces}: {workspace}")
 
-        workspace_dir = local.get_high_privacy_workspace(workspace)
-        if not workspace_dir.exists():
-            print(f" - workspace {workspace} is archived")
-            continue
-
         level4_dir = local.get_medium_privacy_workspace(workspace)
+        manifest_path = level4_dir / "metadata/manifest.json"
 
-        sentinel = level4_dir / ".manifest-backfill"
-        if sentinel.exists():
-            print(" - already done, skipping")
-            continue
+        if manifest_path.exists():
+            update_manifest(workspace)
+        else:
+            # this was skipped in initial backfill, as L3 dir was archived
+            # but we still need manifest.json for the L4 dir for airlock to
+            # work. But its constructed differently - we'll only have l4 output
+            # files available.
+            write_archived_manifest(workspace)
 
-        write_manifest(workspace)
 
-        sentinel.touch()
-
-
-def write_manifest(workspace):
-    conn = database.get_connection()
+def update_manifest(workspace):
+    """update repo and col/row counts, if missing."""
+    level4_dir = local.get_medium_privacy_workspace(workspace)
     workspace_dir = local.get_high_privacy_workspace(workspace)
+    manifest = local.read_manifest_file(level4_dir, workspace)
+
+    for output, metadata in manifest["outputs"].items():
+        if "repo" not in metadata:
+            job = database.find_one(Job, id=metadata["job_id"])
+            metadata["repo"] = job.repo_url
+            print(f" - updating repo for {output}")
+
+        if metadata["level"] == "moderately_sensitive" and output.endswith(".csv"):
+            abspath = workspace_dir / output
+            if not abspath.exists():
+                # archived L3 dir
+                abspath = level4_dir / output
+
+                if not abspath.exists():
+                    # excluded file
+                    continue
+
+            try:
+                csv_counts = local.get_csv_counts(abspath)
+            except Exception:
+                csv_counts = {}
+
+            print(f" - updating row/col counts for {output}")
+            metadata["row_count"] = csv_counts.get("rows")
+            metadata["col_count"] = csv_counts.get("cols")
+
+    print(
+        f" - writing manifest for archived workspace {workspace} with {len(manifest['outputs'])} outputs"
+    )
+    local.write_manifest_file(level4_dir, manifest)
+
+
+def write_archived_manifest(workspace):
+    conn = database.get_connection()
     level4_dir = local.get_medium_privacy_workspace(workspace)
 
     # ordering by most recent ensures we find the job that generated the
@@ -66,25 +98,49 @@ def write_manifest(workspace):
                 # older version of the file, ignore
                 continue
 
-            abspath = workspace_dir / output
-
-            if not abspath.exists():
-                print(f" - {output}, {level}: old output no longer on disk")
+            if level != "moderately_sensitive":
                 continue
 
             # use presence of message file to detect excluded files
+            abspath = level4_dir / output
             message_file = level4_dir / (output + ".txt")
+
             excluded = message_file.exists()
 
-            metadata = local.get_output_metadata(
-                abspath,
-                level,
-                job_id=job_id,
-                job_request=job.job_request_id,
-                action=job.action,
-                commit=job.commit,
-                excluded=excluded,
-            )
+            if abspath.exists():
+                csv_counts = {}
+                if abspath.name.suffix == ".csv":
+                    csv_counts = local.get_csv_counts()
+
+                metadata = local.get_output_metadata(
+                    abspath,
+                    level,
+                    job_id=job_id,
+                    job_request=job.job_request_id,
+                    action=job.action,
+                    commit=job.commit,
+                    repo=job.repo_url,
+                    excluded=excluded,
+                    csv_counts=csv_counts,
+                )
+
+            else:
+                # we don't have the source file to hash or inspect, probably because it was excluded
+                metadata = {
+                    "level": level,
+                    "job_id": job.id,
+                    "job_request": job.job_request_id,
+                    "action": job.action,
+                    "commit": job.commit,
+                    "repo": job.repo_url,
+                    "size": 0,
+                    "timestamp": message_file.stat().st_mtime,
+                    "content_hash": None,
+                    "excluded": excluded,
+                    "message": None,
+                    "row_count": None,
+                    "col_count": None,
+                }
 
             outputs[output] = metadata
 
