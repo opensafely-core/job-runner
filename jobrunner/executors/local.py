@@ -677,7 +677,19 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
     headers = []
 
     suffix = Path(filename).suffix
-    if suffix not in config.LEVEL4_FILE_TYPES:
+
+    if size > job_definition.level4_max_filesize:
+        job_msgs.append(
+            f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.level4_max_filesize)}Mb."
+        )
+        file_msgs.append(
+            MAX_SIZE_MSG.format(
+                filename=filename,
+                size=mb(size),
+                limit=mb(job_definition.level4_max_filesize),
+            )
+        )
+    elif suffix not in config.LEVEL4_FILE_TYPES:
         job_msgs.append(f"File type of {suffix} is not valid level 4 file")
         file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
 
@@ -704,18 +716,6 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
                         limit=job_definition.level4_max_csv_rows,
                     )
                 )
-
-    if size > job_definition.level4_max_filesize:
-        job_msgs.append(
-            f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.level4_max_filesize)}Mb."
-        )
-        file_msgs.append(
-            MAX_SIZE_MSG.format(
-                filename=filename,
-                size=mb(size),
-                limit=mb(job_definition.level4_max_filesize),
-            )
-        )
 
     if job_msgs:
         return False, ",".join(job_msgs), "\n\n".join(file_msgs), csv_counts
