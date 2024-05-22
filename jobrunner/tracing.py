@@ -302,6 +302,8 @@ def trace_attributes(job, results=None):
         # convert float seconds to ns integer
         created_at=int(job.created_at * 1e9),
         started_at=int(job.started_at * 1e9) if job.started_at else None,
+        # when did the state last change?
+        status_code_updated_at=job.status_code_updated_at,
         requires_db=job.requires_db,
     )
 
