@@ -698,7 +698,8 @@ def test_finalize_patient_id_header(
 
 @pytest.mark.needs_docker
 def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir, local_run):
-    rows = "1,2\n" * 11
+    # Test that a large CSV with too many rows reports BOTH the forbidden size and row count
+    rows = f"{'a' * 100},{'b' * 100}\n" * 11
     job_definition.args = [
         "sh",
         "-c",
@@ -708,6 +709,15 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir, loc
         "output/output.csv": "moderately_sensitive",
     }
     job_definition.level4_max_csv_rows = 10
+    job_definition.level4_max_filesize = 2048
+
+    expected_error_msg = (
+        # Note the max filesize set in this test is v small and we report in Mb, so
+        # the error message isn't informative here, but it's tested elsewhere - this
+        # test is just checking that both errors are reported.
+        "File size of 0.0Mb is larger than limit of 0.0Mb.,"
+        "File row count (11) exceeds maximum allowed rows (10)"
+    )
 
     api = local.LocalDockerAPI()
 
@@ -725,16 +735,13 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir, loc
 
     assert result.exit_code == 0
     assert result.level4_excluded_files == {
-        "output/output.csv": "File row count (11) exceeds maximum allowed rows (10)",
+        "output/output.csv": expected_error_msg,
     }
 
     log_file = local.get_log_dir(job_definition) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
-    assert (
-        "output/output.csv  - File row count (11) exceeds maximum allowed rows (10)"
-        in log
-    )
+    assert f"output/output.csv  - {expected_error_msg}" in log
 
     if not local_run:
         level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
@@ -742,15 +749,13 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir, loc
         message_file = level4_dir / "output/output.csv.txt"
         txt = message_file.read_text()
         assert "output/output.csv" in txt
+        assert "is above the limit" in txt
         assert "contained 11 rows" in txt
 
         manifest = local.read_manifest_file(level4_dir, job_definition)
 
         assert manifest["outputs"]["output/output.csv"]["excluded"]
-        assert (
-            manifest["outputs"]["output/output.csv"]["message"]
-            == "File row count (11) exceeds maximum allowed rows (10)"
-        )
+        assert manifest["outputs"]["output/output.csv"]["message"] == expected_error_msg
 
         assert manifest["outputs"]["output/output.csv"]["row_count"] == 11
         assert manifest["outputs"]["output/output.csv"]["col_count"] == 2

@@ -693,7 +693,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         job_msgs.append(f"File type of {suffix} is not valid level 4 file")
         file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
 
-    elif suffix == ".csv":
+    if suffix == ".csv":
         # note: this assumes the local executor can directly access the long term storage on disk
         # this may need to be abstracted in future
         actual_file = workspace_dir / filename
