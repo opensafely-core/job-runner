@@ -565,14 +565,14 @@ def test_finalize_large_level4_outputs(
 
     assert result.exit_code == 0
     assert result.level4_excluded_files == {
-        "output/output.txt": "File size of 1.0Mb is larger that limit of 0.5Mb.",
+        "output/output.txt": "File size of 1.0Mb is larger than limit of 0.5Mb.",
     }
 
     log_file = local.get_log_dir(job_definition) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert (
-        "output/output.txt  - File size of 1.0Mb is larger that limit of 0.5Mb." in log
+        "output/output.txt  - File size of 1.0Mb is larger than limit of 0.5Mb." in log
     )
 
     if not local_run:
@@ -589,7 +589,7 @@ def test_finalize_large_level4_outputs(
         assert manifest["outputs"]["output/output.txt"]["excluded"]
         assert (
             manifest["outputs"]["output/output.txt"]["message"]
-            == "File size of 1.0Mb is larger that limit of 0.5Mb."
+            == "File size of 1.0Mb is larger than limit of 0.5Mb."
         )
 
 

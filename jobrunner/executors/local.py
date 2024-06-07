@@ -680,7 +680,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
 
     if size > job_definition.level4_max_filesize:
         job_msgs.append(
-            f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.level4_max_filesize)}Mb."
+            f"File size of {mb(size)}Mb is larger than limit of {mb(job_definition.level4_max_filesize)}Mb."
         )
         file_msgs.append(
             MAX_SIZE_MSG.format(
