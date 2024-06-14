@@ -243,6 +243,6 @@ def mock_subprocess_run():
 
 
 if sys.platform == "linux" or sys.platform == "darwin":
-    SUPPORTED_VOLUME_APIS = [volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI]
+    SUPPORTED_VOLUME_APIS = [volumes.DockerVolumeAPI]
 else:
     SUPPORTED_VOLUME_APIS = [volumes.DockerVolumeAPI]

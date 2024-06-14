@@ -165,7 +165,7 @@ def test_integration_with_cohortextractor(
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.loads(manifest_file.read_text())
     assert manifest["workspace"] == "testing"
-    assert manifest["repo"] is None
+    assert manifest["repo"] == str(test_repo.path)
 
     if extraction_tool == "cohortextractor":
         output_name = "input"
@@ -334,7 +334,7 @@ def test_integration_with_databuilder(
     manifest_file = medium_privacy_workspace / "metadata" / "manifest.json"
     manifest = json.loads(manifest_file.read_text())
     assert manifest["workspace"] == "testing"
-    assert manifest["repo"] is None
+    assert manifest["repo"] == str(test_repo.path)
 
     # Check that all the outputs have been produced
     assert (high_privacy_workspace / "output/dataset.csv").exists()

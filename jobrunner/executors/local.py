@@ -559,7 +559,7 @@ def persist_outputs(job_definition, outputs, job_metadata):
         )
 
     # Update manifest with file metdata
-    manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
+    manifest = read_manifest_file(medium_privacy_dir, job_definition)
     manifest["outputs"].update(**new_outputs)
     write_manifest_file(medium_privacy_dir, manifest)
 
@@ -899,17 +899,19 @@ def redact_environment_variables(container_metadata):
     container_metadata["Config"]["Env"] = redacted_vars
 
 
-def read_manifest_file(workspace_dir, workspace):
+def read_manifest_file(workspace_dir, job_definition):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
+    repo_url = job_definition.study.git_repo_url
 
     if manifest_file.exists():
         manifest = json.loads(manifest_file.read_text())
         manifest.setdefault("outputs", {})
+        manifest["repo"] = repo_url
         return manifest
 
     return {
-        "workspace": workspace,
-        "repo": None,  # old key, no longer needed
+        "workspace": job_definition.workspace,
+        "repo": repo_url,
         "outputs": {},
     }
 
