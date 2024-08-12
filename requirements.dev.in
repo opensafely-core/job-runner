@@ -15,6 +15,6 @@ pip-tools
 pre-commit
 pytest
 pytest-cov
-pytest-freezegun
+pytest-freezer
 pytest-responses
 requests_mock
