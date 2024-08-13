@@ -43,7 +43,7 @@ flake8-implicit-str-concat==0.3.0
 flake8-no-pep420==2.2.0
     # via -r requirements.dev.in
 freezegun==1.2.1
-    # via pytest-freezegun
+    # via pytest-freezer
 hypothesis==6.39.4
     # via -r requirements.dev.in
 identify==2.4.12
@@ -92,11 +92,11 @@ pytest==7.1.1
     # via
     #   -r requirements.dev.in
     #   pytest-cov
-    #   pytest-freezegun
+    #   pytest-freezer
     #   pytest-responses
 pytest-cov==3.0.0
     # via -r requirements.dev.in
-pytest-freezegun==0.4.2
+pytest-freezer==0.4.8
     # via -r requirements.dev.in
 pytest-responses==0.5.0
     # via -r requirements.dev.in

@@ -40,7 +40,7 @@ build env="dev": tmpdir
     export GITREF=$(git rev-parse --short HEAD)
 
     # build the thing
-    docker-compose build --pull {{ env }}
+    docker compose build --pull {{ env }}
 
 tmpdir:
     #!/bin/bash
@@ -53,19 +53,19 @@ tmpdir:
 # run tests in docker container
 test *args: build
     #!/bin/bash
-    docker-compose run --rm test {{ args }}
+    docker compose run --rm test {{ args }}
 
 # run dev server in docker container
 service: build
-    docker-compose up dev
+    docker compose up dev
 
 # run command in dev container
 run env="dev" *args="bash": build
-    docker-compose run --rm {{ env }} {{ args }}
+    docker compose run --rm {{ env }} {{ args }}
 
 # exec command in existing dev container
 exec *args="bash":
-    docker-compose exec dev {{ args }}
+    docker compose exec dev {{ args }}
 
 clean:
     #!/bin/bash
