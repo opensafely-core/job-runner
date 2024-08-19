@@ -30,7 +30,7 @@ jobs:
         # Python 3.8 is what we currently support for running cohortextractor
         # locally, and 3.9 is what we required for databuilder so we need to make
         # sure we can run with those
-        python: [3.8, 3.9]
+        python: ["3.8", "3.9", "3.10"]
     runs-on: ${{ matrix.os }}
     name: Run test suite
     steps:
