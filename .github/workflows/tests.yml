@@ -26,7 +26,7 @@ jobs:
   test-job:
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-12]
+        os: [ubuntu-20.04, ubuntu-22.04, windows-2019, macos-12]
         # Python 3.8 is what we currently support for running cohortextractor
         # locally, and 3.9 is what we required for databuilder so we need to make
         # sure we can run with those
