@@ -9,6 +9,54 @@ from jobrunner.models import Job, State, StatusCode
 from tests.factories import job_factory
 
 
+def test_get_jobs_partial_id(db, monkeypatch):
+    # make a fake job
+    job = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
+
+    # take the first four characters to make a partial id
+    partial_job_id = job.id[:4]
+    partial_job_ids = [partial_job_id]
+
+    monkeypatch.setattr("builtins.input", lambda _: "")
+
+    # search for jobs with our partial id
+    output_job_ids = kill_job.get_jobs(partial_job_ids)
+
+    assert output_job_ids[0].id == job.id
+
+
+def test_get_jobs_partial_id_quit(db, monkeypatch):
+    # make a fake job
+    job = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
+
+    # take the first four characters to make a partial id
+    partial_job_id = job.id[:4]
+    partial_job_ids = [partial_job_id]
+
+    def press_control_c(_):
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr("builtins.input", press_control_c)
+
+    # make sure the program is quit
+    with pytest.raises(KeyboardInterrupt):
+        kill_job.get_jobs(partial_job_ids)
+
+
+def test_get_jobs_full_id(db):
+    # make a fake job
+    job = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
+
+    # this "partial id" is secretly a full id!!
+    full_job_id = job.id
+    full_job_ids = [full_job_id]
+
+    # search for jobs with our partial id
+    output_job_ids = kill_job.get_jobs(full_job_ids)
+
+    assert output_job_ids[0].id == job.id
+
+
 @pytest.mark.needs_docker
 @pytest.mark.parametrize("cleanup", [False, True])
 def test_kill_job(cleanup, tmp_work_dir, db, monkeypatch):
