@@ -405,6 +405,7 @@ def run(
     label=None,
     labels=None,
     extra_args=None,
+    volume_type="volume",
 ):
     run_args = ["run", "--init", "--detach", "--label", LABEL, "--name", name]
     if extra_args is not None:
@@ -413,7 +414,9 @@ def run(
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
-        run_args.extend(["--volume", f"{volume[0]}:{volume[1]}"])
+        run_args.extend(
+            ["--mount", f"type={volume_type},source={volume[0]},target={volume[1]}"]
+        )
     # These lables are in addition to the default LABEL which is always applied
     # Single unary label
     if label is not None:
