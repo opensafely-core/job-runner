@@ -9,6 +9,25 @@ from jobrunner.models import Job, State, StatusCode
 from tests.factories import job_factory
 
 
+def test_get_jobs_no_jobs():
+    # TODO: expect RuntimeError
+    pass
+
+
+def test_get_jobs_multiple_matches():
+    # TODO: test confirmation
+    pass
+
+def test_get_jobs_multiple_params_partial(db, monkeypatch):
+    # TODO: kill_jobs.get_jobs(["1234", "5678"])
+    pass
+
+
+def test_get_jobs_multiple_params_full(db, monkeypatch):
+    # TODO: kill_jobs.get_jobs(["z6tkp3mjato63dkm", "z6tkp3mjato63dkn"])
+    pass
+
+
 def test_get_jobs_partial_id(db, monkeypatch):
     # make a fake job
     job = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
