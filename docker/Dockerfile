@@ -7,7 +7,7 @@
 # the latest base image, by design.
 #
 # hadolint ignore=DL3007
-FROM ghcr.io/opensafely-core/base-docker:latest as base-python
+FROM ghcr.io/opensafely-core/base-docker:22.04 as base-python
 
 # we are going to use an apt cache on the host, so disable the default debian
 # docker clean up that deletes that cache on every apt install
