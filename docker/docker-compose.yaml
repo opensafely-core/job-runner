@@ -23,12 +23,19 @@ services:
         - GITREF
     # use dockers builitin PID daemon
     init: true
-    # paths relative to docker-compose.yaml
+    # run as the the current user to preserve file permissions
+    user: "${DEV_USERID:-1000}:${DEV_GROUPID:-1000}"
+    # run with additional group docker (the *hosts* gid for docker)
+    group_add: ["${DOCKER_HOST_GROUPID}"]
+    # paths are relative to docker-compose.yaml
     volumes:
       # use the default dev workdir
       - ../workdir:/workdir
       # docker control
       - /var/run/docker.sock:/var/run/docker.sock
+      # used to avoid ugly uid/gid lookup failures, but not strictly required
+      - /etc/group:/etc/group:ro
+      - /etc/passwd:/etc/passwd:ro
     # paths relative to docker-compose.yaml file
     env_file:
       - ../.env
@@ -48,20 +55,9 @@ services:
         service: prod
     image: job-runner-dev
     container_name: job-runner-dev
-    # running as a specific uid/gid allows files written to mounted volumes by
-    # the docker container's default user to match the host user's uid/gid, for
-    # convienience.
-    user: ${DEV_USERID:-1000}:${DEV_GROUPID:-1000}
-    # also run with additional group docker
-    group_add: [docker]
     build:
       # the dev stage in the Dockerfile
       target: job-runner-dev
-      # pass the uid/gid as build arg
-      args:
-        - DEV_USERID=${DEV_USERID:-1000}
-        - DEV_GROUPID=${DEV_GROUPID:-1000}
-        - DOCKER_HOST_GROUPID=${DOCKER_HOST_GROUPID}
     # Some tricks are needed here to be able to test the BindMountVolumeAPI
     # when running inside docker, as we need the volumes to be mountable by the
     # host docker. Our pytest fixtures create the directories in /tmp, so we
