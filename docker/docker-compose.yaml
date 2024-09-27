@@ -1,6 +1,8 @@
 # note: this docker-compose file is intended to define the *building* of
 # job-runner images, and running them locally in dev, not for running them in
 # production
+name: job-runner
+
 services:
   prod:
     # image name, both locally and public
@@ -29,24 +31,34 @@ services:
     group_add: ["${DOCKER_HOST_GROUPID}"]
     # paths are relative to docker-compose.yaml
     volumes:
-      # use the default dev workdir
-      - ../workdir:/workdir
       # docker control
       - /var/run/docker.sock:/var/run/docker.sock
+      # use the default dev workdir
+      - ../workdir:/workdir
       # used to avoid ugly uid/gid lookup failures, but not strictly required
       - /etc/group:/etc/group:ro
       - /etc/passwd:/etc/passwd:ro
+      # these paths must be absolute on the host, and must be mount to the
+      # identical absolute paths inside the container. This allows for
+      # job-runner to use the same value for both its own file access, and for
+      # what to pass to the host docker as a bindmount source directory, which
+      # needs to be on the host. 
+      # We can potentially fix this by adding an explicit bind mount source configs, if we want to
+      - ${MEDIUM_PRIVACY_STORAGE_BASE}:${MEDIUM_PRIVACY_STORAGE_BASE}
+      - ${HIGH_PRIVACY_STORAGE_BASE}:${HIGH_PRIVACY_STORAGE_BASE}
     # paths relative to docker-compose.yaml file
     env_file:
+      # load jobrunner local dev config
       - ../.env
-      - docker-compose.env
+      # explicitly load local .env after parent dir .env
+      - .env
     # ensure WORKDIR environment points to fixed location
     environment:
       # default dev config
       WORKDIR: /workdir
-      MEDIUM_PRIVACY_STORAGE_BASE: /workdir/workspaces
-      HIGH_PRIVACY_STORAGE_BASE: /workdir/workspaces
-      DOCKER_HOST: ${DOCKER_HOST:-unix:///var/run/docker.sock}
+      # force using mounted docker socket
+      DOCKER_HOST: unix:///var/run/docker.sock
+      # used to enable in CI
       PRIVATE_REPO_TOKEN: ${PRIVATE_REPO_TOKEN:-}
 
   # main development service

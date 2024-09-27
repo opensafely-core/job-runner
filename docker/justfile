@@ -1,26 +1,13 @@
 set dotenv-load := true
 
-export DOCKER_USERID := `id -u`
-export DOCKER_GROUPID := `id -g`
 export PYTEST_HOST_TMP := "/tmp/jobrunner-docker"
 
-# the dev build needs to know the hosts docker group ID, to match it in the container
-
-export DOCKER_HOST_GROUPID := `getent group docker | awk -F: '{print $3}'`
-
-# dev builds remap's appuser's uid to the running user, for easy file
-# permissions when we mount things in.
-
-export DEV_USERID := `id -u`
-export DEV_GROUPID := `id -g`
-
-build env="dev": tmpdir
+build env="dev": tmpdir docker-compose-env
     #!/usr/bin/env bash
     set -eu
 
-    # ensure env files exist
+    # ensure parent env files exist
     test -f ../.env || cp ../dotenv-sample ../.env
-    touch docker-compose.env
 
     # enable modern docker build features
     export DOCKER_BUILDKIT=1
@@ -41,17 +28,50 @@ tmpdir:
     fi
     mkdir $PYTEST_HOST_TMP
 
+docker-compose-env:
+    #!/bin/bash
+    mkdir -p {medium,high}
+    test -f .env && exit 0
+    cat <<EOF > .env
+    DEV_USERID=$(id -u)
+    DEV_GROUPID=$(id -g)
+    DOCKER_HOST_GROUPID=$(getent group docker | awk -F: '{print $3}')
+    PYTEST_HOST_TMP=$PYTEST_HOST_TMP
+    MEDIUM_PRIVACY_STORAGE_BASE=$(realpath $PWD/medium)
+    HIGH_PRIVACY_STORAGE_BASE=$(realpath $PWD/high)
+    EOF
+
 # run tests in docker container
 test *args: build
     #!/bin/bash
     docker compose run --rm test {{ args }}
+
+functional-test:
+    #!/bin/bash
+    container=job-runner-prod-1
+    trap 'docker compose kill prod' EXIT
+    docker compose up -d prod
+    docker compose exec prod python3 -m jobrunner.cli.add_job https://github.com/opensafely/research-template generate_dataset
+    attempts=""
+    # use docker logs reather than docker compose logs, as those will include previous run's logs 
+    while ! docker logs -n 10 $container |& grep -q "Completed successfully";
+    do
+        if test "$attempts" = ".........."; then
+            docker compose logs prod
+            exit 1;
+        fi
+        attempts="${attempts}."
+        echo "waiting..."
+        sleep 1
+    done
+    docker logs -n 10 $container |& grep "Completed successfully"
 
 # run dev server in docker container
 service: build
     docker compose up dev
 
 # run command in dev container
-run env="dev" *args="bash": build
+run env="dev" *args="": build
     docker compose run --rm {{ env }} {{ args }}
 
 # exec command in existing dev container
@@ -60,5 +80,5 @@ exec *args="bash":
 
 clean:
     #!/bin/bash
-    rm -rf $PYTEST_HOST_TMP
+    rm -rf $PYTEST_HOST_TMP .env
     docker image rm job-runner job-runner-dev || true
