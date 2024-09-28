@@ -14,6 +14,7 @@ from jobrunner.lib.database import (
     get_connection,
     insert,
     migrate_db,
+    query_params_to_sql,
     select_values,
     update,
 )
@@ -226,3 +227,28 @@ def test_ensure_valid_db(tmp_path):
     # does not raise when all is well
     conn.execute("PRAGMA user_version=1")
     ensure_valid_db(db, {1: "should not run"})
+
+
+@pytest.mark.parametrize(
+    "params,expected_sql_string,expected_sql_values",
+    [
+        ({}, "1 = 1", []),
+        ({"doubutsu": "neko"}, '"doubutsu" = ?', ["neko"]),
+        ({"doubutsu__like": "ne%"}, '"doubutsu" LIKE ?', ["ne%"]),
+        (
+            {"doubutsu__in": ["neko", "kitsune", "nezumi"]},
+            '"doubutsu" IN (?, ?, ?)',
+            ["neko", "kitsune", "nezumi"],
+        ),
+        (
+            {"namae": "rosa", "doubutsu__in": ["neko"]},
+            '"namae" = ? AND "doubutsu" IN (?)',
+            ["rosa", "neko"],
+        ),
+        ({"state": State.RUNNING}, '"state" = ?', ['running']),
+    ],
+)
+def test_query_params_to_sql(params, expected_sql_string, expected_sql_values):
+    sql_string, sql_values = query_params_to_sql(params)
+    assert sql_string == expected_sql_string
+    assert sql_values == expected_sql_values
