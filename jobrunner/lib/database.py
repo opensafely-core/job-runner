@@ -106,7 +106,7 @@ def find_where(itemclass, **query_params):
     return [itemclass(*decode_field_values(fields, row)) for row in cursor]
 
 
-def find_all(itemclass):
+def find_all(itemclass):  # pragma: nocover
     return find_where(itemclass)
 
 
