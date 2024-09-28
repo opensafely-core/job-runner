@@ -6,8 +6,10 @@ import pytest
 from jobrunner.lib.database import (
     CONNECTION_CACHE,
     MigrationNeeded,
+    count_where,
     ensure_db,
     ensure_valid_db,
+    exists_where,
     find_one,
     get_connection,
     insert,
@@ -54,6 +56,26 @@ def test_update_excluding_a_field(tmp_work_dir):
     j = find_one(Job, id="foo123")
     assert j.action == "bar"
     assert j.commit == "commit-of-glory"
+
+
+def test_exists_where(tmp_work_dir):
+    insert(Job(id="foo123", state=State.PENDING))
+    insert(Job(id="foo124", state=State.RUNNING))
+    insert(Job(id="foo125", state=State.FAILED))
+    job_state_exists = exists_where(Job, state__in=[State.PENDING, State.FAILED])
+    assert job_state_exists is True
+    job_id_exists = exists_where(Job, id="foo124")
+    assert job_id_exists is True
+
+
+def test_count_where(tmp_work_dir):
+    insert(Job(id="foo123", state=State.PENDING))
+    insert(Job(id="foo124", state=State.RUNNING))
+    insert(Job(id="foo125", state=State.FAILED))
+    jobs_in_states = count_where(Job, state__in=[State.PENDING, State.FAILED])
+    assert jobs_in_states == 2
+    jobs_with_id = count_where(Job, id="foo124")
+    assert jobs_with_id == 1
 
 
 def test_select_values(tmp_work_dir):
