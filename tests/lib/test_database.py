@@ -17,6 +17,7 @@ from jobrunner.lib.database import (
     query_params_to_sql,
     select_values,
     update,
+    upsert,
 )
 from jobrunner.models import Job, State
 
@@ -45,6 +46,20 @@ def test_update(tmp_work_dir):
     insert(job)
     job.action = "bar"
     update(job)
+    assert find_one(Job, id="foo123").action == "bar"
+
+
+def test_upsert_insert(tmp_work_dir):
+    job = Job(id="foo123", action="bar")
+    upsert(job)
+    assert find_one(Job, id="foo123").action == "bar"
+
+
+def test_upsert_update(tmp_work_dir):
+    job = Job(id="foo123", action="foo")
+    insert(job)
+    job.action = "bar"
+    upsert(job)
     assert find_one(Job, id="foo123").action == "bar"
 
 
@@ -245,7 +260,7 @@ def test_ensure_valid_db(tmp_path):
             '"namae" = ? AND "doubutsu" IN (?)',
             ["rosa", "neko"],
         ),
-        ({"state": State.RUNNING}, '"state" = ?', ['running']),
+        ({"state": State.RUNNING}, '"state" = ?', ["running"]),
     ],
 )
 def test_query_params_to_sql(params, expected_sql_string, expected_sql_values):
