@@ -155,6 +155,12 @@ def transaction():
     return conn
 
 
+def filename_or_get_default(filename=None):
+    if filename is None:
+        filename = config.DATABASE_FILE
+    return filename
+
+
 def get_connection(filename=None):
     """Return the current configured connection."""
     # The caching below means we get the same connection to the database every
@@ -162,8 +168,7 @@ def get_connection(filename=None):
     # implement transaction support without having to explicitly pass round a
     # connection object. This is done on a per-thread basis to avoid potential
     # threading issues.
-    if filename is None:
-        filename = config.DATABASE_FILE
+    filename = filename_or_get_default(filename)
 
     # Looks icky but is documented `threading.local` usage
     cache = CONNECTION_CACHE.__dict__
@@ -208,8 +213,7 @@ def ensure_valid_db(filename=None, migrations=MIGRATIONS):
     # we store migrations in models, so make sure this has been imported to collect them
     import jobrunner.models  # noqa: F401
 
-    if filename is None:
-        filename = config.DATABASE_FILE
+    filename = filename_or_get_default(filename)
 
     db_type, db_exists = db_status(filename)
     if db_type == "file" and not db_exists:
@@ -234,8 +238,7 @@ def ensure_db(filename=None, migrations=MIGRATIONS, verbose=False):
     # we store migrations in models, so make sure this has been imported to collect them
     import jobrunner.models  # noqa: F401
 
-    if filename is None:
-        filename = config.DATABASE_FILE
+    filename = filename_or_get_default(filename)
 
     db_type, db_exists = db_status(filename)
 
