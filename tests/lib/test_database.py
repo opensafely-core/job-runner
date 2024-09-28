@@ -11,6 +11,7 @@ from jobrunner.lib.database import (
     ensure_valid_db,
     exists_where,
     find_one,
+    generate_insert_sql,
     get_connection,
     insert,
     migrate_db,
@@ -39,6 +40,16 @@ def test_basic_roundtrip(tmp_work_dir):
     j = find_one(Job, job_request_id__in=["bar123", "baz123"])
     assert job.id == j.id
     assert job.output_spec == j.output_spec
+
+
+def test_generate_insert_sql(tmp_work_dir):
+    job = Job(id="foo123", action="foo")
+    sql, _ = generate_insert_sql(job)
+
+    assert (
+        sql
+        == 'INSERT INTO "job" ("id", "job_request_id", "state", "repo_url", "commit", "workspace", "database_name", "action", "action_repo_url", "action_commit", "requires_outputs_from", "wait_for_job_ids", "run_command", "image_id", "output_spec", "outputs", "unmatched_outputs", "status_message", "status_code", "cancelled", "created_at", "updated_at", "started_at", "completed_at", "status_code_updated_at", "trace_context", "level4_excluded_files", "requires_db") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )
 
 
 def test_update(tmp_work_dir):
