@@ -42,27 +42,31 @@ def migration(version, sql):
     MIGRATIONS[version] = sql
 
 
-def insert(item):
+def generate_insert_sql(item):
     table = item.__tablename__
     fields = dataclasses.fields(item)
     columns = ", ".join(escape(field.name) for field in fields)
     placeholders = ", ".join(["?"] * len(fields))
     sql = f"INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})"
+    return sql, fields
+
+
+def insert(item):
+    sql, fields = generate_insert_sql(item)
+
     get_connection().execute(sql, encode_field_values(fields, item))
 
 
 def upsert(item):
     assert item.id
-    table = item.__tablename__
-    fields = dataclasses.fields(item)
-    columns = ", ".join(escape(field.name) for field in fields)
-    placeholders = ", ".join(["?"] * len(fields))
+    insert_sql, fields = generate_insert_sql(item)
+
     updates = ", ".join(f"{escape(field.name)} = ?" for field in fields)
     # Note: technically we update the id on conflict with this approach, which
-    # is unessecary, but it does not hurt and simplifies updates and params
+    # is unnecessary, but it does not hurt and simplifies updates and params
     # parts of the query.
     sql = f"""
-        INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})
+        {insert_sql}
         ON CONFLICT(id) DO UPDATE SET {updates}
     """
     params = encode_field_values(fields, item)
