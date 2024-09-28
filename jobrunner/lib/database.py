@@ -296,8 +296,12 @@ def query_params_to_sql(params):
     All parameters are implicitly ANDed together, and there's a bit of magic to
     handle `field__in=list_of_values` queries, LIKE queries and Enum classes.
     """
+    if not params:
+        return "1 = 1", []
+
     parts = []
     values = []
+
     for key, value in params.items():
         if key.endswith("__in"):
             field = key[:-4]
@@ -311,11 +315,11 @@ def query_params_to_sql(params):
         else:
             parts.append(f"{escape(key)} = ?")
             values.append(value)
+
     # Bit of a hack: convert any Enum instances to their values so we can use
     # them in querying
     values = [v.value if isinstance(v, Enum) else v for v in values]
-    if not parts:
-        parts = ["1 = 1"]
+
     return " AND ".join(parts), values
 
 
