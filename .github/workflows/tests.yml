@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04, windows-2019, macos-13]
+        os: [ubuntu-20.04, ubuntu-22.04, windows-2019, macos-14]
         # Python 3.8 is what we currently support for running cohortextractor
         # locally, and 3.9 is what we required for databuilder so we need to make
         # sure we can run with those
@@ -65,7 +65,7 @@ jobs:
           just test-no-docker -vvv
 
       - name: Run actual tests on macos
-        if: ${{ matrix.os == 'macos-13' }}
+        if: ${{ matrix.os == 'macos-14' }}
         run: just test-no-docker -vvv
 
   test-package-build:
