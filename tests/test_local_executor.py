@@ -1026,6 +1026,7 @@ def test_delete_volume(docker_cleanup, job_definition, tmp_work_dir, volume_api)
 @pytest.mark.skipif(
     sys.platform != "linux" and sys.platform != "darwin", reason="linux/darwin only"
 )
+@pytest.mark.needs_docker
 def test_delete_volume_error_bindmount(
     docker_cleanup, job_definition, tmp_work_dir, monkeypatch, caplog
 ):
