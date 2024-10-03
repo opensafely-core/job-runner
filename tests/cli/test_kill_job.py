@@ -9,34 +9,70 @@ from jobrunner.models import Job, State, StatusCode
 from tests.factories import job_factory
 
 
-def test_get_jobs_no_jobs():
-    # TODO: expect RuntimeError
+def test_get_jobs_no_jobs(db):
 
     # set a string to use as a partial id
     partial_job_id = "1234"
     partial_job_ids = [partial_job_id]
 
-    kill_job.get_jobs(partial_job_ids)
+    with pytest.raises(RuntimeError):
+        kill_job.get_jobs(partial_job_ids)
 
 
-def test_get_jobs_no_match():
-    # TODO: expect RuntimeError
-    pass
+def test_get_jobs_no_match(db):
+
+    # make a fake job
+    job_factory(
+        state=State.RUNNING, status_code=StatusCode.EXECUTING, id="z6tkp3mjato63dkm"
+    )
+
+    partial_job_id = "1234"
+    partial_job_ids = [partial_job_id]
+
+    with pytest.raises(RuntimeError):
+        kill_job.get_jobs(partial_job_ids)
 
 
-def test_get_jobs_multiple_matches():
-    # TODO: test confirmation
-    pass
+def test_get_jobs_multiple_matches(db, monkeypatch):
+
+    # make a fake job
+    job = job_factory(
+        state=State.RUNNING, status_code=StatusCode.EXECUTING, id="z6tkp3mjato63dkm"
+    )
+
+    job_factory(
+        state=State.RUNNING, status_code=StatusCode.EXECUTING, id="z6tkp3mjato63dkn"
+    )
+
+    partial_job_id = "kp3mj"
+    partial_job_ids = [partial_job_id]
+
+    monkeypatch.setattr("builtins.input", lambda _: "1")
+
+    output_job_ids = kill_job.get_jobs(partial_job_ids)
+
+    assert output_job_ids[0].id == job.id
 
 
 def test_get_jobs_multiple_params_partial(db, monkeypatch):
-    # TODO: kill_jobs.get_jobs(["1234", "5678"])
-    pass
 
+    job1 = job_factory(
+        state=State.RUNNING, status_code=StatusCode.EXECUTING, id="z6tkp3mjato63dkm"
+    )
 
-def test_get_jobs_multiple_params_full(db, monkeypatch):
-    # TODO: kill_jobs.get_jobs(["z6tkp3mjato63dkm", "z6tkp3mjato63dkn"])
-    pass
+    job2 = job_factory(
+        state=State.RUNNING, status_code=StatusCode.EXECUTING, id="z6tkp3mjato63dkn"
+    )
+
+    partial_job_ids = ["dkm", "dkn"]
+
+    monkeypatch.setattr("builtins.input", lambda _: "")
+
+    # search for jobs with our partial id
+    output_job_ids = kill_job.get_jobs(partial_job_ids)
+
+    assert output_job_ids[0].id == job1.id
+    assert output_job_ids[1].id == job2.id
 
 
 def test_get_jobs_partial_id(db, monkeypatch):
