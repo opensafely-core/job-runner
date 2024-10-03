@@ -175,7 +175,9 @@ class LocalDockerAPI(ExecutorAPI):
                 label=LABEL,
                 labels=get_job_labels(job_definition),
                 extra_args=extra_args,
+                volume_type=volume_api.volume_type,
             )
+
         except Exception as exc:
             return JobStatus(
                 ExecutorState.ERROR, f"Failed to start docker container: {exc}"
