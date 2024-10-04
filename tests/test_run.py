@@ -544,6 +544,7 @@ def test_handle_job_finalized_success_with_delete(db):
         state=State.SUCCEEDED,
         status_code=StatusCode.SUCCEEDED,
         outputs={"output/old.csv": "highly_sensitive"},
+        created_at=time.time() - 10,
     )
 
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
