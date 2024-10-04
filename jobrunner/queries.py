@@ -4,7 +4,7 @@ from itertools import groupby
 from operator import attrgetter
 
 from jobrunner.lib.database import find_all, find_one, find_where, upsert
-from jobrunner.models import Flag, Job
+from jobrunner.models import Flag, Job, State
 
 
 def calculate_workspace_state(workspace):
@@ -19,6 +19,10 @@ def calculate_workspace_state(workspace):
     for action, jobs in group_by(all_jobs, attrgetter("action")):
         if action == "__error__":
             continue
+        # Remove running jobs from the list - this function is used to compare a
+        # job to a previously completed job, if we include running jobs here
+        # we will compare a job to itself (with hilarious consequences!)
+        jobs = filter(lambda x: x.state != State.RUNNING, jobs)
         ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
         latest_jobs.append(ordered_jobs[0])
     return latest_jobs
