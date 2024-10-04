@@ -1000,6 +1000,38 @@ def test_get_obsolete_files_things_to_delete(db):
     assert obsolete == ["old_high.txt", "old_medium.txt"]
 
 
+def test_get_obsolete_files_things_to_delete_timing(db):
+    old_outputs = {
+        "old_high.txt": "highly_sensitive",
+        "old_medium.txt": "moderately_sensitive",
+        "current.txt": "highly_sensitive",
+    }
+    new_outputs = {
+        "new_high.txt": "highly_sensitive",
+        "new_medium.txt": "moderately_sensitive",
+        "current.txt": "highly_sensitive",
+    }
+
+    # insert previous outputs
+    job_factory(
+        state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
+        outputs=old_outputs,
+        created_at=time.time() - 10,
+    )
+
+    job = job_factory(
+        state=State.RUNNING,
+        status_code=StatusCode.FINALIZED,
+        outputs=new_outputs,
+    )
+
+    job_definition = run.job_to_job_definition(job)
+
+    obsolete = run.get_obsolete_files(job_definition, new_outputs)
+    assert obsolete == ["old_high.txt", "old_medium.txt"]
+
+
 def test_get_obsolete_files_case_change(db):
     old_outputs = {
         "high.txt": "highly_sensitive",
