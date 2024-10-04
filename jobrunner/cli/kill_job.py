@@ -55,26 +55,25 @@ def get_jobs(partial_job_ids):
     jobs = []
     need_confirmation = False
     for partial_job_id in partial_job_ids:
-        # look for full matches
-        full_matches = database.find_where(Job, id=partial_job_id)
-        if len(full_matches) == 1:
-            jobs.append(full_matches[0])
+        # look for partial matches
+        partial_matches = database.find_where(Job, id__like=f"%{partial_job_id}%")
+        if len(partial_matches) == 0:
+            raise RuntimeError(f"No jobs found matching '{partial_job_id}'")
+        elif len(partial_matches) > 1:
+            print(f"Multiple jobs found matching '{partial_job_id}':")
+            for i, job in enumerate(partial_matches, start=1):
+                print(f"  {i}: {job.slug}")
+            print()
+            index = int(input("Enter number: "))
+            assert 0 < index <= len(partial_matches)
+            jobs.append(partial_matches[index - 1])
         else:
-            # look for partial matches
-            partial_matches = database.find_where(Job, id__like=f"%{partial_job_id}%")
-            if len(partial_matches) == 0:
-                raise RuntimeError(f"No jobs found matching '{partial_job_id}'")
-            elif len(partial_matches) > 1:
-                print(f"Multiple jobs found matching '{partial_job_id}':")
-                for i, job in enumerate(partial_matches, start=1):
-                    print(f"  {i}: {job.slug}")
-                print()
-                index = int(input("Enter number: "))
-                assert 0 < index <= len(partial_matches)
-                jobs.append(partial_matches[index - 1])
-            else:
+            # We only need confirmation if the supplied job ID doesn't exactly
+            # match the found job
+            job = partial_matches[0]
+            if job.id != partial_job_id:
                 need_confirmation = True
-                jobs.append(partial_matches[0])
+            jobs.append(job)
     if need_confirmation:
         print("About to kill jobs:")
         for job in jobs:
