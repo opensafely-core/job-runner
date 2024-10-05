@@ -380,12 +380,8 @@ def handle_job(job, api, mode=None, paused=None):
         # final state - we have finished!
         results = api.get_results(job_definition)
 
-        # We need to calculate obsolete before saving the results, as when we save
-        # the job will move to State.SUCCEEDED & then `calculate_workspace_state()`
-        # will mean that we are comparing results.outputs to itself (instead of
-        # the previous job)
-        obsolete = get_obsolete_files(job_definition, results.outputs)
         save_results(job, job_definition, results)
+        obsolete = get_obsolete_files(job_definition, results.outputs)
 
         if obsolete:
             errors = api.delete_files(job_definition.workspace, Privacy.HIGH, obsolete)
