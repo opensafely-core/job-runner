@@ -968,11 +968,19 @@ def test_get_obsolete_files_nothing_to_delete(db):
         "high.txt": "highly_sensitive",
         "medium.txt": "moderately_sensitive",
     }
-    job = job_factory(
+    job_factory(
         state=State.SUCCEEDED,
         status_code=StatusCode.SUCCEEDED,
+        outputs={},
+        created_at=time.time() - 10,
+    )
+
+    job = job_factory(
+        state=State.RUNNING,
+        status_code=StatusCode.FINALIZED,
         outputs=outputs,
     )
+
     job_definition = run.job_to_job_definition(job)
 
     obsolete = run.get_obsolete_files(job_definition, outputs)
@@ -990,10 +998,19 @@ def test_get_obsolete_files_things_to_delete(db):
         "new_medium.txt": "moderately_sensitive",
         "current.txt": "highly_sensitive",
     }
-    job = job_factory(
+    job_factory(
         state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
         outputs=old_outputs,
+        created_at=time.time() - 10,
     )
+
+    job = job_factory(
+        state=State.RUNNING,
+        status_code=StatusCode.FINALIZED,
+        outputs=new_outputs,
+    )
+
     job_definition = run.job_to_job_definition(job)
 
     obsolete = run.get_obsolete_files(job_definition, new_outputs)
@@ -1039,10 +1056,19 @@ def test_get_obsolete_files_case_change(db):
     new_outputs = {
         "HIGH.txt": "highly_sensitive",
     }
-    job = job_factory(
+    job_factory(
         state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
         outputs=old_outputs,
+        created_at=time.time() - 10,
     )
+
+    job = job_factory(
+        state=State.RUNNING,
+        status_code=StatusCode.FINALIZED,
+        outputs=new_outputs,
+    )
+
     job_definition = run.job_to_job_definition(job)
 
     obsolete = run.get_obsolete_files(job_definition, new_outputs)
