@@ -188,9 +188,9 @@ def test_repo(tmp_work_dir):
 
 
 @pytest.fixture()
-def db(monkeypatch, request):
+def db(monkeypatch, tmp_path, request):
     """Create a throwaway db."""
-    database_file = f"file:db-{request.node.name}?mode=memory&cache=shared"
+    database_file = tmp_path / f"file:db-{request.node.name}?mode=memory&cache=shared"
     monkeypatch.setattr(config, "DATABASE_FILE", database_file)
     database.ensure_db(database_file)
     yield

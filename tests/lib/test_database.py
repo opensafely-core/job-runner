@@ -18,8 +18,8 @@ from jobrunner.lib.database import (
 from jobrunner.models import Job, State
 
 
-def test_get_connection():
-    db = "file:test_get_connection?mode=memory&cache=shared"
+def test_get_connection(tmp_path):
+    db = tmp_path / "file:test_get_connection?mode=memory&cache=shared"
     conn = get_connection(db)
     assert conn is get_connection(db)
 
@@ -111,8 +111,8 @@ def test_ensure_db_verbose(tmp_path, caplog):
     assert "Applied migration 2" in caplog.records[-1].msg
 
 
-def test_ensure_db_new_db_memory():
-    db = "file:test?mode=memory&cached=shared"
+def test_ensure_db_new_db_memory(tmp_path):
+    db = tmp_path / "file:test?mode=memory&cached=shared"
     conn = ensure_db(db, {1: "should not run"})
     assert CONNECTION_CACHE.__dict__[db] is conn
     assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
