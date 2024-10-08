@@ -168,7 +168,7 @@ def get_connection(filename=None):
     # Looks icky but is documented `threading.local` usage
     cache = CONNECTION_CACHE.__dict__
     if filename not in cache:
-        conn = sqlite3.connect(filename)
+        conn = sqlite3.connect(filename, uri=True)
         # Enable autocommit so changes made outside of a transaction still get
         # persisted to disk. We can use explicit transactions when we need
         # atomicity.
