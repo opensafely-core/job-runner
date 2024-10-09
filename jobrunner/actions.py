@@ -81,7 +81,7 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
     return ActionSpecification(
         run=run_command,
         needs=action_spec.needs,
-        outputs=action_spec.outputs.dict(exclude_unset=True),
+        outputs=action_spec.outputs.dict(),
         action=action_spec,
     )
 

@@ -14,7 +14,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-  "opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v2024.03.19.153938",
+  "opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v2024.10.08.124104",
   "ruyaml",
   "requests",
   "opentelemetry-exporter-otlp-proto-http",
