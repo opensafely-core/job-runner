@@ -18,7 +18,7 @@ googleapis-common-protos==1.56.4
     # via opentelemetry-exporter-otlp-proto-http
 idna==2.10
     # via requests
-opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v2024.10.08.124104
+opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v2024.10.11.170331
     # via opensafely-jobrunner (pyproject.toml)
 opentelemetry-api==1.12.0
     # via
@@ -36,8 +36,6 @@ protobuf==3.20.2
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
-pydantic==1.10.12
-    # via opensafely-pipeline
 requests==2.25.0
     # via
     #   opensafely-jobrunner (pyproject.toml)
@@ -47,9 +45,7 @@ ruyaml==0.91.0
     #   opensafely-jobrunner (pyproject.toml)
     #   opensafely-pipeline
 typing-extensions==4.7.1
-    # via
-    #   opentelemetry-sdk
-    #   pydantic
+    # via opentelemetry-sdk
 urllib3==1.26.5
     # via requests
 wrapt==1.14.1
