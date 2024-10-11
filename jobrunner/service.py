@@ -93,6 +93,14 @@ def maintenance_mode():
     """Check if the db is currently in maintenance mode, and set flags as appropriate."""
     # This did not seem big enough to warrant splitting into a separate module.
     log.info("checking if db undergoing maintenance...")
+
+    # manually setting this flag bypasses the automaticaly check
+    manual_db_mode = get_flag_value("manual-db-maintenance")
+    if manual_db_mode:
+        log.info("manually set db mode: db-maintenance")
+        return "db-maintenance"
+
+    # detect db mode from TPP.
     current = get_flag_value("mode")
     ps = docker(
         [
