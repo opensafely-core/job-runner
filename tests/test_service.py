@@ -93,6 +93,11 @@ def test_maintenance_mode_error(mock_subprocess_run, db, db_config):
         service.maintenance_mode()
 
 
+def test_maintenance_mode_manual(db, db_config):
+    queries.set_flag("manual-db-maintenance", "on")
+    assert service.maintenance_mode() == "db-maintenance"
+
+
 @pytest.fixture
 def db_config(monkeypatch):
     monkeypatch.setitem(config.DATABASE_URLS, "default", "mssql://localhost")

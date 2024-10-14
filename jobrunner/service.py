@@ -89,10 +89,21 @@ def maintenance_wrapper():
         time.sleep(config.MAINTENANCE_POLL_INTERVAL)
 
 
+DB_MAINTENANCE_MODE = "db-maintenance"
+
+
 def maintenance_mode():
     """Check if the db is currently in maintenance mode, and set flags as appropriate."""
     # This did not seem big enough to warrant splitting into a separate module.
     log.info("checking if db undergoing maintenance...")
+
+    # manually setting this flag bypasses the automaticaly check
+    manual_db_mode = get_flag_value("manual-db-maintenance")
+    if manual_db_mode:
+        log.info(f"manually set db mode: {DB_MAINTENANCE_MODE}")
+        return DB_MAINTENANCE_MODE
+
+    # detect db mode from TPP.
     current = get_flag_value("mode")
     ps = docker(
         [
@@ -111,14 +122,14 @@ def maintenance_mode():
         text=True,
     )
     last_line = ps.stdout.strip().split("\n")[-1]
-    if "db-maintenance" in last_line:
-        if current != "db-maintenance":
+    if DB_MAINTENANCE_MODE in last_line:
+        if current != DB_MAINTENANCE_MODE:
             log.warning("Enabling DB maintenance mode")
         else:
             log.warning("DB maintenance mode is currently enabled")
-        set_flag("mode", "db-maintenance")
+        set_flag("mode", DB_MAINTENANCE_MODE)
     else:
-        if current == "db-maintenance":
+        if current == DB_MAINTENANCE_MODE:
             log.info("DB maintenance mode had ended")
         set_flag("mode", None)
 
