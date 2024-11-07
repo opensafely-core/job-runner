@@ -63,11 +63,13 @@ def test_maintenance_mode_off(mock_subprocess_run, db, db_config):
     ps = add_maintenance_command(mock_subprocess_run, current=None)
     ps.stdout = ""
     assert service.maintenance_mode() is None
+    assert queries.get_flag("mode").value is None
 
     queries.set_flag("mode", "db-maintenance")
     ps = add_maintenance_command(mock_subprocess_run, current="db-maintenance")
     ps.stdout = ""
     assert service.maintenance_mode() is None
+    assert queries.get_flag("mode").value is None
 
 
 def test_maintenance_mode_on(mock_subprocess_run, db, db_config):
@@ -75,12 +77,14 @@ def test_maintenance_mode_on(mock_subprocess_run, db, db_config):
     ps.stdout = "db-maintenance"
     ps.stderr = "other stuff"
     assert service.maintenance_mode() == "db-maintenance"
+    assert queries.get_flag("mode").value == "db-maintenance"
 
     queries.set_flag("mode", "db-maintenance")
     ps = add_maintenance_command(mock_subprocess_run, current="db-maintenance")
     ps.stdout = "db-maintenance"
     ps.stderr = "other stuff"
     assert service.maintenance_mode() == "db-maintenance"
+    assert queries.get_flag("mode").value == "db-maintenance"
 
 
 def test_maintenance_mode_error(mock_subprocess_run, db, db_config):
@@ -96,6 +100,7 @@ def test_maintenance_mode_error(mock_subprocess_run, db, db_config):
 def test_maintenance_mode_manual(db, db_config):
     queries.set_flag("manual-db-maintenance", "on")
     assert service.maintenance_mode() == "db-maintenance"
+    assert queries.get_flag("mode").value == "db-maintenance"
 
 
 @pytest.fixture
