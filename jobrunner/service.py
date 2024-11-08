@@ -101,38 +101,42 @@ def maintenance_mode():
     manual_db_mode = get_flag_value("manual-db-maintenance")
     if manual_db_mode:
         log.info(f"manually set db mode: {DB_MAINTENANCE_MODE}")
-        return DB_MAINTENANCE_MODE
-
-    # detect db mode from TPP.
-    current = get_flag_value("mode")
-    ps = docker(
-        [
-            "run",
-            "--rm",
-            "-e",
-            "DATABASE_URL",
-            "ghcr.io/opensafely-core/cohortextractor",
-            "maintenance",
-            "--current-mode",
-            str(current),
-        ],
-        env={"DATABASE_URL": config.DATABASE_URLS["default"]},
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    last_line = ps.stdout.strip().split("\n")[-1]
-    if DB_MAINTENANCE_MODE in last_line:
-        if current != DB_MAINTENANCE_MODE:
-            log.warning("Enabling DB maintenance mode")
-        else:
-            log.warning("DB maintenance mode is currently enabled")
-        set_flag("mode", DB_MAINTENANCE_MODE)
+        mode = DB_MAINTENANCE_MODE
     else:
-        if current == DB_MAINTENANCE_MODE:
-            log.info("DB maintenance mode had ended")
-        set_flag("mode", None)
 
+        # detect db mode from TPP.
+        current = get_flag_value("mode")
+        ps = docker(
+            [
+                "run",
+                "--rm",
+                "-e",
+                "DATABASE_URL",
+                "ghcr.io/opensafely-core/cohortextractor",
+                "maintenance",
+                "--current-mode",
+                str(current),
+            ],
+            env={"DATABASE_URL": config.DATABASE_URLS["default"]},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        last_line = ps.stdout.strip().split("\n")[-1]
+
+        if DB_MAINTENANCE_MODE in last_line:
+            if current != DB_MAINTENANCE_MODE:
+                log.warning("Enabling DB maintenance mode")
+            else:
+                log.warning("DB maintenance mode is currently enabled")
+
+            mode = DB_MAINTENANCE_MODE
+        else:
+            if current == DB_MAINTENANCE_MODE:
+                log.info("DB maintenance mode had ended")
+            mode = None
+
+    set_flag("mode", mode)
     mode = get_flag_value("mode")
     log.info(f"db mode: {mode}")
     return mode
