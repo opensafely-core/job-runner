@@ -16,7 +16,7 @@ from jobrunner.models import State, StatusCode
 from tests.factories import StubExecutorAPI
 
 
-class LocalExecutorMachine(RuleBasedStateMachine):
+class StubExecutorMachine(RuleBasedStateMachine):
     @initialize()
     def setup(self):
         # manually create the pytest fixtures we need
@@ -102,4 +102,4 @@ class LocalExecutorMachine(RuleBasedStateMachine):
         del database.CONNECTION_CACHE.__dict__[self.database_file]
 
 
-TestDontDie = LocalExecutorMachine.TestCase
+TestDontDie = StubExecutorMachine.TestCase
