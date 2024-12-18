@@ -37,6 +37,13 @@ class LocalExecutorMachine(RuleBasedStateMachine):
         # return request.param
 
     @rule()
+    def cancel_job(self):
+        self.job.cancelled = True
+        # unclear if this should be here or not
+        # the cancellation isn't triggered immediately, it happens at the next loop
+        self.run_handle_job()
+
+    @rule()
     def run_handle_job(self):
         # it's useful not to put this in a precondition, so that hypothesis never
         # runs out of things to run
@@ -82,6 +89,10 @@ class LocalExecutorMachine(RuleBasedStateMachine):
         elif self.job.state == State.SUCCEEDED:
             # assert False
             assert self.job.status_code in [StatusCode.SUCCEEDED]
+        elif self.job.state == State.FAILED:
+            assert self.job.status_code in [StatusCode.CANCELLED_BY_USER]
+        else:
+            raise Exception(self.job.state)
 
     def teardown(self):
         del database.CONNECTION_CACHE.__dict__[self.database_file]
