@@ -1,3 +1,5 @@
+import copy
+
 from hypothesis.stateful import (
     RuleBasedStateMachine,
     initialize,
@@ -62,7 +64,9 @@ class LocalExecutorMachine(RuleBasedStateMachine):
     def finish_executing(self):
         self.api.set_job_status_from_executor_state(self.job, ExecutorState.EXECUTED)
         # we need to run handle_job() before any invariants
+        job_before = copy.deepcopy(self.job)
         self.run_handle_job()
+        raise Exception(job_before, self.job)
 
     @rule()
     @precondition(
