@@ -3,6 +3,7 @@ Script which polls the database for active (i.e. non-terminated) jobs, takes
 the appropriate action for each job depending on its current state, and then
 updates its state as appropriate.
 """
+
 import collections
 import datetime
 import logging

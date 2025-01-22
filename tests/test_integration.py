@@ -3,6 +3,7 @@ Big integration tests that create a basic project in a git repo, mocks out a
 JobRequest from the job-server to run it, and then exercises the sync and run
 loops to run entire pipeline
 """
+
 import json
 import logging
 

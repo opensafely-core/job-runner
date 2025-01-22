@@ -893,9 +893,11 @@ def redact_environment_variables(container_metadata):
     """
     env_vars = [line.split("=", 1) for line in container_metadata["Config"]["Env"]]
     redacted_vars = [
-        f"{key}=xxxx-REDACTED-xxxx"
-        if key not in SAFE_ENVIRONMENT_VARIABLES
-        else f"{key}={value}"
+        (
+            f"{key}=xxxx-REDACTED-xxxx"
+            if key not in SAFE_ENVIRONMENT_VARIABLES
+            else f"{key}={value}"
+        )
         for (key, value) in env_vars
     ]
     container_metadata["Config"]["Env"] = redacted_vars

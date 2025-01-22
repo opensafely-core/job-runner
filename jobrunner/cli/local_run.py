@@ -20,6 +20,7 @@ Other than that, everything else runs entirely as it would in production. A
 temporary database and log directory is created for each run and then thrown
 away afterwards.
 """
+
 import argparse
 import getpass
 import os
