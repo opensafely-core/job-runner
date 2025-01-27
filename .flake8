@@ -1,11 +1,14 @@
 [flake8]
 exclude = .direnv,.venv,venv
-extend-select = \
+extend-select = 
     W504  # match black&PEP8 putting binary operators after new lines
-ignore = \
-    E203 \ # whitespace before : (black disagrees)
-    E501 \ # line too long (black fixes long lines, except for long strings which may benefit from being long (eg URLs))
-    W503   # line break before binary operator (black disagrees)
+ignore = 
+    # whitespace before : (black disagrees)
+    E203 
+    # line too long (black fixes long lines, except for long strings which may benefit from being long (eg URLs))
+    E501
+    # line break before binary operator (black disagrees)
+    W503
 max-line-length = 88
 per-file-ignores =
     setup.py:INP001

@@ -5,6 +5,7 @@ automatically including the currently executing Job or JobRequest in the log
 output. It also includes the stderr output from any failed attempts to shell
 out to external processes.
 """
+
 import contextlib
 import logging
 import logging.handlers

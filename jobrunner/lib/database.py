@@ -8,6 +8,7 @@ something like SQLAlchemy, pinned to a known compromise-free version. The API
 surface area of this module is sufficiently small that swapping it out
 shouldn't be too large a job.
 """
+
 import dataclasses
 import json
 import logging

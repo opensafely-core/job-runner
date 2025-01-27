@@ -1,6 +1,7 @@
 """
 Script runs both jobrunner flows in a single process.
 """
+
 import logging
 import threading
 import time
