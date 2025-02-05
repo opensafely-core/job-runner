@@ -97,6 +97,9 @@ upgrade env package="": virtualenv
     test -z "{{ package }}" || opts="--upgrade-package {{ package }}"
     FORCE=true "{{ just_executable() }}" requirements-{{ env }} $opts
 
+upgrade-pipeline:
+    ./scripts/upgrade-pipeline.sh pyproject.toml
+
 # *ARGS is variadic, 0 or more. This allows us to do `just test -k match`, for example.
 
 # Run the tests
