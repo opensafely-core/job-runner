@@ -453,13 +453,15 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
     assert job_definition.id in local.RESULTS
 
+    unmatched = "\n  Did you mean to match one of these files instead?\n    - unmatched"
+
     # for test debugging if any asserts fail
     print(get_log(job_definition))
     results = api.get_results(job_definition)
     assert results.exit_code == 0
     assert results.outputs == {}
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
-    assert results.unmatched_outputs == ["unmatched"]
+    assert results.unmatched_outputs == unmatched
 
 
 @pytest.mark.needs_docker

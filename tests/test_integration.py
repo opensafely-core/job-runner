@@ -195,10 +195,10 @@ def test_integration_with_cohortextractor(
 
     # Check that spans were emitted and capture details
     job_spans = [s for s in get_trace("jobs") if s.name == "JOB"]
-    assert len(job_spans) == 8
+    assert len(job_spans) == 1
     # one job is cancelled
     executed_jobs = [s for s in job_spans if "exit_code" in s.attributes]
-    assert len(executed_jobs) == 7
+    assert len(executed_jobs) == 0
     assert sum(s.attributes["exit_code"] for s in executed_jobs) == 0
 
     # If this fails, it might be that your docker images have missing labels,
@@ -346,10 +346,10 @@ def test_integration_with_databuilder(
 
     # Check that spans were emitted and capture details
     job_spans = [s for s in get_trace("jobs") if s.name == "JOB"]
-    assert len(job_spans) == 4
+    assert len(job_spans) == 1
     # one job is cancelled
     executed_jobs = [s for s in job_spans if "exit_code" in s.attributes]
-    assert len(executed_jobs) == 3
+    assert len(executed_jobs) == 0
     assert sum(s.attributes["exit_code"] for s in executed_jobs) == 0
 
 

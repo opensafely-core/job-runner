@@ -395,7 +395,14 @@ def finalize_job(job_definition):
 
     # First get the user-friendly message for known database exit codes, for jobs
     # that have db access
-    message = None
+    if unmatched_patterns == [] and outputs is not None:
+        message = "Completed successfully"
+
+    else:
+        if unmatched_patterns is not None and unmatched_outputs is not None:
+            message = "No outputs found matching patterns:\n - {}".format(
+                "\n - ".join(unmatched_patterns)
+            )
 
     if exit_code == 137 and job_definition.cancelled:
         message = f"Job cancelled by {job_definition.cancelled}"
@@ -461,6 +468,7 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job_definition.study.commit
     job_metadata["database_name"] = job_definition.database_name
+    job_metadata["hint"] = results.unmatched_outputs
     return job_metadata
 
 
@@ -761,7 +769,19 @@ def get_unmatched_outputs(job_definition, outputs):
     all_outputs = volumes.get_volume_api(job_definition).find_newer_files(
         job_definition, TIMESTAMP_REFERENCE_FILE
     )
-    return [filename for filename in all_outputs if filename not in outputs]
+
+    unmatched_result = []
+
+    for filename in all_outputs:
+        if filename not in outputs:
+            unmatched_result.append(filename)
+
+    if unmatched_result:
+        hint_message = (
+            "\n  Did you mean to match one of these files instead?\n"
+            "    - " + "\n    - ".join(unmatched_result)
+        )
+        return hint_message
 
 
 def write_log_file(job_definition, job_metadata, filename, excluded):
@@ -794,10 +814,11 @@ KEYS_TO_LOG = [
     "commit",
     "docker_image_id",
     "exit_code",
-    "status_message",
     "created_at",
     "completed_at",
     "database_name",
+    "status_message",
+    "hint",
 ]
 
 

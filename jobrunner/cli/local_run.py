@@ -406,10 +406,7 @@ def create_and_run_jobs(
         # Where a job failed because expected outputs weren't found we show a
         # list of other outputs which were generated
         if job.unmatched_outputs:
-            print(
-                "\n   Did you mean to match one of these files instead?\n    - ", end=""
-            )
-            print("\n    - ".join(job.unmatched_outputs))
+            print(job.unmatched_outputs)
         print()
         # Output the entire log file inside an expandable block when running
         # inside Github Actions
