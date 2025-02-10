@@ -366,6 +366,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
         "output/summary.txt": "moderately_sensitive",
     }
     assert results.unmatched_patterns == []
+    assert results.message == "Completed successfully"
 
     log_dir = local.get_log_dir(job_definition)
     log_file = log_dir / "logs.txt"
@@ -460,6 +461,15 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume
     assert results.outputs == {}
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
     assert results.unmatched_outputs == ["unmatched"]
+    assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
+        "\n   - ".join(["output/output.*", "output/summary.*"])
+    )
+    assert (
+        results.unmatched_hint
+        == "\n  Did you mean to match one of these files instead?\n - {}".format(
+            "\n   - ".join(["unmatched"])
+        )
+    )
 
 
 @pytest.mark.needs_docker
