@@ -79,6 +79,7 @@ class JobResults:
     exit_code: int
     image_id: str
     message: str = None
+    unmatched_hint: str = None
     # timestamp these results were finalized, in integer nanoseconds
     timestamp_ns: int = None
 

@@ -395,9 +395,26 @@ def finalize_job(job_definition):
 
     # First get the user-friendly message for known database exit codes, for jobs
     # that have db access
-    message = None
+    unmatched_hint = None
 
-    if exit_code == 137 and job_definition.cancelled:
+    if exit_code == 0 and unmatched_patterns == [] and outputs is not None:
+        message = "Completed successfully"
+
+    elif (
+        exit_code == 0
+        and unmatched_patterns is not None
+        and unmatched_outputs is not None
+    ):
+        message = "\n  No outputs found matching patterns:\n - {}".format(
+            "\n   - ".join(unmatched_patterns)
+        )
+        unmatched_hint = (
+            "\n  Did you mean to match one of these files instead?\n - {}".format(
+                "\n   - ".join(unmatched_outputs)
+            )
+        )
+
+    elif exit_code == 137 and job_definition.cancelled:
         message = f"Job cancelled by {job_definition.cancelled}"
     # Nb. this flag has been observed to be unreliable on some versions of Linux
     elif (
@@ -419,6 +436,7 @@ def finalize_job(job_definition):
         exit_code=exit_code,
         image_id=container_metadata["Image"],
         message=message,
+        unmatched_hint=unmatched_hint,
         timestamp_ns=time.time_ns(),
         action_version=labels.get("org.opencontainers.image.version", "unknown"),
         action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
@@ -461,6 +479,7 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job_definition.study.commit
     job_metadata["database_name"] = job_definition.database_name
+    job_metadata["hint"] = results.unmatched_hint
     return job_metadata
 
 
@@ -794,10 +813,11 @@ KEYS_TO_LOG = [
     "commit",
     "docker_image_id",
     "exit_code",
-    "status_message",
     "created_at",
     "completed_at",
     "database_name",
+    "status_message",
+    "hint",
 ]
 
 
