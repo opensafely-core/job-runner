@@ -143,7 +143,7 @@ urllib3==1.26.5
     #   -c /home/runner/work/job-runner/job-runner/requirements.prod.txt
     #   requests
     #   responses
-virtualenv==20.29.1
+virtualenv==20.29.2
     # via pre-commit
 wheel==0.45.1
     # via pip-tools
@@ -151,7 +151,7 @@ zipp==3.20.2
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
-pip==25.0
+pip==25.0.1
     # via pip-tools
 setuptools==65.3.0
     # via
