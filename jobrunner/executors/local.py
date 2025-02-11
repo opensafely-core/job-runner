@@ -397,22 +397,19 @@ def finalize_job(job_definition):
     # that have db access
     unmatched_hint = None
 
-    if exit_code == 0 and unmatched_patterns == [] and outputs is not None:
+    if exit_code == 0 and outputs and not unmatched_patterns:
         message = "Completed successfully"
 
-    elif (
-        exit_code == 0
-        and unmatched_patterns is not None
-        and unmatched_outputs is not None
-    ):
+    elif exit_code == 0 and unmatched_patterns:
         message = "\n  No outputs found matching patterns:\n - {}".format(
             "\n   - ".join(unmatched_patterns)
         )
-        unmatched_hint = (
-            "\n  Did you mean to match one of these files instead?\n - {}".format(
-                "\n   - ".join(unmatched_outputs)
+        if unmatched_outputs:
+            unmatched_hint = (
+                "\n  Did you mean to match one of these files instead?\n - {}".format(
+                    "\n   - ".join(unmatched_outputs)
+                )
             )
-        )
 
     elif exit_code == 137 and job_definition.cancelled:
         message = f"Job cancelled by {job_definition.cancelled}"
