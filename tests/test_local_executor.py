@@ -473,6 +473,45 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume
 
 
 @pytest.mark.needs_docker
+def test_finalize_unmatched_output(
+    docker_cleanup, job_definition, tmp_work_dir, volume_api
+):
+    # the sleep is needed to make sure the unmatched file is *newer* enough
+    job_definition.args = ["sh", "-c", "sleep 1; touch /workspace"]
+    job_definition.output_spec = {
+        "output/output.*": "highly_sensitive",
+        "output/summary.*": "moderately_sensitive",
+    }
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    # we don't need to wait
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    assert job_definition.id in local.RESULTS
+
+    # for test debugging if any asserts fail
+    print(get_log(job_definition))
+    results = api.get_results(job_definition)
+    assert results.exit_code == 0
+    assert results.outputs == {}
+    assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
+    assert results.unmatched_outputs == []
+    assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
+        "\n   - ".join(["output/output.*", "output/summary.*"])
+    )
+
+
+@pytest.mark.needs_docker
 def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir, volume_api):
     job_definition.args = ["sleep", "101"]
 
