@@ -207,6 +207,15 @@ class LocalDockerAPI(ExecutorAPI):
             # job was pending, so do not go to EXECUTED
             return current_status
 
+        if current_status.state in [
+            ExecutorState.EXECUTED,
+            ExecutorState.FINALIZED,
+            ExecutorState.FINALIZING,
+        ]:
+            # job has already finished - whilst this function should not be called in
+            # this case, it's possible it could happen due to a race condition
+            return current_status
+
         assert current_status.state in [
             ExecutorState.EXECUTING,
             ExecutorState.ERROR,
