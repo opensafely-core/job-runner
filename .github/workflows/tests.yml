@@ -10,7 +10,7 @@ env:
 
 jobs:
   check:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04, windows-2019, macos-14]
+        os: [ubuntu-22.04, windows-2019, macos-14]
         # Python 3.8 is what we currently support for running cohortextractor
         # locally, and 3.9 is what we required for databuilder so we need to make
         # sure we can run with those
@@ -52,7 +52,7 @@ jobs:
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d
 
       - name: Run actual tests on ${{ matrix.os }}
-        if: ${{ matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-22.04' }}
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
         run: |
           echo "$PYTHON_VERSION"
           just test -vvv
@@ -69,7 +69,7 @@ jobs:
         run: just test-no-docker -vvv
 
   test-package-build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     name: Test we can build PyPI package
     steps:
       - name: Checkout
@@ -96,7 +96,7 @@ jobs:
         run: just package-test sdist
 
   test-docker:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     name: Test docker image
     steps:
       - name: Checkout
@@ -114,7 +114,7 @@ jobs:
         run: just docker/test
 
   test-github-workflow-output:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     name: Inspect test runner output in the context of a Github Workflow
     steps:
       - name: Checkout
