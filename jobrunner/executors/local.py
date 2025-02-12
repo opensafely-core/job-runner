@@ -211,7 +211,7 @@ class LocalDockerAPI(ExecutorAPI):
             ExecutorState.EXECUTING,
             ExecutorState.ERROR,
             ExecutorState.PREPARED,
-        ]
+        ], f"unexpected status {current_status}"
 
         docker.kill(container_name(job_definition))
 
