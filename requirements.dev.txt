@@ -34,7 +34,7 @@ exceptiongroup==1.2.2
     #   pytest
 filelock==3.16.1
     # via virtualenv
-flake8==7.1.1
+flake8==7.1.2
     # via
     #   -r requirements.dev.in
     #   flake8-builtins
