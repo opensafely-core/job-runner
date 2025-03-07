@@ -113,7 +113,7 @@ class TestHandleReusableAction:
             "notanaction:v1",
             # These are valid runtimes, but not allowed in re-usable actions
             "cohortextractor:v1 generate_cohort",
-            "databuilder:v0.36.0 generate_dataset",
+            "ehrql:v1 generate-dataset dataset.py --output dataset.csv",
         ],
     )
     def test_reusable_action_with_invalid_runtime(self, action, *args, **kwargs):

@@ -64,7 +64,7 @@ def test_local_run_level_4_checks_applied_and_logged(
     assert "output/data.csv  - File has patient_id column" in stdout
 
 
-@pytest.mark.parametrize("extraction_tool", ["cohortextractor", "databuilder"])
+@pytest.mark.parametrize("extraction_tool", ["cohortextractor", "ehrql"])
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_local_run_success(extraction_tool, tmp_path, docker_cleanup):
@@ -85,7 +85,7 @@ def test_local_run_success(extraction_tool, tmp_path, docker_cleanup):
         paths = [
             "output/dataset.csv",
             "output/count_by_year.csv",
-            "metadata/analyse_data_databuilder.log",
+            "metadata/analyse_data_ehrql.log",
             "metadata/db.sqlite",
         ]
 
@@ -110,7 +110,7 @@ def test_local_run_stata(tmp_path, monkeypatch, docker_cleanup):
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-@pytest.mark.parametrize("extraction_tool", ["cohortextractor", "databuilder"])
+@pytest.mark.parametrize("extraction_tool", ["cohortextractor", "ehrql"])
 def test_local_run_copes_with_detritus_of_earlier_interrupted_run(
     extraction_tool, tmp_path
 ):
@@ -154,7 +154,7 @@ def test_local_run_copes_with_detritus_of_earlier_interrupted_run(
     if extraction_tool == "cohortextractor":
         actions = ["generate_cohort", "prepare_data_m_cohortextractor"]
     else:
-        actions = ["generate_dataset", "analyse_data_databuilder"]
+        actions = ["generate_dataset", "analyse_data_ehrql"]
 
     database.insert(job(job_id="123", action=actions[0], state=State.RUNNING))
     database.insert(job(job_id="456", action=actions[1], state=State.PENDING))
