@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 from pipeline import load_pipeline
-from ruyaml import YAML
 
 from jobrunner import config
 from jobrunner.actions import get_action_specification
@@ -48,27 +47,21 @@ def test_local_run_level_4_checks_applied_and_logged(
 ):
     project_dir = tmp_path / "project"
     shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
-    project_yaml = project_dir / "project.yaml"
-    yaml = YAML()
-    project = yaml.load(project_yaml)
-    outputs = project["actions"]["generate_dataset"]["outputs"].pop("highly_sensitive")
-    project["actions"]["generate_dataset"]["outputs"]["moderately_sensitive"] = outputs
-    yaml.dump(project, project_yaml)
 
     local_run.main(
         project_dir=project_dir,
-        actions=["generate_dataset"],
+        actions=["copy_highly_sensitive_data"],
         debug=True,  # preserves containers for inspection
     )
 
-    job = list(database.find_all(Job))[0]
+    job = list(database.find_all(Job))[-1]
     assert job.level4_excluded_files == {
-        "output/dataset.csv": "File has patient_id column"
+        "output/data.csv": "File has patient_id column"
     }
 
     stdout = capsys.readouterr().out
     assert "invalid moderately_sensitive outputs:" in stdout
-    assert "output/dataset.csv  - File has patient_id column" in stdout
+    assert "output/data.csv  - File has patient_id column" in stdout
 
 
 @pytest.mark.parametrize("extraction_tool", ["cohortextractor", "databuilder"])

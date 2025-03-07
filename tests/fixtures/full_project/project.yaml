@@ -90,3 +90,10 @@ actions:
     outputs:
       highly_sensitive:
         count: output/count_by_year_cancelled.csv
+
+  copy_highly_sensitive_data:
+    run: python:latest python -c 'import shutil; shutil.copyfile("output/dataset.csv", "output/data.csv")'
+    needs: [generate_dataset]
+    outputs:
+      moderately_sensitive:
+        data: output/data.csv
