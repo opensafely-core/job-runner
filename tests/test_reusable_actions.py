@@ -110,22 +110,15 @@ class TestHandleReusableAction:
     @pytest.mark.parametrize(
         "action",
         [
+            "notanaction:v1",
+            # These are valid runtimes, but not allowed in re-usable actions
             "cohortextractor:v1 generate_cohort",
             "databuilder:v0.36.0 generate_dataset",
         ],
     )
     def test_reusable_action_with_invalid_runtime(self, action, *args, **kwargs):
-        action = "foo:v1"
-        reusable_action_1 = ReusableAction(
-            repo_url="foo", commit="bar", action_file=b"run: notanaction:v1"
+        reusable_action = ReusableAction(
+            repo_url="foo", commit="bar", action_file=f"run: {action}".encode("ascii")
         )
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.apply_reusable_action(action, reusable_action_1)
-        # This is a valid runtime, but it's not allowed in re-usable actions
-        reusable_action_2 = ReusableAction(
-            repo_url="foo",
-            commit="bar",
-            action_file=b"run: cohortextractor:v1 generate_cohort",
-        )
-        with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.apply_reusable_action(action, reusable_action_2)
+            reusable_actions.apply_reusable_action(["foo:v1"], reusable_action)
