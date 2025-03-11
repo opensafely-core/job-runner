@@ -215,31 +215,33 @@ def handle_job(job, api, mode=None, paused=None):
     synchronous_transitions = getattr(api, "synchronous_transitions", [])
     is_synchronous = False
 
-    # handle special modes before considering executor state, as they ignore it
-    if paused:
-        if job.state == State.PENDING:
-            # do not start the job, keep it pending
+    # only consider these modes if we are not about to cancel the job
+    if not job_definition.cancelled:
+        # handle special modes before considering executor state, as they ignore it
+        if paused:
+            if job.state == State.PENDING:
+                # do not start the job, keep it pending
+                set_code(
+                    job,
+                    StatusCode.WAITING_PAUSED,
+                    "Backend is currently paused for maintenance, job will start once this is completed",
+                )
+                return
+
+        if mode == "db-maintenance" and job_definition.allow_database_access:
+            if job.state == State.RUNNING:
+                log.warning(f"DB maintenance mode active, killing db job {job.id}")
+                # we ignore the JobStatus returned from these API calls, as this is not a hard error
+                api.terminate(job_definition)
+                api.cleanup(job_definition)
+
+            # reset state to pending and exit
             set_code(
                 job,
-                StatusCode.WAITING_PAUSED,
-                "Backend is currently paused for maintenance, job will start once this is completed",
+                StatusCode.WAITING_DB_MAINTENANCE,
+                "Waiting for database to finish maintenance",
             )
             return
-
-    if mode == "db-maintenance" and job_definition.allow_database_access:
-        if job.state == State.RUNNING:
-            log.warning(f"DB maintenance mode active, killing db job {job.id}")
-            # we ignore the JobStatus returned from these API calls, as this is not a hard error
-            api.terminate(job_definition)
-            api.cleanup(job_definition)
-
-        # reset state to pending and exit
-        set_code(
-            job,
-            StatusCode.WAITING_DB_MAINTENANCE,
-            "Waiting for database to finish maintenance",
-        )
-        return
 
     try:
         initial_status = api.get_status(job_definition)
