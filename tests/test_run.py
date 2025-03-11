@@ -731,13 +731,34 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
 
     # executor state
     assert api.get_status(job).state == ExecutorState.UNKNOWN
-    # our state
     assert job.state == State.PENDING
+    assert job.status_code == StatusCode.WAITING_DB_MAINTENANCE
     assert job.status_message == "Waiting for database to finish maintenance"
     assert job.started_at is None
 
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
+
+
+def test_handle_pending_cancelled_db_maintenance_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.UNKNOWN,
+        State.PENDING,
+        run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
+        cancelled=True,
+    )
+
+    run.handle_job(job, api, mode="db-maintenance")
+
+    # executor state
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    # our state
+    assert job.state == State.FAILED
+    assert job.status_code == StatusCode.CANCELLED_BY_USER
+    assert job.status_message == "Cancelled by user"
+    assert job.started_at is None
 
 
 def test_handle_running_db_maintenance_mode(db, backend_db_config):
@@ -759,8 +780,36 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
 
     # our state
     assert job.state == State.PENDING
+    assert job.status_code == StatusCode.WAITING_DB_MAINTENANCE
     assert job.status_message == "Waiting for database to finish maintenance"
     assert job.started_at is None
+
+    spans = get_trace("jobs")
+    assert spans[-1].name == "EXECUTING"
+
+
+def test_handle_running_cancelled_db_maintenance_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.EXECUTING,
+        State.RUNNING,
+        StatusCode.EXECUTING,
+        run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
+        cancelled=True,
+    )
+
+    run.handle_job(job, api, mode="db-maintenance")
+
+    # cancellation of running jobs puts it into EXECUTED for later finalization
+    # executor state
+    assert job.id in api.tracker["terminate"]
+    assert api.get_status(job).state == ExecutorState.EXECUTED
+
+    # our state
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.EXECUTED
+    assert job.status_message == "Cancelled whilst executing"
 
     spans = get_trace("jobs")
     assert spans[-1].name == "EXECUTING"
