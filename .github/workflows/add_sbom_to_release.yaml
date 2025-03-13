@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create and add software bill of materials to release
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0  # v0
         with:
           format: cyclonedx-json
           output-file: ${{ env.SBOM_FILENAME }}
