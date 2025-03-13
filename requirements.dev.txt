@@ -4,7 +4,7 @@
 #
 #    pip-compile --allow-unsafe --output-file=requirements.dev.txt requirements.dev.in
 #
-attrs==25.1.0
+attrs==25.3.0
     # via hypothesis
 black==24.8.0
     # via -r requirements.dev.in
