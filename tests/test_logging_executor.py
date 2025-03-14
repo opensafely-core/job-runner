@@ -58,5 +58,7 @@ def create_job_definition(job_id="a-job-id"):
         inputs=[],
         output_spec={},
         allow_database_access=False,
+        level4_max_csv_rows=None,
+        level4_max_filesize=None,
     )
     return job_definition

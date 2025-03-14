@@ -9,7 +9,8 @@ from opentelemetry import trace
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
-    create_failed_job,
+    StaleCodelistError,
+    create_job_from_exception,
     create_jobs,
     create_or_update_jobs,
     validate_job_request,
@@ -32,7 +33,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
         id="123",
         repo_url=repo_url,
         # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
-        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        commit="cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
         branch="v1",
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
@@ -50,7 +51,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
     assert old_job.job_request_id == "123"
     assert old_job.state == State.PENDING
     assert old_job.repo_url == repo_url
-    assert old_job.commit == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+    assert old_job.commit == "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
     assert old_job.workspace == "1"
     assert old_job.action == "generate_cohort"
     assert old_job.wait_for_job_ids == []
@@ -305,10 +306,10 @@ def create_jobs_with_project_file(job_request, project_file):
         return create_jobs(job_request)
 
 
-def test_create_failed_job(db):
+def test_create_job_from_exception(db):
     job_request = job_request_factory_raw()
 
-    create_failed_job(job_request, Exception("test"))
+    create_job_from_exception(job_request, Exception("test"))
 
     job = find_one(Job, job_request_id=job_request.id)
 
@@ -329,15 +330,15 @@ def test_create_failed_job(db):
     assert spans[1].events[0].attributes["exception.message"] == "test"
 
 
-def test_create_failed_job_nothing_to_do(db):
+def test_create_job_from_exception_nothing_to_do(db):
     job_request = job_request_factory_raw()
 
-    create_failed_job(job_request, NothingToDoError())
+    create_job_from_exception(job_request, NothingToDoError("nothing to do"))
     job = find_one(Job, job_request_id=job_request.id)
 
     assert job.state == State.SUCCEEDED
     assert job.status_code == StatusCode.SUCCEEDED
-    assert job.status_message == "All actions have already run"
+    assert job.status_message == "nothing to do"
     assert job.action == job_request.requested_actions[0]
 
     spans = get_trace("jobs")
@@ -346,6 +347,25 @@ def test_create_failed_job_nothing_to_do(db):
     assert spans[0].status.status_code == trace.StatusCode.UNSET
     assert spans[1].name == "JOB"
     assert spans[1].status.status_code == trace.StatusCode.UNSET
+
+
+def test_create_job_from_exception_stale_codelist(db):
+    job_request = job_request_factory_raw()
+
+    create_job_from_exception(job_request, StaleCodelistError("stale"))
+    job = find_one(Job, job_request_id=job_request.id)
+
+    assert job.state == State.FAILED
+    assert job.status_code == StatusCode.STALE_CODELISTS
+    assert job.status_message == "stale"
+    assert job.action == "__error__"
+
+    spans = get_trace("jobs")
+
+    assert spans[0].name == "STALE_CODELISTS"
+    assert spans[0].status.status_code == trace.StatusCode.ERROR
+    assert spans[1].name == "JOB"
+    assert spans[1].status.status_code == trace.StatusCode.ERROR
 
 
 @pytest.mark.parametrize(
@@ -369,7 +389,7 @@ def test_create_or_update_jobs_with_out_of_date_codelists(
         # The error reports the action that needed the up-to-date codelists, even if that
         # wasn't the action explicitly requested
         with pytest.raises(
-            JobRequestError,
+            StaleCodelistError,
             match=re.escape(
                 "Codelists are out of date (required by action generate_cohort)"
             ),

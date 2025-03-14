@@ -30,12 +30,13 @@ class JobDefinition:
         str, str
     ]  # the files that the job should produce (globs mapped to privacy levels)
     allow_database_access: bool  # whether this job should have access to the database
+    level4_max_csv_rows: int
+    level4_max_filesize: int
     # our internal name for the database this job uses (actual connection details are
     # passed in `env`)
     database_name: str = None
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
-    level4_max_filesize: int = 16 * 1024 * 1024
     level4_file_types: list = field(default_factory=lambda: [".csv"])
     # if a job has been cancelled, the name of the canceller - either "user" or "admin"
     cancelled: str = None
@@ -78,6 +79,7 @@ class JobResults:
     exit_code: int
     image_id: str
     message: str = None
+    unmatched_hint: str = None
     # timestamp these results were finalized, in integer nanoseconds
     timestamp_ns: int = None
 
@@ -297,26 +299,26 @@ class ExecutorAPI:
 class NullExecutorAPI(ExecutorAPI):
     """Null implementation of ExecutorAPI."""
 
-    def prepare(self, job_definition):
+    def prepare(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def execute(self, job_definition):
+    def execute(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def finalize(self, job_definition):
+    def finalize(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def terminate(self, job_definition):
+    def terminate(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def get_status(self, job_definition):
+    def get_status(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def get_results(self, job_definition):
+    def get_results(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def cleanup(self, job_definition):
+    def cleanup(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def delete_files(self, workspace, privacy, paths):
+    def delete_files(self, workspace, privacy, paths):  # pragma: nocover
         raise NotImplementedError

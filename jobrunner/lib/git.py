@@ -1,6 +1,7 @@
 """
 Utility functions for interacting with git
 """
+
 import logging
 import os
 import subprocess

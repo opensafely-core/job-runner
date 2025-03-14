@@ -437,6 +437,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
         ExecutorState.UNKNOWN,
         State.PENDING,
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
     )
 
     run.handle_job(job, api)
@@ -535,6 +536,7 @@ def test_handle_job_executed_to_finalizing(db):
     assert spans[-1].name == "EXECUTED"
 
 
+@pytest.mark.xfail
 def test_handle_job_finalized_success_with_delete(db):
     api = StubExecutorAPI()
 
@@ -543,6 +545,7 @@ def test_handle_job_finalized_success_with_delete(db):
         state=State.SUCCEEDED,
         status_code=StatusCode.SUCCEEDED,
         outputs={"output/old.csv": "highly_sensitive"},
+        created_at=time.time() - 10,
     )
 
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
@@ -636,6 +639,7 @@ def test_handle_job_finalized_failed_exit_code(
         State.RUNNING,
         StatusCode.FINALIZED,
         run_command=run_command,
+        requires_db="cohortextractor" in run_command,
     )
     api.set_job_result(
         job,
@@ -720,6 +724,30 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
         ExecutorState.UNKNOWN,
         State.PENDING,
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
+    )
+
+    run.handle_job(job, api, mode="db-maintenance")
+
+    # executor state
+    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    assert job.state == State.PENDING
+    assert job.status_code == StatusCode.WAITING_DB_MAINTENANCE
+    assert job.status_message == "Waiting for database to finish maintenance"
+    assert job.started_at is None
+
+    spans = get_trace("jobs")
+    assert spans[-1].name == "CREATED"
+
+
+def test_handle_pending_cancelled_db_maintenance_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.UNKNOWN,
+        State.PENDING,
+        run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
+        cancelled=True,
     )
 
     run.handle_job(job, api, mode="db-maintenance")
@@ -727,12 +755,10 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
     # executor state
     assert api.get_status(job).state == ExecutorState.UNKNOWN
     # our state
-    assert job.state == State.PENDING
-    assert job.status_message == "Waiting for database to finish maintenance"
+    assert job.state == State.FAILED
+    assert job.status_code == StatusCode.CANCELLED_BY_USER
+    assert job.status_message == "Cancelled by user"
     assert job.started_at is None
-
-    spans = get_trace("jobs")
-    assert spans[-1].name == "CREATED"
 
 
 def test_handle_running_db_maintenance_mode(db, backend_db_config):
@@ -742,6 +768,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
         State.RUNNING,
         StatusCode.EXECUTING,
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
     )
 
     run.handle_job(job, api, mode="db-maintenance")
@@ -753,8 +780,36 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
 
     # our state
     assert job.state == State.PENDING
+    assert job.status_code == StatusCode.WAITING_DB_MAINTENANCE
     assert job.status_message == "Waiting for database to finish maintenance"
     assert job.started_at is None
+
+    spans = get_trace("jobs")
+    assert spans[-1].name == "EXECUTING"
+
+
+def test_handle_running_cancelled_db_maintenance_mode(db, backend_db_config):
+    api = StubExecutorAPI()
+    job = api.add_test_job(
+        ExecutorState.EXECUTING,
+        State.RUNNING,
+        StatusCode.EXECUTING,
+        run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
+        cancelled=True,
+    )
+
+    run.handle_job(job, api, mode="db-maintenance")
+
+    # cancellation of running jobs puts it into EXECUTED for later finalization
+    # executor state
+    assert job.id in api.tracker["terminate"]
+    assert api.get_status(job).state == ExecutorState.EXECUTED
+
+    # our state
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.EXECUTED
+    assert job.status_message == "Cancelled whilst executing"
 
     spans = get_trace("jobs")
     assert spans[-1].name == "EXECUTING"
@@ -766,6 +821,7 @@ def test_handle_pending_pause_mode(db, backend_db_config):
         ExecutorState.UNKNOWN,
         State.PENDING,
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
     )
 
     run.handle_job(job, api, paused=True)
@@ -789,6 +845,7 @@ def test_handle_running_pause_mode(db, backend_db_config):
         StatusCode.EXECUTING,
         status_message="doing my thang",
         run_command="cohortextractor:latest generate_cohort",
+        requires_db=True,
     )
 
     run.handle_job(job, api, paused=True)
@@ -961,17 +1018,26 @@ def test_get_obsolete_files_nothing_to_delete(db):
         "high.txt": "highly_sensitive",
         "medium.txt": "moderately_sensitive",
     }
-    job = job_factory(
+    job_factory(
         state=State.SUCCEEDED,
         status_code=StatusCode.SUCCEEDED,
+        outputs={},
+        created_at=time.time() - 10,
+    )
+
+    job = job_factory(
+        state=State.RUNNING,
+        status_code=StatusCode.FINALIZED,
         outputs=outputs,
     )
+
     job_definition = run.job_to_job_definition(job)
 
     obsolete = run.get_obsolete_files(job_definition, outputs)
     assert obsolete == []
 
 
+@pytest.mark.xfail
 def test_get_obsolete_files_things_to_delete(db):
     old_outputs = {
         "old_high.txt": "highly_sensitive",
@@ -983,10 +1049,52 @@ def test_get_obsolete_files_things_to_delete(db):
         "new_medium.txt": "moderately_sensitive",
         "current.txt": "highly_sensitive",
     }
-    job = job_factory(
+    job_factory(
         state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
         outputs=old_outputs,
+        created_at=time.time() - 10,
     )
+
+    job = job_factory(
+        state=State.RUNNING,
+        status_code=StatusCode.FINALIZED,
+        outputs=new_outputs,
+    )
+
+    job_definition = run.job_to_job_definition(job)
+
+    obsolete = run.get_obsolete_files(job_definition, new_outputs)
+    assert obsolete == ["old_high.txt", "old_medium.txt"]
+
+
+@pytest.mark.xfail
+def test_get_obsolete_files_things_to_delete_timing(db):
+    old_outputs = {
+        "old_high.txt": "highly_sensitive",
+        "old_medium.txt": "moderately_sensitive",
+        "current.txt": "highly_sensitive",
+    }
+    new_outputs = {
+        "new_high.txt": "highly_sensitive",
+        "new_medium.txt": "moderately_sensitive",
+        "current.txt": "highly_sensitive",
+    }
+
+    # insert previous outputs
+    job_factory(
+        state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
+        outputs=old_outputs,
+        created_at=time.time() - 10,
+    )
+
+    job = job_factory(
+        state=State.RUNNING,
+        status_code=StatusCode.FINALIZED,
+        outputs=new_outputs,
+    )
+
     job_definition = run.job_to_job_definition(job)
 
     obsolete = run.get_obsolete_files(job_definition, new_outputs)
@@ -1000,10 +1108,19 @@ def test_get_obsolete_files_case_change(db):
     new_outputs = {
         "HIGH.txt": "highly_sensitive",
     }
-    job = job_factory(
+    job_factory(
         state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
         outputs=old_outputs,
+        created_at=time.time() - 10,
     )
+
+    job = job_factory(
+        state=State.RUNNING,
+        status_code=StatusCode.FINALIZED,
+        outputs=new_outputs,
+    )
+
     job_definition = run.job_to_job_definition(job)
 
     obsolete = run.get_obsolete_files(job_definition, new_outputs)

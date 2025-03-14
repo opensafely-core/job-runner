@@ -1,16 +1,69 @@
+import os
 import time
 
+import opentelemetry.exporter.otlp.proto.http.trace_exporter
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
-from jobrunner import models, tracing
+from jobrunner import config, models, tracing
 from tests.conftest import get_trace
 from tests.factories import job_factory, job_request_factory, job_results_factory
 
 
-def test_trace_attributes(db, monkeypatch):
-    monkeypatch.setattr(tracing.config, "VERSION", "v1.2.3")
-    monkeypatch.setattr(tracing.config, "GIT_SHA", "abcdefg")
+def test_setup_default_tracing_empty_env(monkeypatch):
+    env = {}
+    monkeypatch.setattr(os, "environ", env)
+    provider = tracing.setup_default_tracing(set_global=False)
+    assert provider._active_span_processor._span_processors == ()
 
+
+def test_setup_default_tracing_console(monkeypatch):
+    env = {"OTEL_EXPORTER_CONSOLE": "1"}
+    monkeypatch.setattr(os, "environ", env)
+    provider = tracing.setup_default_tracing(set_global=False)
+
+    processor = provider._active_span_processor._span_processors[0]
+    assert isinstance(processor.span_exporter, ConsoleSpanExporter)
+
+
+def test_setup_default_tracing_otlp_defaults(monkeypatch):
+    env = {"OTEL_EXPORTER_OTLP_HEADERS": "'foo=bar'"}
+    monkeypatch.setattr(os, "environ", env)
+    monkeypatch.setattr(
+        opentelemetry.exporter.otlp.proto.http.trace_exporter, "environ", env
+    )
+    provider = tracing.setup_default_tracing(set_global=False)
+    assert provider.resource.attributes["service.name"] == "jobrunner"
+
+    exporter = provider._active_span_processor._span_processors[0].span_exporter
+    assert isinstance(exporter, OTLPSpanExporter)
+    assert exporter._endpoint == "https://api.honeycomb.io/v1/traces"
+    assert exporter._headers == {"foo": "bar"}
+    assert env["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://api.honeycomb.io"
+
+
+def test_setup_default_tracing_otlp_with_env(monkeypatch):
+    env = {
+        "OTEL_EXPORTER_OTLP_HEADERS": "foo=bar",
+        "OTEL_SERVICE_NAME": "service",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "https://endpoint",
+    }
+    monkeypatch.setattr(os, "environ", env)
+    monkeypatch.setattr(
+        opentelemetry.exporter.otlp.proto.http.trace_exporter, "environ", env
+    )
+    provider = tracing.setup_default_tracing(set_global=False)
+    assert provider.resource.attributes["service.name"] == "service"
+
+    exporter = provider._active_span_processor._span_processors[0].span_exporter
+
+    assert isinstance(exporter, OTLPSpanExporter)
+    assert exporter._endpoint == "https://endpoint/v1/traces"
+    assert exporter._headers == {"foo": "bar"}
+
+
+def test_trace_attributes(db):
     jr = job_request_factory(
         original=dict(
             created_by="testuser",
@@ -52,6 +105,9 @@ def test_trace_attributes(db, monkeypatch):
         orgs="org1,org2",
         state="PENDING",
         message="message",
+        created_at=int(job.created_at * 1e9),
+        started_at=None,
+        status_code_updated_at=job.status_code_updated_at,
         reusable_action="action_repo:commit",
         requires_db=False,
         outputs=2,
@@ -60,8 +116,6 @@ def test_trace_attributes(db, monkeypatch):
         exit_code=1,
         image_id="image_id",
         executor_message="message",
-        jobrunner_version="v1.2.3",
-        jobrunner_sha="abcdefg",
         action_version="unknown",
         action_revision="unknown",
         action_created="unknown",
@@ -70,10 +124,7 @@ def test_trace_attributes(db, monkeypatch):
     )
 
 
-def test_trace_attributes_missing(db, monkeypatch):
-    monkeypatch.setattr(tracing.config, "VERSION", "v1.2.3")
-    monkeypatch.setattr(tracing.config, "GIT_SHA", "abcdefg")
-
+def test_trace_attributes_missing(db):
     jr = job_request_factory(
         original=dict(
             created_by="testuser",
@@ -104,10 +155,24 @@ def test_trace_attributes_missing(db, monkeypatch):
         orgs="org1,org2",
         state="PENDING",
         message="message",
+        created_at=int(job.created_at * 1e9),
+        started_at=None,
+        status_code_updated_at=job.status_code_updated_at,
         requires_db=False,
-        jobrunner_version="v1.2.3",
-        jobrunner_sha="abcdefg",
     )
+
+
+def test_tracing_resource_config():
+    tracer = trace.get_tracer("test")
+    with tracer.start_as_current_span("test") as span:
+        pass
+
+    span = get_trace("test")[0]
+    assert span.resource.attributes["service.name"] == "jobrunner"
+    assert span.resource.attributes["service.namespace"] == os.environ.get(
+        "BACKEND", "unknown"
+    )
+    assert span.resource.attributes["service.version"] == config.VERSION
 
 
 def test_initialise_trace(db):
@@ -210,16 +275,22 @@ def test_complete_job(db):
     results = job_results_factory(exit_code=1)
     ts = int(time.time() * 1e9)
 
+    # send span with no current span
     tracing.complete_job(job, ts, results=results)
+
+    # send span with current active span, to ensure it doesn't pick it up as parent span
+    tracer = trace.get_tracer("test")
+    with tracer.start_as_current_span("other"):
+        tracing.complete_job(job, ts, results=results)
 
     ctx = tracing.load_root_span(job)
 
-    spans = get_trace("jobs")
-    assert spans[0].name == "JOB"
-    assert spans[0].context.trace_id == ctx.trace_id
-    assert spans[0].context.span_id == ctx.span_id
-    assert spans[0].parent is None
-    assert spans[0].attributes["exit_code"] == 1
+    for span in get_trace("jobs"):
+        assert span.name == "JOB"
+        assert span.context.trace_id == ctx.trace_id
+        assert span.context.span_id == ctx.span_id
+        assert span.parent is None
+        assert span.attributes["exit_code"] == 1
 
 
 def test_set_span_metadata_attrs(db):

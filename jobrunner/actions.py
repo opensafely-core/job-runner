@@ -4,6 +4,7 @@ import shlex
 from typing import Dict, List
 
 from pipeline.exceptions import ProjectValidationError
+from pipeline.models import Action
 from pipeline.outputs import get_output_dirs
 
 from jobrunner.lib.path_utils import ensure_unix_path
@@ -19,6 +20,7 @@ class ActionSpecification:
     run: str
     needs: List[str]
     outputs: Dict[str, Dict[str, str]]
+    action: Action
 
 
 def get_action_specification(config, action_id, using_dummy_data_backend=False):
@@ -79,7 +81,8 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
     return ActionSpecification(
         run=run_command,
         needs=action_spec.needs,
-        outputs=action_spec.outputs.dict(exclude_unset=True),
+        outputs=action_spec.outputs.dict(),
+        action=action_spec,
     )
 
 

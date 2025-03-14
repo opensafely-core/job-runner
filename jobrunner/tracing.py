@@ -4,6 +4,7 @@ from datetime import datetime
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace import propagation
@@ -15,11 +16,21 @@ from jobrunner.models import Job, SavedJobRequest, State, StatusCode
 
 
 logger = logging.getLogger(__name__)
-provider = TracerProvider()
-trace.set_tracer_provider(provider)
 
 
-def add_exporter(exporter, processor=BatchSpanProcessor):
+def get_provider():
+    # https://github.com/open-telemetry/semantic-conventions/tree/main/docs/resource#service
+    resource = Resource.create(
+        attributes={
+            "service.name": os.environ.get("OTEL_SERVICE_NAME", "jobrunner"),
+            "service.namespace": os.environ.get("BACKEND", "unknown"),
+            "service.version": config.VERSION,
+        }
+    )
+    return TracerProvider(resource=resource)
+
+
+def add_exporter(provider, exporter, processor=BatchSpanProcessor):
     """Utility method to add an exporter.
 
     We use the BatchSpanProcessor by default, which is the default for
@@ -33,20 +44,30 @@ def add_exporter(exporter, processor=BatchSpanProcessor):
     provider.add_span_processor(processor(exporter))
 
 
-def setup_default_tracing():
+def setup_default_tracing(set_global=True):
     """Inspect environment variables and set up exporters accordingly."""
+
+    provider = get_provider()
+
     if "OTEL_EXPORTER_OTLP_HEADERS" in os.environ:
-        if "OTEL_SERVICE_NAME" not in os.environ:
-            raise Exception(
-                "OTEL_EXPORTER_OTLP_HEADERS is configured, but missing OTEL_SERVICE_NAME"
-            )
+        # workaround for env file parsing issues
+        cleaned_headers = os.environ["OTEL_EXPORTER_OTLP_HEADERS"].strip("\"'")
+        # put back into env to be parsed properly
+        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = cleaned_headers
+
         if "OTEL_EXPORTER_OTLP_ENDPOINT" not in os.environ:
             os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://api.honeycomb.io"
 
-        add_exporter(OTLPSpanExporter())
+        # now we can created OTLP exporter
+        add_exporter(provider, OTLPSpanExporter())
 
     if "OTEL_EXPORTER_CONSOLE" in os.environ:
-        add_exporter(ConsoleSpanExporter())
+        add_exporter(provider, ConsoleSpanExporter())
+
+    if set_global:
+        trace.set_tracer_provider(provider)
+
+    return provider
 
 
 @warn_assertions
@@ -211,7 +232,7 @@ def complete_job(job, timestamp_ns, error=None, results=None, **attrs):
     # to send it.
 
     # this effectively starts a new trace
-    root_span = tracer.start_span("JOB", start_time=job_start_time)
+    root_span = tracer.start_span("JOB", context={}, start_time=job_start_time)
 
     # replace the context with the one from the original root span
     root_span._context = root_ctx
@@ -278,9 +299,12 @@ def trace_attributes(job, results=None):
         orgs=",".join(job._job_request.get("orgs", [])),
         state=job.state.name,
         message=job.status_message,
+        # convert float seconds to ns integer
+        created_at=int(job.created_at * 1e9),
+        started_at=int(job.started_at * 1e9) if job.started_at else None,
+        # when did the state last change?
+        status_code_updated_at=job.status_code_updated_at,
         requires_db=job.requires_db,
-        jobrunner_version=config.VERSION,
-        jobrunner_sha=config.GIT_SHA,
     )
 
     # local_run jobs don't have a commit

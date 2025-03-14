@@ -3,7 +3,8 @@ import json
 from responses import matchers
 
 from jobrunner import config, queries, sync
-from jobrunner.models import JobRequest
+from jobrunner.lib.database import find_where
+from jobrunner.models import Job, JobRequest
 from tests.factories import job_factory, metrics_factory
 
 
@@ -87,6 +88,7 @@ def test_job_to_remote_format_default(db):
     assert json["status"] == "pending"
     assert json["status_code"] == "created"
     assert json["metrics"] == {}
+    assert json["requires_db"] is False
 
 
 def test_job_to_remote_format_null_status_message(db):
@@ -151,3 +153,24 @@ def test_session_request_flags(db, responses):
 
     # if this works, our expected request was generated
     sync.api_get("path", params={"backend": "test"})
+
+
+def test_sync_empty_response(db, monkeypatch, requests_mock):
+    monkeypatch.setattr(
+        "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+    )
+    requests_mock.get(
+        "http://testserver/api/v2/job-requests/?backend=expectations",
+        json={
+            "results": [],
+        },
+    )
+    sync.sync()
+
+    # verify we did not post back to job-server
+    assert requests_mock.last_request.text is None
+    assert requests_mock.last_request.method == "GET"
+
+    # also that we did not create any jobs
+    jobs = find_where(Job)
+    assert jobs == []

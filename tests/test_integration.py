@@ -3,6 +3,7 @@ Big integration tests that create a basic project in a git repo, mocks out a
 JobRequest from the job-server to run it, and then exercises the sync and run
 loops to run entire pipeline
 """
+
 import json
 import logging
 
@@ -35,7 +36,7 @@ def test_integration_with_cohortextractor(
 ):
     # TODO: add the following parametrize decorator back to this test:
     #
-    #   @pytest.mark.parametrize("extraction_tool", ["cohortextractor", "databuilder"])
+    #   @pytest.mark.parametrize("extraction_tool", ["cohortextractor", "ehrql"])
     #
     # Databuilder currently supports too few options in dummy data (at the time
     # of writing we are still building out the "walking skeleton") to be run
@@ -211,7 +212,7 @@ def test_integration_with_cohortextractor(
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_integration_with_databuilder(
+def test_integration_with_ehrql(
     tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo, volume_api
 ):
     # TODO: merge this test into test_integration
@@ -220,7 +221,7 @@ def test_integration_with_databuilder(
     # of writing we are still building out the "walking skeleton") to be run
     # alongside cohortextractor in this test, however once it supports a close
     # enough set of dummy data we can merge them into a single test.
-    extraction_tool = "databuilder"
+    extraction_tool = "ehrql"
 
     api = get_executor_api()
 
@@ -230,7 +231,7 @@ def test_integration_with_databuilder(
     # Disable repo URL checking so we can run using a local test repo
     monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
 
-    ensure_docker_images_present("databuilder:v0.36.0", "python")
+    ensure_docker_images_present("ehrql:v1", "python")
 
     # Set up a mock job-server with a single job request
     job_request_1 = {
