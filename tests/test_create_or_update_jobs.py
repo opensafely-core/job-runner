@@ -33,7 +33,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
         id="123",
         repo_url=repo_url,
         # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
-        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        commit="cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
         branch="v1",
         requested_actions=["generate_cohort"],
         cancelled_actions=[],
@@ -51,7 +51,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
     assert old_job.job_request_id == "123"
     assert old_job.state == State.PENDING
     assert old_job.repo_url == repo_url
-    assert old_job.commit == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+    assert old_job.commit == "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
     assert old_job.workspace == "1"
     assert old_job.action == "generate_cohort"
     assert old_job.wait_for_job_ids == []

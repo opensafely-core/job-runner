@@ -5,6 +5,7 @@ on Windows (but not POSIX). Most of these issues are fixed in Python 3.8 so
 it's possible we can drop this later. (The exception being the `env` argument
 which the documentation doesn't mention so we'll have to wait and see.)
 """
+
 import subprocess
 from pathlib import PurePath
 

@@ -97,6 +97,9 @@ upgrade env package="": virtualenv
     test -z "{{ package }}" || opts="--upgrade-package {{ package }}"
     FORCE=true "{{ just_executable() }}" requirements-{{ env }} $opts
 
+upgrade-pipeline: && requirements-prod
+    ./scripts/upgrade-pipeline.sh pyproject.toml
+
 # *ARGS is variadic, 0 or more. This allows us to do `just test -k match`, for example.
 
 # Run the tests
@@ -181,23 +184,3 @@ run repo action: devenv
 # required by docker-compose.yaml
 dotenv:
     cp dotenv-sample .env
-
-update-wheels: devenv
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    if test -d lib; then
-        git -C lib pull
-    else
-        git clone git@github.com:opensafely/job-runner-dependencies.git lib
-    fi
-    # wipe clean to remove old packages and start fresh each time
-    rm lib/* -rf
-    # restore README.md, as we don't want to delete that
-    git -C lib checkout README.md
-
-    # Now install the dependencies
-    $BIN/pip install -U -r requirements.prod.txt -r requirements.tools.txt --target lib
-    cp requirements.prod.txt requirements.tools.txt lib/
-    # remove any .so libs
-    find lib/ -name \*.so -exec rm {} \;

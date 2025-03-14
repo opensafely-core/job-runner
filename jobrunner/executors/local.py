@@ -22,7 +22,7 @@ from jobrunner.job_executor import (
     JobStatus,
     Privacy,
 )
-from jobrunner.lib import datestr_to_ns_timestamp, docker
+from jobrunner.lib import datestr_to_ns_timestamp, docker, file_digest
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
@@ -175,7 +175,9 @@ class LocalDockerAPI(ExecutorAPI):
                 label=LABEL,
                 labels=get_job_labels(job_definition),
                 extra_args=extra_args,
+                volume_type=volume_api.volume_type,
             )
+
         except Exception as exc:
             return JobStatus(
                 ExecutorState.ERROR, f"Failed to start docker container: {exc}"
@@ -205,11 +207,20 @@ class LocalDockerAPI(ExecutorAPI):
             # job was pending, so do not go to EXECUTED
             return current_status
 
+        if current_status.state in [
+            ExecutorState.EXECUTED,
+            ExecutorState.FINALIZED,
+            ExecutorState.FINALIZING,
+        ]:
+            # job has already finished - whilst this function should not be called in
+            # this case, it's possible it could happen due to a race condition
+            return current_status
+
         assert current_status.state in [
             ExecutorState.EXECUTING,
             ExecutorState.ERROR,
             ExecutorState.PREPARED,
-        ]
+        ], f"unexpected status {current_status}"
 
         docker.kill(container_name(job_definition))
 
@@ -393,9 +404,23 @@ def finalize_job(job_definition):
 
     # First get the user-friendly message for known database exit codes, for jobs
     # that have db access
-    message = None
+    unmatched_hint = None
 
-    if exit_code == 137 and job_definition.cancelled:
+    if exit_code == 0 and outputs and not unmatched_patterns:
+        message = "Completed successfully"
+
+    elif exit_code == 0 and unmatched_patterns:
+        message = "\n  No outputs found matching patterns:\n - {}".format(
+            "\n   - ".join(unmatched_patterns)
+        )
+        if unmatched_outputs:
+            unmatched_hint = (
+                "\n  Did you mean to match one of these files instead?\n - {}".format(
+                    "\n   - ".join(unmatched_outputs)
+                )
+            )
+
+    elif exit_code == 137 and job_definition.cancelled:
         message = f"Job cancelled by {job_definition.cancelled}"
     # Nb. this flag has been observed to be unreliable on some versions of Linux
     elif (
@@ -417,6 +442,7 @@ def finalize_job(job_definition):
         exit_code=exit_code,
         image_id=container_metadata["Image"],
         message=message,
+        unmatched_hint=unmatched_hint,
         timestamp_ns=time.time_ns(),
         action_version=labels.get("org.opencontainers.image.version", "unknown"),
         action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
@@ -459,6 +485,7 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job_definition.study.commit
     job_metadata["database_name"] = job_definition.database_name
+    job_metadata["hint"] = results.unmatched_hint
     return job_metadata
 
 
@@ -493,53 +520,110 @@ def persist_outputs(job_definition, outputs, job_metadata):
     # Extract outputs to workspace
     workspace_dir = get_high_privacy_workspace(job_definition.workspace)
 
-    excluded_files = {}
+    excluded_job_msgs = {}
+    excluded_file_msgs = {}
 
     sizes = {}
-    for filename in outputs.keys():
+    # copy all files into workspace long term storage
+    for filename, level in outputs.items():
         log.info(f"Extracting output file: {filename}")
-        size = volumes.get_volume_api(job_definition).copy_from_volume(
-            job_definition, filename, workspace_dir / filename
+        dst = workspace_dir / filename
+        sizes[filename] = volumes.get_volume_api(job_definition).copy_from_volume(
+            job_definition, filename, dst
         )
-        sizes[filename] = size
 
-    # Copy out medium privacy files
+    l4_files = [
+        filename
+        for filename, level in outputs.items()
+        if level == "moderately_sensitive"
+    ]
+
+    csv_metadata = {}
+    # check any L4 files are vaild
+    for filename in l4_files:
+        ok, job_msg, file_msg, csv_counts = check_l4_file(
+            job_definition, filename, sizes[filename], workspace_dir
+        )
+        if not ok:
+            excluded_job_msgs[filename] = job_msg
+            excluded_file_msgs[filename] = file_msg
+        csv_metadata[filename] = csv_counts
     medium_privacy_dir = get_medium_privacy_workspace(job_definition.workspace)
 
-    for filename, privacy_level in outputs.items():
-        if privacy_level == "moderately_sensitive":
-            ok, job_msg, file_msg = check_l4_file(
-                job_definition, filename, sizes[filename], workspace_dir
-            )
+    # local run currently does not have a level 4 directory, so exit early
+    if not medium_privacy_dir:
+        return excluded_job_msgs
 
-            if not ok:
-                excluded_files[filename] = job_msg
+    # Copy out medium privacy files to L4
+    for filename in l4_files:
+        src = workspace_dir / filename
+        dst = medium_privacy_dir / filename
+        message_file = medium_privacy_dir / (filename + ".txt")
 
-            # local run currently does not have a level 4 directory
-            if medium_privacy_dir:
-                message_file = medium_privacy_dir / (filename + ".txt")
+        if filename in excluded_file_msgs:
+            message_file.parent.mkdir(exist_ok=True, parents=True)
+            message_file.write_text(excluded_file_msgs[filename])
+        else:
+            volumes.copy_file(src, dst)
+            # if it previously had a message, delete it
+            delete_files_from_directory(medium_privacy_dir, [message_file])
 
-                if ok:
-                    volumes.copy_file(
-                        workspace_dir / filename, medium_privacy_dir / filename
-                    )
-                    # if it previously had a too big notice, delete it
-                    delete_files_from_directory(medium_privacy_dir, [message_file])
-                else:
-                    message_file.parent.mkdir(exist_ok=True, parents=True)
-                    message_file.write_text(file_msg)
+    new_outputs = {}
 
-                # this can be removed once osrelease is dead
-                write_manifest_file(
-                    medium_privacy_dir,
-                    {
-                        # this currently needs to exist, but is not used
-                        "repo": None,
-                        "workspace": job_definition.workspace,
-                    },
-                )
+    for filename, level in outputs.items():
+        abspath = workspace_dir / filename
+        new_outputs[filename] = get_output_metadata(
+            abspath,
+            level,
+            job_id=job_definition.id,
+            job_request=job_definition.job_request_id,
+            action=job_definition.action,
+            commit=job_definition.study.commit,
+            repo=job_definition.study.git_repo_url,
+            excluded=filename in excluded_file_msgs,
+            message=excluded_job_msgs.get(filename),
+            csv_counts=csv_metadata.get(filename),
+        )
 
-    return excluded_files
+    # Update manifest with file metdata
+    manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
+    manifest["outputs"].update(**new_outputs)
+    write_manifest_file(medium_privacy_dir, manifest)
+
+    return excluded_job_msgs
+
+
+def get_output_metadata(
+    abspath,
+    level,
+    job_id,
+    job_request,
+    action,
+    commit,
+    repo,
+    excluded,
+    message=None,
+    csv_counts=None,
+):
+    stat = abspath.stat()
+    with abspath.open("rb") as fp:
+        content_hash = file_digest(fp, "sha256").hexdigest()
+    csv_counts = csv_counts or {}
+    return {
+        "level": level,
+        "job_id": job_id,
+        "job_request": job_request,
+        "action": action,
+        "repo": repo,
+        "commit": commit,
+        "size": stat.st_size,
+        "timestamp": stat.st_mtime,
+        "content_hash": content_hash,
+        "excluded": excluded,
+        "message": message,
+        "row_count": csv_counts.get("rows"),
+        "col_count": csv_counts.get("cols"),
+    }
 
 
 MAX_SIZE_MSG = """
@@ -564,7 +648,7 @@ is of type {suffix}. This is not a valid file type for moderately_sensitive file
 
 Level 4 files should be aggregate information easily viewable by output checkers.
 
-See available list of file types here: https://docs.opensafely.org/releasing-files/#allowed-file-types
+See available list of file types here: https://docs.opensafely.org/requesting-file-release/#allowed-file-types.
 """
 
 PATIENT_ID = """
@@ -582,6 +666,33 @@ column from your data.
 
 """
 
+MAX_CSV_ROWS_MSG = """
+The file:
+
+{filename}
+
+contained {row_count} rows, which is above the limit for moderately_sensitive files of
+{limit} rows.
+
+As such, it has *not* been copied to Level 4 storage. Please contact tech-support for
+further assistance.
+"""
+
+
+def get_csv_counts(path):
+    csv_counts = {}
+    with path.open() as f:
+        reader = csv.DictReader(f)
+        headers = reader.fieldnames
+        first_row = next(reader, None)
+        if first_row:
+            csv_counts["cols"] = len(first_row)
+            csv_counts["rows"] = sum(1 for _ in reader) + 1
+        else:
+            csv_counts["cols"] = csv_counts["rows"] = 0
+
+    return csv_counts, headers
+
 
 def check_l4_file(job_definition, filename, size, workspace_dir):
     def mb(b):
@@ -589,26 +700,10 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
 
     job_msgs = []
     file_msgs = []
+    csv_counts = {"rows": None, "cols": None}
+    headers = []
 
     suffix = Path(filename).suffix
-    if suffix not in config.LEVEL4_FILE_TYPES:
-        job_msgs.append(f"File type of {suffix} is not valid level 4 file")
-        file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
-
-    elif suffix == ".csv":
-        # note: this assumes the local executor can directly access the long term storage on disk
-        # this may need to be abstracted in future
-        actual_file = workspace_dir / filename
-        try:
-            with actual_file.open() as f:
-                reader = csv.DictReader(f)
-                headers = reader.fieldnames
-        except Exception:
-            pass
-        else:
-            if headers and "patient_id" in headers:
-                job_msgs.append("File has patient_id column")
-                file_msgs.append(PATIENT_ID.format(filename=filename))
 
     if size > job_definition.level4_max_filesize:
         job_msgs.append(
@@ -621,11 +716,38 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
                 limit=mb(job_definition.level4_max_filesize),
             )
         )
+    elif suffix not in config.LEVEL4_FILE_TYPES:
+        job_msgs.append(f"File type of {suffix} is not valid level 4 file")
+        file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
+
+    elif suffix == ".csv":
+        # note: this assumes the local executor can directly access the long term storage on disk
+        # this may need to be abstracted in future
+        actual_file = workspace_dir / filename
+        try:
+            csv_counts, headers = get_csv_counts(actual_file)
+        except Exception:
+            pass
+        else:
+            if headers and "patient_id" in headers:
+                job_msgs.append("File has patient_id column")
+                file_msgs.append(PATIENT_ID.format(filename=filename))
+            if csv_counts["rows"] > job_definition.level4_max_csv_rows:
+                job_msgs.append(
+                    f"File row count ({csv_counts['rows']}) exceeds maximum allowed rows ({job_definition.level4_max_csv_rows})"
+                )
+                file_msgs.append(
+                    MAX_CSV_ROWS_MSG.format(
+                        filename=filename,
+                        row_count=csv_counts["rows"],
+                        limit=job_definition.level4_max_csv_rows,
+                    )
+                )
 
     if job_msgs:
-        return False, ",".join(job_msgs), "\n\n".join(file_msgs)
+        return False, ",".join(job_msgs), "\n\n".join(file_msgs), csv_counts
     else:
-        return True, None, None
+        return True, None, None, csv_counts
 
 
 def find_matching_outputs(job_definition):
@@ -697,10 +819,11 @@ KEYS_TO_LOG = [
     "commit",
     "docker_image_id",
     "exit_code",
-    "status_message",
     "created_at",
     "completed_at",
     "database_name",
+    "status_message",
+    "hint",
 ]
 
 
@@ -796,12 +919,29 @@ def redact_environment_variables(container_metadata):
     """
     env_vars = [line.split("=", 1) for line in container_metadata["Config"]["Env"]]
     redacted_vars = [
-        f"{key}=xxxx-REDACTED-xxxx"
-        if key not in SAFE_ENVIRONMENT_VARIABLES
-        else f"{key}={value}"
+        (
+            f"{key}=xxxx-REDACTED-xxxx"
+            if key not in SAFE_ENVIRONMENT_VARIABLES
+            else f"{key}={value}"
+        )
         for (key, value) in env_vars
     ]
     container_metadata["Config"]["Env"] = redacted_vars
+
+
+def read_manifest_file(workspace_dir, workspace):
+    manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
+
+    if manifest_file.exists():
+        manifest = json.loads(manifest_file.read_text())
+        manifest.setdefault("outputs", {})
+        return manifest
+
+    return {
+        "workspace": workspace,
+        "repo": None,  # old key, no longer needed
+        "outputs": {},
+    }
 
 
 def write_manifest_file(workspace_dir, manifest):
