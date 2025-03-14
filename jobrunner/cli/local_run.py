@@ -20,6 +20,7 @@ Other than that, everything else runs entirely as it would in production. A
 temporary database and log directory is created for each run and then thrown
 away afterwards.
 """
+
 import argparse
 import getpass
 import os
@@ -259,6 +260,7 @@ def create_and_run_jobs(
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
     config.MAX_WORKERS = concurrency
+    config.MAX_DB_WORKERS = concurrency
     config.DEFAULT_JOB_MEMORY_LIMIT = memory
     config.DEFAULT_JOB_CPU_COUNT = cpus
 

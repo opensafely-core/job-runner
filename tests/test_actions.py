@@ -12,14 +12,14 @@ from jobrunner.actions import UnknownActionError, get_action_specification
     sys.platform.startswith("win"),
     reason="ActionSpecification is only used to build commands for Docker",
 )
-def test_get_action_specification_databuilder_has_output_flag():
-    config = Pipeline(
+def test_get_action_specification_ehrql_has_output_flag():
+    config = Pipeline.build(
         **{
             "version": 3,
             "expectations": {"population_size": 1000},
             "actions": {
                 "generate_dataset": {
-                    "run": "databuilder:latest generate_dataset --output=output/dataset.csv",
+                    "run": "ehrql:v1 generate-dataset dataset.py --output=output/dataset.csv",
                     "outputs": {
                         "highly_sensitive": {
                             "cohort": "output/dataset.csv",
@@ -35,7 +35,7 @@ def test_get_action_specification_databuilder_has_output_flag():
 
     assert (
         action_spec.run
-        == "databuilder:latest generate_dataset --output=output/dataset.csv"
+        == "ehrql:v1 generate-dataset dataset.py --output=output/dataset.csv"
     )
 
 
@@ -44,7 +44,7 @@ def test_get_action_specification_databuilder_has_output_flag():
     reason="ActionSpecification is only used to build commands for Docker",
 )
 def test_get_action_specification_for_cohortextractor_generate_cohort_action():
-    config = Pipeline(
+    config = Pipeline.build(
         **{
             "version": 3,
             "expectations": {"population_size": 1000},
@@ -72,7 +72,7 @@ def test_get_action_specification_for_cohortextractor_generate_cohort_action():
     reason="ActionSpecification is only used to build commands for Docker",
 )
 def test_get_action_specification_with_config():
-    config = Pipeline(
+    config = Pipeline.build(
         **{
             "version": 3,
             "expectations": {"population_size": 1_000},
@@ -115,14 +115,14 @@ def test_get_action_specification_with_dummy_data_file_flag(tmp_path):
     with dummy_data_file.open("w") as f:
         f.write("test")
 
-    config = Pipeline(
+    config = Pipeline.build(
         **{
             "version": 1,
             "actions": {
                 "generate_cohort": {
                     "run": "cohortextractor:latest generate_cohort",
                     "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                    "dummy_data_file": dummy_data_file,
+                    "dummy_data_file": str(dummy_data_file),
                 }
             },
         }
@@ -154,14 +154,14 @@ def test_get_action_specification_without_dummy_data_file_flag(tmp_path):
     with dummy_data_file.open("w") as f:
         f.write("test")
 
-    config = Pipeline(
+    config = Pipeline.build(
         **{
             "version": 1,
             "actions": {
                 "generate_cohort": {
                     "run": "cohortextractor:latest generate_cohort",
                     "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                    "dummy_data_file": dummy_data_file,
+                    "dummy_data_file": str(dummy_data_file),
                 }
             },
         }
@@ -178,7 +178,7 @@ def test_get_action_specification_without_dummy_data_file_flag(tmp_path):
     reason="ActionSpecification is only used to build commands for Docker",
 )
 def test_get_action_specification_with_unknown_action():
-    config = Pipeline(
+    config = Pipeline.build(
         **{
             "version": 1,
             "actions": {

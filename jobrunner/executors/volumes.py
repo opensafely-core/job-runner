@@ -37,6 +37,7 @@ class DockerVolumeAPI:
     # don't run with UIDs for now. We maybe be able to support this in future.
     requires_root = True
     supported_platforms = ("linux", "win32", "darwin")
+    volume_type = "volume"  # https://docs.docker.com/engine/storage/volumes/
 
     def volume_name(job):
         return docker_volume_name(job)
@@ -93,6 +94,7 @@ class BindMountVolumeAPI:
     # Only works running jobs with uid:gid
     requires_root = False
     supported_platforms = ("linux",)
+    volume_type = "bind"  # https://docs.docker.com/engine/storage/bind-mounts/
 
     def volume_name(job):
         """Return the absolute path to the volume directory.

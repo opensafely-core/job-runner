@@ -1,6 +1,7 @@
 """
 Super crude docker/system stats logger
 """
+
 import json
 import logging
 import sqlite3

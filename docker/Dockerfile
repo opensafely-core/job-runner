@@ -7,17 +7,11 @@
 # the latest base image, by design.
 #
 # hadolint ignore=DL3007
-FROM ghcr.io/opensafely-core/base-docker:latest as base-python
+FROM ghcr.io/opensafely-core/base-docker:22.04 as base-python
 
 # we are going to use an apt cache on the host, so disable the default debian
 # docker clean up that deletes that cache on every apt install
 RUN rm -f /etc/apt/apt.conf.d/docker-clean
-
-# preemptively create a docker group using specific gid, before docker is
-# installed. This allows us to set the host docker gid to the same thing in
-# systems we control, and then we can just mount /var/run/docker.sock into the
-# container.
-RUN groupadd --gid 10010 docker
 
 # ensure fully working base python3 installation
 # see: https://gist.github.com/tiran/2dec9e03c6f901814f6d1e8dad09528e
@@ -51,6 +45,8 @@ RUN --mount=type=cache,target=/var/cache/apt \
 # Install everything in venv for isolation from system python libraries
 RUN python3 -m venv /opt/venv
 ENV VIRTUAL_ENV=/opt/venv/ PATH="/opt/venv/bin:$PATH"
+# jobrunner only works with bindmounts, not docker volumes
+ENV LOCAL_VOLUME_API="jobrunner.executors.volumes:BindMountVolumeAPI"
 
 # The cache mount means a) /root/.cache is not in the image, and b) it's preserved
 # between docker builds locally, for faster dev rebuild.
@@ -81,13 +77,6 @@ RUN --mount=type=cache,target=/root/.cache \
 #    version of the code included when the prod image was built.
 FROM base-python as job-runner-base
 
-# Create a non-root opensafely user to run the app as
-# We currently use host bind mounts in production backends, which means if we
-# need to match the uid inside the container to the one on the host.  To do
-# this, we reserve uid/gid 10000 to use as our running user on the host.
-# Note: we are currently not running as this user, but we will in future.
-RUN useradd --create-home --user-group --uid 10000 -G docker opensafely
-
 # copy venv over from builder image. These will have root:root ownership, but
 # are readable by all.
 COPY --from=builder /opt/venv /opt/venv
@@ -104,11 +93,6 @@ CMD ["/opt/venv/bin/python", "-m", "jobrunner.service"]
 
 # This may not be necessary, but it probably doesn't hurt
 ENV PYTHONPATH=/app
-
-# We are not ready to do this step yet
-# switch to running as the user
-# USER opensafely
-
 
 ##################################################
 #
@@ -145,9 +129,6 @@ LABEL org.opencontainers.image.revision=$GITREF
 #
 FROM job-runner-base as job-runner-dev
 
-# switch back to root to run the install of dev requirements.txt
-#USER root
-
 # TODO: its possible python dev dependencies might need some additional build packages installed?
 
 # install development requirements
@@ -156,21 +137,3 @@ COPY requirements.dev.txt /tmp/requirements.dev.txt
 # hadolint ignore=DL3042
 RUN --mount=type=cache,target=/root/.cache \
     python -m pip install --requirement /tmp/requirements.dev.txt
-
-# modify container docker gid to match host
-ARG DOCKER_HOST_GROUPID
-RUN groupmod -g $DOCKER_HOST_GROUPID docker
-
-# in dev, ensure opensafely uid matches host user id
-ARG DEV_USERID=1000
-ARG DEV_GROUPID=1000
-RUN usermod -u $DEV_USERID opensafely
-# Modify opensafely only if group id does not already exist. We run dev
-# containers with an explicit group id anyway, so file permissions on the host
-# will be correct, and we do not actually rely on named opensafely group access to
-# anything.
-RUN grep -q ":$DEV_GROUPID:" /etc/group || groupmod -g $DEV_GROUPID opensafely
-
-
-# switch back to opensafely
-#USER opensafely

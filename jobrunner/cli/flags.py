@@ -1,6 +1,7 @@
 """
 Ops utility getting and setting db flags
 """
+
 import argparse
 import sqlite3
 import sys

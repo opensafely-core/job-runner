@@ -1,5 +1,7 @@
 from unittest import mock
 
+import pytest
+
 from jobrunner.cli import prepare_for_reboot
 from jobrunner.executors import local, volumes
 from jobrunner.lib import database, docker
@@ -8,6 +10,7 @@ from tests.conftest import get_trace
 from tests.factories import job_factory
 
 
+@pytest.mark.needs_docker
 def test_prepare_for_reboot(db, monkeypatch):
     j1 = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
     j2 = job_factory(
