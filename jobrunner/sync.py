@@ -2,6 +2,7 @@
 Script which polls the job-server endpoint for active JobRequests and POSTs
 back any associated Jobs.
 """
+
 import json
 import logging
 import sys

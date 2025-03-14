@@ -1,6 +1,7 @@
 """
 Run any pending database migrations
 """
+
 import argparse
 import sys
 from pathlib import Path

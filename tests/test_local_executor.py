@@ -45,6 +45,8 @@ def job_definition(request, test_repo):
             "**/*": "medium",
         },
         allow_database_access=False,
+        level4_max_filesize=16 * 1024 * 1024,
+        level4_max_csv_rows=5000,
     )
 
 
@@ -324,6 +326,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
         "touch",
         "/workspace/output/output.csv",
         "/workspace/output/summary.csv",
+        "/workspace/output/summary.txt",
     ]
     job_definition.inputs = ["output/input.csv"]
     job_definition.output_spec = {
@@ -360,13 +363,38 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
     assert results.outputs == {
         "output/output.csv": "highly_sensitive",
         "output/summary.csv": "moderately_sensitive",
+        "output/summary.txt": "moderately_sensitive",
     }
     assert results.unmatched_patterns == []
+    assert results.message == "Completed successfully"
 
     log_dir = local.get_log_dir(job_definition)
     log_file = log_dir / "logs.txt"
     assert log_dir.exists()
     assert log_file.exists()
+
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    manifest = local.read_manifest_file(level4_dir, job_definition)
+
+    metadata = manifest["outputs"]["output/summary.csv"]
+    assert metadata["level"] == "moderately_sensitive"
+    assert metadata["job_id"] == job_definition.id
+    assert metadata["job_request"] == job_definition.job_request_id
+    assert metadata["action"] == job_definition.action
+    assert metadata["commit"] == job_definition.study.commit
+    assert metadata["excluded"] is False
+    assert metadata["size"] == 0
+    assert (
+        metadata["content_hash"]
+        == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    )
+    assert metadata["row_count"] == 0
+    assert metadata["col_count"] == 0
+
+    txt_metadata = manifest["outputs"]["output/summary.txt"]
+    assert txt_metadata["excluded"] is False
+    assert txt_metadata["row_count"] is None
+    assert txt_metadata["col_count"] is None
 
 
 @pytest.mark.needs_docker
@@ -433,6 +461,54 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume
     assert results.outputs == {}
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
     assert results.unmatched_outputs == ["unmatched"]
+    assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
+        "\n   - ".join(["output/output.*", "output/summary.*"])
+    )
+    assert (
+        results.unmatched_hint
+        == "\n  Did you mean to match one of these files instead?\n - {}".format(
+            "\n   - ".join(["unmatched"])
+        )
+    )
+
+
+@pytest.mark.needs_docker
+def test_finalize_unmatched_output(
+    docker_cleanup, job_definition, tmp_work_dir, volume_api
+):
+    # the sleep is needed to make sure the unmatched file is *newer* enough
+    job_definition.args = ["sh", "-c", "sleep 1; touch /workspace"]
+    job_definition.output_spec = {
+        "output/output.*": "highly_sensitive",
+        "output/summary.*": "moderately_sensitive",
+    }
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    # we don't need to wait
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    assert job_definition.id in local.RESULTS
+
+    # for test debugging if any asserts fail
+    print(get_log(job_definition))
+    results = api.get_results(job_definition)
+    assert results.exit_code == 0
+    assert results.outputs == {}
+    assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
+    assert results.unmatched_outputs == []
+    assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
+        "\n   - ".join(["output/output.*", "output/summary.*"])
+    )
 
 
 @pytest.mark.needs_docker
@@ -550,11 +626,20 @@ def test_finalize_large_level4_outputs(
 
     if not local_run:
         level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+
         message_file = level4_dir / "output/output.txt.txt"
         txt = message_file.read_text()
         assert "output/output.txt" in txt
         assert "1.0Mb" in txt
         assert "0.5Mb" in txt
+
+        manifest = local.read_manifest_file(level4_dir, job_definition)
+
+        assert manifest["outputs"]["output/output.txt"]["excluded"]
+        assert (
+            manifest["outputs"]["output/output.txt"]["message"]
+            == "File size of 1.0Mb is larger that limit of 0.5Mb."
+        )
 
 
 @pytest.mark.needs_docker
@@ -593,6 +678,14 @@ def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert "output/output.rds  - File type of .rds is not valid level 4 file" in log
+
+    manifest = local.read_manifest_file(level4_dir, job_definition)
+
+    assert manifest["outputs"]["output/output.rds"]["excluded"]
+    assert (
+        manifest["outputs"]["output/output.rds"]["message"]
+        == "File type of .rds is not valid level 4 file"
+    )
 
 
 @pytest.mark.needs_docker
@@ -640,6 +733,76 @@ def test_finalize_patient_id_header(
         txt = message_file.read_text()
         assert "output/output.csv" in txt
         assert "patient_id" in txt
+
+        manifest = local.read_manifest_file(level4_dir, job_definition)
+
+        assert manifest["outputs"]["output/output.csv"]["excluded"]
+        assert (
+            manifest["outputs"]["output/output.csv"]["message"]
+            == "File has patient_id column"
+        )
+        assert manifest["outputs"]["output/output.csv"]["row_count"] == 1
+        assert manifest["outputs"]["output/output.csv"]["col_count"] == 3
+
+
+@pytest.mark.needs_docker
+def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir, local_run):
+    rows = "1,2\n" * 11
+    job_definition.args = [
+        "sh",
+        "-c",
+        f"echo 'foo,bar\n{rows}' > /workspace/output/output.csv",
+    ]
+    job_definition.output_spec = {
+        "output/output.csv": "moderately_sensitive",
+    }
+    job_definition.level4_max_csv_rows = 10
+
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    result = api.get_results(job_definition)
+
+    assert result.exit_code == 0
+    assert result.level4_excluded_files == {
+        "output/output.csv": "File row count (11) exceeds maximum allowed rows (10)",
+    }
+
+    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log = log_file.read_text()
+    assert "Invalid moderately_sensitive outputs:" in log
+    assert (
+        "output/output.csv  - File row count (11) exceeds maximum allowed rows (10)"
+        in log
+    )
+
+    if not local_run:
+        level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+
+        message_file = level4_dir / "output/output.csv.txt"
+        txt = message_file.read_text()
+        assert "output/output.csv" in txt
+        assert "contained 11 rows" in txt
+
+        manifest = local.read_manifest_file(level4_dir, job_definition)
+
+        assert manifest["outputs"]["output/output.csv"]["excluded"]
+        assert (
+            manifest["outputs"]["output/output.csv"]["message"]
+            == "File row count (11) exceeds maximum allowed rows (10)"
+        )
+
+        assert manifest["outputs"]["output/output.csv"]["row_count"] == 11
+        assert manifest["outputs"]["output/output.csv"]["col_count"] == 2
 
 
 @pytest.mark.needs_docker
@@ -912,6 +1075,7 @@ def test_delete_volume(docker_cleanup, job_definition, tmp_work_dir, volume_api)
 @pytest.mark.skipif(
     sys.platform != "linux" and sys.platform != "darwin", reason="linux/darwin only"
 )
+@pytest.mark.needs_docker
 def test_delete_volume_error_bindmount(
     docker_cleanup, job_definition, tmp_work_dir, monkeypatch, caplog
 ):

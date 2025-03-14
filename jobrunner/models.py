@@ -7,6 +7,7 @@ these objects.
 
 Note the schema is defined separately in `schema.sql`.
 """
+
 import base64
 import dataclasses
 import datetime

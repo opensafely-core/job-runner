@@ -2,6 +2,7 @@
 Development utility for creating and submitting a JobRequest without having a
 job-server
 """
+
 import argparse
 import dataclasses
 import pprint

@@ -107,6 +107,7 @@ def test_trace_attributes(db):
         message="message",
         created_at=int(job.created_at * 1e9),
         started_at=None,
+        status_code_updated_at=job.status_code_updated_at,
         reusable_action="action_repo:commit",
         requires_db=False,
         outputs=2,
@@ -156,6 +157,7 @@ def test_trace_attributes_missing(db):
         message="message",
         created_at=int(job.created_at * 1e9),
         started_at=None,
+        status_code_updated_at=job.status_code_updated_at,
         requires_db=False,
     )
 

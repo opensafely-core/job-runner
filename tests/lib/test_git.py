@@ -128,7 +128,7 @@ def test_get_sha_from_remote_ref_private(tmp_work_dir):
 def test_read_file_from_repo_local(tmp_work_dir):
     output = read_file_from_repo(
         REPO_FIXTURE,
-        "d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
         "project.yaml",
     )
     assert output.startswith(b"version: '1.0'")
@@ -138,7 +138,7 @@ def test_checkout_commit_local(tmp_work_dir, tmp_path):
     target_dir = tmp_path / "files"
     checkout_commit(
         REPO_FIXTURE,
-        "d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
         target_dir,
     )
     assert [f.name for f in target_dir.iterdir()] == ["project.yaml"]
@@ -146,7 +146,7 @@ def test_checkout_commit_local(tmp_work_dir, tmp_path):
 
 def test_get_sha_from_remote_ref_local(tmp_work_dir):
     sha = get_sha_from_remote_ref(REPO_FIXTURE, "v1")
-    assert sha == "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+    assert sha == "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
 
 
 def test_get_sha_from_remote_ref_local_missing_ref(tmp_work_dir):
@@ -161,7 +161,7 @@ def test_get_sha_from_remote_ref_local_missing_repo(tmp_work_dir):
 
 
 def test_commit_already_fetched(tmp_path):
-    commit_sha = "d1e88b31cbe8f67c58f938adb5ee500d54a69764"
+    commit_sha = "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
     repo_dir = tmp_path / "repo"
     ensure_git_init(repo_dir)
     assert not commit_already_fetched(repo_dir, commit_sha)

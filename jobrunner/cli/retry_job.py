@@ -13,6 +13,7 @@ jobrunner pick it up again. We also need to update the job-server when we do
 this so that it puts the job back in an "active" state and continues to ask for
 updates on it.
 """
+
 import argparse
 import time
 

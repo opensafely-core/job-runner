@@ -6,6 +6,7 @@ JobRequests. This includes fetching the code with git, using the pipeline
 library to validate the pipeline configuration, and doing the necessary
 dependency resolution.
 """
+
 import logging
 import re
 import time

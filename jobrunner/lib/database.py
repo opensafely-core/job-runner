@@ -8,6 +8,7 @@ something like SQLAlchemy, pinned to a known compromise-free version. The API
 surface area of this module is sufficiently small that swapping it out
 shouldn't be too large a job.
 """
+
 import dataclasses
 import json
 import logging
@@ -42,27 +43,31 @@ def migration(version, sql):
     MIGRATIONS[version] = sql
 
 
-def insert(item):
+def generate_insert_sql(item):
     table = item.__tablename__
     fields = dataclasses.fields(item)
     columns = ", ".join(escape(field.name) for field in fields)
     placeholders = ", ".join(["?"] * len(fields))
     sql = f"INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})"
+    return sql, fields
+
+
+def insert(item):
+    sql, fields = generate_insert_sql(item)
+
     get_connection().execute(sql, encode_field_values(fields, item))
 
 
 def upsert(item):
     assert item.id
-    table = item.__tablename__
-    fields = dataclasses.fields(item)
-    columns = ", ".join(escape(field.name) for field in fields)
-    placeholders = ", ".join(["?"] * len(fields))
+    insert_sql, fields = generate_insert_sql(item)
+
     updates = ", ".join(f"{escape(field.name)} = ?" for field in fields)
     # Note: technically we update the id on conflict with this approach, which
-    # is unessecary, but it does not hurt and simplifies updates and params
+    # is unnecessary, but it does not hurt and simplifies updates and params
     # parts of the query.
     sql = f"""
-        INSERT INTO {escape(table)} ({columns}) VALUES({placeholders})
+        {insert_sql}
         ON CONFLICT(id) DO UPDATE SET {updates}
     """
     params = encode_field_values(fields, item)
@@ -102,7 +107,7 @@ def find_where(itemclass, **query_params):
     return [itemclass(*decode_field_values(fields, row)) for row in cursor]
 
 
-def find_all(itemclass):
+def find_all(itemclass):  # pragma: nocover
     return find_where(itemclass)
 
 
@@ -155,6 +160,12 @@ def transaction():
     return conn
 
 
+def filename_or_get_default(filename=None):
+    if filename is None:
+        filename = config.DATABASE_FILE
+    return filename
+
+
 def get_connection(filename=None):
     """Return the current configured connection."""
     # The caching below means we get the same connection to the database every
@@ -162,13 +173,12 @@ def get_connection(filename=None):
     # implement transaction support without having to explicitly pass round a
     # connection object. This is done on a per-thread basis to avoid potential
     # threading issues.
-    if filename is None:
-        filename = config.DATABASE_FILE
+    filename = filename_or_get_default(filename)
 
     # Looks icky but is documented `threading.local` usage
     cache = CONNECTION_CACHE.__dict__
     if filename not in cache:
-        conn = sqlite3.connect(filename)
+        conn = sqlite3.connect(filename, uri=True)
         # Enable autocommit so changes made outside of a transaction still get
         # persisted to disk. We can use explicit transactions when we need
         # atomicity.
@@ -176,6 +186,12 @@ def get_connection(filename=None):
         # Support dict-like access to rows
         conn.row_factory = sqlite3.Row
         cache[filename] = conn
+
+        # use WAL to enable other processes (e.g. operational tasks) to read the DB.
+        # job-runner should be the only active writer, which means if we need
+        # some other process to write the db (e.g. a backfill), then we should
+        # stop job-runner.
+        conn.execute("PRAGMA journal_mode=WAL")
 
     return cache[filename]
 
@@ -202,8 +218,7 @@ def ensure_valid_db(filename=None, migrations=MIGRATIONS):
     # we store migrations in models, so make sure this has been imported to collect them
     import jobrunner.models  # noqa: F401
 
-    if filename is None:
-        filename = config.DATABASE_FILE
+    filename = filename_or_get_default(filename)
 
     db_type, db_exists = db_status(filename)
     if db_type == "file" and not db_exists:
@@ -228,8 +243,7 @@ def ensure_db(filename=None, migrations=MIGRATIONS, verbose=False):
     # we store migrations in models, so make sure this has been imported to collect them
     import jobrunner.models  # noqa: F401
 
-    if filename is None:
-        filename = config.DATABASE_FILE
+    filename = filename_or_get_default(filename)
 
     db_type, db_exists = db_status(filename)
 
@@ -287,8 +301,12 @@ def query_params_to_sql(params):
     All parameters are implicitly ANDed together, and there's a bit of magic to
     handle `field__in=list_of_values` queries, LIKE queries and Enum classes.
     """
+    if not params:
+        return "1 = 1", []
+
     parts = []
     values = []
+
     for key, value in params.items():
         if key.endswith("__in"):
             field = key[:-4]
@@ -302,11 +320,11 @@ def query_params_to_sql(params):
         else:
             parts.append(f"{escape(key)} = ?")
             values.append(value)
+
     # Bit of a hack: convert any Enum instances to their values so we can use
     # them in querying
     values = [v.value if isinstance(v, Enum) else v for v in values]
-    if not parts:
-        parts = ["1 = 1"]
+
     return " AND ".join(parts), values
 
 

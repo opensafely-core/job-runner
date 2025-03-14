@@ -2,6 +2,7 @@
 Ops utility for killing all running jobs and reseting them to PENDING so they will be
 automatically re-run after a reboot.
 """
+
 import argparse
 
 from jobrunner.executors.local import container_name, docker

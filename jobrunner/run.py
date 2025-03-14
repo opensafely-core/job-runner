@@ -3,6 +3,7 @@ Script which polls the database for active (i.e. non-terminated) jobs, takes
 the appropriate action for each job depending on its current state, and then
 updates its state as appropriate.
 """
+
 import collections
 import datetime
 import logging
@@ -214,31 +215,33 @@ def handle_job(job, api, mode=None, paused=None):
     synchronous_transitions = getattr(api, "synchronous_transitions", [])
     is_synchronous = False
 
-    # handle special modes before considering executor state, as they ignore it
-    if paused:
-        if job.state == State.PENDING:
-            # do not start the job, keep it pending
+    # only consider these modes if we are not about to cancel the job
+    if not job_definition.cancelled:
+        # handle special modes before considering executor state, as they ignore it
+        if paused:
+            if job.state == State.PENDING:
+                # do not start the job, keep it pending
+                set_code(
+                    job,
+                    StatusCode.WAITING_PAUSED,
+                    "Backend is currently paused for maintenance, job will start once this is completed",
+                )
+                return
+
+        if mode == "db-maintenance" and job_definition.allow_database_access:
+            if job.state == State.RUNNING:
+                log.warning(f"DB maintenance mode active, killing db job {job.id}")
+                # we ignore the JobStatus returned from these API calls, as this is not a hard error
+                api.terminate(job_definition)
+                api.cleanup(job_definition)
+
+            # reset state to pending and exit
             set_code(
                 job,
-                StatusCode.WAITING_PAUSED,
-                "Backend is currently paused for maintenance, job will start once this is completed",
+                StatusCode.WAITING_DB_MAINTENANCE,
+                "Waiting for database to finish maintenance",
             )
             return
-
-    if mode == "db-maintenance" and job_definition.allow_database_access:
-        if job.state == State.RUNNING:
-            log.warning(f"DB maintenance mode active, killing db job {job.id}")
-            # we ignore the JobStatus returned from these API calls, as this is not a hard error
-            api.terminate(job_definition)
-            api.cleanup(job_definition)
-
-        # reset state to pending and exit
-        set_code(
-            job,
-            StatusCode.WAITING_DB_MAINTENANCE,
-            "Waiting for database to finish maintenance",
-        )
-        return
 
     try:
         initial_status = api.get_status(job_definition)
@@ -553,6 +556,7 @@ def job_to_job_definition(job):
         cpu_count=config.DEFAULT_JOB_CPU_COUNT,
         memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
         level4_max_filesize=config.LEVEL4_MAX_FILESIZE,
+        level4_max_csv_rows=config.LEVEL4_MAX_CSV_ROWS,
         level4_file_types=config.LEVEL4_FILE_TYPES,
         cancelled=job_definition_cancelled,
     )
