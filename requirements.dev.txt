@@ -10,13 +10,13 @@ black==24.8.0
     # via -r requirements.dev.in
 build==1.2.2.post1
     # via pip-tools
-certifi==2020.11.8
+certifi==2025.1.31
     # via
     #   -c /home/runner/work/job-runner/job-runner/requirements.prod.txt
     #   requests
 cfgv==3.4.0
     # via pre-commit
-chardet==3.0.4
+charset-normalizer==3.4.1
     # via
     #   -c /home/runner/work/job-runner/job-runner/requirements.prod.txt
     #   requests
@@ -51,7 +51,7 @@ hypothesis==6.113.0
     # via -r requirements.dev.in
 identify==2.6.1
     # via pre-commit
-idna==2.10
+idna==3.10
     # via
     #   -c /home/runner/work/job-runner/job-runner/requirements.prod.txt
     #   requests
@@ -112,14 +112,14 @@ pyyaml==6.0.2
     # via
     #   pre-commit
     #   responses
-requests==2.25.0
+requests==2.32.3
     # via
     #   -c /home/runner/work/job-runner/job-runner/requirements.prod.txt
     #   requests-mock
     #   responses
 requests-mock==1.12.1
     # via -r requirements.dev.in
-responses==0.23.1
+responses==0.25.7
     # via pytest-responses
 six==1.17.0
     # via python-dateutil
@@ -132,13 +132,11 @@ tomli==2.2.1
     #   coverage
     #   pip-tools
     #   pytest
-types-pyyaml==6.0.12.20241230
-    # via responses
-typing-extensions==4.7.1
+typing-extensions==4.12.2
     # via
     #   -c /home/runner/work/job-runner/job-runner/requirements.prod.txt
     #   black
-urllib3==1.26.5
+urllib3==2.2.3
     # via
     #   -c /home/runner/work/job-runner/job-runner/requirements.prod.txt
     #   requests
@@ -153,7 +151,7 @@ zipp==3.20.2
 # The following packages are considered to be unsafe in a requirements file:
 pip==25.0.1
     # via pip-tools
-setuptools==65.3.0
+setuptools==75.3.2
     # via
     #   -c /home/runner/work/job-runner/job-runner/requirements.prod.txt
     #   pip-tools
