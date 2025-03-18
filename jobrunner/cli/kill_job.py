@@ -8,7 +8,7 @@ from jobrunner.executors import local
 from jobrunner.job_executor import JobResults
 from jobrunner.lib import database, docker
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.run import job_to_job_definition, mark_job_as_failed
+from jobrunner.controller import job_to_job_definition, mark_job_as_failed
 
 
 def main(partial_job_ids, cleanup=False):

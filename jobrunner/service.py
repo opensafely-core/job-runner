@@ -6,7 +6,7 @@ import logging
 import threading
 import time
 
-from jobrunner import config, record_stats, run, sync, tracing
+from jobrunner import config, controller, record_stats, sync, tracing
 from jobrunner.lib.database import ensure_valid_db
 from jobrunner.lib.docker import docker
 from jobrunner.lib.log_utils import configure_logging
@@ -43,7 +43,7 @@ def main():
         start_thread(record_stats_wrapper, "stat")
         if config.ENABLE_MAINTENANCE_MODE_THREAD:
             start_thread(maintenance_wrapper, "mntn")
-        run.main()
+        controller.main()
     except KeyboardInterrupt:
         log.info("jobrunner.service stopped")
 

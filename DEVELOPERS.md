@@ -15,7 +15,7 @@ You will also need an up-to-date version of Docker Compose. Instructions to inst
 
 The package has two main entrypoints:
 [jobrunner.sync](./jobrunner/sync.py) and
-[jobrunner.run](./jobrunner/run.py). Both are implemented as infinite
+[jobrunner.controller](./jobrunner/controller.py). Both are implemented as infinite
 loops with a fixed sleep period and are designed to be run as services.
 
 ### jobrunner.sync
@@ -28,7 +28,7 @@ Jobs associated with the active JobRequests it received.
 The bulk of the work here is done by the
 [create_or_update_jobs](./jobrunner/create_or_update_jobs.py) module.
 
-### jobrunner.run
+### jobrunner.controller
 
 This runs Docker containers based on the contents of the Jobs table.
 It's implemented as a synchronous loop which polls the database for
@@ -177,7 +177,7 @@ python -m jobrunner.cli.add_job ../os-demo-research run_all
 
 If you now run the main loop you'll see it pick up the jobs:
 ```
-python -m jobrunner.run
+python -m jobrunner.controller
 ```
 
 See the full set of options it accepts with:

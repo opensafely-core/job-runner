@@ -336,7 +336,7 @@ if __name__ == "__main__":
     # local testing utility for tracing
     import time
 
-    from jobrunner.run import set_code
+    from jobrunner.controller import set_code
 
     setup_default_tracing()
 

@@ -3,7 +3,7 @@ import time
 import pytest
 from opentelemetry import trace
 
-from jobrunner import config, run
+from jobrunner import config, controller
 from jobrunner.job_executor import ExecutorState, JobStatus, Privacy
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
@@ -23,7 +23,7 @@ def test_handle_job_full_execution_async(db, freezer):
 
     freezer.tick(1)
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.PREPARING
 
@@ -31,7 +31,7 @@ def test_handle_job_full_execution_async(db, freezer):
     api.set_job_status_from_executor_state(job, ExecutorState.PREPARED)
 
     freezer.tick(1)
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.EXECUTING
 
@@ -39,7 +39,7 @@ def test_handle_job_full_execution_async(db, freezer):
     api.set_job_status_from_executor_state(job, ExecutorState.EXECUTED)
 
     freezer.tick(1)
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.FINALIZING
 
@@ -48,7 +48,7 @@ def test_handle_job_full_execution_async(db, freezer):
     api.set_job_result(job)
 
     freezer.tick(1)
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.state == State.SUCCEEDED
     assert job.status_code == StatusCode.SUCCEEDED
 
@@ -97,12 +97,12 @@ def test_handle_job_full_execution_synchronous(db, freezer):
 
     # prepare is synchronous
     api.set_job_transition(job, ExecutorState.PREPARED, hook=lambda j: freezer.tick(1))
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.PREPARED
 
     freezer.tick(1)
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.EXECUTING
 
@@ -118,13 +118,13 @@ def test_handle_job_full_execution_synchronous(db, freezer):
 
     api.set_job_transition(job, ExecutorState.FINALIZED, hook=finalize)
     assert job.id not in api.tracker["finalize"]
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.id in api.tracker["finalize"]
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.FINALIZED
 
     freezer.tick(1)
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.state == State.SUCCEEDED
     assert job.status_code == StatusCode.SUCCEEDED
 
@@ -167,7 +167,7 @@ def test_handle_pending_job_cancelled(db):
     assert job.id not in api.tracker["finalize"]
     assert job.id not in api.tracker["cleanup"]
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     assert job.id not in api.tracker["prepare"]
     assert job.id not in api.tracker["terminate"]
@@ -175,10 +175,10 @@ def test_handle_pending_job_cancelled(db):
     assert job.id not in api.tracker["cleanup"]
 
     # executor state
-    job_definition = run.job_to_job_definition(job)
+    job_definition = controller.job_to_job_definition(job)
     assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
-    # run.handle_job(job, api)
+    # controller.handle_job(job, api)
 
     # assert job.id not in api.tracker["prepare"]
     # assert job.id in api.tracker["terminate"]
@@ -197,7 +197,7 @@ def test_handle_prepared_job_cancelled(db, monkeypatch):
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
 
     assert job.id not in api.tracker["prepare"]
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.id in api.tracker["prepare"]
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.PREPARING
@@ -206,10 +206,10 @@ def test_handle_prepared_job_cancelled(db, monkeypatch):
 
     job.cancelled = True
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
-    job_definition = run.job_to_job_definition(job)
+    job_definition = controller.job_to_job_definition(job)
 
     # StubExecutorAPI needs state setting to FINALIZED, local executor is able to
     # determine this for itself based on the presence of volume & absence of container
@@ -221,7 +221,7 @@ def test_handle_prepared_job_cancelled(db, monkeypatch):
     assert job.state == State.RUNNING
 
     assert job.id not in api.tracker["cleanup"]
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.id in api.tracker["cleanup"]
 
     assert job.id in api.tracker["prepare"]
@@ -241,7 +241,7 @@ def test_handle_running_job_cancelled(db, monkeypatch):
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
 
     assert job.id not in api.tracker["prepare"]
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.id in api.tracker["prepare"]
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.PREPARING
@@ -249,7 +249,7 @@ def test_handle_running_job_cancelled(db, monkeypatch):
     api.set_job_status_from_executor_state(job, ExecutorState.PREPARED)
 
     assert job.id not in api.tracker["execute"]
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.id in api.tracker["execute"]
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.EXECUTING
@@ -257,18 +257,18 @@ def test_handle_running_job_cancelled(db, monkeypatch):
     job.cancelled = True
 
     assert job.id not in api.tracker["terminate"]
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.id in api.tracker["terminate"]
 
     # executor state
-    job_definition = run.job_to_job_definition(job)
+    job_definition = controller.job_to_job_definition(job)
     assert api.get_status(job_definition).state == ExecutorState.EXECUTED
 
     assert job.state == State.RUNNING
     assert job.status_code == StatusCode.EXECUTED
 
     assert job.id not in api.tracker["finalize"]
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.id in api.tracker["finalize"]
 
     api.set_job_status_from_executor_state(job, ExecutorState.FINALIZED)
@@ -277,7 +277,7 @@ def test_handle_running_job_cancelled(db, monkeypatch):
     assert job.status_code == StatusCode.FINALIZING
 
     assert job.id not in api.tracker["cleanup"]
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
     assert job.id in api.tracker["cleanup"]
 
     assert job.state == State.FAILED
@@ -303,7 +303,7 @@ def test_handle_job_stable_states(executor_state, status_code, message, db):
         executor_state, State.RUNNING, status_code, status_message=message
     )
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id not in api.tracker["prepare"]
@@ -326,8 +326,8 @@ def test_handle_job_initial_error(db):
     )
 
     # we raise the error to be handled in handle_single_job
-    with pytest.raises(run.ExecutorError) as exc:
-        run.handle_job(job, api)
+    with pytest.raises(controller.ExecutorError) as exc:
+        controller.handle_job(job, api)
 
     assert str(exc.value) == "broken"
 
@@ -336,7 +336,7 @@ def test_handle_job_pending_to_preparing(db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id in api.tracker["prepare"]
@@ -363,7 +363,7 @@ def test_handle_job_pending_dependency_failed(db):
         wait_for_job_ids=[dependency.id],
     )
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id not in api.tracker["prepare"]
@@ -395,7 +395,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
         wait_for_job_ids=[dependency.id],
     )
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id not in api.tracker["prepare"]
@@ -416,7 +416,7 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor doesn't even know about it
     assert job.id not in api.tracker["prepare"]
@@ -440,7 +440,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
         requires_db=True,
     )
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor doesn't even know about it
     assert job.id not in api.tracker["prepare"]
@@ -469,7 +469,7 @@ def test_handle_job_waiting_on_workers_via_executor(
     job = api.add_test_job(executor_state, job_state, status_code)
     api.set_job_transition(job, executor_state)
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     assert job.id in api.tracker[tracker]
     assert api.get_status(job).state == executor_state
@@ -491,8 +491,8 @@ def test_handle_job_pending_to_error(db):
     api.set_job_transition(job, ExecutorState.ERROR, "it is b0rked")
 
     # we raise the error to be handled in handle_single_job
-    with pytest.raises(run.ExecutorError) as exc:
-        run.handle_job(job, api)
+    with pytest.raises(controller.ExecutorError) as exc:
+        controller.handle_job(job, api)
 
     assert str(exc.value) == "it is b0rked"
 
@@ -501,7 +501,7 @@ def test_handle_job_prepared_to_executing(db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.PREPARED, State.RUNNING, StatusCode.PREPARED)
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id in api.tracker["execute"]
@@ -521,7 +521,7 @@ def test_handle_job_executed_to_finalizing(db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED)
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id in api.tracker["finalize"]
@@ -551,7 +551,7 @@ def test_handle_job_finalized_success_with_delete(db):
     job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
     api.set_job_result(job, outputs={"output/file.csv": "highly_sensitive"})
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id in api.tracker["cleanup"]
@@ -589,7 +589,7 @@ def test_handle_job_finalized_success_with_large_file(db):
         level4_excluded_files={"output/output.csv": "too big"},
     )
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id in api.tracker["cleanup"]
@@ -648,7 +648,7 @@ def test_handle_job_finalized_failed_exit_code(
         message=None,
     )
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id in api.tracker["cleanup"]
@@ -687,7 +687,7 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
         unmatched_outputs=["otherbadfile.csv"],
     )
 
-    run.handle_job(job, api)
+    controller.handle_job(job, api)
 
     # executor state
     assert job.id in api.tracker["cleanup"]
@@ -727,7 +727,7 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
         requires_db=True,
     )
 
-    run.handle_job(job, api, mode="db-maintenance")
+    controller.handle_job(job, api, mode="db-maintenance")
 
     # executor state
     assert api.get_status(job).state == ExecutorState.UNKNOWN
@@ -750,7 +750,7 @@ def test_handle_pending_cancelled_db_maintenance_mode(db, backend_db_config):
         cancelled=True,
     )
 
-    run.handle_job(job, api, mode="db-maintenance")
+    controller.handle_job(job, api, mode="db-maintenance")
 
     # executor state
     assert api.get_status(job).state == ExecutorState.UNKNOWN
@@ -771,7 +771,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
         requires_db=True,
     )
 
-    run.handle_job(job, api, mode="db-maintenance")
+    controller.handle_job(job, api, mode="db-maintenance")
 
     # executor state
     assert job.id in api.tracker["terminate"]
@@ -799,7 +799,7 @@ def test_handle_running_cancelled_db_maintenance_mode(db, backend_db_config):
         cancelled=True,
     )
 
-    run.handle_job(job, api, mode="db-maintenance")
+    controller.handle_job(job, api, mode="db-maintenance")
 
     # cancellation of running jobs puts it into EXECUTED for later finalization
     # executor state
@@ -824,7 +824,7 @@ def test_handle_pending_pause_mode(db, backend_db_config):
         requires_db=True,
     )
 
-    run.handle_job(job, api, paused=True)
+    controller.handle_job(job, api, paused=True)
 
     # executor state
     assert api.get_status(job).state == ExecutorState.UNKNOWN
@@ -848,7 +848,7 @@ def test_handle_running_pause_mode(db, backend_db_config):
         requires_db=True,
     )
 
-    run.handle_job(job, api, paused=True)
+    controller.handle_job(job, api, paused=True)
 
     # check we did nothing
     # executor state
@@ -890,8 +890,8 @@ def test_bad_transition(current, invalid, db):
     # this will cause any call to prepare/execute/finalize to return that state
     api.set_job_transition(job, invalid)
 
-    with pytest.raises(run.InvalidTransition):
-        run.handle_job(job, api)
+    with pytest.raises(controller.InvalidTransition):
+        controller.handle_job(job, api)
 
 
 def test_handle_single_job_marks_as_failed(db, monkeypatch):
@@ -904,7 +904,7 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
     monkeypatch.setattr(api, "get_status", error)
 
     with pytest.raises(Exception):
-        run.handle_single_job(job, api)
+        controller.handle_single_job(job, api)
 
     assert job.state is State.FAILED
 
@@ -934,15 +934,15 @@ def test_handle_single_job_with_executor_retry(db, monkeypatch):
     job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED)
 
     def retry(*args, **kwargs):
-        raise run.ExecutorRetry("retry message")
+        raise controller.ExecutorRetry("retry message")
 
     monkeypatch.setattr(api, "get_status", retry)
 
-    run.handle_single_job(job, api)
-    run.handle_single_job(job, api)
+    controller.handle_single_job(job, api)
+    controller.handle_single_job(job, api)
 
     assert job.state is State.RUNNING
-    assert run.EXECUTOR_RETRIES[job.id] == 2
+    assert controller.EXECUTOR_RETRIES[job.id] == 2
 
     spans = get_trace("loop")
     assert len(spans) == 2
@@ -961,7 +961,7 @@ def test_handle_single_job_shortcuts_synchronous(db):
 
     api.synchronous_transitions = [ExecutorState.PREPARING]
 
-    run.handle_single_job(job, api)
+    controller.handle_single_job(job, api)
 
     # executor state
     assert job.id in api.tracker["prepare"]
@@ -1003,7 +1003,7 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     api = RecordingExecutor(
         JobStatus(ExecutorState.UNKNOWN), JobStatus(ExecutorState.PREPARING)
     )
-    run.handle_job(
+    controller.handle_job(
         job_factory(
             id="3", requires_outputs_from=["other-action"], state=State.PENDING
         ),
@@ -1031,9 +1031,9 @@ def test_get_obsolete_files_nothing_to_delete(db):
         outputs=outputs,
     )
 
-    job_definition = run.job_to_job_definition(job)
+    job_definition = controller.job_to_job_definition(job)
 
-    obsolete = run.get_obsolete_files(job_definition, outputs)
+    obsolete = controller.get_obsolete_files(job_definition, outputs)
     assert obsolete == []
 
 
@@ -1062,9 +1062,9 @@ def test_get_obsolete_files_things_to_delete(db):
         outputs=new_outputs,
     )
 
-    job_definition = run.job_to_job_definition(job)
+    job_definition = controller.job_to_job_definition(job)
 
-    obsolete = run.get_obsolete_files(job_definition, new_outputs)
+    obsolete = controller.get_obsolete_files(job_definition, new_outputs)
     assert obsolete == ["old_high.txt", "old_medium.txt"]
 
 
@@ -1095,9 +1095,9 @@ def test_get_obsolete_files_things_to_delete_timing(db):
         outputs=new_outputs,
     )
 
-    job_definition = run.job_to_job_definition(job)
+    job_definition = controller.job_to_job_definition(job)
 
-    obsolete = run.get_obsolete_files(job_definition, new_outputs)
+    obsolete = controller.get_obsolete_files(job_definition, new_outputs)
     assert obsolete == ["old_high.txt", "old_medium.txt"]
 
 
@@ -1121,22 +1121,22 @@ def test_get_obsolete_files_case_change(db):
         outputs=new_outputs,
     )
 
-    job_definition = run.job_to_job_definition(job)
+    job_definition = controller.job_to_job_definition(job)
 
-    obsolete = run.get_obsolete_files(job_definition, new_outputs)
+    obsolete = controller.get_obsolete_files(job_definition, new_outputs)
     assert obsolete == []
 
 
 def test_job_definition_limits(db):
     job = job_factory()
-    job_definition = run.job_to_job_definition(job)
+    job_definition = controller.job_to_job_definition(job)
     assert job_definition.cpu_count == 2
     assert job_definition.memory_limit == "4G"
 
 
 def test_mark_job_as_failed_adds_error(db):
     job = job_factory()
-    run.mark_job_as_failed(job, StatusCode.INTERNAL_ERROR, "error")
+    controller.mark_job_as_failed(job, StatusCode.INTERNAL_ERROR, "error")
 
     # tracing
     spans = get_trace("jobs")
@@ -1153,7 +1153,7 @@ def test_trace_handle_job_successful_transition(db):
 
     api.set_job_transition(job, ExecutorState.EXECUTING, "success")
 
-    run.trace_handle_job(job, api, None, None)
+    controller.trace_handle_job(job, api, None, None)
 
     spans = get_trace("loop")
     assert len(spans) == 1

@@ -50,7 +50,7 @@ class ExecutorError(Exception):
 
 
 def main(exit_callback=lambda _: False):
-    log.info("jobrunner.run loop started")
+    log.info("jobrunner.controller loop started")
     api = get_executor_api()
 
     while True:

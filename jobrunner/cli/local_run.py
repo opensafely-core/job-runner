@@ -57,7 +57,7 @@ from jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
 )
-from jobrunner.run import main as run_main
+from jobrunner.controller import main as run_main
 
 
 # First paragraph of docstring
