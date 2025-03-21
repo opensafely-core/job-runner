@@ -62,20 +62,46 @@ def main(exit_callback=lambda _: False):
 
 
 def handle_running_jobs(api: Optional[ExecutorAPI]):
+
+    # API GET /jobs
     running_jobs = [
         j
         for j in find_where(Job, state=State.RUNNING)
         if j.status_code != StatusCode.FINALIZED
     ]
 
-    running_for_workspace = collections.defaultdict(int)
     handled_jobs = []
 
     for job in running_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            handle_single_job(job, api)
+            job_definition = job_to_job_definition(job)
+
+            try:
+                mode = get_flag_value("mode")
+                code, message = handle_running_job(job_definition, api, mode)
+            except Exception as exc:
+                # API POST /job/{id}/
+                mark_job_as_failed(
+                    job,
+                    StatusCode.INTERNAL_ERROR,
+                    "Internal error: this usually means a platform issue rather than a problem "
+                    "for users to fix.\n"
+                    "The tech team are automatically notified of these errors and will be "
+                    "investigating.",
+                    error=exc,
+                )
+                # Do not clean up, as we may want to debug
+                #
+                # Raising will kill the main loop, by design. The service manager
+                # will restart, and this job will be ignored when it does, as
+                # it has failed. If we have an internal error, a full restart
+                # might recover better.
+                raise
+            else:
+                # API "POST" /job/{id}, current state
+                set_code(job, code, message)
 
         handled_jobs.append(job)
 
@@ -118,79 +144,8 @@ STATE_MAP = {
 }
 
 
-def handle_single_job(job, api):
-    """The top level handler for a job.
-
-    Mainly exists to wrap the job handling in an exception handler.
-    """
-    # we re-read the flags before considering each job, so make sure they apply
-    # as soon as possible when set.
-    mode = get_flag_value("mode")
-    paused = str(get_flag_value("paused", "False")).lower() == "true"
-    try:
-        synchronous_transition = trace_handle_job(job, api, mode, paused)
-
-        # provide a way to shortcut moving a job on to the next state right away
-        # this is intended to support executors where some state transitions
-        # are synchronous, particularly the local executor where prepare is
-        # synchronous and can be time consuming.
-        if synchronous_transition:
-            trace_handle_job(job, api, mode, paused)
-    except Exception as exc:
-        mark_job_as_failed(
-            job,
-            StatusCode.INTERNAL_ERROR,
-            "Internal error: this usually means a platform issue rather than a problem "
-            "for users to fix.\n"
-            "The tech team are automatically notified of these errors and will be "
-            "investigating.",
-            error=exc,
-        )
-        # Do not clean up, as we may want to debug
-        #
-        # Raising will kill the main loop, by design. The service manager
-        # will restart, and this job will be ignored when it does, as
-        # it has failed. If we have an internal error, a full restart
-        # might recover better.
-        raise
-
-
-def trace_handle_job(job, api, mode, paused):
-    """Call handle job with tracing."""
-    attrs = {
-        "initial_state": job.state.name,
-        "initial_code": job.status_code.name,
-    }
-
-    with tracer.start_as_current_span("LOOP_JOB") as span:
-        tracing.set_span_metadata(span, job, **attrs)
-        try:
-            synchronous_transition = handle_running_job(job, api)
-        except Exception as exc:
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
-            span.record_exception(exc)
-            raise
-        else:
-            span.set_attribute("final_state", job.state.name)
-            span.set_attribute("final_code", job.status_code.name)
-
-    return synchronous_transition
-
-
-def handle_running_job(job, api, mode=None, paused=None):
-    """Handle an active job.
-
-    This contains the main state machine logic for a job. For the most part,
-    state transitions follow the same logic, which is abstracted. Some
-    transitions require special logic, mainly the initial and final states, as
-    well as supporting cancellation and various operational modes.
-    """
-    assert job.state in (State.PENDING, State.RUNNING)
-    job_definition = job_to_job_definition(job)
-
-    # does this api have synchronous_transitions?
-    synchronous_transitions = getattr(api, "synchronous_transitions", [])
-    is_synchronous = False
+def handle_running_job(job_definition, api, mode=None):
+    """Handle an running job."""
 
     try:
         initial_status = api.get_status(job_definition)
@@ -214,16 +169,11 @@ def handle_running_job(job, api, mode=None, paused=None):
             api.terminate(job_definition)  # synchronous operation
             new_status = api.get_status(job_definition)
             new_statuscode, _default_message = STATE_MAP[new_status.state]
-            set_code(job, new_statuscode, "Cancelled whilst executing")
-            return
+            return new_statuscode, "Cancelled whilst executing"
+        # FINALIZING and PREPARED should never be hit as they are synchronus
         if initial_status.state == ExecutorState.PREPARED:
-            set_code(
-                job,
-                StatusCode.FINALIZED,
-                "Cancelled whilst prepared",
-            )
             # Nb. no need to actually run finalize() in this case
-            return
+            return (StatusCode.FINALIZED, "Cancelled whilst prepared")
 
     # only consider db maintenance if not already cancelled
     elif mode == "db-maintenance" and job_definition.allow_database_access:
@@ -232,31 +182,15 @@ def handle_running_job(job, api, mode=None, paused=None):
         api.terminate(job_definition)
         api.cleanup(job_definition)
 
-        # reset state to pending and exit
-        set_code(
-            job,
+        return (
             StatusCode.WAITING_DB_MAINTENANCE,
             "Waiting for database to finish maintenance",
         )
-        return
-
-    # check if we've transitioned since we last checked and trace it.
-    if initial_status.state in STATE_MAP:
-        initial_code, initial_message = STATE_MAP[initial_status.state]
-        if initial_code != job.status_code:
-            set_code(
-                job,
-                initial_code,
-                initial_message,
-                timestamp_ns=initial_status.timestamp_ns,
-            )
 
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
         # no action needed, simply update job message and timestamp, which is likely a no-op
-        code, message = STATE_MAP[initial_status.state]
-        set_code(job, code, message)
-        return
+        return STATE_MAP[initial_status.state]
 
     if initial_status.state == ExecutorState.ERROR:
         # something has gone wrong since we last checked
@@ -264,20 +198,10 @@ def handle_running_job(job, api, mode=None, paused=None):
 
     # ok, handle the state transitions that are our responsibility
     if initial_status.state == ExecutorState.UNKNOWN:
-        if job.status_code != StatusCode.READY:
-            log.warning("state error: got UNKNOWN state for a job")
-
-        if ExecutorState.PREPARING in synchronous_transitions:
-            # prepare is synchronous, which means set our code to PREPARING
-            # before calling  api.prepare(), and we expect it to be PREPARED
-            # when finished
-            code, message = STATE_MAP[ExecutorState.PREPARING]
-            set_code(job, code, message)
-            expected_state = ExecutorState.PREPARED
-            is_synchronous = True
-        else:
-            expected_state = ExecutorState.PREPARING
-
+        # prepare is synchronous, which means set our code to PREPARING
+        # before calling api.prepare(), and we expect it to be PREPARED
+        # when finished
+        expected_state = ExecutorState.PREPARED
         new_status = api.prepare(job_definition)
 
     elif initial_status.state == ExecutorState.PREPARED:
@@ -285,29 +209,16 @@ def handle_running_job(job, api, mode=None, paused=None):
         new_status = api.execute(job_definition)
 
     elif initial_status.state == ExecutorState.EXECUTED:
-        if ExecutorState.FINALIZING in synchronous_transitions:
-            # finalize is synchronous, which means set our code to FINALIZING
-            # before calling  api.finalize(), and we expect it to be FINALIZED
-            # when finished
-            code, message = STATE_MAP[ExecutorState.FINALIZING]
-            set_code(job, code, message)
-            expected_state = ExecutorState.FINALIZED
-            # the agent loop does not do anything beyond FINALIZED now, so don't jump
-            is_synchronous = False
-        else:
-            expected_state = ExecutorState.FINALIZING
-
+        # finalize is synchronous, which means set our code to FINALIZING
+        # before calling  api.finalize(), and we expect it to be FINALIZED
+        # when finished
+        expected_state = ExecutorState.FINALIZED
         new_status = api.finalize(job_definition)
 
     if new_status.state == expected_state:
         # successful state change to the expected next state
         code, message = STATE_MAP[new_status.state]
-        set_code(job, code, message)
-
-        # we want to immediately run this function for this job again to
-        # avoid blocking it as we know the state transition has already
-        # completed.
-        return is_synchronous
+        return (code, message)
 
     elif new_status.state == ExecutorState.ERROR:
         # all transitions can go straight to error
