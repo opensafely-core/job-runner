@@ -9,7 +9,7 @@ import logging
 
 import pytest
 
-import jobrunner.run
+import jobrunner.controller
 import jobrunner.sync
 from jobrunner.executors import get_executor_api
 from tests.conftest import SUPPORTED_VOLUME_APIS, get_trace
@@ -93,7 +93,7 @@ def test_integration_with_cohortextractor(
     assert [job["status"] for job in jobs.values()] == ["pending"] * 7
 
     # Execute one tick of the run loop and then sync
-    jobrunner.run.handle_jobs(api)
+    jobrunner.controller.handle_jobs(api)
     jobrunner.sync.sync()
     # We should now have one running job and all others waiting on dependencies
     jobs = get_posted_jobs(requests_mock)
@@ -140,7 +140,7 @@ def test_integration_with_cohortextractor(
 
     # Run the main loop until there are no jobs left and then sync
 
-    jobrunner.run.main(exit_callback=lambda active_jobs: len(active_jobs) == 0)
+    jobrunner.controller.main(exit_callback=lambda active_jobs: len(active_jobs) == 0)
     jobrunner.sync.sync()
 
     # All jobs should now have succeeded apart from the cancelled one
@@ -270,7 +270,7 @@ def test_integration_with_ehrql(
         jobs.values()
     )[0]["status_message"]
     # Execute one tick of the run loop and then sync
-    jobrunner.run.handle_jobs(api)
+    jobrunner.controller.handle_jobs(api)
     jobrunner.sync.sync()
     # We should now have one running job and all others waiting on dependencies
     jobs = get_posted_jobs(requests_mock)
@@ -312,7 +312,7 @@ def test_integration_with_ehrql(
     jobrunner.sync.sync()
 
     # Run the main loop until there are no jobs left and then sync
-    jobrunner.run.main(exit_callback=lambda active_jobs: len(active_jobs) == 0)
+    jobrunner.controller.main(exit_callback=lambda active_jobs: len(active_jobs) == 0)
     jobrunner.sync.sync()
 
     # All jobs should now have succeeded apart from the cancelled one
