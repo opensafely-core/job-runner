@@ -6,7 +6,7 @@ import logging
 import threading
 import time
 
-from jobrunner import config, controller, record_stats, sync, tracing
+from jobrunner import agent, config, controller, record_stats, sync, tracing
 from jobrunner.lib.database import ensure_valid_db
 from jobrunner.lib.docker import docker
 from jobrunner.lib.log_utils import configure_logging
@@ -28,7 +28,7 @@ def start_thread(target, name):
 def main():
     """Run the main run loop after starting the sync loop in a thread."""
     # extra space to align with other thread's "sync" label.
-    threading.current_thread().name = "run "
+    threading.current_thread().name = "ctrl"
     fmt = "{asctime} {threadName} {message} {tags}"
     configure_logging(fmt)
     tracing.setup_default_tracing()
@@ -41,6 +41,7 @@ def main():
         # note: thread name appears in log output, so its nice to keep them all the same length
         start_thread(sync_wrapper, "sync")
         start_thread(record_stats_wrapper, "stat")
+        start_thread(agent.main, "agnt")
         if config.ENABLE_MAINTENANCE_MODE_THREAD:
             start_thread(maintenance_wrapper, "mntn")
         controller.main()

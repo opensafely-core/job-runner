@@ -56,6 +56,9 @@ class StatusCode(Enum):
     # reset for reboot
     WAITING_ON_REBOOT = "waiting_on_reboot"
 
+    # temporary status for spike
+    READY = "ready"
+
     # RUNNING states, these mirror ExecutorState, and are the normal happy path
     PREPARING = "preparing"
     PREPARED = "prepared"

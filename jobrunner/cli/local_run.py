@@ -39,6 +39,7 @@ from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
 from jobrunner import config, executors, tracing
 from jobrunner.actions import UnknownActionError
+from jobrunner.controller import main as run_main
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
@@ -57,7 +58,6 @@ from jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
 )
-from jobrunner.controller import main as run_main
 
 
 # First paragraph of docstring
