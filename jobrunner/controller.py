@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import sys
+import threading
 import time
 from typing import Optional
 
@@ -17,14 +18,7 @@ from opentelemetry import trace
 
 from jobrunner import config, tracing
 from jobrunner.executors import get_executor_api
-from jobrunner.job_executor import (
-    ExecutorAPI,
-    ExecutorRetry,
-    ExecutorState,
-    JobDefinition,
-    Privacy,
-    Study,
-)
+from jobrunner.job_executor import ExecutorAPI, Privacy
 from jobrunner.lib import ns_timestamp_to_datetime
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
@@ -36,7 +30,27 @@ log = logging.getLogger(__name__)
 tracer = trace.get_tracer("controller_loop")
 
 
-def main(exit_callback=lambda _: False):
+def main():
+    from jobrunner.service import ensure_valid_db, start_thread, sync_wrapper
+
+    threading.current_thread().name = "ctrl"
+    fmt = "{asctime} {threadName} {message} {tags}"
+    configure_logging(fmt)
+    tracing.setup_default_tracing()
+
+    # check db is present and up to date, or else error
+    ensure_valid_db()
+
+    try:
+        log.info("jobrunner.controller started")
+        # note: thread name appears in log output, so its nice to keep them all the same length
+        start_thread(sync_wrapper, "sync")
+        controller()
+    except KeyboardInterrupt:
+        log.info("jobrunner.controller stopped")
+
+
+def controller(exit_callback=lambda _: False):
     log.info("jobrunner.controller loop started")
     api = get_executor_api()
 
@@ -215,12 +229,12 @@ def handle_completed_job(job, api):
             errors = api.delete_files(job.workspace, Privacy.HIGH, obsolete)
             if errors:
                 log.error(
-                    f"Failed to delete high privacy files from workspace {job_definition.workspace}: {errors}"
+                    f"Failed to delete high privacy files from workspace {job.workspace}: {errors}"
                 )
             api.delete_files(job.workspace, Privacy.MEDIUM, obsolete)
             if errors:
                 log.error(
-                    f"Failed to delete medium privacy files from workspace {job_definition.workspace}: {errors}"
+                    f"Failed to delete medium privacy files from workspace {job.workspace}: {errors}"
                 )
 
 

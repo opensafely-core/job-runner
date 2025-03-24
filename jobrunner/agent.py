@@ -4,32 +4,28 @@ the appropriate action for each job depending on its current state, and then
 updates its state as appropriate.
 """
 
-import collections
-import datetime
 import logging
-import os
 import sys
+import threading
 import time
 from typing import Optional
 
 from opentelemetry import trace
 
 from jobrunner import config, tracing
-from jobrunner.controller import mark_job_as_failed, set_code
+from jobrunner.controller import list_outputs_from_action, mark_job_as_failed, set_code
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorRetry,
     ExecutorState,
     JobDefinition,
-    Privacy,
     Study,
 )
-from jobrunner.lib import ns_timestamp_to_datetime
-from jobrunner.lib.database import find_where, select_values, update
+from jobrunner.lib.database import find_where
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.queries import calculate_workspace_state, get_flag_value
+from jobrunner.queries import get_flag_value
 
 
 log = logging.getLogger(__name__)
@@ -50,7 +46,7 @@ class ExecutorError(Exception):
     pass
 
 
-def main(exit_callback=lambda _: False):
+def agent(exit_callback=lambda _: False):
     log.info("jobrunner.agent loop started")
     api = get_executor_api()
 
@@ -226,7 +222,7 @@ def handle_running_job(job_definition, api, mode=None):
 
     else:
         raise InvalidTransition(
-            f"unexpected state transition of job {job.id} from {initial_status.state} to {new_status.state}: {new_status.message}"
+            f"unexpected state transition of job {job_definition.id} from {initial_status.state} to {new_status.state}: {new_status.message}"
         )
 
 
@@ -295,6 +291,36 @@ def job_to_job_definition(job):
         level4_file_types=config.LEVEL4_FILE_TYPES,
         cancelled=job_definition_cancelled,
     )
+
+
+def main():
+    """Run the main run loop after starting the sync loop in a thread."""
+    # extra space to align with other thread's "sync" label.
+    from jobrunner.service import (
+        ensure_valid_db,
+        maintenance_wrapper,
+        record_stats_wrapper,
+        start_thread,
+    )
+
+    threading.current_thread().name = "agnt"
+    fmt = "{asctime} {threadName} {message} {tags}"
+    configure_logging(fmt)
+    tracing.setup_default_tracing()
+
+    # check db is present and up to date, or else error
+    ensure_valid_db()
+
+    try:
+        log.info("jobrunner.agent started")
+        # note: thread name appears in log output, so its nice to keep them all the same length
+        start_thread(record_stats_wrapper, "stat")
+        if config.ENABLE_MAINTENANCE_MODE_THREAD:
+            start_thread(maintenance_wrapper, "mntn")
+
+        agent()
+    except KeyboardInterrupt:
+        log.info("jobrunner.agent stopped")
 
 
 if __name__ == "__main__":
