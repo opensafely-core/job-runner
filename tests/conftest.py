@@ -164,7 +164,10 @@ def test_repo(tmp_work_dir):
     repo_path = tmp_work_dir / "test-repo"
 
     env = {"GIT_WORK_TREE": str(directory), "GIT_DIR": repo_path}
-    subprocess_run(["git", "init", "--bare", "--quiet", repo_path], check=True)
+    subprocess_run(
+        ["git", "init", "--bare", "--initial-branch=main", "--quiet", repo_path],
+        check=True,
+    )
     subprocess_run(
         ["git", "config", "user.email", "test@example.com"], check=True, env=env
     )

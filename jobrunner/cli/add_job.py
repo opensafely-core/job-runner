@@ -79,8 +79,8 @@ def run(argv=None):
     )
     parser.add_argument(
         "--branch",
-        help="Git branch or ref to use if no commit supplied (default HEAD)",
-        default="HEAD",
+        help="Git branch or ref to use if no commit supplied (default 'main')",
+        default="main",
     )
     parser.add_argument(
         "--workspace", help="Workspace ID (default 'test')", default="test"
