@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from jobrunner.lib.git import commit_reachable_from_ref
+from jobrunner.lib.git import GitUnknownRefError, commit_reachable_from_ref
 
 
 class GithubValidationError(Exception):
@@ -45,12 +45,19 @@ def validate_branch_and_commit(repo_url, commit, branch):
     """
     if not branch:
         raise GithubValidationError("A branch name must be supplied")
-    # A further wrinkle is that each PR gets an associated ref within the repo
-    # of the form `pull/PR_NUMBER/head`. So we enforce that the branch name
-    # must be a "plain vanilla" branch name with no slashes.
-    if "/" in branch:
-        raise GithubValidationError(f"Branch name must not contain slashes: {branch}")
-    if not commit_reachable_from_ref(repo_url, commit, branch):
+    # A further wrinkle is that each PR gets an associated ref within the repo of the
+    # form `pull/PR_NUMBER/head`. By checking against `refs/heads/{branch}` we ensure
+    # that we're dealing with a genuine branch in the repo and not a pull request.
+    #
+    # Note that despite their path-like appearance these references are not actually
+    # paths and so traversal attacks using `../../` sequences have no effect.
+    try:
+        is_reachable = commit_reachable_from_ref(
+            repo_url, commit, f"refs/heads/{branch}"
+        )
+    except GitUnknownRefError:
+        raise GithubValidationError(f"Could not find branch '{branch}'")
+    if not is_reachable:
         raise GithubValidationError(
             f"Could not find commit on branch '{branch}': {commit}"
         )
