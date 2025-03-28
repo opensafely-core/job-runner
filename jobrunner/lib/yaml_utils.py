@@ -32,12 +32,12 @@ def parse_yaml(file_contents, name="yaml file"):
         error.YAMLStreamError,
         error.YAMLWarning,
         error.YAMLFutureWarning,
-    ) as exc:
+    ) as exc:  # pragma: no cover
         exc = make_yaml_error_more_helpful(exc, name)
         raise YAMLError(f"{type(exc).__name__} {exc}")
 
 
-def make_yaml_error_more_helpful(exc, name):
+def make_yaml_error_more_helpful(exc, name):  # pragma: no cover
     """
     ruamel produces quite helpful error messages but they refer to the file as
     `<byte_string>` (which will be confusing for users) and they also include

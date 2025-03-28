@@ -38,7 +38,7 @@ def configure_logging(
     # logs untouched. DEBUG logging can be extremely noisy and so we want a way
     # to capture these that doesn't pollute the primary logs.
     debug_log_file = os.environ.get("DEBUG_LOG_FILE")
-    if debug_log_file:
+    if debug_log_file:  # pragma: no cover
         debug_handler = logging.handlers.TimedRotatingFileHandler(
             debug_log_file,
             encoding="utf-8",
@@ -60,7 +60,7 @@ def configure_logging(
 
     logging.basicConfig(level=log_level, handlers=handlers)
 
-    if debug_log_file:
+    if debug_log_file:  # pragma: no cover
         logging.getLogger(__name__).info(f"Writing DEBUG logs to '{debug_log_file}'")
 
     # quieten the trace logs if running locally
@@ -76,7 +76,7 @@ class JobRunnerFormatter(logging.Formatter):
     converter = time.gmtime  # utc rather than local
     default_msec_format = "%s.%03dZ"  # s/,/. and append Z
 
-    def formatException(self, exc_info):
+    def formatException(self, exc_info):  # pragma: no cover
         """
         We frequently shell out to docker and git and it's very useful to have
         the stderr output in the logs rather than just "this process failed"
@@ -157,7 +157,7 @@ class SetLogContext(threading.local):
             self.current_context = self.context_stack.pop()
 
 
-def show_subprocess_stderr(typ, value, traceback):
+def show_subprocess_stderr(typ, value, traceback):  # pragma: no cover
     """
     This applies the same CalledProcessError formatting as in `JobRunnerFormatter`
     above but to uncaught exceptions

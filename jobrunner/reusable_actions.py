@@ -49,7 +49,7 @@ def resolve_reusable_action_references(jobs):
     for job in jobs:
         try:
             run_command, repo_url, commit = handle_reusable_action(job.run_command)
-        except ReusableActionError as e:
+        except ReusableActionError as e:  # pragma: no cover
             # Annotate the exception with the context of the action in which it
             # occured
             context = f"{job.action}: {job.run_command.split()[0]}"
@@ -114,7 +114,7 @@ def fetch_reusable_action(image, tag):
         # If there's a problem, then it relates to the repository. Maybe the study
         # developer made an error; maybe the reusable action developer made an error.
         commit = git.get_sha_from_remote_ref(repo_url, tag)
-    except git.GitRepoNotReachableError:
+    except git.GitRepoNotReachableError:  # pragma: no cover
         raise ReusableActionError(
             f"could not find a repo at {repo_url}\n"
             f"Check that '{image}' is in the list of available actions at "
@@ -136,7 +136,7 @@ def fetch_reusable_action(image, tag):
         raise ReusableActionError(
             f"tag '{tag}' has not yet been approved for use (not merged into main branch)"
         )
-    except git.GitError:
+    except git.GitError:  # pragma: no cover
         # Our git library already logs the relevant details here so throwing
         # away the original exception is fine
         raise ReusableActionError(f"error validating '{commit}' in {repo_url}")
@@ -145,7 +145,7 @@ def fetch_reusable_action(image, tag):
         # If there's a problem, then it relates to the reusable action. The study
         # developer didn't make an error; the reusable action developer did.
         action_file = git.read_file_from_repo(repo_url, commit, "action.yaml")
-    except git.GitFileNotFoundError:
+    except git.GitFileNotFoundError:  # pragma: no cover
         raise ReusableActionError(
             f"{repo_url}/tree/{tag} doesn't look like a valid action "
             f"(no 'action.yaml' file present)"
