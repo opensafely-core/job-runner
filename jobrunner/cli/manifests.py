@@ -18,7 +18,7 @@ def main():
 
     n_workspaces = len(workspaces)
     for i, workspace in enumerate(workspaces):
-        print(f"workspace {i+1}/{n_workspaces}: {workspace}")
+        print(f"workspace {i + 1}/{n_workspaces}: {workspace}")
 
         level4_dir = local.get_medium_privacy_workspace(workspace)
 

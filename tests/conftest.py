@@ -225,9 +225,9 @@ class SubprocessStub:
     def run(self, call_args, **call_kwargs):
         args, kwargs, ps = self.calls.popleft()
         assert call_args == args, f"subprocess.run expected {args}, got {call_args}"
-        assert (
-            call_kwargs == kwargs
-        ), f"subprocess.run expected kwargs {kwargs}, got {call_kwargs}"
+        assert call_kwargs == kwargs, (
+            f"subprocess.run expected kwargs {kwargs}, got {call_kwargs}"
+        )
         if ps.returncode != 0 and kwargs.get("check"):
             raise subprocess.CalledProcessError(
                 args, ps.returncode, ps.stdout, ps.stderr
@@ -240,9 +240,9 @@ def mock_subprocess_run():
     stub = SubprocessStub()
     with mock.patch("subprocess.run", stub.run):
         yield stub
-    assert (
-        len(stub.calls) == 0
-    ), f"subprocess_run expected the following calls: {stub.calls}"
+    assert len(stub.calls) == 0, (
+        f"subprocess_run expected the following calls: {stub.calls}"
+    )
 
 
 if sys.platform == "linux" or sys.platform == "darwin":
