@@ -40,7 +40,7 @@ Source = "https://github.com/opensafely-core/job-runner"
 branch = true
 dynamic_context = "test_function"
 source = ["jobrunner"]
-omit = ["*jobrunner/cli/manifests.py", 'jobrunner/service.py']
+omit = ["jobrunner/cli/manifests.py", 'jobrunner/service.py']
 
 [tool.coverage.report]
 fail_under = 100
