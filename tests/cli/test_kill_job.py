@@ -10,7 +10,6 @@ from tests.factories import job_factory
 
 
 def test_get_jobs_no_jobs(db):
-
     # set a string to use as a partial id
     partial_job_id = "1234"
     partial_job_ids = [partial_job_id]
@@ -20,7 +19,6 @@ def test_get_jobs_no_jobs(db):
 
 
 def test_get_jobs_no_match(db):
-
     # make a fake job
     job_factory(
         state=State.RUNNING, status_code=StatusCode.EXECUTING, id="z6tkp3mjato63dkm"
@@ -34,7 +32,6 @@ def test_get_jobs_no_match(db):
 
 
 def test_get_jobs_multiple_matches(db, monkeypatch):
-
     # make a fake job
     job = job_factory(
         state=State.RUNNING, status_code=StatusCode.EXECUTING, id="z6tkp3mjato63dkm"
@@ -55,7 +52,6 @@ def test_get_jobs_multiple_matches(db, monkeypatch):
 
 
 def test_get_jobs_multiple_params_partial(db, monkeypatch):
-
     job1 = job_factory(
         state=State.RUNNING, status_code=StatusCode.EXECUTING, id="z6tkp3mjato63dkm"
     )
