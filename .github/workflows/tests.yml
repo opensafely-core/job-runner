@@ -1,7 +1,7 @@
 name: Tests
 
 on:
-    pull_request:
+  pull_request:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: "actions/setup-python@v5"
         with:
-          python-version: "3.8"
+          python-version: "3.10"
           cache: "pip"
           cache-dependency-path: requirements.*.txt
       - uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6
@@ -27,11 +27,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2019, macos-14]
-        # Python 3.8 is what we currently support for running cohortextractor
-        # locally, and 3.9 is what we required for databuilder so we need to make
-        # sure we can run with those
-        python: ["3.8", "3.9", "3.10"]
+        os: [ubuntu-22.04, macos-14]
+        python: ["3.10"]
     runs-on: ${{ matrix.os }}
     name: Run test suite
     env:
@@ -50,21 +47,14 @@ jobs:
           cache-dependency-path: requirements.*.txt
 
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d
-  
+
       - name: Run actual tests on ${{ matrix.os }}
         if: ${{ matrix.os == 'ubuntu-22.04' }}
         run: |
           echo "$PYTHON_VERSION"
           just test -vvv
 
-      - name: Run actual tests on windows
-        if: ${{ matrix.os == 'windows-2019' }}
-        run: |
-          # windows powershell: set to executable w/o version, as it doesn't have one on windows
-          $Env:PYTHON_VERSION = "python"
-          just test-no-docker -vvv
-
-      - name: Run actual tests on macos
+      - name: Run actual tests on ${{ matrix.os }}
         if: ${{ matrix.os == 'macos-14' }}
         run: just test-no-docker -vvv
 
@@ -76,10 +66,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Set up Python 3.8
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.8
+          python-version: "3.10"
           cache: "pip"
           cache-dependency-path: requirements.*.txt
 
@@ -119,10 +109,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Python 3.8
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.8
+          python-version: "3.10"
           cache: "pip"
           cache-dependency-path: requirements.*.txt
       - uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6
@@ -141,15 +131,15 @@ jobs:
     if: always()
 
     needs:
-    - check
-    - test-job
-    - test-package-build
-    - test-github-workflow-output
+      - check
+      - test-job
+      - test-package-build
+      - test-github-workflow-output
 
     runs-on: Ubuntu-latest
 
     steps:
-    - name: Decide whether the needed jobs succeeded or failed
-      uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe  # v1.2.2
-      with:
-        jobs: ${{ toJSON(needs) }}
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
+        with:
+          jobs: ${{ toJSON(needs) }}
