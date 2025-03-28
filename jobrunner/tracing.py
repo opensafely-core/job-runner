@@ -317,17 +317,17 @@ def trace_attributes(job, results=None):
             attrs["reusable_action"] += ":" + job.action_commit
 
     if results:
-        attrs["exit_code"] = results.exit_code
-        attrs["image_id"] = results.image_id
-        attrs["outputs"] = len(results.outputs)
-        attrs["unmatched_patterns"] = len(results.unmatched_patterns)
-        attrs["unmatched_outputs"] = len(results.unmatched_outputs)
-        attrs["executor_message"] = results.message
-        attrs["action_version"] = results.action_version
-        attrs["action_revision"] = results.action_revision
-        attrs["action_created"] = results.action_created
-        attrs["base_revision"] = results.base_revision
-        attrs["base_created"] = results.base_created
+        attrs["exit_code"] = results["exit_code"]
+        attrs["image_id"] = results["docker_image_id"]
+        attrs["outputs"] = len(results["outputs"])
+        attrs["unmatched_patterns"] = len(results["unmatched_patterns"])
+        attrs["unmatched_outputs"] = len(results["unmatched_outputs"])
+        attrs["executor_message"] = results["status_message"]
+        attrs["action_version"] = results["action_version"]
+        attrs["action_revision"] = results["action_revision"]
+        attrs["action_created"] = results["action_created"]
+        attrs["base_revision"] = results["base_revision"]
+        attrs["base_created"] = results["base_created"]
 
     return attrs
 
@@ -336,7 +336,7 @@ if __name__ == "__main__":
     # local testing utility for tracing
     import time
 
-    from jobrunner.run import set_code
+    from jobrunner.controller import set_code
 
     setup_default_tracing()
 
