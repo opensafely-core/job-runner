@@ -7,7 +7,7 @@ license = { file = "LICENSE" }
 classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "opensafely-pipeline@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip",
     "ruyaml",
