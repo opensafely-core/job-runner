@@ -2,24 +2,14 @@ default_language_version:
   python: python3.8
 
 repos:
-  - repo: https://github.com/psf/black
-    rev: 22.3.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.11.2
     hooks:
-      - id: black
-
-  - repo: https://github.com/PyCQA/flake8
-    rev: 4.0.1
-    hooks:
-      - id: flake8
-        additional_dependencies:
-          - "flake8-builtins"
-          - "flake8-implicit-str-concat"
-          - "flake8-no-pep420"
-
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.12.0
-    hooks:
-      - id: isort
+      # Run the linter.
+      - id: ruff
+      # Run the formatter.
+      - id: ruff-format
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.2.0
