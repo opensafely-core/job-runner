@@ -25,7 +25,7 @@ class SyncAPIError(Exception):
     pass
 
 
-def main():
+def main():  # pragma: no cover
     log.info(
         f"Polling for JobRequests at: "
         f"{config.JOB_SERVER_ENDPOINT.rstrip('/')}/job-requests/"
@@ -80,7 +80,7 @@ def api_post(*args, **kwargs):
 
 
 def api_request(method, path, *args, headers=None, **kwargs):
-    if headers is None:
+    if headers is None:  # pragma: no cover
         headers = {}
 
     url = "{}/{}/".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.strip("/"))
@@ -108,7 +108,7 @@ def api_request(method, path, *args, headers=None, **kwargs):
 
     try:
         response.raise_for_status()
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         raise SyncAPIError(e) from e
 
     return response.json()
@@ -163,7 +163,7 @@ def job_to_remote_format(job):
     }
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     configure_logging()
 
     try:

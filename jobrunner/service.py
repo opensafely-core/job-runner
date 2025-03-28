@@ -104,7 +104,6 @@ def maintenance_mode():
         log.info(f"manually set db mode: {DB_MAINTENANCE_MODE}")
         mode = DB_MAINTENANCE_MODE
     else:
-
         # detect db mode from TPP.
         current = get_flag_value("mode")
         ps = docker(

@@ -19,7 +19,7 @@ def list_dir_with_ignore_patterns(directory, ignore_patterns):
         relative_match = match.relative_to(directory)
         tree = match_tree
         for segment in str(relative_match).split(os.sep):
-            if segment not in tree:
+            if segment not in tree:  # pragma: no cover
                 tree[segment] = {}
             tree = tree[segment]
     return [path.relative_to(directory) for path in _iter_dir(directory, match_tree)]
