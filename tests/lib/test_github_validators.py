@@ -3,7 +3,26 @@ import pytest
 from jobrunner.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
+    validate_repo_url,
 )
+
+
+def test_validate_repo_url():
+    validate_repo_url(
+        "https://github.com/opensafely-core/test-public-repository.git",
+        ["opensafely-core"],
+    )
+
+
+def test_validate_repo_url_reject():
+    with pytest.raises(
+        GithubValidationError,
+        match="must belong to one of the following Github organisations",
+    ):
+        validate_repo_url(
+            "https://github.com/not-os/test-private-repository.git",
+            ["opensafely-core"],
+        )
 
 
 def test_validate_branch_and_commit():
