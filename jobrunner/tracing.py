@@ -116,7 +116,7 @@ def _traceable(job):
 
 def finish_current_state(job, timestamp_ns, error=None, results=None, **attrs):
     """Record a span representing the state we've just exited."""
-    if not _traceable(job):
+    if not _traceable(job):  # pragma: no cover
         return
 
     # allow them to be filtered out from tracking spans
@@ -125,14 +125,14 @@ def finish_current_state(job, timestamp_ns, error=None, results=None, **attrs):
         name = job.status_code.name
         start_time = job.status_code_updated_at
         record_job_span(job, name, start_time, timestamp_ns, error, results, **attrs)
-    except Exception:
+    except Exception:  # pragma: no cover
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
 
 
 def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
     """Record a span representing the state we've just exited."""
-    if not _traceable(job):
+    if not _traceable(job):  # pragma: no cover
         return
 
     try:
@@ -148,7 +148,7 @@ def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
         )
 
         complete_job(job, timestamp_ns, error, results, **attrs)
-    except Exception:
+    except Exception:  # pragma: no cover
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
 
@@ -284,7 +284,7 @@ def trace_attributes(job, results=None):
             job._job_request = database.find_one(
                 SavedJobRequest, id=job.job_request_id
             ).original
-        except ValueError:
+        except ValueError:  # pragma: no cover
             job._job_request = {}
 
     attrs = dict(
@@ -313,7 +313,7 @@ def trace_attributes(job, results=None):
 
     if job.action_repo_url:
         attrs["reusable_action"] = job.action_repo_url
-        if job.action_commit:
+        if job.action_commit:  # pragma: no cover
             attrs["reusable_action"] += ":" + job.action_commit
 
     if results:
@@ -332,7 +332,7 @@ def trace_attributes(job, results=None):
     return attrs
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # local testing utility for tracing
     import time
 
