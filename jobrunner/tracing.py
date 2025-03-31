@@ -293,6 +293,7 @@ def trace_attributes(job, results=None):
         job_request=job.job_request_id,
         workspace=job.workspace,
         action=job.action,
+        commit=job.commit,
         run_command=job.run_command,
         user=job._job_request.get("created_by", "unknown"),
         project=job._job_request.get("project", "unknown"),
@@ -306,10 +307,6 @@ def trace_attributes(job, results=None):
         status_code_updated_at=job.status_code_updated_at,
         requires_db=job.requires_db,
     )
-
-    # local_run jobs don't have a commit
-    if job.commit:
-        attrs["commit"] = job.commit
 
     if job.action_repo_url:
         attrs["reusable_action"] = job.action_repo_url
