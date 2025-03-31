@@ -575,17 +575,9 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
     assert workspace_log_file_exists(job_definition)
 
 
-@pytest.fixture(params=[True, False])
-def local_run(request, monkeypatch):
-    # local_run does not have a level 4 configured
-    if request.param:
-        monkeypatch.setattr(config, "MEDIUM_PRIVACY_WORKSPACES_DIR", None)
-    return request.param
-
-
 @pytest.mark.needs_docker
 def test_finalize_large_level4_outputs(
-    docker_cleanup, job_definition, tmp_work_dir, volume_api, local_run
+    docker_cleanup, job_definition, tmp_work_dir, volume_api
 ):
     job_definition.args = [
         "truncate",
@@ -624,22 +616,21 @@ def test_finalize_large_level4_outputs(
         "output/output.txt  - File size of 1.0Mb is larger that limit of 0.5Mb." in log
     )
 
-    if not local_run:
-        level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
 
-        message_file = level4_dir / "output/output.txt.txt"
-        txt = message_file.read_text()
-        assert "output/output.txt" in txt
-        assert "1.0Mb" in txt
-        assert "0.5Mb" in txt
+    message_file = level4_dir / "output/output.txt.txt"
+    txt = message_file.read_text()
+    assert "output/output.txt" in txt
+    assert "1.0Mb" in txt
+    assert "0.5Mb" in txt
 
-        manifest = local.read_manifest_file(level4_dir, job_definition)
+    manifest = local.read_manifest_file(level4_dir, job_definition)
 
-        assert manifest["outputs"]["output/output.txt"]["excluded"]
-        assert (
-            manifest["outputs"]["output/output.txt"]["message"]
-            == "File size of 1.0Mb is larger that limit of 0.5Mb."
-        )
+    assert manifest["outputs"]["output/output.txt"]["excluded"]
+    assert (
+        manifest["outputs"]["output/output.txt"]["message"]
+        == "File size of 1.0Mb is larger that limit of 0.5Mb."
+    )
 
 
 @pytest.mark.needs_docker
@@ -689,9 +680,7 @@ def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir
 
 
 @pytest.mark.needs_docker
-def test_finalize_patient_id_header(
-    docker_cleanup, job_definition, tmp_work_dir, local_run
-):
+def test_finalize_patient_id_header(docker_cleanup, job_definition, tmp_work_dir):
     job_definition.args = [
         "sh",
         "-c",
@@ -726,27 +715,26 @@ def test_finalize_patient_id_header(
     assert "Invalid moderately_sensitive outputs:" in log
     assert "output/output.csv  - File has patient_id column" in log
 
-    if not local_run:
-        level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
 
-        message_file = level4_dir / "output/output.csv.txt"
-        txt = message_file.read_text()
-        assert "output/output.csv" in txt
-        assert "patient_id" in txt
+    message_file = level4_dir / "output/output.csv.txt"
+    txt = message_file.read_text()
+    assert "output/output.csv" in txt
+    assert "patient_id" in txt
 
-        manifest = local.read_manifest_file(level4_dir, job_definition)
+    manifest = local.read_manifest_file(level4_dir, job_definition)
 
-        assert manifest["outputs"]["output/output.csv"]["excluded"]
-        assert (
-            manifest["outputs"]["output/output.csv"]["message"]
-            == "File has patient_id column"
-        )
-        assert manifest["outputs"]["output/output.csv"]["row_count"] == 1
-        assert manifest["outputs"]["output/output.csv"]["col_count"] == 3
+    assert manifest["outputs"]["output/output.csv"]["excluded"]
+    assert (
+        manifest["outputs"]["output/output.csv"]["message"]
+        == "File has patient_id column"
+    )
+    assert manifest["outputs"]["output/output.csv"]["row_count"] == 1
+    assert manifest["outputs"]["output/output.csv"]["col_count"] == 3
 
 
 @pytest.mark.needs_docker
-def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir, local_run):
+def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir):
     rows = "1,2\n" * 11
     job_definition.args = [
         "sh",
@@ -785,24 +773,23 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir, loc
         in log
     )
 
-    if not local_run:
-        level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
 
-        message_file = level4_dir / "output/output.csv.txt"
-        txt = message_file.read_text()
-        assert "output/output.csv" in txt
-        assert "contained 11 rows" in txt
+    message_file = level4_dir / "output/output.csv.txt"
+    txt = message_file.read_text()
+    assert "output/output.csv" in txt
+    assert "contained 11 rows" in txt
 
-        manifest = local.read_manifest_file(level4_dir, job_definition)
+    manifest = local.read_manifest_file(level4_dir, job_definition)
 
-        assert manifest["outputs"]["output/output.csv"]["excluded"]
-        assert (
-            manifest["outputs"]["output/output.csv"]["message"]
-            == "File row count (11) exceeds maximum allowed rows (10)"
-        )
+    assert manifest["outputs"]["output/output.csv"]["excluded"]
+    assert (
+        manifest["outputs"]["output/output.csv"]["message"]
+        == "File row count (11) exceeds maximum allowed rows (10)"
+    )
 
-        assert manifest["outputs"]["output/output.csv"]["row_count"] == 11
-        assert manifest["outputs"]["output/output.csv"]["col_count"] == 2
+    assert manifest["outputs"]["output/output.csv"]["row_count"] == 11
+    assert manifest["outputs"]["output/output.csv"]["col_count"] == 2
 
 
 @pytest.mark.needs_docker
