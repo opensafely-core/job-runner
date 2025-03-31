@@ -42,7 +42,7 @@ services:
       # identical absolute paths inside the container. This allows for
       # job-runner to use the same value for both its own file access, and for
       # what to pass to the host docker as a bindmount source directory, which
-      # needs to be on the host. 
+      # needs to be on the host.
       # We can potentially fix this by adding an explicit bind mount source configs, if we want to
       - ${MEDIUM_PRIVACY_STORAGE_BASE}:${MEDIUM_PRIVACY_STORAGE_BASE}
       - ${HIGH_PRIVACY_STORAGE_BASE}:${HIGH_PRIVACY_STORAGE_BASE}
@@ -92,5 +92,4 @@ services:
     container_name: job-runner-test
     # override command
     command: >
-      bash -c "/opt/venv/bin/coverage run --module pytest
-      && (/opt/venv/bin/coverage report || /opt/venv/bin/coverage html)"
+      bash -c pytest
