@@ -23,7 +23,7 @@ def configure_logging(
     fmt=DEFAULT_FORMAT,
     stream=None,
     extra_filter=None,
-):
+):  # pragma: no cover
     formatter = JobRunnerFormatter(fmt, style="{")
     handler = logging.StreamHandler(stream=stream)
     handler.setFormatter(formatter)
@@ -157,7 +157,7 @@ class SetLogContext(threading.local):
             self.current_context = self.context_stack.pop()
 
 
-def show_subprocess_stderr(typ, value, traceback):
+def show_subprocess_stderr(typ, value, traceback):  # pragma: no cover
     """
     This applies the same CalledProcessError formatting as in `JobRunnerFormatter`
     above but to uncaught exceptions

@@ -44,7 +44,7 @@ def get_flag_value(name, default=None):
     except sqlite3.OperationalError as e:
         if "no such table" in str(e):
             return default
-        raise
+        raise  # pragma: no cover
 
 
 def set_flag(name, value, timestamp=None):

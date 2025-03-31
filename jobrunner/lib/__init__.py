@@ -41,9 +41,9 @@ def file_digest(fileobj, digest, /, *, _bufsize=2**18):
     if isinstance(digest, str):
         digestobj = new(digest)
     else:
-        digestobj = digest()
+        digestobj = digest()  # pragma: no cover
 
-    if hasattr(fileobj, "getbuffer"):
+    if hasattr(fileobj, "getbuffer"):  # pragma: no cover
         # io.BytesIO object, use zero-copy buffer
         digestobj.update(fileobj.getbuffer())
         return digestobj
@@ -53,7 +53,7 @@ def file_digest(fileobj, digest, /, *, _bufsize=2**18):
         hasattr(fileobj, "readinto")
         and hasattr(fileobj, "readable")
         and fileobj.readable()
-    ):
+    ):  # pragma: no cover
         raise ValueError(
             f"'{fileobj!r}' is not a file-like object in binary reading mode."
         )
@@ -109,7 +109,7 @@ def datestr_to_ns_timestamp(datestr):
     return ts
 
 
-def ns_timestamp_to_datetime(timestamp_ns):
+def ns_timestamp_to_datetime(timestamp_ns):  # pragma: no cover
     """Debugging helper function to make ns timestamps human readable.
 
     We do lose 3 levels of precision, as datetime can only handle microseconds,

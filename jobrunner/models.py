@@ -334,7 +334,7 @@ class Job:
         if self.run_command:
             return shlex.split(self.run_command)
         else:
-            return []
+            return []  # pragma: no cover
 
 
 def deterministic_id(seed):
@@ -350,14 +350,6 @@ def timestamp_to_isoformat(ts):
     if ts is None:
         return None
     return datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"
-
-
-def isoformat_to_timestamp(string):
-    return int(
-        datetime.datetime.fromisoformat(string.rstrip("Z") + "+00:00")
-        .astimezone(datetime.timezone.utc)
-        .timestamp()
-    )
 
 
 @databaseclass

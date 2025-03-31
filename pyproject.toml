@@ -7,17 +7,17 @@ build-backend = "setuptools.build_meta"
 name = "opensafely-jobrunner"
 description = "OpenSAFELY job scheduling and executor"
 readme = "README.md"
-authors = [{name = "OpenSAFELY", email = "tech@opensafely.org"}]
-license = {file = "LICENSE"}
+authors = [{ name = "OpenSAFELY", email = "tech@opensafely.org" }]
+license = { file = "LICENSE" }
 classifiers = [
-  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)"
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 requires-python = ">=3.8"
 dependencies = [
-  "opensafely-pipeline@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip",
-  "ruyaml",
-  "requests",
-  "opentelemetry-exporter-otlp-proto-http",
+    "opensafely-pipeline@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip",
+    "ruyaml",
+    "requests",
+    "opentelemetry-exporter-otlp-proto-http",
 ]
 dynamic = ["version"]
 
@@ -40,12 +40,10 @@ Source = "https://github.com/opensafely-core/job-runner"
 branch = true
 dynamic_context = "test_function"
 source = ["jobrunner"]
-omit = [
-  "*jobrunner/cli/manifests.py",
-]
+omit = ["jobrunner/cli/manifests.py", 'jobrunner/service.py']
 
 [tool.coverage.report]
-fail_under = 82
+fail_under = 89
 show_missing = true
 skip_covered = true
 
@@ -54,7 +52,13 @@ show_contexts = true
 
 [tool.isort]
 profile = "black"
-known_third_party = ["pytest", "requests", "requests_mock", "setuptools", "ruamel.yaml"]
+known_third_party = [
+    "pytest",
+    "requests",
+    "requests_mock",
+    "setuptools",
+    "ruamel.yaml",
+]
 lines_after_imports = 2
 skip_glob = [".direnv", ".venv", "venv"]
 

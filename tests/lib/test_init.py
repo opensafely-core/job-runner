@@ -60,3 +60,12 @@ def test_atomic_writer_overwrite_symlink(tmp_path):
 )
 def test_datestr_to_ns_timestamp(datestr, expected):
     assert lib.datestr_to_ns_timestamp(datestr) == expected
+
+
+def test_warn_assertions_invalid():
+    @lib.warn_assertions
+    def my_test_function():
+        return True
+
+    with pytest.raises(UserWarning):
+        my_test_function()

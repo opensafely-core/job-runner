@@ -59,7 +59,7 @@ def get_connection(readonly=True):
             # Caller should check for conn being None.
             if readonly and "unable to open" in str(exc).lower():
                 return None
-            raise
+            raise  # pragma: no cover
 
         # manual transactions
         conn.isolation_level = None
@@ -88,7 +88,7 @@ def read_job_metrics(job_id):
             ).fetchone()
         except sqlite3.OperationalError as exc:
             if "no such table" not in str(exc).lower():
-                raise
+                raise  # pragma: no cover
 
     if raw_metrics is None:
         metrics = {}
@@ -108,7 +108,7 @@ def write_job_metrics(job_id, metrics):
     )
 
 
-def main():
+def main():  # pragma: no cover
     last_run = None
     while True:
         before = time.time()
@@ -195,7 +195,9 @@ def record_tick_trace(last_run, active_jobs):
                     )
                     job_span_attrs.update(job_metrics)
                 else:
-                    job_span_attrs.set("bad_tick_runtime", runtime_s)
+                    job_span_attrs.set(
+                        "bad_tick_runtime", runtime_s
+                    )  # pragma: no cover
 
             # record span
             span = tracer.start_span(job.status_code.name, start_time=start_time)
@@ -238,7 +240,7 @@ def update_job_metrics(job, raw_metrics, duration_s, runtime_s):
     return job_metrics
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     configure_logging()
 
     try:
