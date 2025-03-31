@@ -116,10 +116,6 @@ def formatting_filter(record):
 
     record.tags = " ".join(f"{k}={v}" for k, v in tags.items())
 
-    # The `action` attribute is only used by format string in "local_run" mode
-    # but we make sure it's always available
-    record.action = f"{job.action}: " if job else ""
-
     return True
 
 

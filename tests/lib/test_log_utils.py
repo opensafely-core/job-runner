@@ -35,11 +35,9 @@ test_request = JobRequest(
 def test_formatting_filter():
     record = logging.makeLogRecord({})
     assert log_utils.formatting_filter(record)
-    assert record.action == ""
 
     record = logging.makeLogRecord({"job": test_job})
     assert log_utils.formatting_filter(record)
-    assert record.action == "action: "
     assert record.tags == "workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({"job": test_job, "status_code": "code"})
@@ -70,7 +68,6 @@ def test_formatting_filter_with_context():
     record = logging.makeLogRecord({})
     with log_utils.set_log_context(job=test_job):
         assert log_utils.formatting_filter(record)
-    assert record.action == "action: "
     assert record.tags == "workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({"status_code": "code"})
