@@ -82,10 +82,6 @@ def create_or_update_jobs(job_request):
 
 
 def create_jobs(job_request):
-    # NOTE: Similar but non-identical logic is implemented for running jobs
-    # locally in `jobrunner.cli.local_run.create_job_request_and_jobs`. If you
-    # make changes below then consider what the appropriate corresponding
-    # changes are for locally run jobs.
     validate_job_request(job_request)
     project_file = get_project_file(job_request)
     pipeline_config = load_pipeline(project_file)

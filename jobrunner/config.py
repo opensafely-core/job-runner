@@ -164,8 +164,7 @@ ALLOWED_GITHUB_ORGS = (
 )
 
 # We hardcode this for now, as from a security perspective, we do not want it
-# to be run time configurable. Though we do override this in `local_run.py` as
-# we don't want to push traffic via the proxy when running locally.
+# to be run time configurable
 GIT_PROXY_DOMAIN = "github-proxy.opensafely.org"
 
 
