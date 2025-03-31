@@ -9,8 +9,6 @@ import time
 import urllib.parse
 from pathlib import Path
 
-from pipeline.legacy import get_all_output_patterns_from_project_file
-
 from jobrunner import config, record_stats
 from jobrunner.executors import volumes
 from jobrunner.job_executor import (
@@ -24,7 +22,6 @@ from jobrunner.job_executor import (
 )
 from jobrunner.lib import datestr_to_ns_timestamp, docker, file_digest
 from jobrunner.lib.git import checkout_commit
-from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from jobrunner.lib.string_utils import tabulate
 
 
@@ -348,17 +345,12 @@ def prepare_job(job_definition):
     extra_dirs = set(Path(filename).parent for filename in job_definition.inputs)
 
     try:
-        if job_definition.study.git_repo_url and job_definition.study.commit:
-            copy_git_commit_to_volume(
-                job_definition,
-                job_definition.study.git_repo_url,
-                job_definition.study.commit,
-                extra_dirs,
-            )
-        else:
-            # We only encounter jobs without a repo or commit when using the
-            # "local_run" command to execute uncommitted local code
-            copy_local_workspace_to_volume(job_definition, workspace_dir, extra_dirs)
+        copy_git_commit_to_volume(
+            job_definition,
+            job_definition.study.git_repo_url,
+            job_definition.study.commit,
+            extra_dirs,
+        )
     except subprocess.CalledProcessError:
         raise LocalDockerError(
             f"Could not checkout commit {job_definition.study.commit} from {job_definition.study.git_repo_url}"
@@ -865,40 +857,6 @@ def copy_git_commit_to_volume(job_definition, repo_url, commit, extra_dirs):
                 "There was a (hopefully temporary) internal Docker error, "
                 "please try the job again"
             )
-
-
-def copy_local_workspace_to_volume(job_definition, workspace_dir, extra_dirs):
-    # To mimic a production run, we only want output files to appear in the
-    # volume if they were produced by an explicitly listed dependency. So
-    # before copying in the code we get a list of all output patterns in the
-    # project and ignore any files matching these patterns
-    project_file = workspace_dir / "project.yaml"
-    ignore_patterns = get_all_output_patterns_from_project_file(project_file)
-    ignore_patterns.extend([".git", METADATA_DIR])
-    code_files = list_dir_with_ignore_patterns(workspace_dir, ignore_patterns)
-
-    # Because `docker cp` can't create parent directories automatically, we
-    # need to make sure empty parent directories exist for all the files we're
-    # going to copy in. For now we do this by actually creating a bunch of
-    # empty dirs in a temp directory. It should be possible to do this using
-    # the `tarfile` module to talk directly to `docker cp` stdin if we care
-    # enough.
-    directories = set(Path(filename).parent for filename in code_files)
-    directories.update(extra_dirs)
-    directories.discard(Path("."))
-    volume_api = volumes.get_volume_api(job_definition)
-    if directories:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
-            for directory in directories:
-                tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
-            volume_api.copy_to_volume(job_definition, tmpdir, ".")
-
-    log.info(f"Copying in code from {workspace_dir}")
-    for filename in code_files:
-        volumes.get_volume_api(job_definition).copy_to_volume(
-            job_definition, workspace_dir / filename, filename
-        )
 
 
 # Environment variables whose values do not need to be hidden from the debug
