@@ -120,13 +120,6 @@ test-no-docker *ARGS: devenv
 migrate:
     $BIN/python -m jobrunner.cli.migrate
 
-# test the license shenanigins work when run from a console
-test-stata: devenv
-    rm -f tests/fixtures/stata_project/output/env.txt
-    $BIN/python -c 'from jobrunner.cli.local_run import main; main("tests/fixtures/stata_project", ["stata"])'
-    cat tests/fixtures/stata_project/output/env.txt
-    echo
-
 # runs the format (black), sort (isort) and lint (flake8) check but does not change any files
 check: devenv
     $BIN/black --check .
