@@ -1,11 +1,14 @@
+from copy import deepcopy
 from unittest import mock
 
 import pytest
 
 from jobrunner import reusable_actions
-from jobrunner.lib import git
+from jobrunner.lib import git, github_validators
 from jobrunner.lib.yaml_utils import YAMLError
+from jobrunner.models import Job
 from jobrunner.reusable_actions import ReusableAction
+from tests.factories import JOB_DEFAULTS
 
 
 @mock.patch.multiple(
@@ -76,21 +79,26 @@ class TestHandleReusableAction:
                 "../my-bad-org/reusable-action:latest"
             )
 
-    def test_with_bad_remote_ref(self, **kwargs):
-        kwargs["get_sha_from_remote_ref"].side_effect = git.GitUnknownRefError
-        with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action("reusable-action:latest")
-
-    @mock.patch(
-        "jobrunner.reusable_actions.validate_branch_and_commit",
-        side_effect=reusable_actions.GithubValidationError,
+    @pytest.mark.parametrize(
+        "side_effect", [git.GitUnknownRefError, git.GitRepoNotReachableError]
     )
-    def test_with_bad_commit(self, *args, **kwargs):
+    def test_with_bad_remote_ref(self, side_effect, **kwargs):
+        kwargs["get_sha_from_remote_ref"].side_effect = side_effect
         with pytest.raises(reusable_actions.ReusableActionError):
             reusable_actions.handle_reusable_action("reusable-action:latest")
 
-    def test_with_bad_file(self, **kwargs):
-        kwargs["read_file_from_repo"].side_effect = git.GitError
+    @pytest.mark.parametrize(
+        "side_effect", [github_validators.GithubValidationError, git.GitError]
+    )
+    @mock.patch("jobrunner.reusable_actions.validate_branch_and_commit")
+    def test_with_bad_commit(self, patched, side_effect, **kwargs):
+        patched.side_effect = side_effect
+        with pytest.raises(reusable_actions.ReusableActionError):
+            reusable_actions.handle_reusable_action("reusable-action:latest")
+
+    @pytest.mark.parametrize("side_effect", [git.GitError, git.GitFileNotFoundError])
+    def test_with_bad_file(self, side_effect, **kwargs):
+        kwargs["read_file_from_repo"].side_effect = side_effect
         with pytest.raises(reusable_actions.ReusableActionError):
             reusable_actions.handle_reusable_action("reusable-action:latest")
 
@@ -122,3 +130,51 @@ class TestHandleReusableAction:
         )
         with pytest.raises(reusable_actions.ReusableActionError):
             reusable_actions.apply_reusable_action(["foo:v1"], reusable_action)
+
+    @mock.patch(
+        "jobrunner.reusable_actions.parse_yaml",
+        return_value={"run": "python:latest python reusable_action/main.py"},
+    )
+    def test_resolve_reusable_action_references(self, *args, **kwargs):
+        job1_data = deepcopy(JOB_DEFAULTS)
+        job1_data["run_command"] = "python:v1 myscript.py"
+
+        job2_data = deepcopy(JOB_DEFAULTS)
+        job2_data["run_command"] = "reusable-action:latest --output-format=png"
+
+        jobs = [Job(**job1_data), Job(**job2_data)]
+
+        reusable_actions.resolve_reusable_action_references(jobs)
+        assert jobs[0].run_command == "python:v1 myscript.py"
+        assert (
+            jobs[1].run_command
+            == "python:latest python reusable_action/main.py --output-format=png"
+        )
+
+    @mock.patch(
+        "jobrunner.reusable_actions.parse_yaml",
+        return_value={"run": "python:latest python reusable_action/main.py"},
+    )
+    @mock.patch(
+        "jobrunner.reusable_actions.validate_branch_and_commit",
+        side_effect=[mock.DEFAULT, git.GitUnknownRefError],
+    )
+    def test_resolve_reusable_action_references_error(self, *args, **kwargs):
+        job1_data = deepcopy(JOB_DEFAULTS)
+        job1_data["run_command"] = "reusable-action:latest --output-format=jpg"
+
+        job2_data = deepcopy(JOB_DEFAULTS)
+        job2_data["run_command"] = "reusable-action:latest --output-format=png"
+
+        jobs = [Job(**job1_data), Job(**job2_data)]
+
+        with pytest.raises(reusable_actions.ReusableActionError):
+            reusable_actions.resolve_reusable_action_references(jobs)
+
+        # job1 is OK, resolved
+        assert (
+            jobs[0].run_command
+            == "python:latest python reusable_action/main.py --output-format=jpg"
+        )
+        # job2 raised exception, not resolved
+        assert jobs[1].run_command == "reusable-action:latest --output-format=png"
