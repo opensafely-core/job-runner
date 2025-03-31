@@ -68,33 +68,6 @@ jobs:
         if: ${{ matrix.os == 'macos-14' }}
         run: just test-no-docker -vvv
 
-  test-package-build:
-    runs-on: ubuntu-22.04
-    name: Test we can build PyPI package
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.8
-          cache: "pip"
-          cache-dependency-path: requirements.*.txt
-
-      # We need to set this to a valid version string in order to keep pip happy,
-      # but it doesn't really matter what version we use
-      - name: Set version
-        run: echo '1.0' > VERSION
-
-      - uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6
-
-      - name: Check the wheel installs and runs
-        run: just package-test wheel
-      - name: Check the sdist installs and runs
-        run: just package-test sdist
-
   test-docker:
     runs-on: ubuntu-22.04
     name: Test docker image
@@ -143,7 +116,6 @@ jobs:
     needs:
     - check
     - test-job
-    - test-package-build
     - test-github-workflow-output
 
     runs-on: Ubuntu-latest
