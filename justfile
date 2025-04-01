@@ -134,6 +134,7 @@ check: devenv
     check "$BIN/black --check ."
     check "$BIN/isort --check-only --diff ."
     check "$BIN/flake8 --extend-ignore=A005"
+    check "docker run --rm -i ghcr.io/hadolint/hadolint:v2.12.0-alpine < docker/Dockerfile"
 
     if [[ $failed > 0 ]]; then
       echo -en "\e[1;31m"
