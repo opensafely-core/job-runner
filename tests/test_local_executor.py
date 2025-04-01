@@ -12,11 +12,6 @@ from tests.factories import ensure_docker_images_present, job_factory
 
 
 @pytest.fixture
-def volume_api():
-    return volumes.BindMountVolumeAPI
-
-
-@pytest.fixture
 def job_definition(request, test_repo):
     """Basic simple action with no inputs as base for testing."""
     if "needs_docker" in list(m.name for m in request.node.iter_markers()):
@@ -111,7 +106,7 @@ def workspace_log_file_exists(job_definition):
 
 @pytest.mark.needs_docker
 def test_prepare_success(
-    docker_cleanup, job_definition, test_repo, tmp_work_dir, volume_api, freezer
+    docker_cleanup, job_definition, test_repo, tmp_work_dir, freezer
 ):
     job_definition.inputs = ["output/input.csv"]
     populate_workspace(job_definition.workspace, "output/input.csv")
@@ -129,7 +124,7 @@ def test_prepare_success(
     assert next_status.state == ExecutorState.PREPARED
     assert next_status.timestamp_ns == expected_timestamp
 
-    assert volume_api.volume_exists(job_definition)
+    assert volumes.volume_exists(job_definition)
 
     # check files have been copied
     expected = set(list_repo_files(test_repo.source) + job_definition.inputs)
@@ -137,16 +132,16 @@ def test_prepare_success(
 
     # glob_volume_files uses find, and its '**/*' regex doesn't find files in
     # the root dir, which is arguably correct.
-    files = volume_api.glob_volume_files(job_definition)
+    files = volumes.glob_volume_files(job_definition)
     all_files = set(files["*"] + files["**/*"])
     assert all_files == expected
 
 
 @pytest.mark.needs_docker
-def test_prepare_already_prepared(docker_cleanup, job_definition, volume_api):
+def test_prepare_already_prepared(docker_cleanup, job_definition):
     # create the volume already
-    volume_api.create_volume(job_definition)
-    volume_api.write_timestamp(job_definition, local.TIMESTAMP_REFERENCE_FILE)
+    volumes.create_volume(job_definition)
+    volumes.write_timestamp(job_definition, local.TIMESTAMP_REFERENCE_FILE)
 
     api = local.LocalDockerAPI()
     status = api.prepare(job_definition)
@@ -155,9 +150,9 @@ def test_prepare_already_prepared(docker_cleanup, job_definition, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition, volume_api):
+def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition):
     # create the volume already
-    volume_api.create_volume(job_definition)
+    volumes.create_volume(job_definition)
 
     # do not write the timestamp, so prepare will rerun
 
@@ -168,7 +163,7 @@ def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition, volume
 
 
 @pytest.mark.needs_docker
-def test_prepare_no_image(docker_cleanup, job_definition, volume_api):
+def test_prepare_no_image(docker_cleanup, job_definition):
     job_definition.image = "invalid-test-image"
     api = local.LocalDockerAPI()
     status = api.prepare(job_definition)
@@ -203,7 +198,7 @@ def test_prepare_job_bad_commit(docker_cleanup, job_definition, test_repo):
 
 
 @pytest.mark.needs_docker
-def test_prepare_job_no_input_file(docker_cleanup, job_definition, volume_api):
+def test_prepare_job_no_input_file(docker_cleanup, job_definition):
     job_definition.inputs = ["output/input.csv"]
 
     with pytest.raises(local.LocalDockerError) as exc_info:
@@ -213,7 +208,7 @@ def test_prepare_job_no_input_file(docker_cleanup, job_definition, volume_api):
 
 
 @pytest.mark.needs_docker
-def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, db, volume_api):
+def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, db):
     # check limits are applied
     job_definition.cpu_count = 1.5
     job_definition.memory_limit = "1G"
@@ -305,7 +300,7 @@ def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
 
 
 @pytest.mark.needs_docker
-def test_execute_not_prepared(docker_cleanup, job_definition, tmp_work_dir, volume_api):
+def test_execute_not_prepared(docker_cleanup, job_definition, tmp_work_dir):
     api = local.LocalDockerAPI()
 
     status = api.execute(job_definition)
@@ -314,7 +309,7 @@ def test_execute_not_prepared(docker_cleanup, job_definition, tmp_work_dir, volu
 
 
 @pytest.mark.needs_docker
-def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
+def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     job_definition.args = [
         "touch",
         "/workspace/output/output.csv",
@@ -391,7 +386,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir, volume_a
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir, volume_api):
+def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir):
     job_definition.args = ["false"]
     job_definition.output_spec = {
         "output/output.*": "highly_sensitive",
@@ -423,7 +418,7 @@ def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir, volume_ap
 
 
 @pytest.mark.needs_docker
-def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume_api):
+def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir):
     # the sleep is needed to make sure the unmatched file is *newer* enough
     job_definition.args = ["sh", "-c", "sleep 1; touch /workspace/unmatched"]
     job_definition.output_spec = {
@@ -466,9 +461,7 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume
 
 
 @pytest.mark.needs_docker
-def test_finalize_unmatched_output(
-    docker_cleanup, job_definition, tmp_work_dir, volume_api
-):
+def test_finalize_unmatched_output(docker_cleanup, job_definition, tmp_work_dir):
     # the sleep is needed to make sure the unmatched file is *newer* enough
     job_definition.args = ["sh", "-c", "sleep 1; touch /workspace"]
     job_definition.output_spec = {
@@ -505,7 +498,7 @@ def test_finalize_unmatched_output(
 
 
 @pytest.mark.needs_docker
-def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir, volume_api):
+def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir):
     job_definition.args = ["sleep", "101"]
 
     api = local.LocalDockerAPI()
@@ -569,9 +562,7 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
 
 
 @pytest.mark.needs_docker
-def test_finalize_large_level4_outputs(
-    docker_cleanup, job_definition, tmp_work_dir, volume_api
-):
+def test_finalize_large_level4_outputs(docker_cleanup, job_definition, tmp_work_dir):
     job_definition.args = [
         "truncate",
         "-s",
@@ -787,7 +778,7 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir):
 
 @pytest.mark.needs_docker
 def test_finalize_large_level4_outputs_cleanup(
-    docker_cleanup, job_definition, tmp_work_dir, volume_api
+    docker_cleanup, job_definition, tmp_work_dir
 ):
     job_definition.args = [
         "truncate",
@@ -911,7 +902,7 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
 
 
 @pytest.mark.needs_docker
-def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir, volume_api):
+def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir):
     populate_workspace(job_definition.workspace, "output/input.csv")
 
     api = local.LocalDockerAPI()
@@ -919,7 +910,7 @@ def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir, volume_ap
     api.execute(job_definition)
 
     container = local.container_name(job_definition)
-    assert volume_api.volume_exists(job_definition)
+    assert volumes.volume_exists(job_definition)
     assert docker.container_exists(container)
 
     status = api.cleanup(job_definition)
@@ -928,7 +919,7 @@ def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir, volume_ap
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.UNKNOWN
 
-    assert not volume_api.volume_exists(job_definition)
+    assert not volumes.volume_exists(job_definition)
     assert not docker.container_exists(container)
 
 
@@ -991,32 +982,30 @@ def test_get_status_timeout(tmp_work_dir, job_definition, monkeypatch):
 
 
 @pytest.mark.needs_docker
-def test_write_read_timestamps(
-    docker_cleanup, job_definition, tmp_work_dir, volume_api
-):
-    assert volume_api.read_timestamp(job_definition, "test") is None
+def test_write_read_timestamps(docker_cleanup, job_definition, tmp_work_dir):
+    assert volumes.read_timestamp(job_definition, "test") is None
 
-    volume_api.create_volume(job_definition)
+    volumes.create_volume(job_definition)
     before = time.time_ns()
-    volume_api.write_timestamp(job_definition, "test")
+    volumes.write_timestamp(job_definition, "test")
     after = time.time_ns()
-    ts = volume_api.read_timestamp(job_definition, "test")
+    ts = volumes.read_timestamp(job_definition, "test")
 
     assert before <= ts <= after
 
 
 @pytest.mark.needs_docker
-def test_delete_volume(docker_cleanup, job_definition, tmp_work_dir, volume_api):
+def test_delete_volume(docker_cleanup, job_definition, tmp_work_dir):
     # check it doesn't error
-    volume_api.delete_volume(job_definition)
+    volumes.delete_volume(job_definition)
 
     # check it does remove volume
-    volume_api.create_volume(job_definition)
-    volume_api.write_timestamp(job_definition, local.TIMESTAMP_REFERENCE_FILE)
+    volumes.create_volume(job_definition)
+    volumes.write_timestamp(job_definition, local.TIMESTAMP_REFERENCE_FILE)
 
-    volume_api.delete_volume(job_definition)
+    volumes.delete_volume(job_definition)
 
-    assert not volume_api.volume_exists(job_definition)
+    assert not volumes.volume_exists(job_definition)
 
 
 @pytest.mark.skipif(

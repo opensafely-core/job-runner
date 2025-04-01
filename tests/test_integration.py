@@ -12,7 +12,6 @@ import pytest
 import jobrunner.run
 import jobrunner.sync
 from jobrunner.executors import get_executor_api
-from jobrunner.executors.volumes import BindMountVolumeAPI
 from tests.conftest import get_trace
 from tests.factories import ensure_docker_images_present
 
@@ -20,15 +19,10 @@ from tests.factories import ensure_docker_images_present
 log = logging.getLogger(__name__)
 
 
-@pytest.fixture
-def volume_api():
-    return BindMountVolumeAPI
-
-
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_integration_with_cohortextractor(
-    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo, volume_api
+    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
 ):
     # TODO: add the following parametrize decorator back to this test:
     #
@@ -209,7 +203,7 @@ def test_integration_with_cohortextractor(
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
 def test_integration_with_ehrql(
-    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo, volume_api
+    tmp_work_dir, docker_cleanup, requests_mock, monkeypatch, test_repo
 ):
     # TODO: merge this test into test_integration
     #
@@ -315,9 +309,9 @@ def test_integration_with_ehrql(
     jobs = get_posted_jobs(requests_mock)
     test_cancellation_job = jobs.pop(f"test_cancellation_{extraction_tool}")
     for action, job in jobs.items():
-        assert (
-            job["status"] == "succeeded"
-        ), f"{action} failed with: {job['status_message']}"
+        assert job["status"] == "succeeded", (
+            f"{action} failed with: {job['status_message']}"
+        )
 
     assert test_cancellation_job["status"] == "failed"
 
