@@ -159,8 +159,8 @@ DEFAULT_VOLUME_API = BindMountVolumeAPI
 
 
 def get_volume_api(job):
-    for api in [BindMountVolumeAPI]:
-        if api.volume_exists(job):
-            return api
-
+    # This function looks like it will always return BindMountVolumeAPI, but in some
+    # tests, DEFAULT_VOLUME_API is replaced with a mock.
+    if BindMountVolumeAPI.volume_exists(job):
+        return BindMountVolumeAPI
     return DEFAULT_VOLUME_API
