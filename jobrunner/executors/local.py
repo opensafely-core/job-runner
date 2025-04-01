@@ -132,7 +132,6 @@ class LocalDockerAPI(ExecutorAPI):
         current = self.get_status(job_definition)
         if current.state != ExecutorState.PREPARED:
             return current
-        volume_api = volumes.get_volume_api(job_definition)
 
         extra_args = []
         if job_definition.cpu_count:
@@ -165,13 +164,13 @@ class LocalDockerAPI(ExecutorAPI):
             docker.run(
                 container_name(job_definition),
                 [job_definition.image] + job_definition.args,
-                volume=(volume_api.volume_name(job_definition), "/workspace"),
+                volume=(volumes.volume_name(job_definition), "/workspace"),
                 env=job_definition.env,
                 allow_network_access=job_definition.allow_database_access,
                 label=LABEL,
                 labels=get_job_labels(job_definition),
                 extra_args=extra_args,
-                volume_type=volume_api.volume_type,
+                volume_type=volumes.volume_type,
             )
 
         except Exception as exc:
@@ -228,7 +227,7 @@ class LocalDockerAPI(ExecutorAPI):
         if config.CLEAN_UP_DOCKER_OBJECTS:
             log.info("Cleaning up container and volume")
             docker.delete_container(container_name(job_definition))
-            volumes.get_volume_api(job_definition).delete_volume(job_definition)
+            volumes.delete_volume(job_definition)
         else:
             log.info("Leaving container and volume in place for debugging")
 
@@ -252,7 +251,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         if container is None:  # container doesn't exist
             if job_definition.cancelled:
-                if volumes.get_volume_api(job_definition).volume_exists(job_definition):
+                if volumes.volume_exists(job_definition):
                     # jobs prepared but not running do not need to finalize, so we
                     # proceed directly to the FINALIZED state here
                     return JobStatus(
@@ -268,7 +267,7 @@ class LocalDockerAPI(ExecutorAPI):
                     )
 
             # timestamp file presence means we have finished preparing
-            timestamp_ns = volumes.get_volume_api(job_definition).read_timestamp(
+            timestamp_ns = volumes.read_timestamp(
                 job_definition, TIMESTAMP_REFERENCE_FILE, 10
             )
             # TODO: maybe log the case where the volume exists, but the
@@ -336,8 +335,7 @@ def prepare_job(job_definition):
     """Creates a volume and populates it with the repo and input files."""
     workspace_dir = get_high_privacy_workspace(job_definition.workspace)
 
-    volume_api = volumes.get_volume_api(job_definition)
-    volume_api.create_volume(job_definition, get_job_labels(job_definition))
+    volumes.create_volume(job_definition, get_job_labels(job_definition))
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
@@ -361,10 +359,10 @@ def prepare_job(job_definition):
             raise LocalDockerError(
                 f"The file {filename} doesn't exist in workspace {job_definition.workspace} as requested for job {job_definition.id}"
             )
-        volume_api.copy_to_volume(job_definition, workspace_dir / filename, filename)
+        volumes.copy_to_volume(job_definition, workspace_dir / filename, filename)
 
     # Used to record state for telemetry, and also see `get_unmatched_outputs`
-    volume_api.write_timestamp(job_definition, TIMESTAMP_REFERENCE_FILE)
+    volumes.write_timestamp(job_definition, TIMESTAMP_REFERENCE_FILE)
 
 
 def finalize_job(job_definition):
@@ -519,9 +517,7 @@ def persist_outputs(job_definition, outputs, job_metadata):
     for filename, level in outputs.items():
         log.info(f"Extracting output file: {filename}")
         dst = workspace_dir / filename
-        sizes[filename] = volumes.get_volume_api(job_definition).copy_from_volume(
-            job_definition, filename, dst
-        )
+        sizes[filename] = volumes.copy_from_volume(job_definition, filename, dst)
 
     l4_files = [
         filename
@@ -746,9 +742,7 @@ def find_matching_outputs(job_definition):
     Returns a dict mapping output filenames to their privacy level, plus a list
     of any patterns that had no matches at all
     """
-    all_matches = volumes.get_volume_api(job_definition).glob_volume_files(
-        job_definition
-    )
+    all_matches = volumes.glob_volume_files(job_definition)
     unmatched_patterns = []
     outputs = {}
     for pattern, privacy_level in job_definition.output_spec.items():
@@ -774,9 +768,7 @@ def get_unmatched_outputs(job_definition, outputs):
     debugging info and not for Serious Business Purposes, it should be
     sufficient.
     """
-    all_outputs = volumes.get_volume_api(job_definition).find_newer_files(
-        job_definition, TIMESTAMP_REFERENCE_FILE
-    )
+    all_outputs = volumes.find_newer_files(job_definition, TIMESTAMP_REFERENCE_FILE)
     return [filename for filename in all_outputs if filename not in outputs]
 
 
@@ -833,9 +825,7 @@ def copy_git_commit_to_volume(job_definition, repo_url, commit, extra_dirs):
         for directory in extra_dirs:
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
         try:
-            volumes.get_volume_api(job_definition).copy_to_volume(
-                job_definition, tmpdir, ".", timeout=60
-            )
+            volumes.copy_to_volume(job_definition, tmpdir, ".", timeout=60)
         except docker.DockerTimeoutError:
             # Aborting a `docker cp` into a container at the wrong time can
             # leave the container in a completely broken state where any

@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from jobrunner.cli import kill_job
-from jobrunner.executors import local, volumes
+from jobrunner.executors import local
 from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode
 from tests.factories import job_factory
@@ -129,7 +129,7 @@ def test_kill_job(cleanup, tmp_work_dir, db, monkeypatch):
     job = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
 
     mocker = mock.MagicMock(spec=local.docker)
-    mockume_api = mock.MagicMock(spec=volumes.DEFAULT_VOLUME_API)
+    mockumes = mock.MagicMock(spec=local.volumes)
 
     def mock_get_jobs(partial_job_ids):
         return [job]
@@ -143,7 +143,7 @@ def test_kill_job(cleanup, tmp_work_dir, db, monkeypatch):
     # set both the docker module names used to the mocker version
     monkeypatch.setattr(kill_job, "docker", mocker)
     monkeypatch.setattr(local, "docker", mocker)
-    monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", mockume_api)
+    monkeypatch.setattr(local, "volumes", mockumes)
     monkeypatch.setattr(kill_job, "get_jobs", mock_get_jobs)
 
     kill_job.main(job.id, cleanup=cleanup)
@@ -172,7 +172,7 @@ def test_kill_job(cleanup, tmp_work_dir, db, monkeypatch):
 
     if cleanup:
         assert mocker.delete_container.called
-        assert mockume_api.delete_volume.called
+        assert mockumes.delete_volume.called
     else:
         assert not mocker.delete_container.called
-        assert not mockume_api.delete_volume.called
+        assert not mockumes.delete_volume.called

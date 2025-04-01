@@ -278,10 +278,7 @@ def test_execute_metrics(docker_cleanup, job_definition, tmp_work_dir, db):
     sys.platform != "linux" and sys.platform != "darwin", reason="linux/darwin only"
 )
 @pytest.mark.needs_docker
-def test_execute_user_bindmount(
-    docker_cleanup, job_definition, tmp_work_dir, monkeypatch
-):
-    monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", volumes.BindMountVolumeAPI)
+def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
     api = local.LocalDockerAPI()
     # use prepare step as test set up
     status = api.prepare(job_definition)
@@ -1006,12 +1003,6 @@ def test_write_read_timestamps(
     ts = volume_api.read_timestamp(job_definition, "test")
 
     assert before <= ts <= after
-
-
-@pytest.mark.needs_docker
-def test_get_volume_api(docker_cleanup, volume_api, job_definition, tmp_work_dir):
-    volume_api.create_volume(job_definition)
-    assert volumes.get_volume_api(job_definition) == volume_api
 
 
 @pytest.mark.needs_docker

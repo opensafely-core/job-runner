@@ -5,8 +5,8 @@ automatically re-run after a reboot.
 
 import argparse
 
+from jobrunner.executors import volumes
 from jobrunner.executors.local import container_name, docker
-from jobrunner.executors.volumes import get_volume_api
 from jobrunner.lib.database import find_where
 from jobrunner.models import Job, State, StatusCode
 from jobrunner.run import set_code
@@ -36,7 +36,7 @@ def main(pause=True):
         # these are idempotent
         docker.kill(container_name(job))
         docker.delete_container(container_name(job))
-        get_volume_api(job).delete_volume(job)
+        volumes.delete_volume(job)
 
 
 def run():

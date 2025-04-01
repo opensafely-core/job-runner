@@ -152,12 +152,14 @@ class BindMountVolumeAPI:
         return found
 
 
-DEFAULT_VOLUME_API = BindMountVolumeAPI
-
-
-def get_volume_api(job):
-    # This function looks like it will always return BindMountVolumeAPI, but in some
-    # tests, DEFAULT_VOLUME_API is replaced with a mock.
-    if BindMountVolumeAPI.volume_exists(job):
-        return BindMountVolumeAPI
-    return DEFAULT_VOLUME_API
+volume_type = BindMountVolumeAPI.volume_type
+volume_name = BindMountVolumeAPI.volume_name
+create_volume = BindMountVolumeAPI.create_volume
+volume_exists = BindMountVolumeAPI.volume_exists
+copy_to_volume = BindMountVolumeAPI.copy_to_volume
+copy_from_volume = BindMountVolumeAPI.copy_from_volume
+delete_volume = BindMountVolumeAPI.delete_volume
+write_timestamp = BindMountVolumeAPI.write_timestamp
+read_timestamp = BindMountVolumeAPI.read_timestamp
+glob_volume_files = BindMountVolumeAPI.glob_volume_files
+find_newer_files = BindMountVolumeAPI.find_newer_files
