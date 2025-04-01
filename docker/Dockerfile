@@ -45,8 +45,6 @@ RUN --mount=type=cache,target=/var/cache/apt \
 # Install everything in venv for isolation from system python libraries
 RUN python3 -m venv /opt/venv
 ENV VIRTUAL_ENV=/opt/venv/ PATH="/opt/venv/bin:$PATH"
-# jobrunner only works with bindmounts, not docker volumes
-ENV LOCAL_VOLUME_API="jobrunner.executors.volumes:BindMountVolumeAPI"
 
 # The cache mount means a) /root/.cache is not in the image, and b) it's preserved
 # between docker builds locally, for faster dev rebuild.

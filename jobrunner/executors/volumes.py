@@ -1,7 +1,5 @@
-import importlib
 import logging
 import shutil
-import sys
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -157,19 +155,7 @@ class BindMountVolumeAPI:
         return found
 
 
-def default_volume_api():
-    module_name, cls = config.LOCAL_VOLUME_API.split(":", 1)
-    module = importlib.import_module(module_name)
-    api = getattr(module, cls)
-    if sys.platform not in api.supported_platforms:
-        raise Exception(
-            f"LOCAL_VOLUME_API={config.LOCAL_VOLUME_API} is not supported on this machine ({sys.platform})"
-        )
-
-    return api
-
-
-DEFAULT_VOLUME_API = default_volume_api()
+DEFAULT_VOLUME_API = BindMountVolumeAPI
 
 
 def get_volume_api(job):
