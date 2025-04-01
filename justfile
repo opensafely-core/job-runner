@@ -37,6 +37,8 @@ pip-compile-prod *ARGS:
 # Recompile development dependencies
 pip-compile-dev *ARGS:
     just pip-compile "$@" requirements.dev.in --output-file requirements.dev.txt
+    # Replace local absolute paths with their equivalent CI paths (just to avoid diff noise)
+    sed -i -r "s#$PWD/#/home/runner/work/job-runner/job-runner/#" requirements.dev.txt
 
 # Update all dependencies to latest version
 update-dependencies:
