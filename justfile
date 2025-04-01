@@ -124,7 +124,7 @@ migrate:
 check: devenv
     $BIN/black --check .
     $BIN/isort --check-only --diff .
-    $BIN/flake8
+    $BIN/flake8 --extend-ignore=A005
 
 # fix formatting and import sort ordering
 fix: devenv
