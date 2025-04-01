@@ -135,7 +135,7 @@ fix: devenv
 
 # Run the dev project
 run repo action: devenv
-    $BIN/add_job {{ repo }} {{ action }}
+    $BIN/python -m jobrunner.cli.add_job {{ repo }} {{ action }}
 
 # required by docker-compose.yaml
 dotenv:
