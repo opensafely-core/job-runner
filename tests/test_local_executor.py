@@ -1021,7 +1021,7 @@ def test_delete_volume_error_bindmount(
     caplog.set_level(logging.ERROR)
     monkeypatch.setattr(volumes.shutil, "rmtree", error)
 
-    volumes.BindMountVolumeAPI.delete_volume(job_definition)
+    volumes.delete_volume(job_definition)
 
     assert str(volumes.host_volume_path(job_definition)) in caplog.records[-1].msg
     assert "some error" in caplog.records[-1].exc_text
@@ -1033,7 +1033,7 @@ def test_delete_volume_error_file_bindmount_skips_and_logs(job_definition, caplo
     # we can't easily manufacture a file permissions error, so we use
     # a different error to test our onerror handling code: directory does not
     # exist
-    volumes.BindMountVolumeAPI.delete_volume(job_definition)
+    volumes.delete_volume(job_definition)
 
     # check the error is logged
     path = str(volumes.host_volume_path(job_definition))
