@@ -52,18 +52,6 @@ extend-ignore = [
 ]
 isort.lines-after-imports = 2
 
-[tool.isort]
-profile = "black"
-known_third_party = [
-    "pytest",
-    "requests",
-    "requests_mock",
-    "setuptools",
-    "ruamel.yaml",
-]
-lines_after_imports = 2
-skip_glob = [".direnv", ".venv", "venv"]
-
 [tool.pytest.ini_options]
 filterwarnings = [
     "error",
