@@ -6,7 +6,6 @@ from datetime import datetime
 
 import pytest
 
-from jobrunner.cli import local_run
 from jobrunner.lib import log_utils
 from jobrunner.models import Job, JobRequest
 
@@ -36,11 +35,9 @@ test_request = JobRequest(
 def test_formatting_filter():
     record = logging.makeLogRecord({})
     assert log_utils.formatting_filter(record)
-    assert record.action == ""
 
     record = logging.makeLogRecord({"job": test_job})
     assert log_utils.formatting_filter(record)
-    assert record.action == "action: "
     assert record.tags == "workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({"job": test_job, "status_code": "code"})
@@ -71,7 +68,6 @@ def test_formatting_filter_with_context():
     record = logging.makeLogRecord({})
     with log_utils.set_log_context(job=test_job):
         assert log_utils.formatting_filter(record)
-    assert record.action == "action: "
     assert record.tags == "workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({"status_code": "code"})
@@ -101,21 +97,6 @@ def test_jobrunner_formatter_default(monkeypatch):
         "2020-12-21 16:28:39.146Z message "
         "status=status workspace=workspace action=action id=id req=request"
     )
-
-
-def test_jobrunner_formatter_local_run(monkeypatch):
-    monkeypatch.setattr(time, "time", lambda: FROZEN_TIMESTAMP)
-    record = logging.makeLogRecord(
-        {
-            "msg": "message",
-            "job": test_job,
-            "job_request": test_request,
-            "status_code": "status",
-        }
-    )
-    log_utils.formatting_filter(record)
-    formatter = log_utils.JobRunnerFormatter(local_run.LOCAL_RUN_FORMAT, style="{")
-    assert formatter.format(record) == "action: message"
 
 
 def test_jobrunner_formatter_with_exception():

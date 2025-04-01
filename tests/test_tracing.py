@@ -137,7 +137,7 @@ def test_trace_attributes_missing(db):
         workspace="workspace",
         action="action",
         status_message="message",
-        # no commit
+        commit="abc123def",
         # no reusable action
     )
 
@@ -149,6 +149,7 @@ def test_trace_attributes_missing(db):
         job_request=job.job_request_id,
         workspace="workspace",
         action="action",
+        commit="abc123def",
         run_command=job.run_command,
         user="testuser",
         project="project",

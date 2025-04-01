@@ -36,7 +36,6 @@ def get_flag(name):
 def get_flag_value(name, default=None):
     """Get the current value of a flag, with a default"""
     # Note: fail gracefully if the flags table does not exist
-    # This means we don't need to worry about it in local_run.
     try:
         return get_flag(name).value
     except ValueError:

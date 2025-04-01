@@ -264,9 +264,6 @@ To initialise or migrate the database, you can use the migrate command:
 python -m jobrunner.cli.migrate
 ```
 
-Note that for `jobrunner.cli.local_run`, which is used by opensafely-cli,
-migrations are automatically applied.
-
 
 ## Deploying
 jobrunner is currently deployed by hand because of the difficulties of adding automated deploys to backend servers.
