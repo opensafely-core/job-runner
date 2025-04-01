@@ -19,7 +19,7 @@ jobs:
           python-version: "3.10"
           cache: "pip"
           cache-dependency-path: requirements.*.txt
-      - uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff
       - name: Check formatting, linting and import sorting
         run: just check
 
@@ -45,7 +45,7 @@ jobs:
           cache: "pip"
           cache-dependency-path: requirements.*.txt
 
-      - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff
 
       - name: Run actual tests on ${{ matrix.os }}
         if: ${{ matrix.os == 'ubuntu-22.04' }}
@@ -74,7 +74,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Just
-        uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff
 
       - name: Build image
         run: just docker/build

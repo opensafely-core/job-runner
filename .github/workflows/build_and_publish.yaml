@@ -41,7 +41,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     - name: Set up Just
-      uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6
+      uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff
     - name: Build image
       run: |
         just docker/build dev # build base and dev images
