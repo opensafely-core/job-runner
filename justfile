@@ -1,132 +1,121 @@
 set dotenv-load := true
+set positional-arguments := true
 
-# just has no idiom for setting a default value for an environment variable
-# so we shell out, as we need VIRTUAL_ENV in the justfile environment
-
-export VIRTUAL_ENV := `echo ${VIRTUAL_ENV:-.venv}`
+export VIRTUAL_ENV := env_var_or_default("VIRTUAL_ENV", ".venv")
 export BIN := VIRTUAL_ENV + if os_family() == "unix" { "/bin" } else { "/Scripts" }
 export PIP := BIN + if os_family() == "unix" { "/python -m pip" } else { "/python.exe -m pip" }
 
-# enforce our chosen pip compile flags
-
-export COMPILE := BIN + "/pip-compile --allow-unsafe --generate-hashes"
-export DEFAULT_PYTHON := if os_family() == "unix" { "python3.10" } else { "python" }
-
-# list available commands
+# List available commands
 default:
-    @"{{ just_executable() }}" --list
+    @{{ just_executable() }} --list --unsorted
 
-# clean up temporary files
-clean:
-    rm -rf .venv
-
-# ensure valid virtualenv
+# Ensure valid virtualenv
 virtualenv:
     #!/usr/bin/env bash
     set -euo pipefail
 
     # allow users to specify python version in .env
-    PYTHON_VERSION=${PYTHON_VERSION:-$DEFAULT_PYTHON}
+    PYTHON_VERSION=${PYTHON_VERSION:-python3.10}
 
     # create venv and upgrade pip
-    test -d $VIRTUAL_ENV || { $PYTHON_VERSION -m venv $VIRTUAL_ENV && $PIP install --upgrade pip; }
+    if [[ ! -d $VIRTUAL_ENV ]]; then
+      $PYTHON_VERSION -m venv $VIRTUAL_ENV
+      $PIP install --upgrade pip
+    fi
 
-    # ensure we have pip-tools so we can run pip-compile
-    test -e $BIN/pip-compile || $PIP install $(grep pip-tools== requirements.dev.txt)
-
-_compile src dst *args: virtualenv
+# Run pip-compile with our standard settings
+pip-compile *ARGS: devenv
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # exit if src file is older than dst file (-nt = 'newer than', but we negate with || to avoid error exit code)
-    test "${FORCE:-}" = "true" -o {{ src }} -nt {{ dst }} || exit 0
-    $BIN/pip-compile --allow-unsafe --output-file={{ dst }} {{ src }} {{ args }}
+    $BIN/pip-compile --allow-unsafe --generate-hashes --strip-extras "$@"
 
-# update requirements.prod.txt if setup.py has changed
-requirements-prod *args:
-    "{{ just_executable() }}" _compile pyproject.toml requirements.prod.txt {{ args }}
+# Recompile production dependencies
+pip-compile-prod *ARGS:
+    just pip-compile "$@" pyproject.toml --output-file requirements.prod.txt
 
-# update requirements.dev.txt if requirements.dev.in has changed
-requirements-dev *args: requirements-prod
-    "{{ just_executable() }}" _compile requirements.dev.in requirements.dev.txt {{ args }}
+# Recompile development dependencies
+pip-compile-dev *ARGS:
+    just pip-compile "$@" requirements.dev.in --output-file requirements.dev.txt
 
-# update requirements.tools.txt in requirements.tools.in has changed
-requirements-tools *args: requirements-prod
-    "{{ just_executable() }}" _compile requirements.tools.in requirements.tools.txt {{ args }}
+# Update all dependencies to latest version
+update-dependencies:
+    just pip-compile-prod --upgrade
+    just pip-compile-dev --upgrade
 
-# ensure prod requirements installed and up to date
-prodenv: requirements-prod
+# Create a valid .env if none exists
+_dotenv:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # exit if .txt file has not changed since we installed them (-nt == "newer than', but we negate with || to avoid error exit code)
-    test requirements.prod.txt -nt $VIRTUAL_ENV/.prod || exit 0
+    if [[ ! -f .env ]]; then
+      echo "No '.env' file found; creating a default '.env' from 'dotenv-sample'"
+      cp dotenv-sample .env
+    fi
 
-    $PIP install -r requirements.prod.txt
-    touch $VIRTUAL_ENV/.prod
-
-# && dependencies are run after the recipe has run. Needs just>=0.9.9. This is
-# a killer feature over Makefiles.
-#
-
-# ensure dev requirements installed and up to date
-devenv: prodenv requirements-dev && install-precommit
+# Ensure dev and prod requirements installed and up to date
+devenv: virtualenv _dotenv
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # exit if .txt file has not changed since we installed them (-nt == "newer than', but we negate with || to avoid error exit code)
-    test requirements.dev.txt -nt $VIRTUAL_ENV/.dev || exit 0
+    for req_file in requirements.dev.txt requirements.prod.txt; do
+      # If we've installed this file before and the original hasn't been
+      # modified since then bail early
+      record_file="$VIRTUAL_ENV/$req_file"
+      if [[ -e "$record_file" && "$record_file" -nt "$req_file" ]]; then
+        continue
+      fi
 
-    $PIP install -r requirements.dev.txt
-    touch $VIRTUAL_ENV/.dev
+      if cmp --silent "$req_file" "$record_file"; then
+        # If the timestamp has been changed but not the contents (as can happen
+        # when switching branches) then just update the timestamp
+        touch "$record_file"
+      else
+        # Otherwise actually install the requirements
 
-# ensure precommit is installed
-install-precommit:
-    #!/usr/bin/env bash
-    set -euo pipefail
+        # --no-deps is recommended when using hashes, and also works around a
+        # bug with constraints and hashes. See:
+        # https://pip.pypa.io/en/stable/topics/secure-installs/#do-not-use-setuptools-directly
+        $PIP install --no-deps --requirement "$req_file"
 
-    BASE_DIR=$(git rev-parse --show-toplevel)
-    test -f $BASE_DIR/.git/hooks/pre-commit || $BIN/pre-commit install
+        # Make a record of what we just installed
+        cp "$req_file" "$record_file"
+      fi
+    done
 
-# upgrade dev or prod dependencies (specify package to upgrade single package, all by default)
-upgrade env package="": virtualenv
-    #!/usr/bin/env bash
-    set -euo pipefail
+    if [[ ! -f .git/hooks/pre-commit ]]; then
+      $BIN/pre-commit install
+    fi
 
-    opts="--upgrade"
-    test -z "{{ package }}" || opts="--upgrade-package {{ package }}"
-    FORCE=true "{{ just_executable() }}" requirements-{{ env }} $opts
-
-upgrade-pipeline: && requirements-prod
+# Upgrade version of opensafely-pipeline library
+upgrade-pipeline: && pip-compile-prod
     ./scripts/upgrade-pipeline.sh pyproject.toml
-
-# *ARGS is variadic, 0 or more. This allows us to do `just test -k match`, for example.
 
 # Run the tests
 test *ARGS: devenv
-    $BIN/coverage run --module pytest {{ ARGS }}
+    $BIN/coverage run --module pytest "$@"
     $BIN/coverage report || $BIN/coverage html
 
 test-fast *ARGS: devenv
-    $BIN/python -m pytest tests -m "not slow_test" {{ ARGS }}
+    $BIN/python -m pytest tests -m "not slow_test" "$@"
 
 test-verbose *ARGS: devenv
-    $BIN/python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO {{ ARGS }}
+    $BIN/python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO "$@"
 
 test-no-docker *ARGS: devenv
-    $BIN/python -m pytest -m "not needs_docker" {{ ARGS }}
+    $BIN/python -m pytest -m "not needs_docker" "$@"
 
-# run db migrations locally
+# Run db migrations locally
 migrate:
     $BIN/python -m jobrunner.cli.migrate
 
-# runs the format (black), sort (isort) and lint (flake8) check but does not change any files
+# Runs the format (black), sort (isort) and lint (flake8) check but does not change any files
 check: devenv
     $BIN/black --check .
     $BIN/isort --check-only --diff .
     $BIN/flake8 --extend-ignore=A005
 
-# fix formatting and import sort ordering
+# Fix formatting and import sort ordering
 fix: devenv
     $BIN/black .
     $BIN/isort .
@@ -136,7 +125,3 @@ fix: devenv
 # Run the dev project
 run repo action: devenv
     $BIN/python -m jobrunner.cli.add_job {{ repo }} {{ action }}
-
-# required by docker-compose.yaml
-dotenv:
-    cp dotenv-sample .env
