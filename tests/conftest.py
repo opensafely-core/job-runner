@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 import tempfile
 from collections import deque
 from dataclasses import dataclass, field
@@ -244,7 +243,4 @@ def mock_subprocess_run():
     ), f"subprocess_run expected the following calls: {stub.calls}"
 
 
-if sys.platform == "linux" or sys.platform == "darwin":
-    SUPPORTED_VOLUME_APIS = [volumes.BindMountVolumeAPI, volumes.DockerVolumeAPI]
-else:
-    SUPPORTED_VOLUME_APIS = [volumes.DockerVolumeAPI]
+SUPPORTED_VOLUME_APIS = [volumes.BindMountVolumeAPI]

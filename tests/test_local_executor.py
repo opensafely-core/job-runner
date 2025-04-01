@@ -1013,33 +1013,6 @@ def test_write_read_timestamps(
 
 
 @pytest.mark.needs_docker
-def test_read_timestamp_stat_fallback(docker_cleanup, job_definition, tmp_work_dir):
-    volumes.DockerVolumeAPI.create_volume(job_definition)
-
-    volume_name = volumes.DockerVolumeAPI.volume_name(job_definition)
-    before = time.time_ns()
-
-    path = "test"
-    # just touch the file, no contents
-    docker.docker(
-        [
-            "container",
-            "exec",
-            docker.manager_name(volume_name),
-            "touch",
-            f"{docker.VOLUME_MOUNT_POINT}/{path}",
-        ],
-        check=True,
-    )
-
-    after = time.time_ns()
-    ts = volumes.DockerVolumeAPI.read_timestamp(job_definition, path)
-
-    # check its ns value in the right range
-    assert before <= ts <= after
-
-
-@pytest.mark.needs_docker
 def test_get_volume_api(docker_cleanup, volume_api, job_definition, tmp_work_dir):
     volume_api.create_volume(job_definition)
     assert volumes.get_volume_api(job_definition) == volume_api

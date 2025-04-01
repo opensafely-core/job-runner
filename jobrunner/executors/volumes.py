@@ -1,15 +1,13 @@
 import importlib
 import logging
-import os
 import shutil
 import sys
-import tempfile
 import time
 from collections import defaultdict
 from pathlib import Path
 
 from jobrunner import config
-from jobrunner.lib import atomic_writer, docker
+from jobrunner.lib import atomic_writer
 
 
 logger = logging.getLogger(__name__)
@@ -31,53 +29,6 @@ def copy_file(source, dest, follow_symlinks=True):
 
 def docker_volume_name(job):
     return f"os-volume-{job.id}"
-
-
-class DockerVolumeAPI:
-    # don't run with UIDs for now. We maybe be able to support this in future.
-    requires_root = True
-    supported_platforms = ("linux", "win32", "darwin")
-    volume_type = "volume"  # https://docs.docker.com/engine/storage/volumes/
-
-    def volume_name(job):
-        return docker_volume_name(job)
-
-    def create_volume(job, labels=None):
-        docker.create_volume(docker_volume_name(job))
-
-    def volume_exists(job):
-        return docker.volume_exists(docker_volume_name(job))
-
-    def copy_to_volume(job, src, dst, timeout=None):
-        docker.copy_to_volume(docker_volume_name(job), src, dst, timeout)
-
-    def copy_from_volume(job, src, dst, timeout=None):
-        return docker.copy_from_volume(docker_volume_name(job), src, dst, timeout)
-
-    def delete_volume(job):
-        docker.delete_volume(docker_volume_name(job))
-
-    def write_timestamp(job, path, timeout=None):
-        try:
-            f = tempfile.NamedTemporaryFile(delete=False)
-            f.close()
-            p = Path(f.name)
-            p.write_text(str(time.time_ns()))
-            docker.copy_to_volume(docker_volume_name(job), p, path, timeout)
-        finally:
-            try:
-                os.remove(f.name)
-            except Exception:
-                pass
-
-    def read_timestamp(job, path, timeout=None):
-        return docker.read_timestamp(docker_volume_name(job), path, timeout)
-
-    def glob_volume_files(job):
-        return docker.glob_volume_files(docker_volume_name(job), job.output_spec.keys())
-
-    def find_newer_files(job, path):
-        return docker.find_newer_files(docker_volume_name(job), path)
 
 
 def host_volume_path(job, create=True):
@@ -222,7 +173,7 @@ DEFAULT_VOLUME_API = default_volume_api()
 
 
 def get_volume_api(job):
-    for api in [BindMountVolumeAPI, DockerVolumeAPI]:
+    for api in [BindMountVolumeAPI]:
         if api.volume_exists(job):
             return api
 
