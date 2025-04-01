@@ -309,9 +309,9 @@ def test_integration_with_ehrql(
     jobs = get_posted_jobs(requests_mock)
     test_cancellation_job = jobs.pop(f"test_cancellation_{extraction_tool}")
     for action, job in jobs.items():
-        assert job["status"] == "succeeded", (
-            f"{action} failed with: {job['status_message']}"
-        )
+        assert (
+            job["status"] == "succeeded"
+        ), f"{action} failed with: {job['status_message']}"
 
     assert test_cancellation_job["status"] == "failed"
 
