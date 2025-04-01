@@ -70,11 +70,10 @@ services:
     build:
       # the dev stage in the Dockerfile
       target: job-runner-dev
-    # Some tricks are needed here to be able to test the BindMountVolumeAPI
-    # when running inside docker, as we need the volumes to be mountable by the
-    # host docker. Our pytest fixtures create the directories in /tmp, so we
-    # provide a host mounted /tmp to the container, so we can access it from
-    # the host as well.
+    # Some tricks are needed here to be able to run tests when running inside
+    # docker, as we need the volumes to be mountable by the host docker. Our
+    # pytest fixtures create the directories in /tmp, so we provide a host
+    # mounted /tmp to the container, so we can access it from the host as well.
     environment:
       # Tell our test fixture what the root dir is on the host where to point
       # DOCKER_HOST_VOLUME_DIR to for each isolated test

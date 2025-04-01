@@ -235,10 +235,6 @@ EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI"
 # LocalDockerAPI executor specific configuration
 # Note: the local backend also reuses the main GIT_REPO_DIR config
 
-LOCAL_VOLUME_API = os.environ.get(
-    "LOCAL_VOLUME_API", "jobrunner.executors.volumes:DockerVolumeAPI"
-)
-
 HIGH_PRIVACY_STORAGE_BASE = Path(
     os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORKDIR / "high_privacy")
 )
@@ -269,9 +265,7 @@ DOCKER_EXIT_CODES = {
     137: "Job killed by OpenSAFELY admin or memory limits",
 }
 
-# BindMountVolumeAPI config
-#
-# used to store directories to be mounted into jobs with the BindMountVolumeAPI
+# used to store directories to be mounted into jobs
 HIGH_PRIVACY_VOLUME_DIR = Path(
     os.environ.get(
         "HIGH_PRIVACY_VOLUME_DIR",
@@ -279,14 +273,11 @@ HIGH_PRIVACY_VOLUME_DIR = Path(
     )
 )
 
-# when running inside a docker container and using the BindMountVolumeAPI, this
-# needs to point to the path to the HIGH_PRIVACY_VOLUME_DIR from the *hosts*
-# perspective, as that's what docker will be looking for.
+# when running inside a docker container, this needs to point to the path to
+# the HIGH_PRIVACY_VOLUME_DIR from the *hosts* perspective, as that's what
+# docker will be looking for.
 DOCKER_HOST_VOLUME_DIR = os.environ.get("DOCKER_HOST_VOLUME_DIR")
 
-# These are currently only used with the BindMountVolumeAPI.
-# It could work with DockerVolumeAPI if we can workaround docker cp only
-# writing files into containers as root.
 if sys.platform == "linux":
     DOCKER_USER_ID = os.environ.get("DOCKER_USER_ID", str(os.geteuid()))
     DOCKER_GROUP_ID = os.environ.get("DOCKER_GROUP_ID", str(os.getegid()))

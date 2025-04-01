@@ -18,10 +18,10 @@ def test_prepare_for_reboot(db, monkeypatch):
     )
 
     mocker = mock.MagicMock(spec=docker)
-    mockume_api = mock.MagicMock(spec=volumes.DEFAULT_VOLUME_API)
+    mockumes = mock.MagicMock(spec=volumes)
 
     monkeypatch.setattr(prepare_for_reboot, "docker", mocker)
-    monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", mockume_api)
+    monkeypatch.setattr(prepare_for_reboot, "volumes", mockumes)
 
     prepare_for_reboot.main(pause=False)
 
@@ -36,7 +36,7 @@ def test_prepare_for_reboot(db, monkeypatch):
 
     mocker.kill.assert_called_once_with(local.container_name(job1))
     mocker.delete_container.assert_called_once_with(local.container_name(job1))
-    mockume_api.delete_volume.assert_called_once_with(job1)
+    mockumes.delete_volume.assert_called_once_with(job1)
 
     spans = get_trace("jobs")
     assert spans[-1].name == "EXECUTING"
