@@ -8,16 +8,12 @@ from jobrunner import config, models, record_stats
 from jobrunner.executors import local, volumes
 from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import datestr_to_ns_timestamp, docker
-from tests.conftest import SUPPORTED_VOLUME_APIS
 from tests.factories import ensure_docker_images_present, job_factory
 
 
-# this is parametized fixture, and test using it will run multiple times, once
-# for each volume api implementation
-@pytest.fixture(params=SUPPORTED_VOLUME_APIS)
-def volume_api(request, monkeypatch):
-    monkeypatch.setattr(volumes, "DEFAULT_VOLUME_API", request.param)
-    return request.param
+@pytest.fixture
+def volume_api():
+    return volumes.BindMountVolumeAPI
 
 
 @pytest.fixture
