@@ -40,9 +40,6 @@ def host_volume_path(job, create=True):
 
 
 class BindMountVolumeAPI:
-    # Only works running jobs with uid:gid
-    requires_root = False
-    supported_platforms = ("linux",)
     volume_type = "bind"  # https://docs.docker.com/engine/storage/bind-mounts/
 
     def volume_name(job):

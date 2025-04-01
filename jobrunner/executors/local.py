@@ -147,20 +147,19 @@ class LocalDockerAPI(ExecutorAPI):
                 get_dns_args_for_docker(job_definition.env.get("DATABASE_URL"))
             )
 
-        if not volume_api.requires_root:
-            if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:
-                extra_args.extend(
-                    [
-                        "--user",
-                        f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}",
-                    ]
-                )
+        if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:
             extra_args.extend(
                 [
-                    "-e",
-                    "HOME=/tmp",  # set home dir to something writable by non-root user
+                    "--user",
+                    f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}",
                 ]
             )
+        extra_args.extend(
+            [
+                "-e",
+                "HOME=/tmp",  # set home dir to something writable by non-root user
+            ]
+        )
 
         try:
             docker.run(
