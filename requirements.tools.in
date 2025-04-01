@@ -1,2 +1,0 @@
-# requirements for tools we want in prod, but not required
-py-spy==0.3.4
