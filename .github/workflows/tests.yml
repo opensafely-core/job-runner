@@ -92,6 +92,7 @@ jobs:
     needs:
     - check
     - test-job
+    - test-docker
 
     runs-on: Ubuntu-latest
 
