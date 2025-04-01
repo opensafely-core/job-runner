@@ -265,9 +265,7 @@ DOCKER_EXIT_CODES = {
     137: "Job killed by OpenSAFELY admin or memory limits",
 }
 
-# BindMountVolumeAPI config
-#
-# used to store directories to be mounted into jobs with the BindMountVolumeAPI
+# used to store directories to be mounted into jobs
 HIGH_PRIVACY_VOLUME_DIR = Path(
     os.environ.get(
         "HIGH_PRIVACY_VOLUME_DIR",
@@ -275,14 +273,11 @@ HIGH_PRIVACY_VOLUME_DIR = Path(
     )
 )
 
-# when running inside a docker container and using the BindMountVolumeAPI, this
-# needs to point to the path to the HIGH_PRIVACY_VOLUME_DIR from the *hosts*
-# perspective, as that's what docker will be looking for.
+# when running inside a docker container, this needs to point to the path to
+# the HIGH_PRIVACY_VOLUME_DIR from the *hosts* perspective, as that's what
+# docker will be looking for.
 DOCKER_HOST_VOLUME_DIR = os.environ.get("DOCKER_HOST_VOLUME_DIR")
 
-# These are currently only used with the BindMountVolumeAPI.
-# It could work with DockerVolumeAPI if we can workaround docker cp only
-# writing files into containers as root.
 if sys.platform == "linux":
     DOCKER_USER_ID = os.environ.get("DOCKER_USER_ID", str(os.geteuid()))
     DOCKER_GROUP_ID = os.environ.get("DOCKER_GROUP_ID", str(os.getegid()))

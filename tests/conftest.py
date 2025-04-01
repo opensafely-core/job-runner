@@ -74,10 +74,10 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
 
     # Ok, so this is a bit complex.
     #
-    # For running the tests for BindMountVolumeAPI in a docker container, we
-    # need to make pytest's tmp_path readable by the host. This is so the
-    # host's docker service (which the jobrunner-inna-container uses to run
-    # jobs) can bind mount the HIGH_PRIVACY_VOLUME_DIR into the job container.
+    # For running the tests in a docker container, we need to make pytest's
+    # tmp_path readable by the host. This is so the host's docker service
+    # (which the jobrunner-inna-container uses to run jobs) can bind mount the
+    # HIGH_PRIVACY_VOLUME_DIR into the job container.
     #
     # We do this via:
     #

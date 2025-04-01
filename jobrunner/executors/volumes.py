@@ -69,8 +69,6 @@ def create_volume(job, labels=None):
 
 
 def volume_exists(job):
-    # create=False means this won't raise if we're not configured
-    # to use BindMountVolumeAPI
     return host_volume_path(job, create=False).exists()
 
 
