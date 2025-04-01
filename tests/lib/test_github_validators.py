@@ -25,7 +25,7 @@ def test_validate_repo_url_reject():
         )
 
 
-def test_validate_branch_and_commit():
+def test_validate_branch_and_commit(tmp_work_dir):
     validate_branch_and_commit(
         "https://github.com/opensafely-core/test-public-repository.git",
         "983d348e3f6bfeeac0cd473d5ab950ce03b022e5",
@@ -33,7 +33,7 @@ def test_validate_branch_and_commit():
     )
 
 
-def test_validate_branch_and_commit_rejects_pull_request_ref():
+def test_validate_branch_and_commit_rejects_pull_request_ref(tmp_work_dir):
     with pytest.raises(GithubValidationError, match="Could not find branch"):
         validate_branch_and_commit(
             "https://github.com/opensafely-core/test-public-repository.git",
@@ -42,7 +42,7 @@ def test_validate_branch_and_commit_rejects_pull_request_ref():
         )
 
 
-def test_validate_branch_and_commit_rejects_unreachable_commit():
+def test_validate_branch_and_commit_rejects_unreachable_commit(tmp_work_dir):
     with pytest.raises(GithubValidationError, match="Could not find commit"):
         validate_branch_and_commit(
             "https://github.com/opensafely-core/test-public-repository.git",
