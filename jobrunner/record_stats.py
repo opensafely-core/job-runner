@@ -41,9 +41,9 @@ def get_connection(readonly=True):
     # developer check against using memory dbs, which cannot be used with this
     # function, as we need to set mode ourselves
     assert isinstance(db_file, Path), "config.METRICS_FILE db must be file path"
-    assert not str(db_file).startswith(
-        "file:"
-    ), "config.METRICS_FILE db must be file path, not url"
+    assert not str(db_file).startswith("file:"), (
+        "config.METRICS_FILE db must be file path, not url"
+    )
 
     if readonly:
         db = f"file:{db_file}?mode=ro"

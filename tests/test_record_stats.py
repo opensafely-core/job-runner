@@ -39,7 +39,6 @@ def test_get_connection_readonly():
 
 
 def test_read_write_job_metrics():
-
     assert record_stats.read_job_metrics("id") == {}
 
     # create db file
@@ -180,7 +179,6 @@ def test_record_tick_trace_stats_error(db, freezer, monkeypatch):
 
 
 def test_update_job_metrics(db):
-
     job = job_factory(status_code=StatusCode.EXECUTING)
     metrics_factory(job)
 
