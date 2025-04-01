@@ -35,6 +35,23 @@ skip_covered = true
 [tool.coverage.html]
 show_contexts = true
 
+[tool.ruff.lint]
+# See: https://docs.astral.sh/ruff/rules/
+extend-select = [
+  "A", # prevent shadowing builtins
+  "COM818", # no trailing commas on bare tuples
+  "I",  # isort
+  "INP",  # no implicit namespace packages
+  # Temporarily disable upgrade warnings to tackle separately
+  # "UP",  # pyupgrade
+  "W",  # pycodestyle warning
+]
+extend-ignore = [
+  "A005", # ignore stdlib-module-shadowing
+  "E501", # ignore line length
+]
+isort.lines-after-imports = 2
+
 [tool.isort]
 profile = "black"
 known_third_party = [

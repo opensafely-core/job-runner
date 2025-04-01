@@ -131,9 +131,8 @@ check: devenv
       fi
     }
 
-    check "$BIN/black --check ."
-    check "$BIN/isort --check-only --diff ."
-    check "$BIN/flake8 --extend-ignore=A005"
+    check "$BIN/ruff format --diff --quiet ."
+    check "$BIN/ruff check --output-format=full ."
     check "docker run --rm -i ghcr.io/hadolint/hadolint:v2.12.0-alpine < docker/Dockerfile"
 
     if [[ $failed > 0 ]]; then
@@ -145,8 +144,8 @@ check: devenv
 
 # Fix any automatically fixable linting or formatting errors
 fix: devenv
-    $BIN/black .
-    $BIN/isort .
+    $BIN/ruff format .
+    $BIN/ruff check --fix .
     just --fmt --unstable --justfile justfile
     just --fmt --unstable --justfile docker/justfile
 

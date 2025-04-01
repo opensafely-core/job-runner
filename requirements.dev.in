@@ -18,3 +18,4 @@ pytest-cov
 pytest-freezer
 pytest-responses
 requests_mock
+ruff
