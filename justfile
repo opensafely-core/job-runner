@@ -10,7 +10,7 @@ export PIP := BIN + if os_family() == "unix" { "/python -m pip" } else { "/pytho
 # enforce our chosen pip compile flags
 
 export COMPILE := BIN + "/pip-compile --allow-unsafe --generate-hashes"
-export DEFAULT_PYTHON := if os_family() == "unix" { "python3.8" } else { "python" }
+export DEFAULT_PYTHON := if os_family() == "unix" { "python3.10" } else { "python" }
 
 # list available commands
 default:
@@ -124,7 +124,7 @@ migrate:
 check: devenv
     $BIN/black --check .
     $BIN/isort --check-only --diff .
-    $BIN/flake8
+    $BIN/flake8 --extend-ignore=A005
 
 # fix formatting and import sort ordering
 fix: devenv

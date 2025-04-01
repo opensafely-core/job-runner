@@ -10,7 +10,6 @@
 .hypothesis/
 .idea/
 .pytest-cache/
-.python-version
 __pycache__
 app.log
 build
