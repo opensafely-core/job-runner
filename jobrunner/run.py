@@ -10,7 +10,6 @@ import logging
 import os
 import sys
 import time
-from typing import Optional
 
 from opentelemetry import trace
 
@@ -63,7 +62,7 @@ def main(exit_callback=lambda _: False):
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(api: Optional[ExecutorAPI]):
+def handle_jobs(api: ExecutorAPI | None):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")

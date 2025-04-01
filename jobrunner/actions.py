@@ -1,7 +1,6 @@
 import dataclasses
 import json
 import shlex
-from typing import Dict, List
 
 from pipeline.exceptions import ProjectValidationError
 from pipeline.models import Action
@@ -18,8 +17,8 @@ class UnknownActionError(ProjectValidationError):
 @dataclasses.dataclass
 class ActionSpecification:
     run: str
-    needs: List[str]
-    outputs: Dict[str, Dict[str, str]]
+    needs: list[str]
+    outputs: dict[str, dict[str, str]]
     action: Action
 
 

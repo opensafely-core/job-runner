@@ -42,8 +42,7 @@ extend-select = [
   "COM818", # no trailing commas on bare tuples
   "I",  # isort
   "INP",  # no implicit namespace packages
-  # Temporarily disable upgrade warnings to tackle separately
-  # "UP",  # pyupgrade
+  "UP",  # pyupgrade
   "W",  # pycodestyle warning
 ]
 extend-ignore = [
