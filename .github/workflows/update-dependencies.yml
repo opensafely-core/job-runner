@@ -3,7 +3,7 @@ name: Update python dependencies
 on:
   workflow_dispatch:
   schedule:
-    - cron:  "0 23 * * WED"
+    - cron:  "0 4 * * WED"
 
 jobs:
   update-dependencies:
@@ -25,10 +25,8 @@ jobs:
       id: update
       with:
         token: ${{ steps.generate-token.outputs.token }}
-        # note: we don't currently auto update external production dependencies,
-        # as vendoring them into job-runner is messy
         update_command: |
-          just upgrade dev
+          just update-dependencies
           just upgrade-pipeline
 
     - name: Notify slack of PR
