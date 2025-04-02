@@ -6,10 +6,13 @@ from collections import defaultdict
 from copy import deepcopy
 
 from jobrunner import config, record_stats, tracing
+from jobrunner.controller import task_api
 from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from jobrunner.lib import docker
 from jobrunner.lib.database import insert
-from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode
+from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
+from jobrunner.run import job_to_job_definition
+from jobrunner.schema import TaskType
 from tests.conftest import test_exporter
 
 
@@ -116,6 +119,16 @@ def metrics_factory(job=None, metrics=None):
         metrics = {}
 
     record_stats.write_job_metrics(job.id, metrics)
+
+
+def runjob_task_factory(*args, state=State.RUNNING, **kwargs):
+    """Set up a job and corresponding task"""
+    job = job_factory(*args, state=state, **kwargs)
+    task = Task(
+        id=job.id, type=TaskType.RUNJOB, definition=job_to_job_definition(job).to_dict()
+    )
+    task_api.insert_task(task)
+    return task
 
 
 class StubExecutorAPI:
