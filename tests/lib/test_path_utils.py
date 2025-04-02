@@ -12,8 +12,6 @@ from jobrunner.lib import path_utils
         (r"foo\bar", "foo/bar"),
         (pathlib.PurePosixPath("foo/bar"), "foo/bar"),
         (pathlib.PurePosixPath(r"foo\bar"), r"foo\bar"),
-        (pathlib.PureWindowsPath("foo/bar"), "foo/bar"),
-        (pathlib.PureWindowsPath(r"foo\bar"), "foo/bar"),
     ],
 )
 def test_ensure_unix_path(path, expected):

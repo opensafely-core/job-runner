@@ -41,21 +41,21 @@ def test_disk_space_detection(monkeypatch):
 
     msg = "Error response from daemon: no space left on device"
 
-    monkeypatch.setattr(docker, "subprocess_run", error(msg, None))
+    monkeypatch.setattr(docker.subprocess, "run", error(msg, None))
     with pytest.raises(docker.DockerDiskSpaceError):
         docker.docker([])
 
-    monkeypatch.setattr(docker, "subprocess_run", error(None, msg))
+    monkeypatch.setattr(docker.subprocess, "run", error(None, msg))
     with pytest.raises(docker.DockerDiskSpaceError):
         docker.docker([])
 
     msg = msg.encode("utf8")
 
-    monkeypatch.setattr(docker, "subprocess_run", error(msg, None))
+    monkeypatch.setattr(docker.subprocess, "run", error(msg, None))
     with pytest.raises(docker.DockerDiskSpaceError):
         docker.docker([])
 
-    monkeypatch.setattr(docker, "subprocess_run", error(None, msg))
+    monkeypatch.setattr(docker.subprocess, "run", error(None, msg))
     with pytest.raises(docker.DockerDiskSpaceError):
         docker.docker([])
 

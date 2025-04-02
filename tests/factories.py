@@ -1,5 +1,6 @@
 import base64
 import secrets
+import subprocess
 import time
 from collections import defaultdict
 from copy import deepcopy
@@ -8,7 +9,6 @@ from jobrunner import config, record_stats, tracing
 from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from jobrunner.lib import docker
 from jobrunner.lib.database import insert
-from jobrunner.lib.subprocess_utils import subprocess_run
 from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode
 from tests.conftest import test_exporter
 
@@ -317,4 +317,4 @@ def ensure_docker_images_present(*images):
     for image in images:
         full_image = f"{config.DOCKER_REGISTRY}/{image}"
         if not docker.image_exists_locally(full_image):
-            subprocess_run(["docker", "pull", "--quiet", full_image], check=True)
+            subprocess.run(["docker", "pull", "--quiet", full_image], check=True)

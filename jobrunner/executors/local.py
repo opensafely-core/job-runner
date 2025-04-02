@@ -101,9 +101,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         # Check the image exists locally and error if not. Newer versions of
         # docker-cli support `--pull=never` as an argument to `docker run` which
-        # would make this simpler, but it looks like it will be a while before this
-        # makes it to Docker for Windows:
-        # https://github.com/docker/cli/pull/1498
+        # would make this simpler.
         if not docker.image_exists_locally(job_definition.image):
             log.info(
                 f"Image not found, may need to run: docker pull {job_definition.image}"

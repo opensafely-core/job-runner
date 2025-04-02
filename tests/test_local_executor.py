@@ -1,5 +1,4 @@
 import logging
-import sys
 import time
 
 import pytest
@@ -269,9 +268,6 @@ def test_execute_metrics(docker_cleanup, job_definition, tmp_work_dir, db):
     ]
 
 
-@pytest.mark.skipif(
-    sys.platform != "linux" and sys.platform != "darwin", reason="linux/darwin only"
-)
 @pytest.mark.needs_docker
 def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
     api = local.LocalDockerAPI()
@@ -931,20 +927,14 @@ def test_delete_files_success(tmp_work_dir):
     assert medium.exists()
 
     api = local.LocalDockerAPI()
-    errors = api.delete_files("test", Privacy.HIGH, ["file.txt"])
+    api.delete_files("test", Privacy.HIGH, ["file.txt"])
 
-    # on windows, we cannot always delete, so check we tried to delete it
-    if errors:
-        assert errors == ["file.txt"]
-    else:
-        assert not high.exists()
+    assert not high.exists()
     assert medium.exists()
 
-    errors = api.delete_files("test", Privacy.MEDIUM, ["file.txt"])
-    if errors:
-        assert errors == ["file.txt"]
-    else:
-        assert not medium.exists()
+    api.delete_files("test", Privacy.MEDIUM, ["file.txt"])
+
+    assert not medium.exists()
 
 
 def test_delete_files_error(tmp_work_dir):
@@ -1008,9 +998,6 @@ def test_delete_volume(docker_cleanup, job_definition, tmp_work_dir):
     assert not volumes.volume_exists(job_definition)
 
 
-@pytest.mark.skipif(
-    sys.platform != "linux" and sys.platform != "darwin", reason="linux/darwin only"
-)
 @pytest.mark.needs_docker
 def test_delete_volume_error_bindmount(
     docker_cleanup, job_definition, tmp_work_dir, monkeypatch, caplog

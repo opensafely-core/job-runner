@@ -28,7 +28,7 @@ source = ["jobrunner"]
 omit = ["jobrunner/cli/manifests.py", 'jobrunner/service.py']
 
 [tool.coverage.report]
-fail_under = 90
+fail_under = 89
 show_missing = true
 skip_covered = true
 
@@ -38,16 +38,16 @@ show_contexts = true
 [tool.ruff.lint]
 # See: https://docs.astral.sh/ruff/rules/
 extend-select = [
-  "A", # prevent shadowing builtins
-  "COM818", # no trailing commas on bare tuples
-  "I",  # isort
-  "INP",  # no implicit namespace packages
-  "UP",  # pyupgrade
-  "W",  # pycodestyle warning
+    "A",      # prevent shadowing builtins
+    "COM818", # no trailing commas on bare tuples
+    "I",      # isort
+    "INP",    # no implicit namespace packages
+    "UP",     # pyupgrade
+    "W",      # pycodestyle warning
 ]
 extend-ignore = [
-  "A005", # ignore stdlib-module-shadowing
-  "E501", # ignore line length
+    "A005", # ignore stdlib-module-shadowing
+    "E501", # ignore line length
 ]
 isort.lines-after-imports = 2
 

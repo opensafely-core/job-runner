@@ -14,7 +14,6 @@ import jobrunner.executors.local
 from jobrunner import config, record_stats, tracing
 from jobrunner.job_executor import Study
 from jobrunner.lib import database
-from jobrunner.lib.subprocess_utils import subprocess_run
 
 
 # set up test tracing
@@ -161,17 +160,17 @@ def test_repo(tmp_work_dir):
     repo_path = tmp_work_dir / "test-repo"
 
     env = {"GIT_WORK_TREE": str(directory), "GIT_DIR": repo_path}
-    subprocess_run(
+    subprocess.run(
         ["git", "init", "--bare", "--initial-branch=main", "--quiet", repo_path],
         check=True,
     )
-    subprocess_run(
+    subprocess.run(
         ["git", "config", "user.email", "test@example.com"], check=True, env=env
     )
-    subprocess_run(["git", "config", "user.name", "Test"], check=True, env=env)
-    subprocess_run(["git", "add", "."], check=True, env=env)
-    subprocess_run(["git", "commit", "--quiet", "-m", "initial"], check=True, env=env)
-    response = subprocess_run(
+    subprocess.run(["git", "config", "user.name", "Test"], check=True, env=env)
+    subprocess.run(["git", "add", "."], check=True, env=env)
+    subprocess.run(["git", "commit", "--quiet", "-m", "initial"], check=True, env=env)
+    response = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         check=True,
         env=env,
@@ -238,5 +237,5 @@ def mock_subprocess_run():
     with mock.patch("subprocess.run", stub.run):
         yield stub
     assert len(stub.calls) == 0, (
-        f"subprocess_run expected the following calls: {stub.calls}"
+        f"subprocess.run expected the following calls: {stub.calls}"
     )
