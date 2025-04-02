@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 
 
@@ -40,6 +40,20 @@ class JobDefinition:
     level4_file_types: list = field(default_factory=lambda: [".csv"])
     # if a job has been cancelled, the name of the canceller - either "user" or "admin"
     cancelled: str = None
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        # Create the nested Study instance
+        study_data = data.pop("study")
+        study = Study(
+            git_repo_url=study_data["git_repo_url"], commit=study_data["commit"]
+        )
+
+        # Create the JobDefinition instance with the Study object
+        return cls(study=study, **{k: v for k, v in data.items()})
 
 
 class ExecutorState(Enum):
