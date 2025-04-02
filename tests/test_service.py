@@ -1,4 +1,3 @@
-import platform
 import signal
 import subprocess
 import sys
@@ -10,9 +9,6 @@ from jobrunner import config, queries, service
 from jobrunner.lib import database
 
 
-@pytest.mark.skipif(
-    platform.system() == "Windows", reason="tricky to do ctrl-c in windows"
-)
 def test_service_main(tmp_path):
     """
     Test that the service module handles SIGINT and exits cleanly

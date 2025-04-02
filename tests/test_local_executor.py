@@ -931,20 +931,14 @@ def test_delete_files_success(tmp_work_dir):
     assert medium.exists()
 
     api = local.LocalDockerAPI()
-    errors = api.delete_files("test", Privacy.HIGH, ["file.txt"])
+    api.delete_files("test", Privacy.HIGH, ["file.txt"])
 
-    # on windows, we cannot always delete, so check we tried to delete it
-    if errors:
-        assert errors == ["file.txt"]
-    else:
-        assert not high.exists()
+    assert not high.exists()
     assert medium.exists()
 
-    errors = api.delete_files("test", Privacy.MEDIUM, ["file.txt"])
-    if errors:
-        assert errors == ["file.txt"]
-    else:
-        assert not medium.exists()
+    api.delete_files("test", Privacy.MEDIUM, ["file.txt"])
+
+    assert not medium.exists()
 
 
 def test_delete_files_error(tmp_work_dir):
