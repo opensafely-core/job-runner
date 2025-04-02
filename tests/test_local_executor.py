@@ -1,5 +1,4 @@
 import logging
-import sys
 import time
 
 import pytest
@@ -269,9 +268,6 @@ def test_execute_metrics(docker_cleanup, job_definition, tmp_work_dir, db):
     ]
 
 
-@pytest.mark.skipif(
-    sys.platform != "linux" and sys.platform != "darwin", reason="linux/darwin only"
-)
 @pytest.mark.needs_docker
 def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
     api = local.LocalDockerAPI()
@@ -1002,9 +998,6 @@ def test_delete_volume(docker_cleanup, job_definition, tmp_work_dir):
     assert not volumes.volume_exists(job_definition)
 
 
-@pytest.mark.skipif(
-    sys.platform != "linux" and sys.platform != "darwin", reason="linux/darwin only"
-)
 @pytest.mark.needs_docker
 def test_delete_volume_error_bindmount(
     docker_cleanup, job_definition, tmp_work_dir, monkeypatch, caplog
