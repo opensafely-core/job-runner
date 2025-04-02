@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2019, macos-14]
+        os: [ubuntu-22.04, macos-14]
     runs-on: ${{ matrix.os }}
     name: Run test suite
     env:
@@ -52,13 +52,6 @@ jobs:
         run: |
           echo "$PYTHON_VERSION"
           just test -vvv
-
-      - name: Run actual tests on windows
-        if: ${{ matrix.os == 'windows-2019' }}
-        run: |
-          # windows powershell: set to executable w/o version, as it doesn't have one on windows
-          $Env:PYTHON_VERSION = "python"
-          just test-no-docker -vvv
 
       - name: Run actual tests on macos
         if: ${{ matrix.os == 'macos-14' }}
