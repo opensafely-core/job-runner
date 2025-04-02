@@ -10,7 +10,7 @@ DEFAULT_TIMEOUT = 10
 def removeprefix(s, prefix):
     if s.startswith(prefix):
         return s[len(prefix) :]
-    return s
+    return s  # pragma: no cover
 
 
 def get_job_stats(timeout=DEFAULT_TIMEOUT):

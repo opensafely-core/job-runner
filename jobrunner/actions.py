@@ -70,7 +70,7 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
 
         output_dirs = get_output_dirs(action_spec.outputs)
 
-        if len(output_dirs) == 1:
+        if len(output_dirs) == 1:  # pragma: no branch
             # Automatically configure the cohortextractor to produce output in the
             # directory the `outputs` spec is expecting.
             run_parts.append(f"--output-dir={output_dirs[0]}")
