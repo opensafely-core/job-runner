@@ -26,8 +26,7 @@ def main(
     parsed = urlparse(repo_url)
     if not parsed.scheme and not parsed.netloc:
         path = Path(parsed.path).resolve()
-        # In case we're on Windows
-        repo_url = str(path).replace("\\", "/")
+        repo_url = str(path)
     if not commit:
         commit = get_sha_from_remote_ref(repo_url, branch)
     job_request = job_request_from_remote_format(
