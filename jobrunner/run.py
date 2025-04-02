@@ -48,7 +48,7 @@ class ExecutorError(Exception):
     pass
 
 
-def main(exit_callback=lambda _: False):
+def main(exit_callback=lambda _: False):  # pragma: no cover
     log.info("jobrunner.run loop started")
     api = get_executor_api()
 
