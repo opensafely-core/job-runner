@@ -1,6 +1,6 @@
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Mapping, Optional
 
 
 class Privacy(Enum):
@@ -23,9 +23,9 @@ class JobDefinition:
     action: str  # the name of the action that the job is running
     created_at: int  # UNIX timestamp, time job created
     image: str  # the Docker image to run
-    args: List[str]  # the arguments to pass to the Docker container
+    args: list[str]  # the arguments to pass to the Docker container
     env: Mapping[str, str]  # the environment variables to set for the Docker container
-    inputs: List[str]  # the files that the job requires
+    inputs: list[str]  # the files that the job requires
     output_spec: Mapping[
         str, str
     ]  # the files that the job should produce (globs mapped to privacy levels)
@@ -64,7 +64,7 @@ class ExecutorState(Enum):
 @dataclass
 class JobStatus:
     state: ExecutorState
-    message: Optional[str] = None
+    message: str | None = None
     timestamp_ns: int = (
         None  # timestamp this JobStatus occurred, in integer nanoseconds
     )
@@ -74,8 +74,8 @@ class JobStatus:
 @dataclass
 class JobResults:
     outputs: Mapping[str, str]  # mapping of outputs to privacy levels
-    unmatched_patterns: List[str]  # list of patterns that matched no outputs
-    unmatched_outputs: List[str]  # outputs that not match the output_spec
+    unmatched_patterns: list[str]  # list of patterns that matched no outputs
+    unmatched_outputs: list[str]  # outputs that not match the output_spec
     exit_code: int
     image_id: str
     message: str = None
@@ -285,7 +285,7 @@ class ExecutorAPI:
         called once the results have been persisted.
         """
 
-    def delete_files(self, workspace: str, privacy: Privacy, paths: [str]) -> List[str]:
+    def delete_files(self, workspace: str, privacy: Privacy, paths: [str]) -> list[str]:
         """
         Delete files from a workspace.
 

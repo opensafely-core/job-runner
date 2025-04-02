@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, List
+from collections.abc import Callable
 
 from jobrunner.job_executor import (
     ExecutorAPI,
@@ -29,7 +29,7 @@ class LoggingExecutor(ExecutorAPI):
     def get_results(self, job_definition: JobDefinition) -> JobResults:
         return self._wrapped.get_results(job_definition)
 
-    def delete_files(self, workspace: str, privacy: Privacy, paths: [str]) -> List[str]:
+    def delete_files(self, workspace: str, privacy: Privacy, paths: [str]) -> list[str]:
         return self._wrapped.delete_files(workspace, privacy, paths)
 
     @property

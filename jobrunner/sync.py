@@ -96,8 +96,7 @@ def api_request(method, path, *args, headers=None, **kwargs):
     response = session.request(method, url, *args, headers=headers, **kwargs)
 
     log.debug(
-        "%s %s %s post_data=%s %s"
-        % (
+        "{} {} {} post_data={} {}".format(
             method.upper(),
             response.status_code,
             url,

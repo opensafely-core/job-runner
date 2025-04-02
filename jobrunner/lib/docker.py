@@ -378,7 +378,7 @@ def container_inspect(name, key="", none_if_not_exists=False, timeout=None):
     """
     try:
         response = docker(
-            ["container", "inspect", "--format", "{{json .%s}}" % key, name],
+            ["container", "inspect", "--format", f"{{{{json .{key}}}}}", name],
             check=True,
             capture_output=True,
             timeout=timeout,

@@ -82,9 +82,9 @@ def initialise_trace(job):
     """
     assert not job.trace_context, "this job already has a trace-context"
     assert job.status_code is not None, "job has no initial StatusCode"
-    assert (
-        job.status_code_updated_at is not None
-    ), "job has no initial status_code_updated_at"
+    assert job.status_code_updated_at is not None, (
+        "job has no initial status_code_updated_at"
+    )
 
     job.trace_context = {}
     tracer = trace.get_tracer("jobs")
@@ -198,16 +198,16 @@ def record_job_span(job, name, start_time, end_time, error, results, **attrs):
     # the calling code swallows any exceptions.
     assert start_time is not None
     assert end_time is not None
-    assert (
-        start_time > MINIMUM_NS_TIMESTAMP
-    ), f"start_time not in nanoseconds: {start_time}"
+    assert start_time > MINIMUM_NS_TIMESTAMP, (
+        f"start_time not in nanoseconds: {start_time}"
+    )
     assert end_time > MINIMUM_NS_TIMESTAMP, f"end_time not in nanoseconds: {end_time}"
     # Note: windows timer precision is low, so we sometimes get the same
     # value of ns for two separate measurments. This means they are not always
     # increasing, but they should never decrease. At least in theory...
-    assert (
-        end_time >= start_time
-    ), f"end_time is before start_time, ({end_time} < {start_time})"
+    assert end_time >= start_time, (
+        f"end_time is before start_time, ({end_time} < {start_time})"
+    )
 
     ctx = load_trace_context(job)
     tracer = trace.get_tracer("jobs")
