@@ -19,6 +19,7 @@ from functools import total_ordering
 
 from jobrunner.lib.database import databaseclass, migration
 from jobrunner.lib.string_utils import slugify
+from jobrunner.schema import TaskStage, TaskType
 
 
 # this is the overall high level state the job-runner uses to decide how to
@@ -375,3 +376,45 @@ class Flag:
     def __str__(self):
         ts = self.timestamp_isoformat if self.timestamp else "never set"
         return f"{self.id}={self.value} ({ts})"
+
+
+@databaseclass
+class Task:
+    __tablename__ = "tasks"
+    __tableschema__ = """
+        CREATE TABLE tasks (
+            id TEXT,
+            type TEXT,
+            definition TEXT,
+            active BOOLEAN,
+            created_at int,
+            completed_at int,
+            agent_stage TEXT,
+            agent_stage_ns INT,
+            agent_results TEXT,
+            PRIMARY KEY (id)
+        )
+    """
+
+    # controller set fields
+    id: str  # noqa: A003
+    type: TaskType  # noqa: A003
+    definition: dict
+    # these timestamps are from the controller's POV
+    # default second resolution
+    created_at: int = None
+    completed_at: int = None
+    # maybe we don't need this, and can use completed_at is None?
+    active: bool = True
+
+    # state sent from the agent
+    agent_stage: TaskStage = None
+    # timestamp of the stage
+    # ns resolution, because:
+    # a) we need subsecond precision
+    # b) that's what otel wants natively
+    # c) it's what we're already using in tracing code
+    agent_stage_ns: int = None
+    # the results of the task
+    # the task is complete from the agent's POV once this is set
+    agent_results: dict = None
