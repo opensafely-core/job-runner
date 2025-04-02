@@ -11,7 +11,6 @@ from urllib.parse import urlparse, urlunparse
 
 from jobrunner import config
 from jobrunner.lib.string_utils import project_name_from_url
-from jobrunner.lib.subprocess_utils import subprocess_run
 
 
 log = logging.getLogger(__name__)
@@ -53,7 +52,7 @@ def read_file_from_repo(repo_url, commit_sha, path):
     repo_dir = get_local_repo_dir(repo_url)
     ensure_commit_fetched(repo_dir, repo_url, commit_sha)
     try:
-        response = subprocess_run(
+        response = subprocess.run(
             ["git", "show", f"{commit_sha}:{path}"],
             capture_output=True,
             check=True,
@@ -77,7 +76,7 @@ def checkout_commit(repo_url, commit_sha, target_dir):
     repo_dir = get_local_repo_dir(repo_url)
     ensure_commit_fetched(repo_dir, repo_url, commit_sha)
     os.makedirs(target_dir, exist_ok=True)
-    subprocess_run(
+    subprocess.run(
         [
             "git",
             f"--work-tree={target_dir}",
@@ -138,7 +137,7 @@ def get_sha_from_remote_ref(repo_url, ref):
     # commit.
     deref_ref = f"{ref}^{{}}"
     try:
-        response = subprocess_run(
+        response = subprocess.run(
             [
                 "git",
                 "ls-remote",
@@ -197,7 +196,7 @@ def ensure_commit_fetched(repo_dir, repo_url, commit_sha):
 
 def ensure_git_init(repo_dir):
     if not os.path.exists(repo_dir / "config"):
-        subprocess_run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
+        subprocess.run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
 
 
 def commit_already_fetched(repo_dir, commit_sha):
@@ -214,7 +213,7 @@ def commit_already_fetched(repo_dir, commit_sha):
     this we create a special "sentinel" tag for each commit to indicate that
     the entire fetch process has completed successfully.
     """
-    response = subprocess_run(
+    response = subprocess.run(
         [
             "git",
             "tag",
@@ -237,7 +236,7 @@ def mark_commmit_as_fetched(repo_dir, commit_sha):
     Create a special "sentinel" tag to indicate that the supplied commit has
     been fully fetched (see `commit_already_fetched` above)
     """
-    subprocess_run(
+    subprocess.run(
         [
             "git",
             "tag",
@@ -267,7 +266,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
     authenticated_url = add_access_token_and_proxy(repo_url)
     while True:
         try:
-            subprocess_run(
+            subprocess.run(
                 [
                     "git",
                     "fetch",
@@ -306,7 +305,7 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
 
 
 def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
-    response = subprocess_run(
+    response = subprocess.run(
         ["git", "merge-base", "--is-ancestor", ancestor_sha, descendant_sha],
         cwd=repo_dir,
         capture_output=True,

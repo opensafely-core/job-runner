@@ -10,7 +10,6 @@ import subprocess
 
 from jobrunner import config
 from jobrunner.lib import atomic_writer, datestr_to_ns_timestamp
-from jobrunner.lib.subprocess_utils import subprocess_run
 
 
 logger = logging.getLogger(__name__)
@@ -64,7 +63,7 @@ def add_docker_labels(cmd, labels):
 def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     args = ["docker"] + docker_args
     try:
-        return subprocess_run(args, timeout=timeout, **kwargs)
+        return subprocess.run(args, timeout=timeout, **kwargs)
     except subprocess.TimeoutExpired as e:
         raise DockerTimeoutError from e
     except subprocess.CalledProcessError as e:

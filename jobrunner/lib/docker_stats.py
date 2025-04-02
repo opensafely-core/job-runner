@@ -1,6 +1,5 @@
 import json
-
-from jobrunner.lib.subprocess_utils import subprocess_run
+import subprocess
 
 
 DEFAULT_TIMEOUT = 10
@@ -19,7 +18,7 @@ def get_job_stats(timeout=DEFAULT_TIMEOUT):
 
 
 def get_container_stats(timeout=DEFAULT_TIMEOUT):
-    response = subprocess_run(
+    response = subprocess.run(
         ["docker", "stats", "--no-stream", "--no-trunc", "--format", "{{json .}}"],
         capture_output=True,
         check=True,
