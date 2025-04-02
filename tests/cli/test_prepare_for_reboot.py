@@ -40,3 +40,30 @@ def test_prepare_for_reboot(db, monkeypatch):
 
     spans = get_trace("jobs")
     assert spans[-1].name == "EXECUTING"
+
+
+@pytest.mark.needs_docker
+@pytest.mark.parametrize("input_response", ["y", "n"])
+def test_prepare_for_reboot_pause(input_response, db, monkeypatch):
+    j1 = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
+
+    mocker = mock.MagicMock(spec=docker)
+    mockumes = mock.MagicMock(spec=volumes)
+
+    monkeypatch.setattr(prepare_for_reboot, "docker", mocker)
+    monkeypatch.setattr(prepare_for_reboot, "volumes", mockumes)
+    monkeypatch.setattr("builtins.input", lambda _: input_response)
+
+    if input_response != "y":
+        with pytest.raises(AssertionError):
+            prepare_for_reboot.main(pause=True)
+    else:
+        prepare_for_reboot.main(pause=True)
+
+    job = database.find_one(Job, id=j1.id)
+    if input_response == "y":
+        assert job.state == State.PENDING
+        assert job.status_code == StatusCode.WAITING_ON_REBOOT
+    else:
+        assert job.state == State.RUNNING
+        assert job.status_code == StatusCode.EXECUTING

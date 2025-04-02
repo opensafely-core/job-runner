@@ -24,7 +24,7 @@ def parse_cli_flag(raw):
 def main(action, flags, create=False):
     try:
         get_current_flags()
-    except sqlite3.OperationalError as e:
+    except sqlite3.OperationalError as e:  # pragma: no cover
         if "no such table" in str(e):
             if create:
                 create_table(get_connection(), Flag)
@@ -94,4 +94,4 @@ def run(argv):
 
 
 if __name__ == "__main__":
-    run(sys.argv[1:])
+    run(sys.argv[1:])  # pragma: no cover

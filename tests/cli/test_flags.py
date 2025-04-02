@@ -58,6 +58,15 @@ def test_args_set_clear(capsys, tmp_work_dir, freezer):
     assert queries.get_flag("foo").value is None
 
 
+def test_args_set_error(capsys, tmp_work_dir, freezer):
+    freezer.move_to(TEST_DATESTR)
+    with pytest.raises(SystemExit):
+        flags.run(["set", "foo"])
+    stdout, stderr = capsys.readouterr()
+    assert "invalid parse_cli_flag value" in stderr
+    assert stdout == ""
+
+
 def test_args_get_create(capsys, tmp_work_dir):
     database.get_connection().execute("DROP TABLE flags")
     with pytest.raises(SystemExit) as e:

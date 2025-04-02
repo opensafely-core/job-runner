@@ -39,11 +39,11 @@ def main(pause=True):
         volumes.delete_volume(job)
 
 
-def run():
+def run():  # pragma: no cover
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     args = parser.parse_args()
     main(**vars(args))
 
 
 if __name__ == "__main__":
-    run()
+    run()  # pragma: no cover

@@ -84,7 +84,7 @@ def get_jobs(partial_job_ids):
     return jobs
 
 
-def run():
+def run():  # pragma: no cover
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument(
         "--cleanup",
@@ -98,5 +98,5 @@ def run():
     main(**vars(args))
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     run()

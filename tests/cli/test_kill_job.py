@@ -120,9 +120,19 @@ def test_get_jobs_full_id(db):
 
 
 @pytest.mark.needs_docker
-@pytest.mark.parametrize("cleanup", [False, True])
-def test_kill_job(cleanup, tmp_work_dir, db, monkeypatch):
-    job = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
+@pytest.mark.parametrize(
+    "state,status_code,expected_status_code,cleanup",
+    [
+        (State.RUNNING, StatusCode.EXECUTING, StatusCode.KILLED_BY_ADMIN, False),
+        (State.RUNNING, StatusCode.EXECUTING, StatusCode.KILLED_BY_ADMIN, True),
+        (State.PENDING, StatusCode.PREPARING, StatusCode.KILLED_BY_ADMIN, True),
+        (State.FAILED, StatusCode.INTERNAL_ERROR, StatusCode.INTERNAL_ERROR, True),
+    ],
+)
+def test_kill_job(
+    state, status_code, expected_status_code, cleanup, tmp_work_dir, db, monkeypatch
+):
+    job = job_factory(state=state, status_code=status_code)
 
     mocker = mock.MagicMock(spec=local.docker)
     mockumes = mock.MagicMock(spec=local.volumes)
@@ -146,7 +156,7 @@ def test_kill_job(cleanup, tmp_work_dir, db, monkeypatch):
 
     job1 = database.find_one(Job, id=job.id)
     assert job1.state == State.FAILED
-    assert job1.status_code == StatusCode.KILLED_BY_ADMIN
+    assert job1.status_code == expected_status_code
 
     container = local.container_name(job)
     assert mocker.kill.call_args[0] == (container,)
@@ -172,3 +182,53 @@ def test_kill_job(cleanup, tmp_work_dir, db, monkeypatch):
     else:
         assert not mocker.delete_container.called
         assert not mockumes.delete_volume.called
+
+
+@pytest.mark.needs_docker
+def test_kill_job_no_container_metadata(tmp_work_dir, db, monkeypatch):
+    job = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
+
+    mocker = mock.MagicMock(spec=local.docker)
+    mockumes = mock.MagicMock(spec=local.volumes)
+
+    def mock_get_jobs(partial_job_ids):
+        return [job]
+
+    # no container metadata
+    mocker.container_inspect.return_value = None
+
+    # set both the docker module names used to the mocker version
+    monkeypatch.setattr(kill_job, "docker", mocker)
+    monkeypatch.setattr(local, "docker", mocker)
+    monkeypatch.setattr(local, "volumes", mockumes)
+    monkeypatch.setattr(kill_job, "get_jobs", mock_get_jobs)
+
+    kill_job.main(job.id, cleanup=True)
+
+    job1 = database.find_one(Job, id=job.id)
+    assert job1.state == State.FAILED
+    assert job1.status_code == StatusCode.KILLED_BY_ADMIN
+
+    container = local.container_name(job)
+    assert mocker.kill.call_args[0] == (container,)
+
+    # No container metadata found, so no logs to write
+    mocker.write_logs_to_file.assert_not_called()
+
+    log_dir = local.get_log_dir(job)
+    log_file = log_dir / "logs.txt"
+    metadata_file = log_dir / "metadata.json"
+
+    assert not log_file.exists()
+    assert not metadata_file.exists()
+
+    workspace_log_file = (
+        local.get_high_privacy_workspace(job.workspace)
+        / local.METADATA_DIR
+        / f"{job.action}.log"
+    )
+    assert not workspace_log_file.exists()
+
+    # The container and volume are still deleted
+    assert mocker.delete_container.called
+    assert mockumes.delete_volume.called

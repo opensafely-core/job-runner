@@ -24,7 +24,7 @@ def main(
 ):
     # Make paths to local repos absolute
     parsed = urlparse(repo_url)
-    if not parsed.scheme and not parsed.netloc:
+    if not parsed.scheme and not parsed.netloc:  # pragma: no cover
         path = Path(parsed.path).resolve()
         repo_url = str(path)
     if not commit:
@@ -62,7 +62,7 @@ def display_obj(obj):
 
 
 def run(argv=None):
-    if argv is None:
+    if argv is None:  # pragma: no cover
         argv = sys.argv[1:]
 
     configure_logging()
@@ -94,4 +94,4 @@ def run(argv=None):
 
 
 if __name__ == "__main__":
-    run()
+    run()  # pragma: no cover
