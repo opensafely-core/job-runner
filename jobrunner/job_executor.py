@@ -293,7 +293,6 @@ class ExecutorAPI:
 
         Returns a list of any files that were present but it errored trying to delete them.
         """
-        ...
 
 
 class NullExecutorAPI(ExecutorAPI):

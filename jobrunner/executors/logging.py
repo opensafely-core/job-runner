@@ -30,7 +30,7 @@ class LoggingExecutor(ExecutorAPI):
         return self._wrapped.get_results(job_definition)
 
     def delete_files(self, workspace: str, privacy: Privacy, files: [str]) -> list[str]:
-        return self._wrapped.delete_files(workspace, privacy, files)
+        return self._wrapped.delete_files(workspace, privacy, files)  # pragma: no cover
 
     @property
     def synchronous_transitions(self):

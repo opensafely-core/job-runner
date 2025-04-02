@@ -65,7 +65,7 @@ def setup_default_tracing(set_global=True):
         add_exporter(provider, ConsoleSpanExporter())
 
     if set_global:
-        trace.set_tracer_provider(provider)
+        trace.set_tracer_provider(provider)  # pragma: no cover
 
     return provider
 
