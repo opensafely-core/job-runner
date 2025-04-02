@@ -285,7 +285,7 @@ class ExecutorAPI:
         called once the results have been persisted.
         """
 
-    def delete_files(self, workspace: str, privacy: Privacy, paths: [str]) -> list[str]:
+    def delete_files(self, workspace: str, privacy: Privacy, files: [str]) -> list[str]:
         """
         Delete files from a workspace.
 
