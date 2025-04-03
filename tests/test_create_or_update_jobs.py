@@ -15,7 +15,8 @@ from jobrunner.create_or_update_jobs import (
     create_or_update_jobs,
     validate_job_request,
 )
-from jobrunner.lib.database import find_one, update_where
+from jobrunner.lib.database import find_one, find_where, update_where
+from jobrunner.lib.github_validators import GithubValidationError
 from jobrunner.models import Job, JobRequest, State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import job_request_factory_raw
@@ -105,6 +106,40 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     )
 
 
+@mock.patch("jobrunner.create_or_update_jobs.create_jobs", side_effect=Exception("unk"))
+def test_create_or_update_jobs_with_unhandled_error(tmp_work_dir, db):
+    repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+    job_request = JobRequest(
+        id="123",
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
+        branch="v1",
+        requested_actions=["generate_cohort"],
+        cancelled_actions=[],
+        workspace="1",
+        codelists_ok=True,
+        database_name="dummy",
+        original=dict(
+            created_by="user",
+            project="project",
+            orgs=["org1", "org2"],
+        ),
+    )
+    create_or_update_jobs(job_request)
+    j = find_one(Job, job_request_id="123")
+    assert j.job_request_id == "123"
+    assert j.state == State.FAILED
+    assert j.repo_url == repo_url
+    assert j.commit == "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
+    assert j.workspace == "1"
+    assert j.wait_for_job_ids is None
+    assert j.requires_outputs_from is None
+    assert j.run_command is None
+    assert j.output_spec is None
+    assert j.status_message == "JobRequestError: Internal error"
+
+
 TEST_PROJECT = """
 version: '1.0'
 actions:
@@ -163,6 +198,26 @@ def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_
     prepare_2_job = find_one(Job, action="prepare_data_2")
     assert set(analyse_job.wait_for_job_ids) == {prepare_1_job.id, prepare_2_job.id}
     assert prepare_2_job.wait_for_job_ids == [generate_job.id]
+
+
+def test_existing_succeeded_jobs_are_picked_up_when_checking_dependencies(tmp_work_dir):
+    create_jobs_with_project_file(
+        make_job_request(action="prepare_data_1"), TEST_PROJECT
+    )
+    prepare_1_job = find_one(Job, action="prepare_data_1")
+    generate_job = find_one(Job, action="generate_cohort")
+    assert prepare_1_job.wait_for_job_ids == [generate_job.id]
+    # make the generate_job succeeded
+    update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
+
+    # Now schedule a job which has the above jobs as dependencies
+    create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
+    # Check that it's waiting on the existing jobs
+    analyse_job = find_one(Job, action="analyse_data")
+    prepare_2_job = find_one(Job, action="prepare_data_2")
+    assert set(analyse_job.wait_for_job_ids) == {prepare_1_job.id, prepare_2_job.id}
+    # prepare_2 is only dependent on generate_job, which has succeeded
+    assert prepare_2_job.wait_for_job_ids == []
 
 
 def test_existing_cancelled_jobs_are_ignored_up_when_checking_dependencies(
@@ -230,15 +285,41 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
 
 
 @pytest.mark.parametrize(
-    "params,exc_msg",
+    "patch_config,params,exc_msg,exc_cls",
     [
-        ({"workspace": None}, "Workspace name cannot be blank"),
-        ({"workspace": "$%#"}, "Invalid workspace"),
-        ({"database_name": "invalid"}, "Invalid database name"),
+        ({}, {"workspace": None}, "Workspace name cannot be blank", JobRequestError),
+        ({}, {"workspace": "$%#"}, "Invalid workspace", JobRequestError),
+        ({}, {"database_name": "invalid"}, "Invalid database name", JobRequestError),
+        (
+            {},
+            {"requested_actions": []},
+            "At least one action must be supplied",
+            JobRequestError,
+        ),
+        (
+            {"ALLOWED_GITHUB_ORGS": ["test"]},
+            {"repo_url": "https://not-gihub.com/invalid"},
+            "must start https://github.com",
+            GithubValidationError,
+        ),
+        (
+            {"DATABASE_URLS": {"default": None}},
+            {},
+            "not currently defined for backend",
+            JobRequestError,
+        ),
+        (
+            {"ALLOWED_GITHUB_ORGS": ["test"]},
+            {"repo_url": "https://github.com/test"},
+            "Repository URL was not of the expected format",
+            GithubValidationError,
+        ),
     ],
 )
-def test_validate_job_request(params, exc_msg, monkeypatch):
+def test_validate_job_request(patch_config, params, exc_msg, exc_cls, monkeypatch):
     monkeypatch.setattr("jobrunner.config.USING_DUMMY_DATA_BACKEND", False)
+    for config_key, config_value in patch_config.items():
+        monkeypatch.setattr(f"jobrunner.config.{config_key}", config_value)
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
     kwargs = dict(
         id="123",
@@ -260,7 +341,7 @@ def test_validate_job_request(params, exc_msg, monkeypatch):
     kwargs.update(params)
     job_request = JobRequest(**kwargs)
 
-    with pytest.raises(JobRequestError, match=exc_msg):
+    with pytest.raises(exc_cls, match=exc_msg):
         validate_job_request(job_request)
 
 
@@ -298,6 +379,58 @@ def test_create_jobs_already_requested(db, tmp_work_dir):
         create_jobs_with_project_file(
             make_job_request(action="analyse_data"), TEST_PROJECT
         )
+
+
+def test_create_jobs_already_succeeded_is_rerun(db, tmp_work_dir):
+    create_jobs_with_project_file(
+        make_job_request(action="prepare_data_1"), TEST_PROJECT
+    )
+    prepare_1_job = find_one(Job, action="prepare_data_1")
+    generate_job = find_one(Job, action="generate_cohort")
+    update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
+    update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
+    create_jobs_with_project_file(
+        make_job_request(action="prepare_data_1"), TEST_PROJECT
+    )
+    generate_jobs = find_where(Job, action="generate_cohort")
+    assert len(generate_jobs) == 1
+    prepare_1_jobs = find_where(Job, action="prepare_data_1")
+    assert len(prepare_1_jobs) == 2
+
+
+def test_create_jobs_force_run_dependencies(db, tmp_work_dir):
+    create_jobs_with_project_file(
+        make_job_request(action="prepare_data_1"), TEST_PROJECT
+    )
+    prepare_1_job = find_one(Job, action="prepare_data_1")
+    generate_job = find_one(Job, action="generate_cohort")
+    update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
+    update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
+    create_jobs_with_project_file(
+        make_job_request(action="prepare_data_1", force_run_dependencies=True),
+        TEST_PROJECT,
+    )
+    generate_jobs = find_where(Job, action="generate_cohort")
+    assert len(generate_jobs) == 2
+    prepare_1_jobs = find_where(Job, action="prepare_data_1")
+    assert len(prepare_1_jobs) == 2
+
+
+def test_create_jobs_reruns_failed_dependencies(db, tmp_work_dir):
+    create_jobs_with_project_file(
+        make_job_request(action="prepare_data_1"), TEST_PROJECT
+    )
+    prepare_1_job = find_one(Job, action="prepare_data_1")
+    generate_job = find_one(Job, action="generate_cohort")
+    update_where(Job, {"state": State.FAILED}, id=generate_job.id)
+    update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
+    create_jobs_with_project_file(
+        make_job_request(action="prepare_data_1"), TEST_PROJECT
+    )
+    generate_jobs = find_where(Job, action="generate_cohort")
+    assert len(generate_jobs) == 2
+    prepare_1_jobs = find_where(Job, action="prepare_data_1")
+    assert len(prepare_1_jobs) == 2
 
 
 def create_jobs_with_project_file(job_request, project_file):
