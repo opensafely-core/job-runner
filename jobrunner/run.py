@@ -385,6 +385,8 @@ def handle_job(job, api, mode=None, paused=None):
         save_results(job, job_definition, results)
         obsolete = get_obsolete_files(job_definition, results.outputs)
 
+        # nb. obsolete is always empty due to a bug - see
+        # https://github.com/opensafely-core/job-runner/issues/750
         if obsolete:
             errors = api.delete_files(job_definition.workspace, Privacy.HIGH, obsolete)
             if errors:
