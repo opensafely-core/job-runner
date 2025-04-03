@@ -60,12 +60,12 @@ def get_job(partial_job_id):
     return job
 
 
-def run():
+def run():  # pragma: no cover
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument("partial_job_id", help="ID of the job (or substring of the ID)")
     args = parser.parse_args()
     main(**vars(args))
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     run()
