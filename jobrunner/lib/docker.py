@@ -9,7 +9,7 @@ import re
 import subprocess
 
 from jobrunner import config
-from jobrunner.lib import atomic_writer, datestr_to_ns_timestamp
+from jobrunner.lib import atomic_writer
 
 
 logger = logging.getLogger(__name__)
@@ -119,16 +119,6 @@ def create_volume(volume_name, labels=None):
             raise
 
 
-def volume_exists(volume_name):
-    """Does the given volume exist?"""
-    try:
-        docker(["volume", "inspect", volume_name], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        return False
-    else:
-        return True
-
-
 def delete_volume(volume_name):
     """
     Deletes the named volume and its manager container
@@ -182,77 +172,6 @@ def copy_to_volume(volume_name, source, dest, timeout=None):
         capture_output=True,
         timeout=timeout,
     )
-
-
-def read_timestamp(volume_name, path, timeout=None):
-    container = manager_name(volume_name)
-    if not container_exists(container):
-        return None
-
-    try:
-        response = docker(
-            [
-                "container",
-                "exec",
-                container,
-                "cat",
-                f"{VOLUME_MOUNT_POINT}/{path}",
-            ],
-            capture_output=True,
-            check=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.CalledProcessError as exc:
-        # Must be file does not exist, as we've already checked for container
-        logger.debug(f"File {volume_name}:{path} does not exist:\n{exc.stderr}")
-        return None
-
-    output = response.stdout.strip()
-
-    if output:
-        try:
-            return int(output)
-        except ValueError:
-            # could not convert to integer
-            logger.debug(
-                f"Could not parse int from {volume_name}:{path}: {response.stdout.strip()}"
-            )
-
-    # either output was "" or we couldn't parse it as integer
-    # fallback to filesystem metadata, to support older volumes, and just be
-    # robust
-    try:
-        response = docker(
-            [
-                "container",
-                "exec",
-                container,
-                "stat",
-                "-c",
-                "%z",
-                f"{VOLUME_MOUNT_POINT}/{path}",
-            ],
-            capture_output=True,
-            check=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.CalledProcessError as exc:
-        # either container or file didn't exist
-        logger.debug(
-            f"Failed to stat file {volume_name}:{path} on container {container}:\n{exc.stderr}"
-        )
-        return None
-
-    datestr = response.stdout.strip()
-    try:
-        return datestr_to_ns_timestamp(datestr)
-    except ValueError as exc:
-        logger.debug(
-            f"Failed to convert file time of {datestr} to integer nanoseconds: {exc}"
-        )
-        return None
 
 
 def copy_from_volume(volume_name, source, dest, timeout=None):
@@ -329,41 +248,12 @@ def _glob_pattern_to_regex(glob_pattern):
     return "[^/]*".join(map(re.escape, literals))
 
 
-def find_newer_files(volume_name, reference_file):
-    """
-    Return all files in volume newer than the reference file
-    """
-    args = [
-        "find",
-        VOLUME_MOUNT_POINT,
-        "-type",
-        "f",
-        "-newer",
-        f"{VOLUME_MOUNT_POINT}/{reference_file}",
-    ]
-    response = docker(
-        ["container", "exec", manager_name(volume_name)] + args,
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    # Remove the volume path prefix from the results
-    chars_to_strip = len(VOLUME_MOUNT_POINT) + 1
-    files = [f[chars_to_strip:] for f in response.stdout.splitlines()]
-    return sorted(files)
-
-
 def manager_name(volume_name):
     return f"{volume_name}-manager"
 
 
 def container_exists(name):
     return bool(container_inspect(name, "ID", none_if_not_exists=True))
-
-
-def container_is_running(name):
-    return container_inspect(name, "State.Running", none_if_not_exists=True) or False
 
 
 def container_inspect(name, key="", none_if_not_exists=False, timeout=None):
@@ -489,23 +379,3 @@ def write_logs_to_file(container_name, filename):
             stdout=f,
             stderr=subprocess.STDOUT,
         )
-
-
-def pull(image, quiet=False):
-    try:
-        docker(
-            ["pull", image, *(["--quiet"] if quiet else [])],
-            check=True,
-            encoding="utf-8",
-            # When not running "quiet" we don't capture stdout so that progress
-            # gets shown in the terminal
-            stdout=subprocess.PIPE if quiet else None,
-            stderr=subprocess.PIPE,
-            timeout=None,
-        )
-    except subprocess.CalledProcessError as e:
-        message = e.stderr.strip()
-        if message.endswith(": unauthorized"):
-            raise DockerAuthError(message)
-        else:
-            raise DockerPullError(message)

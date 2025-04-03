@@ -25,10 +25,6 @@ def copy_file(source, dest, follow_symlinks=True):
     return dest.stat().st_size
 
 
-def docker_volume_name(job):
-    return f"os-volume-{job.id}"
-
-
 def host_volume_path(job, create=True):
     path = config.HIGH_PRIVACY_VOLUME_DIR / job.id
     if create:
