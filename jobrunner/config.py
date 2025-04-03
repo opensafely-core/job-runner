@@ -21,7 +21,7 @@ default_work_dir = Path(__file__) / "../../workdir"
 
 
 VERSION = os.environ.get("VERSION", "unknown")
-if VERSION == "unknown":
+if VERSION == "unknown":  # pragma: no branch
     try:
         ps = subprocess.run(
             ["git", "describe", "--tags"],
@@ -29,12 +29,12 @@ if VERSION == "unknown":
             capture_output=True,
         )
         VERSION = ps.stdout.strip()
-    except (FileNotFoundError, subprocess.CalledProcessError):
+    except (FileNotFoundError, subprocess.CalledProcessError):  # pragma: no cover
         pass
 
 
 GIT_SHA = os.environ.get("GIT_SHA", "unknown")
-if GIT_SHA == "unknown":
+if GIT_SHA == "unknown":  # pragma: no branch
     try:
         ps = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
@@ -42,7 +42,7 @@ if GIT_SHA == "unknown":
             capture_output=True,
         )
         GIT_SHA = ps.stdout.strip()
-    except (FileNotFoundError, subprocess.CalledProcessError):
+    except (FileNotFoundError, subprocess.CalledProcessError):  # pragma: no cover
         pass
 
 
@@ -67,12 +67,12 @@ JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 
 BACKEND = os.environ.get("BACKEND", "expectations")
 if not _is_valid_backend_name(BACKEND):
-    raise RuntimeError(f"BACKEND not in valid format: '{BACKEND}'")
+    raise RuntimeError(f"BACKEND not in valid format: '{BACKEND}'")  # pragma: no cover
 
 truthy = ("true", "1", "yes")
 
 if os.environ.get("USING_DUMMY_DATA_BACKEND", "false").lower().strip() in truthy:
-    USING_DUMMY_DATA_BACKEND = True
+    USING_DUMMY_DATA_BACKEND = True  # pragma: no cover
 else:
     USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
@@ -113,11 +113,11 @@ PRESTO_TLS_CERT_PATH = os.environ.get("PRESTO_TLS_CERT_PATH")
 PRESTO_TLS_KEY_PATH = os.environ.get("PRESTO_TLS_KEY_PATH")
 
 if bool(PRESTO_TLS_KEY_PATH) != bool(PRESTO_TLS_CERT_PATH):
-    raise ConfigException(
+    raise ConfigException(  # pragma: no cover
         "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined if either are"
     )
 
-if PRESTO_TLS_KEY_PATH:
+if PRESTO_TLS_KEY_PATH:  # pragma: no cover
     key_path = Path(PRESTO_TLS_KEY_PATH)
     if key_path.exists():
         PRESTO_TLS_KEY = key_path.read_text()
@@ -126,7 +126,7 @@ if PRESTO_TLS_KEY_PATH:
             f"PRESTO_TLS_KEY_PATH={key_path}, but file does not exist"
         )
 
-if PRESTO_TLS_CERT_PATH:
+if PRESTO_TLS_CERT_PATH:  # pragma: no cover
     cert_path = Path(PRESTO_TLS_CERT_PATH)
     if cert_path.exists():
         PRESTO_TLS_CERT = cert_path.read_text()
@@ -281,7 +281,7 @@ DOCKER_HOST_VOLUME_DIR = os.environ.get("DOCKER_HOST_VOLUME_DIR")
 if sys.platform == "linux":
     DOCKER_USER_ID = os.environ.get("DOCKER_USER_ID", str(os.geteuid()))
     DOCKER_GROUP_ID = os.environ.get("DOCKER_GROUP_ID", str(os.getegid()))
-else:
+else:  # pragma: no cover
     DOCKER_USER_ID = None
     DOCKER_GROUP_ID = None
 
