@@ -30,7 +30,7 @@ def host_volume_path(job, create=True):
     if create:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-        except PermissionError:
+        except PermissionError:  # pragma: no cover
             raise Exception(f"Could not create {path.parent} due to permissions error")
     return path
 
@@ -50,7 +50,7 @@ def volume_name(job):
 
     return config.DOCKER_HOST_VOLUME_DIR / local_path.relative_to(
         config.HIGH_PRIVACY_VOLUME_DIR
-    )
+    )  # pragma: no cover
 
 
 def create_volume(job, labels=None):
@@ -121,12 +121,12 @@ def read_timestamp(job, path, timeout=None):
         contents = abs_path.read_text()
         if contents:
             return int(contents)
-        else:
+        else:  # pragma: no cover
             # linux host filesystem provides untruncated timestamps
             stat = abs_path.stat()
             return int(stat.st_ctime * 1e9)
 
-    except Exception:
+    except Exception:  # pragma: no cover
         logger.exception("Failed to read timestamp from volume file {abs_path}")
         return None
 

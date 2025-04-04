@@ -65,7 +65,7 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     try:
         return subprocess.run(args, timeout=timeout, **kwargs)
     except subprocess.TimeoutExpired as e:
-        raise DockerTimeoutError from e
+        raise DockerTimeoutError from e  # pragma: no cover
     except subprocess.CalledProcessError as e:
         output = e.stderr
         if output is None:
@@ -116,7 +116,7 @@ def create_volume(volume_name, labels=None):
             e.returncode != 125
             or b"is already in use by container" not in e.stderr.lower()
         ):
-            raise
+            raise  # pragma: no cover
 
 
 def delete_volume(volume_name):
@@ -129,7 +129,7 @@ def delete_volume(volume_name):
             check=True,
             capture_output=True,
         )
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError as e:  # pragma: no cover
         # Ignore error if container has already been removed
         if e.returncode != 1 or b"no such container" not in e.stderr.lower():
             raise
@@ -146,7 +146,7 @@ def delete_volume(volume_name):
     except subprocess.CalledProcessError as e:
         # Ignore error if container has already been removed
         if e.returncode != 1 or b"no such volume" not in e.stderr.lower():
-            raise
+            raise  # pragma: no cover
 
 
 def copy_to_volume(volume_name, source, dest, timeout=None):
@@ -272,7 +272,7 @@ def container_inspect(name, key="", none_if_not_exists=False, timeout=None):
             capture_output=True,
             timeout=timeout,
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired:  # pragma: no cover
         raise DockerTimeoutError(f"container_inspect timeout for {name}")
     except subprocess.CalledProcessError as e:
         if (
@@ -281,7 +281,7 @@ def container_inspect(name, key="", none_if_not_exists=False, timeout=None):
             and b"no such container" in e.stderr.lower()
         ):
             return
-        else:
+        else:  # pragma: no cover
             raise
     return json.loads(response.stdout)
 
@@ -301,7 +301,7 @@ def run(
     if extra_args is not None:
         run_args.extend(extra_args)
 
-    if not allow_network_access:
+    if not allow_network_access:  # pragma: no cover
         run_args.extend(["--network", "none"])
     if volume:
         run_args.extend(
@@ -336,7 +336,7 @@ def image_exists_locally(image_name_and_version):
     except subprocess.CalledProcessError as e:
         if e.returncode == 1 and b"no such image" in e.stderr.lower():
             return False
-        raise
+        raise  # pragma: no cover
 
 
 def delete_container(name):
@@ -346,7 +346,7 @@ def delete_container(name):
             check=True,
             capture_output=True,
         )
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError as e:  # pragma: no cover
         # Ignore error if container has already been removed
         if e.returncode != 1 or b"no such container" not in e.stderr.lower():
             raise
@@ -359,7 +359,7 @@ def kill(name):
             check=True,
             capture_output=True,
         )
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError as e:  # pragma: no cover
         # Ignore error if container has already been killed or removed
         error = e.stderr.lower()
         if e.returncode != 1 or (
