@@ -143,7 +143,7 @@ def test_kill_job(
     # persist_outputs needs this
     mocker.container_inspect.return_value = {
         "Image": "image",
-        "State": {"ExitCode": 137},
+        "State": {"ExitCode": 137, "OOMKilled": False},
     }
 
     # set both the docker module names used to the mocker version
