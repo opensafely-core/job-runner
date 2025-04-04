@@ -361,20 +361,20 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
     manifest = local.read_manifest_file(level4_dir, job_definition)
 
-    metadata = manifest["outputs"]["output/summary.csv"]
-    assert metadata["level"] == "moderately_sensitive"
-    assert metadata["job_id"] == job_definition.id
-    assert metadata["job_request"] == job_definition.job_request_id
-    assert metadata["action"] == job_definition.action
-    assert metadata["commit"] == job_definition.study.commit
-    assert metadata["excluded"] is False
-    assert metadata["size"] == 0
+    csv_metadata = manifest["outputs"]["output/summary.csv"]
+    assert csv_metadata["level"] == "moderately_sensitive"
+    assert csv_metadata["job_id"] == job_definition.id
+    assert csv_metadata["job_request"] == job_definition.job_request_id
+    assert csv_metadata["action"] == job_definition.action
+    assert csv_metadata["commit"] == job_definition.study.commit
+    assert csv_metadata["excluded"] is False
+    assert csv_metadata["size"] == 0
     assert (
-        metadata["content_hash"]
+        csv_metadata["content_hash"]
         == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     )
-    assert metadata["row_count"] == 0
-    assert metadata["col_count"] == 0
+    assert csv_metadata["row_count"] == 0
+    assert csv_metadata["col_count"] == 0
 
     txt_metadata = manifest["outputs"]["output/summary.txt"]
     assert txt_metadata["excluded"] is False
