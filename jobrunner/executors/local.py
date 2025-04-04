@@ -39,7 +39,6 @@ MANIFEST_FILE = "manifest.json"
 TIMESTAMP_REFERENCE_FILE = ".opensafely-timestamp"
 
 # cache of result objects
-RESULTS = {}
 LABEL = "jobrunner-local"
 
 log = logging.getLogger(__name__)
@@ -67,8 +66,17 @@ def get_log_dir(job_definition):
 
 
 def read_job_metadata(job_definition):
-    path = get_log_dir(job_definition) / METADATA_FILE
+    path = job_metadata_path(job_definition)
     return json.loads(path.read_text())
+
+
+def job_metadata_exists(job_definition):
+    path = job_metadata_path(job_definition)
+    return path.exists()
+
+
+def job_metadata_path(job_definition):
+    return get_log_dir(job_definition) / METADATA_FILE
 
 
 class LocalDockerError(Exception):
@@ -239,7 +247,6 @@ class LocalDockerAPI(ExecutorAPI):
         else:  # pragma: no cover
             log.info("Leaving container and volume in place for debugging")
 
-        RESULTS.pop(job_definition.id, None)
         return JobStatus(ExecutorState.UNKNOWN)
 
     def get_status(self, job_definition, timeout=15):
@@ -295,10 +302,11 @@ class LocalDockerAPI(ExecutorAPI):
             return JobStatus(
                 ExecutorState.EXECUTING, timestamp_ns=timestamp_ns, metrics=metrics
             )
-        elif job_definition.id in RESULTS:
+        elif job_metadata_exists(job_definition):
+            job_metadata = read_job_metadata(job_definition)
             return JobStatus(
                 ExecutorState.FINALIZED,
-                timestamp_ns=RESULTS[job_definition.id].timestamp_ns,
+                timestamp_ns=job_metadata["timestamp_ns"],
                 metrics=metrics,
             )
         else:
@@ -310,10 +318,24 @@ class LocalDockerAPI(ExecutorAPI):
             )
 
     def get_results(self, job_definition):
-        if job_definition.id not in RESULTS:
-            return JobStatus(ExecutorState.ERROR, "job has not been finalized")
+        metadata = read_job_metadata(job_definition)
 
-        return RESULTS[job_definition.id]
+        return JobResults(
+            outputs=metadata["outputs"],
+            unmatched_patterns=metadata["unmatched_patterns"],
+            unmatched_outputs=metadata["unmatched_outputs"],
+            exit_code=int(metadata["exit_code"]),
+            image_id=metadata["docker_image_id"],
+            message=metadata["status_message"],
+            unmatched_hint=metadata["hint"],
+            timestamp_ns=metadata["timestamp_ns"],
+            action_version=metadata["action_version"],
+            action_revision=metadata["action_revision"],
+            action_created=metadata["action_created"],
+            base_revision=metadata["base_revision"],
+            base_created=metadata["base_created"],
+            level4_excluded_files=metadata["level4_excluded_files"],
+        )
 
     def delete_files(self, workspace, privacy, files):
         if privacy == Privacy.HIGH:
@@ -455,12 +477,10 @@ def finalize_job(job_definition):
         write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
     else:
         excluded = persist_outputs(job_definition, results.outputs, job_metadata)
+        job_metadata["level4_excluded_files"] = excluded
         write_job_logs(
             job_definition, job_metadata, copy_log_to_workspace=True, excluded=excluded
         )
-        results.level4_excluded_files.update(**excluded)
-
-    RESULTS[job_definition.id] = results
 
     # for ease of testing
     return results
@@ -477,12 +497,23 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["docker_image_id"] = container_metadata["Image"]
     # convert exit code to str so 0 exit codes get logged
     job_metadata["exit_code"] = str(container_metadata["State"]["ExitCode"])
+    job_metadata["oom_killed"] = container_metadata["State"]["OOMKilled"]
     job_metadata["status_message"] = results.message
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job_definition.study.commit
     job_metadata["database_name"] = job_definition.database_name
     job_metadata["hint"] = results.unmatched_hint
+    # all calculated results
+    job_metadata["unmatched_patterns"] = results.unmatched_patterns
+    job_metadata["unmatched_outputs"] = results.unmatched_outputs
+    job_metadata["timestamp_ns"] = results.timestamp_ns
+    job_metadata["action_version"] = results.action_version
+    job_metadata["action_revision"] = results.action_revision
+    job_metadata["action_created"] = results.action_created
+    job_metadata["base_revision"] = results.base_revision
+    job_metadata["base_created"] = results.base_created
+    job_metadata["level4_excluded_files"] = {}
     return job_metadata
 
 
@@ -493,8 +524,7 @@ def write_job_logs(
     # Dump useful info in log directory
     log_dir = get_log_dir(job_definition)
     write_log_file(job_definition, job_metadata, log_dir / "logs.txt", excluded)
-    with open(log_dir / METADATA_FILE, "w") as f:
-        json.dump(job_metadata, f, indent=2)
+    job_metadata_path(job_definition).write_text(json.dumps(job_metadata, indent=2))
 
     if copy_log_to_workspace:
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
