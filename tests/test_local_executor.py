@@ -381,6 +381,19 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     assert txt_metadata["row_count"] is None
     assert txt_metadata["col_count"] is None
 
+    job_metadata = local.read_job_metadata(job_definition)
+    for key in {
+        "exit_code",
+        "completed_at",
+        "commit",
+        "docker_image_id",
+        "status_message",
+        "outputs",
+        "job_definition_id",
+        "job_definition_request_id",
+    }:
+        assert key in job_metadata.keys()
+
 
 @pytest.mark.needs_docker
 def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir):
