@@ -25,12 +25,14 @@ def test_update_controller(db):
         stage=TaskStage.FINALIZED,
         timestamp=timestamp_ns,
         results={"test": "test"},
+        complete=True,
     )
 
     db_task = controller_api.get_task(task.id)
     assert db_task.agent_stage == TaskStage.FINALIZED
     assert db_task.agent_stage_ns == timestamp_ns
     assert db_task.agent_results == {"test": "test"}
+    assert bool(db_task.agent_complete) is True
 
 
 def test_full_job_stages(db):
@@ -51,12 +53,14 @@ def test_full_job_stages(db):
         db_task = controller_api.get_task(task.id)
         assert db_task.agent_stage == stage
         assert db_task.agent_stage_ns == timestamp_ns
+        assert bool(db_task.agent_complete) is False
 
     timestamp_ns += int(1e6)
     task_api.update_controller(
-        task, TaskStage.FINALIZED, timestamp_ns, results={"test": "test"}
+        task, TaskStage.FINALIZED, timestamp_ns, results={"test": "test"}, complete=True
     )
     db_task = controller_api.get_task(task.id)
     assert db_task.agent_stage == TaskStage.FINALIZED
     assert db_task.agent_stage_ns == timestamp_ns
     assert db_task.agent_results == {"test": "test"}
+    assert bool(db_task.agent_complete) is True
