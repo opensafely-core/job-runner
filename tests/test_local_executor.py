@@ -339,7 +339,6 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     assert status.state == ExecutorState.FINALIZED
 
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-    assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
     print(get_docker_log(job_definition))
@@ -391,6 +390,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
         "outputs",
         "job_definition_id",
         "job_definition_request_id",
+        "timestamp_ns",
     }:
         assert key in job_metadata.keys()
 
@@ -417,7 +417,6 @@ def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir):
 
     # we don't need to wait
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-    assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
     print(get_docker_log(job_definition))
@@ -467,7 +466,6 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir):
 
     # we don't need to wait
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-    assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
     print(get_docker_log(job_definition))
@@ -510,7 +508,6 @@ def test_finalize_unmatched_output(docker_cleanup, job_definition, tmp_work_dir)
 
     # we don't need to wait
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-    assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
     print(get_docker_log(job_definition))
@@ -545,12 +542,9 @@ def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir):
     # we don't need to wait
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
-    assert job_definition.id in local.RESULTS
-    assert local.RESULTS[job_definition.id].exit_code == 137
-    assert (
-        local.RESULTS[job_definition.id].message
-        == "Job killed by OpenSAFELY admin or memory limits"
-    )
+    results = api.get_results(job_definition)
+    assert results.exit_code == 137
+    assert results.message == "Job killed by OpenSAFELY admin or memory limits"
 
     assert log_dir_log_file_exists(job_definition)
     assert workspace_log_file_exists(job_definition)
@@ -576,13 +570,11 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
 
     # we don't need to wait
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-    assert job_definition.id in local.RESULTS
-    assert local.RESULTS[job_definition.id].exit_code == 137
+
+    results = api.get_results(job_definition)
+    assert results.exit_code == 137
     # Note, 6MB is rounded to 0.01GBM by the formatter
-    assert (
-        local.RESULTS[job_definition.id].message
-        == "Job ran out of memory (limit was 0.01GB)"
-    )
+    assert results.message == "Job ran out of memory (limit was 0.01GB)"
 
     assert log_dir_log_file_exists(job_definition)
     assert workspace_log_file_exists(job_definition)
@@ -857,8 +849,8 @@ def test_pending_job_terminated_not_finalized(
     assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
     # nb. no need to run terminate(), finalize() or cleanup()
-
-    assert job_definition.id not in local.RESULTS
+    with pytest.raises(Exception):
+        api.get_results(job_definition)
     assert not log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
 
@@ -881,7 +873,8 @@ def test_prepared_job_terminated_not_finalized(
 
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
-    assert job_definition.id not in local.RESULTS
+    with pytest.raises(Exception):
+        api.get_results(job_definition)
 
     status = api.cleanup(job_definition)
     assert status.state == ExecutorState.UNKNOWN
@@ -914,9 +907,10 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
     assert status.state == ExecutorState.FINALIZED
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
-    assert job_definition.id in local.RESULTS
-    assert local.RESULTS[job_definition.id].exit_code == 137
-    assert local.RESULTS[job_definition.id].message == "Job cancelled by user"
+    results = api.get_results(job_definition)
+
+    assert results.exit_code == 137
+    assert results.message == "Job cancelled by user"
 
     # Calling terminate again on a finalized job just returns the current status
     status = api.terminate(job_definition)
@@ -925,8 +919,6 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
     status = api.cleanup(job_definition)
     assert status.state == ExecutorState.UNKNOWN
     assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
-
-    assert job_definition.id not in local.RESULTS
 
     assert log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
