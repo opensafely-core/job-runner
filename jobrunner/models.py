@@ -391,6 +391,7 @@ class Task:
             completed_at int,
             agent_stage TEXT,
             agent_stage_ns INT,
+            agent_complete BOOLEAN,
             agent_results TEXT,
             PRIMARY KEY (id)
         )
@@ -417,4 +418,6 @@ class Task:
     agent_stage_ns: int = None
     # the results of the task
     # the task is complete from the agent's POV once this is set
+    agent_complete: bool = False
+    # results of the task
     agent_results: dict = None
