@@ -2,8 +2,10 @@ name: Tag repo; build and publish assets
 on:
   push:
     branches:
-      - master
-      - main
+      # re-enable these branches when the long-running dev branch is merged to main
+      # - master
+      # - main
+      - dev
   # this allows us to trigger manually
   workflow_dispatch:
 
