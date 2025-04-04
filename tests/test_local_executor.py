@@ -54,7 +54,7 @@ def populate_workspace(workspace, filename, content=None, privacy="high"):
 
 
 # used for tests and debugging
-def get_log(job_definition):
+def get_docker_log(job_definition):
     result = docker.docker(
         ["container", "logs", local.container_name(job_definition)],
         check=True,
@@ -342,7 +342,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
-    print(get_log(job_definition))
+    print(get_docker_log(job_definition))
     results = api.get_results(job_definition)
     assert results.exit_code == 0
     assert results.outputs == {
@@ -407,7 +407,7 @@ def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir):
     assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
-    print(get_log(job_definition))
+    print(get_docker_log(job_definition))
     results = api.get_results(job_definition)
     assert results.exit_code == 1
     assert results.outputs == {}
@@ -457,7 +457,7 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir):
     assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
-    print(get_log(job_definition))
+    print(get_docker_log(job_definition))
     results = api.get_results(job_definition)
     assert results.exit_code == 0
     assert results.outputs == {}
@@ -500,7 +500,7 @@ def test_finalize_unmatched_output(docker_cleanup, job_definition, tmp_work_dir)
     assert job_definition.id in local.RESULTS
 
     # for test debugging if any asserts fail
-    print(get_log(job_definition))
+    print(get_docker_log(job_definition))
     results = api.get_results(job_definition)
     assert results.exit_code == 0
     assert results.outputs == {}
