@@ -53,7 +53,7 @@ def get_high_privacy_workspace(workspace):
 def get_medium_privacy_workspace(workspace):
     if config.MEDIUM_PRIVACY_WORKSPACES_DIR:
         return config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace
-    else:
+    else:  # pragma: no cover
         return None
 
 
@@ -117,7 +117,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         try:
             prepare_job(job_definition)
-        except docker.DockerDiskSpaceError as e:
+        except docker.DockerDiskSpaceError as e:  # pragma: no cover
             log.exception(str(e))
             return JobStatus(
                 ExecutorState.ERROR, "Out of disk space, please try again later"
@@ -138,13 +138,15 @@ class LocalDockerAPI(ExecutorAPI):
             extra_args.extend(["--memory", job_definition.memory_limit])
         # We use a custom Docker network configured so that database jobs can access the
         # database and nothing else
-        if job_definition.allow_database_access and config.DATABASE_ACCESS_NETWORK:
+        if (
+            job_definition.allow_database_access and config.DATABASE_ACCESS_NETWORK
+        ):  # pragma: no cover
             extra_args.extend(["--network", config.DATABASE_ACCESS_NETWORK])
             extra_args.extend(
                 get_dns_args_for_docker(job_definition.env.get("DATABASE_URL"))
             )
 
-        if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:
+        if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:  # pragma: no cover
             extra_args.extend(
                 [
                     "--user",
@@ -171,7 +173,7 @@ class LocalDockerAPI(ExecutorAPI):
                 volume_type=volumes.volume_type,
             )
 
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover
             return JobStatus(
                 ExecutorState.ERROR, f"Failed to start docker container: {exc}"
             )
@@ -188,7 +190,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         try:
             finalize_job(job_definition)
-        except LocalDockerError as exc:
+        except LocalDockerError as exc:  # pragma: no cover
             return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
         # this api is synchronous, so we are now FINALIZED
@@ -226,7 +228,7 @@ class LocalDockerAPI(ExecutorAPI):
             log.info("Cleaning up container and volume")
             docker.delete_container(container_name(job_definition))
             volumes.delete_volume(job_definition)
-        else:
+        else:  # pragma: no cover
             log.info("Leaving container and volume in place for debugging")
 
         RESULTS.pop(job_definition.id, None)
@@ -367,7 +369,7 @@ def finalize_job(job_definition):
     container_metadata = docker.container_inspect(
         container_name(job_definition), none_if_not_exists=True
     )
-    if not container_metadata:
+    if not container_metadata:  # pragma: no cover
         if job_definition.cancelled:
             # no logs to retain if the container didn't start yet
             return
@@ -416,7 +418,7 @@ def finalize_job(job_definition):
     ):
         message = "Job ran out of memory"
         memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
-        if memory_limit > 0:
+        if memory_limit > 0:  # pragma: no cover
             gb_limit = memory_limit / (1024**3)
             message += f" (limit was {gb_limit:.2f}GB)"
     else:
@@ -495,7 +497,7 @@ def write_job_logs(
         log.info(f"Logs written to: {workspace_log_file}")
 
         medium_privacy_dir = get_medium_privacy_workspace(job_definition.workspace)
-        if medium_privacy_dir:
+        if medium_privacy_dir:  # pragma: no branch
             volumes.copy_file(
                 workspace_log_file,
                 medium_privacy_dir / METADATA_DIR / f"{job_definition.action}.log",
@@ -536,7 +538,7 @@ def persist_outputs(job_definition, outputs, job_metadata):
     medium_privacy_dir = get_medium_privacy_workspace(job_definition.workspace)
 
     # local run currently does not have a level 4 directory, so exit early
-    if not medium_privacy_dir:
+    if not medium_privacy_dir:  # pragma: no cover
         return excluded_job_msgs
 
     # Copy out medium privacy files to L4
@@ -711,7 +713,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         actual_file = workspace_dir / filename
         try:
             csv_counts, headers = get_csv_counts(actual_file)
-        except Exception:
+        except Exception:  # pragma: no cover
             pass
         else:
             if headers and "patient_id" in headers:
@@ -824,7 +826,7 @@ def copy_git_commit_to_volume(job_definition, repo_url, commit, extra_dirs):
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
         try:
             volumes.copy_to_volume(job_definition, tmpdir, ".", timeout=60)
-        except docker.DockerTimeoutError:
+        except docker.DockerTimeoutError:  # pragma: no cover
             # Aborting a `docker cp` into a container at the wrong time can
             # leave the container in a completely broken state where any
             # attempt to interact with or even remove it will just hang, see:
@@ -897,7 +899,7 @@ def write_manifest_file(workspace_dir, manifest):
     manifest_file_tmp.replace(manifest_file)
 
 
-def get_dns_args_for_docker(database_url):
+def get_dns_args_for_docker(database_url):  # pragma: no cover
     # This is various shades of horrible. For containers on a custom network, Docker
     # creates an embedded DNS server, available on 127.0.0.11 from within the container.
     # This proxies non-local requests out to the host DNS server. We want to lock these

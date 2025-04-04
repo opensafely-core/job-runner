@@ -1,11 +1,16 @@
 import os
 from pathlib import Path
+from subprocess import CalledProcessError
+from unittest import mock
 
 import pytest
 
 from jobrunner.lib.git import (
+    GitError,
+    GitFileNotFoundError,
     GitRepoNotReachableError,
     GitUnknownRefError,
+    add_access_token_and_proxy,
     checkout_commit,
     commit_already_fetched,
     commit_reachable_from_ref,
@@ -13,6 +18,7 @@ from jobrunner.lib.git import (
     fetch_commit,
     get_sha_from_remote_ref,
     read_file_from_repo,
+    redact_token_from_exception,
 )
 
 
@@ -134,6 +140,15 @@ def test_read_file_from_repo_local(tmp_work_dir):
     assert output.startswith(b"version: '1.0'")
 
 
+def test_read_file_from_repo_local_does_not_exist(tmp_work_dir):
+    with pytest.raises(GitFileNotFoundError, match="File 'unknown.yaml' not found"):
+        read_file_from_repo(
+            REPO_FIXTURE,
+            "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
+            "unknown.yaml",
+        )
+
+
 def test_checkout_commit_local(tmp_work_dir, tmp_path):
     target_dir = tmp_path / "files"
     checkout_commit(
@@ -167,3 +182,168 @@ def test_commit_already_fetched(tmp_path):
     assert not commit_already_fetched(repo_dir, commit_sha)
     fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
     assert commit_already_fetched(repo_dir, commit_sha)
+
+
+@mock.patch("jobrunner.lib.git.time.sleep")
+def test_commit_fetch_retry(mock_sleep, tmp_path):
+    commit_sha = "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
+    repo_dir = tmp_path / "repo"
+    ensure_git_init(repo_dir)
+    assert not commit_already_fetched(repo_dir, commit_sha)
+
+    with mock.patch(
+        "jobrunner.lib.git.subprocess.run",
+        side_effect=[
+            # 5 retries are allowed; mock a caught exception for the first 4
+            CalledProcessError(returncode=1, cmd="git", stderr=b"GnuTLS recv error"),
+            CalledProcessError(
+                returncode=1, cmd="git", stderr=b"SSL_read: Connection was reset"
+            ),
+            CalledProcessError(returncode=1, cmd="git", stderr=b"GnuTLS recv error"),
+            CalledProcessError(
+                returncode=1, cmd="git", stderr=b"SSL_read: Connection was reset"
+            ),
+            # git fetch succeeds
+            None,
+            # mark_commmit_as_fetched (git tag) succeeds
+            None,
+        ],
+    ):
+        fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
+
+
+@mock.patch("jobrunner.lib.git.time.sleep")
+def test_commit_fetch_retry_max_attempts(mock_sleep, tmp_path):
+    commit_sha = "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
+    repo_dir = tmp_path / "repo"
+    ensure_git_init(repo_dir)
+    assert not commit_already_fetched(repo_dir, commit_sha)
+
+    with mock.patch(
+        "jobrunner.lib.git.subprocess.run",
+        side_effect=[
+            CalledProcessError(returncode=1, cmd="git", stderr=b"GnuTLS recv error"),
+        ]
+        * 5,
+    ):
+        with pytest.raises(
+            GitError, match=f"Network error when fetching commit {commit_sha}"
+        ):
+            fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
+
+
+def test_commit_fetch_retry_unexpected_error(tmp_path):
+    commit_sha = "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
+    repo_dir = tmp_path / "repo"
+    ensure_git_init(repo_dir)
+    assert not commit_already_fetched(repo_dir, commit_sha)
+
+    with mock.patch(
+        "jobrunner.lib.git.subprocess.run",
+        side_effect=[
+            CalledProcessError(returncode=1, cmd="git", stderr=b"Unknown error"),
+        ],
+    ):
+        with pytest.raises(GitError, match=f"Error fetching commit {commit_sha}"):
+            fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
+
+
+@pytest.mark.parametrize(
+    "repo_url,token,expected",
+    [
+        (
+            "https://github.com/org/repo",
+            "token",
+            "https://jobrunner-test:token@proxy.com/org/repo",
+        ),
+        # no token, return without username/pass
+        ("https://github.com/org/repo", "", "https://proxy.com/org/repo"),
+        # no https, return without username/pass
+        ("http://github.com/org/repo", "token", "http://proxy.com/org/repo"),
+        # already includes username/pass, don't update
+        (
+            "https://user:pass@github.com/org/repo",
+            "token",
+            "https://user:pass@proxy.com/org/repo",
+        ),
+    ],
+)
+def test_add_access_token_and_proxy(repo_url, token, expected, monkeypatch):
+    monkeypatch.setattr("jobrunner.config.GIT_PROXY_DOMAIN", "proxy.com")
+    monkeypatch.setattr("jobrunner.config.BACKEND", "test")
+    monkeypatch.setattr("jobrunner.config.PRIVATE_REPO_ACCESS_TOKEN", token)
+
+    assert add_access_token_and_proxy(repo_url) == expected
+
+
+@pytest.mark.parametrize(
+    "token,exc_cmd,exc_output,exc_stderr,exp_cmd,exp_output,exp_sterr",
+    [
+        # cmd as list
+        (
+            "token123",
+            ["fetch", "http://user:token123@example.com", "token123"],
+            None,
+            None,
+            ["fetch", "http://user:********@example.com", "********"],
+            None,
+            None,
+        ),
+        # no token in config, nothing to redact
+        (
+            "",
+            ["fetch", "http://user:token123@example.com", "token123"],
+            None,
+            None,
+            ["fetch", "http://user:token123@example.com", "token123"],
+            None,
+            None,
+        ),
+        # cmd as string, token in output and stderr too
+        (
+            "token123",
+            "cmd with token123",
+            "Token token123 in output",
+            b"Token token123 in stderr",
+            "cmd with ********",
+            "Token ******** in output",
+            b"Token ******** in stderr",
+        ),
+        # We can handle a Path command arg
+        (
+            "token123",
+            ["fetch", Path("/test/foo")],
+            None,
+            None,
+            ["fetch", Path("/test/foo")],
+            None,
+            None,
+        ),
+    ],
+)
+def test_redact_token_from_exception(
+    token, exc_cmd, exc_output, exc_stderr, exp_cmd, exp_output, exp_sterr, monkeypatch
+):
+    monkeypatch.setattr("jobrunner.config.PRIVATE_REPO_ACCESS_TOKEN", token)
+    exception = CalledProcessError(
+        1,
+        cmd=exc_cmd,
+        output=exc_output,
+        stderr=exc_stderr,
+    )
+    redact_token_from_exception(exception)
+    assert exception.cmd == exp_cmd
+    assert exception.output == exp_output
+    assert exception.stderr == exp_sterr
+
+
+def test_redact_token_from_exception_unhandled_type(monkeypatch):
+    monkeypatch.setattr("jobrunner.config.PRIVATE_REPO_ACCESS_TOKEN", "token")
+    exception = CalledProcessError(
+        1,
+        cmd=["do", 1],
+        output="token",
+        stderr=None,
+    )
+    with pytest.raises(ValueError, match="expected str, bytes or Path"):
+        redact_token_from_exception(exception)

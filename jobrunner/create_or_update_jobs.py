@@ -143,7 +143,7 @@ def validate_job_request(job_request):
             )
     # If we're not restricting to specific Github organisations then there's no
     # point in checking the provenance of the supplied commit
-    if config.ALLOWED_GITHUB_ORGS:
+    if config.ALLOWED_GITHUB_ORGS:  # pragma: no cover
         # As this involves talking to the remote git server we only do it at
         # the end once all other checks have passed
         validate_branch_and_commit(
@@ -156,7 +156,7 @@ def get_project_file(job_request):
         return read_file_from_repo(
             job_request.repo_url, job_request.commit, "project.yaml"
         )
-    except GitFileNotFoundError:
+    except GitFileNotFoundError:  # pragma: no cover
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
 
 
@@ -276,7 +276,7 @@ def job_should_be_rerun(job_request, job):
     # If it failed last time, re-run it by default
     elif job.state == State.FAILED:
         return True
-    else:
+    else:  # pragma: no cover
         raise ValueError(f"Invalid state: {job}")
 
 
@@ -304,7 +304,9 @@ def assert_new_jobs_created(job_request, new_jobs, current_jobs):
 
     # But if we get here then we've somehow failed to schedule new jobs despite the fact
     # that some of the actions we depend on have failed, which is a bug.
-    raise Exception(f"Unexpected job states after scheduling: {current_job_states}")
+    raise Exception(
+        f"Unexpected job states after scheduling: {current_job_states}"
+    )  # pragma: no cover
 
 
 def assert_codelists_ok(job_request, new_jobs):

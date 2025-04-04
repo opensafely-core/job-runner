@@ -1,5 +1,6 @@
 import logging
 import time
+from unittest import mock
 
 import pytest
 
@@ -411,6 +412,23 @@ def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir):
     assert results.exit_code == 1
     assert results.outputs == {}
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
+
+
+@pytest.mark.needs_docker
+def test_finalize_no_container_metadata(monkeypatch, job_definition, tmp_work_dir):
+    mocker = mock.MagicMock(spec=local.docker)
+    mocker.container_inspect.return_value = None
+
+    job_definition.args = ["false"]
+    job_definition.output_spec = {
+        "output/output.*": "highly_sensitive",
+        "output/summary.*": "moderately_sensitive",
+    }
+
+    api = local.LocalDockerAPI()
+
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.UNKNOWN
 
 
 @pytest.mark.needs_docker
@@ -887,6 +905,10 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
     assert local.RESULTS[job_definition.id].exit_code == 137
     assert local.RESULTS[job_definition.id].message == "Job cancelled by user"
 
+    # Calling terminate again on a finalized job just returns the current status
+    status = api.terminate(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
     status = api.cleanup(job_definition)
     assert status.state == ExecutorState.UNKNOWN
     assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
@@ -895,6 +917,14 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
 
     assert log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
+
+
+@pytest.mark.needs_docker
+def test_get_results_not_finalized(docker_cleanup, job_definition, tmp_work_dir):
+    api = local.LocalDockerAPI()
+    results = api.get_results(job_definition)
+    assert results.state == ExecutorState.ERROR
+    assert results.message == "job has not been finalized"
 
 
 @pytest.mark.needs_docker

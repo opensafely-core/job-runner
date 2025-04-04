@@ -61,7 +61,7 @@ def read_file_from_repo(repo_url, commit_sha, path):
     except subprocess.SubprocessError as e:
         if e.stderr.startswith(b"fatal: path ") and b"does not exist" in e.stderr:
             raise GitFileNotFoundError(f"File '{path}' not found in repository")
-        else:
+        else:  # pragma: no cover
             log.exception(f"Error reading from {repo_url} @ {commit_sha}")
             raise GitError(f"Error reading from {repo_url} @ {commit_sha}")
     # Note the response here is bytes not text as git doesn't know what

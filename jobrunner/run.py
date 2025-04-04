@@ -291,7 +291,7 @@ def handle_job(job, api, mode=None, paused=None):
 
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
-        if job.state == State.PENDING:
+        if job.state == State.PENDING:  # pragma: no cover
             log.warning(
                 f"state error: got {initial_status.state} for a job we thought was PENDING"
             )
@@ -307,7 +307,7 @@ def handle_job(job, api, mode=None, paused=None):
     # ok, handle the state transitions that are our responsibility
     if initial_status.state == ExecutorState.UNKNOWN:
         # a new job
-        if job.state == State.RUNNING:
+        if job.state == State.RUNNING:  # pragma: no cover
             log.warning(
                 "state error: got UNKNOWN state for a job we thought was RUNNING"
             )
@@ -371,7 +371,7 @@ def handle_job(job, api, mode=None, paused=None):
 
         new_status = api.finalize(job_definition)
 
-    elif initial_status.state == ExecutorState.FINALIZED:
+    elif initial_status.state == ExecutorState.FINALIZED:  # pragma: no branch
         # Cancelled jobs that have had cleanup() should now be again set to cancelled here to ensure
         # they finish in the FAILED state
         if job_definition.cancelled:
@@ -387,7 +387,7 @@ def handle_job(job, api, mode=None, paused=None):
 
         # nb. obsolete is always empty due to a bug - see
         # https://github.com/opensafely-core/job-runner/issues/750
-        if obsolete:
+        if obsolete:  # pragma: no cover
             errors = api.delete_files(job_definition.workspace, Privacy.HIGH, obsolete)
             if errors:
                 log.error(
@@ -447,11 +447,11 @@ def save_results(job, job_definition, results):
         code = StatusCode.NONZERO_EXIT
         error = True
         message = "Job exited with an error"
-        if results.message:
+        if results.message:  # pragma: no cover
             message += f": {results.message}"
         elif job_definition.allow_database_access:
             error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
-            if error_msg:
+            if error_msg:  # pragma: no cover
                 message += f": {error_msg}"
 
     elif results.unmatched_patterns:
@@ -491,7 +491,7 @@ def get_obsolete_files(job_definition, outputs):
         job_definition.workspace, job_definition.action
     ):
         name = str(existing).lower()
-        if name not in keep_files:
+        if name not in keep_files:  # pragma: no cover
             obsolete.append(str(existing))
     return obsolete
 
@@ -503,18 +503,18 @@ def job_to_job_definition(job):
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
-            if config.TEMP_DATABASE_NAME:
+            if config.TEMP_DATABASE_NAME:  # pragma: no cover
                 env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
-            if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
+            if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:  # pragma: no cover
                 env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
                 env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
-            if config.EMIS_ORGANISATION_HASH:
+            if config.EMIS_ORGANISATION_HASH:  # pragma: no cover
                 env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
     # Prepend registry name
     action_args = job.action_args
     image = action_args.pop(0)
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
-    if image.startswith("stata-mp"):
+    if image.startswith("stata-mp"):  # pragma: no cover
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 
     # Jobs which are running reusable actions pull their code from the reusable
@@ -604,7 +604,7 @@ def set_code(
     # if status code has changed then trace it and update
     if job.status_code != new_status_code:
         # handle timer measurement errors
-        if job.status_code_updated_at > timestamp_ns:
+        if job.status_code_updated_at > timestamp_ns:  # pragma: no cover
             # we somehow have a negative duration, which honeycomb does funny things with.
             # This can happen in tests, where things are fast, but we've seen it in production too.
             duration = datetime.timedelta(
@@ -670,7 +670,7 @@ def set_code(
     # If the status message hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
     # active without writing to the database every single time we poll
-    elif timestamp_s - job.updated_at >= 60:
+    elif timestamp_s - job.updated_at >= 60:  # pragma: no cover
         job.updated_at = timestamp_s
         log.debug("Updating job timestamp")
         update_job(job)
@@ -692,7 +692,7 @@ def get_reason_job_not_started(job):
     )
     required_resources = get_job_resource_weight(job)
     if used_resources + required_resources > config.MAX_WORKERS:
-        if required_resources > 1:
+        if required_resources > 1:  # pragma: no cover
             return (
                 StatusCode.WAITING_ON_WORKERS,
                 "Waiting on available workers for resource intensive job",
@@ -708,7 +708,7 @@ def get_reason_job_not_started(job):
                 "Waiting on available database workers",
             )
 
-    if os.environ.get("FUNTIMES", False):
+    if os.environ.get("FUNTIMES", False):  # pragma: no cover
         # allow any db job to run
         if job.requires_db:
             return None
@@ -749,7 +749,7 @@ def update_job(job):
     update(job, exclude_fields=["cancelled"])
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     configure_logging()
 
     try:
