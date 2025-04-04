@@ -28,6 +28,9 @@ from jobrunner.lib.string_utils import tabulate
 # Directory inside working directory where manifest and logs are created
 METADATA_DIR = "metadata"
 
+# Records information about job that's finished running
+METADATA_FILE = "metadata.json"
+
 # Records details of which action created each file
 MANIFEST_FILE = "manifest.json"
 
@@ -61,6 +64,11 @@ def get_log_dir(job_definition):
     # Split log directory up by month to make things slightly more manageable
     month_dir = datetime.date.today().strftime("%Y-%m")
     return config.JOB_LOG_DIR / month_dir / container_name(job_definition)
+
+
+def read_job_metadata(job_definition):
+    path = get_log_dir(job_definition) / METADATA_FILE
+    return json.loads(path.read_text())
 
 
 class LocalDockerError(Exception):
@@ -485,7 +493,7 @@ def write_job_logs(
     # Dump useful info in log directory
     log_dir = get_log_dir(job_definition)
     write_log_file(job_definition, job_metadata, log_dir / "logs.txt", excluded)
-    with open(log_dir / "metadata.json", "w") as f:
+    with open(log_dir / METADATA_FILE, "w") as f:
         json.dump(job_metadata, f, indent=2)
 
     if copy_log_to_workspace:
