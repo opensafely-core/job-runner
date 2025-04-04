@@ -22,6 +22,7 @@ def update_controller(
     stage: TaskStage,
     timestamp: int,
     results: dict = None,
+    complete: bool = False,
 ):
     """Update the controller with the current state of the task.
 
@@ -41,4 +42,5 @@ def update_controller(
     db_task.agent_stage = stage
     db_task.agent_stage_ns = timestamp
     db_task.agent_results = results
+    db_task.agent_complete = complete
     database.update(db_task)
