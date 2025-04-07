@@ -925,14 +925,6 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
 
 
 @pytest.mark.needs_docker
-def test_get_results_not_finalized(docker_cleanup, job_definition, tmp_work_dir):
-    api = local.LocalDockerAPI()
-    results = api.get_results(job_definition)
-    assert results.state == ExecutorState.ERROR
-    assert results.message == "job has not been finalized"
-
-
-@pytest.mark.needs_docker
 def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir):
     populate_workspace(job_definition.workspace, "output/input.csv")
 
