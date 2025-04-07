@@ -1,15 +1,56 @@
 # Developer notes
 
-## Dependencies
 
-Install the development dependencies with:
+
+## Prerequisites for local development
+
+### Just
+
+We use [`just`](https://github.com/casey/just) as our command runner. It's
+a single file binary available for many platforms so should be easy to
+install.
+
+```sh
+# macOS
+brew install just
+
+# Linux
+# Install from https://github.com/casey/just/releases
+
+# Add completion for your shell. E.g. for bash:
+source <(just --completions bash)
+
+# Show all available commands
+just #  shortcut for just --list
 ```
-pip install -r requirements.dev.txt
-```
-This includes the production dependencies in `requirements.txt` which
-are intentionally kept minimal.
+
+### Python
+
+You'll need an appropriate version of Python on your PATH. Check the
+`.python-version` file for the required version.
+
+### Docker
 
 You will also need an up-to-date version of Docker Compose. Instructions to install it are [here](https://docs.docker.com/compose/install/).
+
+
+## Getting started
+
+Set up a local development environment with:
+```
+just devenv
+```
+
+This includes the production dependencies in `requirements.txt` (which
+are intentionally kept minimal) and the dev dependencies in `requirements.dev.txt`.
+
+It also creates a `.env` file from `dotenv-sample`, and populates the
+`HIGH_PRIVACY_STORAGE_BASE` and `MEDIUM_PRIVACY_STORAGE_BASE` environment
+variables.
+
+Update `.env` to add a value for `PRIVATE_REPO_ACCESS_TOKEN`; this should be a
+developer [GitHub PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#about-personal-access-tokens) with `repo` scope.
+
 
 ## Architecture
 
@@ -128,23 +169,23 @@ Or run a command inside the docker image:
 
 ## Running jobs locally
 
-Adding jobs locally is most easily done with the `jobrunner.cli.add_job`
-command e.g
+Adding jobs locally is most easily done with the `just add-job` command, which
+calls `jobrunner.cli.add_job` with a study repo and an action to run e.g.
 ```
-python -m jobrunner.cli.add_job https://github.com/opensafely/os-demo-research run_all
+just add-job https://github.com/opensafely/os-demo-research run_all
 ```
 
 As well as URLs this will accept paths to local git repos e.g.
 ```
-python -m jobrunner.cli.add_job ../os-demo-research run_all
+just add-job ../os-demo-research run_all
 ```
 
-If you now run the main loop you'll see it pick up the jobs:
+You can now run the main loop and you'll see it pick up the jobs:
 ```
-python -m jobrunner.run
+just run
 ```
 
-See the full set of options it accepts with:
+See the full set of options `add-job` will accept with:
 ```
 python -m jobrunner.cli.add_job --help
 ```

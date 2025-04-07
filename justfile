@@ -151,8 +151,8 @@ fix: devenv
     just --fmt --unstable --justfile docker/justfile
 
 # Run the dev project
-add-job repo action *args: devenv
-    $BIN/python -m jobrunner.cli.add_job {{ repo }} {{ action }} {{ args }}
+add-job *args: devenv
+    $BIN/python -m jobrunner.cli.add_job {{ args }}
 
 run: devenv
     $BIN/python -m jobrunner.run
