@@ -67,16 +67,32 @@ def get_log_dir(job_definition):
 
 def read_job_metadata(job_definition):
     path = job_metadata_path(job_definition)
-    return json.loads(path.read_text())
+    if path:
+        return json.loads(path.read_text())
 
-
-def job_metadata_exists(job_definition):
-    path = job_metadata_path(job_definition)
-    return path.exists()
+    return None
 
 
 def job_metadata_path(job_definition):
-    return get_log_dir(job_definition) / METADATA_FILE
+    """Return the expected path for the metadata for a job.
+
+    Due to writing to a directory path that includes the month at the time the
+    job was completed. We now need to be able to look up the metadata of a job
+    that may have completed in a previous month, so we use a glob to find it.
+
+    This is hopefully a temporary hack (2025-04)
+    """
+    metadata_path = get_log_dir(job_definition) / METADATA_FILE
+    if metadata_path.exists():
+        return metadata_path
+    paths = list(
+        config.JOB_LOG_DIR.glob(f"*/{container_name(job_definition)}/{METADATA_FILE}")
+    )
+    assert len(paths) <= 1  # There can be only one. Or zero.
+    if paths:
+        return paths[0]
+
+    return None
 
 
 class LocalDockerError(Exception):
@@ -302,8 +318,7 @@ class LocalDockerAPI(ExecutorAPI):
             return JobStatus(
                 ExecutorState.EXECUTING, timestamp_ns=timestamp_ns, metrics=metrics
             )
-        elif job_metadata_exists(job_definition):
-            job_metadata = read_job_metadata(job_definition)
+        elif job_metadata := read_job_metadata(job_definition):
             return JobStatus(
                 ExecutorState.FINALIZED,
                 timestamp_ns=job_metadata["timestamp_ns"],
@@ -524,7 +539,8 @@ def write_job_logs(
     # Dump useful info in log directory
     log_dir = get_log_dir(job_definition)
     write_log_file(job_definition, job_metadata, log_dir / "logs.txt", excluded)
-    job_metadata_path(job_definition).write_text(json.dumps(job_metadata, indent=2))
+    metadata_path = get_log_dir(job_definition) / METADATA_FILE
+    metadata_path.write_text(json.dumps(job_metadata, indent=2))
 
     if copy_log_to_workspace:
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)

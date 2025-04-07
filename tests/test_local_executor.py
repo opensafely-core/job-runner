@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from unittest import mock
@@ -102,6 +103,25 @@ def workspace_log_file_exists(job_definition):
         / f"{job_definition.action}.log"
     )
     return workspace_log_file.exists()
+
+
+def test_read_metadata_path(job_definition):
+    assert local.read_job_metadata(job_definition) is None
+
+    globbed_path = (
+        config.JOB_LOG_DIR
+        / "last-month"
+        / local.container_name(job_definition)
+        / local.METADATA_FILE
+    )
+    globbed_path.parent.mkdir(parents=True)
+    globbed_path.write_text(json.dumps({"test": "globbed"}))
+    assert local.read_job_metadata(job_definition) == {"test": "globbed"}
+
+    actual_path = local.get_log_dir(job_definition) / local.METADATA_FILE
+    actual_path.parent.mkdir(parents=True)
+    actual_path.write_text(json.dumps({"test": "actual"}))
+    assert local.read_job_metadata(job_definition) == {"test": "actual"}
 
 
 @pytest.mark.needs_docker
