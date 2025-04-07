@@ -203,6 +203,16 @@ def handle_job(job, api, mode=None):
             return StatusCode.CANCELLED_BY_USER, "Cancelled by user"
 
     # check if we've transitioned since we last checked and trace it.
+    # this is because we don't always have the correct docker starting
+    # timestamp when we first transition to EXECUTING, as the container may not
+    # have actually started up when we return from api.execute() (as docker run
+    # -d returns imeadiately). So we update the state with the correct docker
+    # StartedAt timestamp here. Why we did it this way I am not sure. We
+    # probably don't care about the accuracy of a few seconds on the trace. We
+    # could instead wait on teh contrainer to come up before returning from
+    # api.execute(), and reteurn with the correct timestamp.
+    # Anyway, I think we should just delete this, as I suspect we'll be
+    # re-working JOB tracing
     if initial_status.state in STATE_MAP:
         # TODO -- simplify to just handle EXECUTING -> EXECUTED
         initial_code, initial_message = STATE_MAP[initial_status.state]
