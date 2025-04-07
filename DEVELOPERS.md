@@ -223,37 +223,10 @@ just jobrunner/logs-id <your-job-id>
 
 ## job-runner docker image
 
-Building the dev docker image:
+Building the docker image:
 
-    make -C docker-build                   # build base and dev image
-    make -C docker-build ENV=prod          # build base and prod image
-    make -C docker-build ARGS=--no-cache   # build without cache
-
-
-### Exposing the host's docker service
-
-By default, running the docker container will mount your host's
-`/var/run/docker.sock` into the container and use that for job-runner to run
-jobs. It does some matching of docker GIDs to do so.
-
-However, it also supports accessing docker over ssh:
-
-    make -C docker enable-docker-over-ssh
-
-The docker-compose invocations will now talk to your host docker over SSH,
-possibly on a remote machine. You can disable with:
-
-    make -C docker disable-docker-over-ssh
-
-Note: The above commands will automatically generate a local ed25519
-dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
-`just docker-clean` to remove this.  If you wish to use a different user/host,
-you can do so:
-
-1. Specify `SSH_USER` and `SSH_HOST` environment variables.
-2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
-3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
-   set up.
+    just docker/build                   # build base and dev image
+    just docker/build prod              # build base and prod image
 
 
 ## Database schema and migrations
@@ -297,29 +270,10 @@ or is out of date, as a protection against misconfiguration.
 To initialise or migrate the database, you can use the migrate command:
 
 ```sh
-python -m jobrunner.cli.migrate
+just migrate
 ```
 
-
 ## Deploying
-jobrunner is currently deployed by hand because of the difficulties of adding automated deploys to backend servers.
 
-Connect to the relevant backend server:
-
-### TPP
-1. Log onto the VPN
-1. RDP onto L3
-1. SSH into the linux VM running on L3
-1. Switch to the [jobrunner user](https://github.com/opensafely-core/backend-server/blob/main/playbook.md#jobrunner-user)
-
-
-### EMIS
-1. SSH into EMIS
-
-
-When you're connected to the relevant server:
-1. [Switch to the jobrunner user](https://github.com/opensafely-core/backend-server/blob/main/playbook.md#jobrunner-user)
-1. Change to the `/srv/backend-server` directory
-1. [Deploy job-runner](https://github.com/opensafely-core/backend-server/blob/main/playbook.md#deploy-job-runner)
-  1. Note the sections on dependencies and config, if those are relevant to your deploy
-1. [Watch the logs for errors](https://github.com/opensafely-core/backend-server/blob/main/playbook.md#viewing-job-runner-logs)
+The jobrunner docker image is built by GitHub actions on merges to `main` and deployed automatically
+on backend servers.
