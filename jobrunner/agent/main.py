@@ -1,10 +1,3 @@
-"""
-Script which polls the database for active (i.e. non-terminated) jobs, takes
-the appropriate action for each job depending on its current state, and then
-updates its state as appropriate.
-"""
-
-import collections
 import datetime
 import logging
 import os
@@ -17,7 +10,6 @@ from jobrunner import config, tracing
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import (
     ExecutorAPI,
-    ExecutorRetry,
     ExecutorState,
     JobDefinition,
     Privacy,
@@ -67,37 +59,15 @@ def handle_jobs(api: ExecutorAPI | None):
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
 
-    running_for_workspace = collections.defaultdict(int)
     handled_jobs = []
 
     while active_jobs:
-        # We need to re-sort on each loop because the number of running jobs per
-        # workspace will change as we work our way through
-        active_jobs.sort(
-            key=lambda job: (
-                # Process all running jobs first. Once we've processed all of these, the
-                # counts in `running_for_workspace` will be up-to-date.
-                0 if job.state == State.RUNNING else 1,
-                # Then process PENDING jobs in order of how many are running in the
-                # workspace. This gives a fairer allocation of capacity among
-                # workspaces.
-                running_for_workspace[job.workspace],
-                # DB jobs are more important than cpu jobs
-                0 if job.requires_db else 1,
-                # Finally use job age as a tie-breaker
-                job.created_at,
-            )
-        )
         job = active_jobs.pop(0)
 
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             handle_single_job(job, api)
-
-        # Add running jobs to the workspace count
-        if job.state == State.RUNNING:
-            running_for_workspace[job.workspace] += 1
 
         handled_jobs.append(job)
 
@@ -148,16 +118,8 @@ def handle_single_job(job, api):
     # we re-read the flags before considering each job, so make sure they apply
     # as soon as possible when set.
     mode = get_flag_value("mode")
-    paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
-        synchronous_transition = trace_handle_job(job, api, mode, paused)
-
-        # provide a way to shortcut moving a job on to the next state right away
-        # this is intended to support executors where some state transitions
-        # are synchronous, particularly the local executor where prepare is
-        # synchronous and can be time consuming.
-        if synchronous_transition:
-            trace_handle_job(job, api, mode, paused)
+        trace_handle_job(job, api, mode)
     except Exception as exc:
         mark_job_as_failed(
             job,
@@ -177,7 +139,7 @@ def handle_single_job(job, api):
         raise
 
 
-def trace_handle_job(job, api, mode, paused):
+def trace_handle_job(job, api, mode):
     """Call handle job with tracing."""
     attrs = {
         "initial_state": job.state.name,
@@ -187,7 +149,7 @@ def trace_handle_job(job, api, mode, paused):
     with tracer.start_as_current_span("LOOP_JOB") as span:
         tracing.set_span_metadata(span, job, **attrs)
         try:
-            synchronous_transition = handle_job(job, api, mode, paused)
+            handle_job(job, api, mode)
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
@@ -196,10 +158,8 @@ def trace_handle_job(job, api, mode, paused):
             span.set_attribute("final_state", job.state.name)
             span.set_attribute("final_code", job.status_code.name)
 
-    return synchronous_transition
 
-
-def handle_job(job, api, mode=None, paused=None):
+def handle_job(job, api, mode=None):
     """Handle an active job.
 
     This contains the main state machine logic for a job. For the most part,
@@ -207,54 +167,25 @@ def handle_job(job, api, mode=None, paused=None):
     transitions require special logic, mainly the initial and final states, as
     well as supporting cancellation and various operational modes.
     """
-    assert job.state in (State.PENDING, State.RUNNING)
     job_definition = job_to_job_definition(job)
 
     # does this api have synchronous_transitions?
     synchronous_transitions = getattr(api, "synchronous_transitions", [])
-    is_synchronous = False
 
     # only consider these modes if we are not about to cancel the job
     if not job_definition.cancelled:
-        # handle special modes before considering executor state, as they ignore it
-        if paused:
-            if job.state == State.PENDING:
-                # do not start the job, keep it pending
-                set_code(
-                    job,
-                    StatusCode.WAITING_PAUSED,
-                    "Backend is currently paused for maintenance, job will start once this is completed",
-                )
-                return
-
         if mode == "db-maintenance" and job_definition.allow_database_access:
-            if job.state == State.RUNNING:
-                log.warning(f"DB maintenance mode active, killing db job {job.id}")
-                # we ignore the JobStatus returned from these API calls, as this is not a hard error
-                api.terminate(job_definition)
-                api.cleanup(job_definition)
+            log.warning(f"DB maintenance mode active, killing db job {job.id}")
+            # we ignore the JobStatus returned from these API calls, as this is not a hard error
+            api.terminate(job_definition)
+            api.cleanup(job_definition)
 
-            # reset state to pending and exit
-            set_code(
-                job,
+            return (
                 StatusCode.WAITING_DB_MAINTENANCE,
                 "Waiting for database to finish maintenance",
             )
-            return
 
-    try:
-        initial_status = api.get_status(job_definition)
-    except ExecutorRetry as retry:
-        job_retries = EXECUTOR_RETRIES.get(job.id, 0) + 1
-        EXECUTOR_RETRIES[job.id] = job_retries
-        span = trace.get_current_span()
-        span.set_attribute("executor_retry", True)
-        span.set_attribute("executor_retry_message", str(retry))
-        span.set_attribute("executor_retry_count", job_retries)
-        log.info(f"ExecutorRetry: {retry}")
-        return
-    else:
-        EXECUTOR_RETRIES.pop(job.id, None)
+    initial_status = api.get_status(job_definition)
 
     # cancelled is driven by user request, so is handled explicitly first
     if job_definition.cancelled:
@@ -264,30 +195,19 @@ def handle_job(job, api, mode=None, paused=None):
             api.terminate(job_definition)  # synchronous operation
             new_status = api.get_status(job_definition)
             new_statuscode, _default_message = STATE_MAP[new_status.state]
-            set_code(job, new_statuscode, "Cancelled whilst executing")
-            return
+            return new_statuscode, "Cancelled whilst executing"
         if initial_status.state == ExecutorState.PREPARED:
-            set_code(
-                job,
-                StatusCode.FINALIZED,
-                "Cancelled whilst prepared",
-            )
             # Nb. no need to actually run finalize() in this case
-            return
+            return StatusCode.FINALIZED, "Cancelled whilst prepared"
         if initial_status.state == ExecutorState.UNKNOWN:
-            mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
-            return
+            return StatusCode.CANCELLED_BY_USER, "Cancelled by user"
 
     # check if we've transitioned since we last checked and trace it.
     if initial_status.state in STATE_MAP:
+        # TODO -- simplify to just handle EXECUTING -> EXECUTED
         initial_code, initial_message = STATE_MAP[initial_status.state]
         if initial_code != job.status_code:
-            set_code(
-                job,
-                initial_code,
-                initial_message,
-                timestamp_ns=initial_status.timestamp_ns,
-            )
+            return initial_code, initial_message, initial_status.timestamp_ns
 
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
@@ -347,7 +267,6 @@ def handle_job(job, api, mode=None, paused=None):
             code, message = STATE_MAP[ExecutorState.PREPARING]
             set_code(job, code, message)
             expected_state = ExecutorState.PREPARED
-            is_synchronous = True
         else:
             expected_state = ExecutorState.PREPARING
 
@@ -365,7 +284,6 @@ def handle_job(job, api, mode=None, paused=None):
             code, message = STATE_MAP[ExecutorState.FINALIZING]
             set_code(job, code, message)
             expected_state = ExecutorState.FINALIZED
-            is_synchronous = True
         else:
             expected_state = ExecutorState.FINALIZING
 
@@ -418,11 +336,6 @@ def handle_job(job, api, mode=None, paused=None):
         # successful state change to the expected next state
         code, message = STATE_MAP[new_status.state]
         set_code(job, code, message)
-
-        # we want to immediately run this function for this job again to
-        # avoid blocking it as we know the state transition has already
-        # completed.
-        return is_synchronous
 
     elif new_status.state == ExecutorState.ERROR:
         # all transitions can go straight to error
