@@ -335,3 +335,10 @@ def test_set_span_metadata_error(db):
     assert span.status.description == "test"
     assert span.events[0].name == "exception"
     assert span.events[0].attributes["exception.message"] == "test"
+
+
+def test_set_span_metadata_non_recording_span_with_invalid_attribute_type(db, caplog):
+    job = job_factory()
+    non_recording_span = trace.NonRecordingSpan({})
+    tracing.set_span_metadata(non_recording_span, job, foo=None)
+    assert "attribute foo was set invalid type: None" in caplog.text

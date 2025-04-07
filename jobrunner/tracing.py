@@ -246,7 +246,7 @@ OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 
 def set_span_metadata(span, job, error=None, results=None, **attrs):
-    """Set span metadata with everthing we know about a job."""
+    """Set span metadata with everything we know about a job."""
     attributes = {}
 
     if attrs:
@@ -258,8 +258,10 @@ def set_span_metadata(span, job, error=None, results=None, **attrs):
     for k, v in attributes.items():
         if not isinstance(v, OTEL_ATTR_TYPES):
             # log to help us notice this
-            logger.info(
-                f"Trace span {span.name} attribute {k} was set invalid type: {v}, type {type(v)}"
+            # If the span has no name attribute (e.g. NonRecordingSpans), log its type instead
+            span_name = getattr(span, "name", type(span))
+            logger.error(
+                f"Trace span {span_name} attribute {k} was set invalid type: {v}, type {type(v)}"
             )
             # coerce to string so we preserve some information
             v = str(v)
