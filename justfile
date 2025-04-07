@@ -53,6 +53,7 @@ _dotenv:
     if [[ ! -f .env ]]; then
       echo "No '.env' file found; creating a default '.env' from 'dotenv-sample'"
       cp dotenv-sample .env
+      ./local-setup.sh
     fi
 
 # Ensure dev and prod requirements installed and up to date
