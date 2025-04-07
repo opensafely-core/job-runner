@@ -190,6 +190,37 @@ See the full set of options `add-job` will accept with:
 python -m jobrunner.cli.add_job --help
 ```
 
+## Running jobs on the test backend
+
+The [test backend](https://github.com/opensafely-core/backend-server/tree/main/backends/test) is
+a test version of an OpenSAFELY backend which has no access to patient data, but can be used to
+schedule and run jobs in a production-like environment.
+
+You will need ssh access to test.opensafely.org in order to add jobs using the CLI. This
+currently requires the same permissions as any non-test backend; see the
+[developer permissions documentation](https://bennett.wiki/products/developer-permissions-log/#platform-developerstesters) for further details.
+
+```
+ssh <your-username>@test.opensafely.org
+sudo su - opensafely
+
+just jobrunner/add-job https://github.com/opensafely/os-demo-research run_all
+```
+
+You will see the output of the newly created job (note that if it returns `'state': 'succeeded'`
+in the displayed json, the job has already run successfully on the test backend. Use `-f` to
+force dependencies to re-run).
+
+The jobrunner service is already running in the background on the test backend, so
+jobs should be picked up and run automatically. Check the job logs to see the progress of your
+job. From the output of `just add-job`, find the new job's `id` value.
+
+Now check the logs for this job:
+
+```
+just jobrunner/logs-id <your-job-id>
+```
+
 ## job-runner docker image
 
 Building the dev docker image:
