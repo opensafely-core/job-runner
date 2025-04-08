@@ -147,10 +147,14 @@ def handle_run_job_task(task, api, mode=None):
     well as supporting cancellation and various operational modes.
     """
     job = JobDefinition.from_dict(task.definition)
+    # TODO: if job.allow_database_access, then we need to populate job.env with
+    # various secrets, as per run.py:job_to_job_definition
 
     job_status = api.get_status(job)
 
     # TODO: Update get_status to detect an error.json and read it.
+    # I think that JobStatus should probably grow a .error and .result fields,
+    # which get_status can populate. Then all the logic is self contained.
     if job_status.state == ExecutorState.ERROR:
         # something has gone wrong since we last checked
         # This is for idempotency of previous errors
@@ -158,7 +162,6 @@ def handle_run_job_task(task, api, mode=None):
 
     # TODO: get current span and add these
     # attrs = {
-    #     "initial_state": task.state.name,
     #     "initial_code": task.status_code.name,
     # }
 
@@ -210,13 +213,12 @@ def handle_run_job_task(task, api, mode=None):
 def update_controller(
     task, status: JobStatus, results: dict = None, complete: bool = False
 ):
-    # TODO: wrap update_controller to get current span and add these
-    # span.set_attribute("final_state", job.state.name)
+    # TODO: wrap update_controller to get current span from loop trace and add these
     # span.set_attribute("final_code", job.status_code.name)
-    # TODO: convert executor_state to TaskStage
-    # TODO: timestamp might be None if it comes from JobStatus - add a default to JobStatus
+    # TODO: task trace telemetry
+    # TODO: send any error or results
     task_api.update_controller(
-        task, status.state, status.timestamp_ns, results, complete
+        task, status.state.value, status.timestamp_ns, results, complete
     )
 
 
