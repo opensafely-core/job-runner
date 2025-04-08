@@ -1,15 +1,56 @@
 # Developer notes
 
-## Dependencies
 
-Install the development dependencies with:
+
+## Prerequisites for local development
+
+### Just
+
+We use [`just`](https://github.com/casey/just) as our command runner. It's
+a single file binary available for many platforms so should be easy to
+install.
+
+```sh
+# macOS
+brew install just
+
+# Linux
+# Install from https://github.com/casey/just/releases
+
+# Add completion for your shell. E.g. for bash:
+source <(just --completions bash)
+
+# Show all available commands
+just #  shortcut for just --list
 ```
-pip install -r requirements.dev.txt
-```
-This includes the production dependencies in `requirements.txt` which
-are intentionally kept minimal.
+
+### Python
+
+You'll need an appropriate version of Python on your PATH. Check the
+`.python-version` file for the required version.
+
+### Docker
 
 You will also need an up-to-date version of Docker Compose. Instructions to install it are [here](https://docs.docker.com/compose/install/).
+
+
+## Getting started
+
+Set up a local development environment with:
+```
+just devenv
+```
+
+This includes the production dependencies in `requirements.txt` (which
+are intentionally kept minimal) and the dev dependencies in `requirements.dev.txt`.
+
+It also creates a `.env` file from `dotenv-sample`, and populates the
+`HIGH_PRIVACY_STORAGE_BASE` and `MEDIUM_PRIVACY_STORAGE_BASE` environment
+variables.
+
+Update `.env` to add a value for `PRIVATE_REPO_ACCESS_TOKEN`; this should be a
+developer [GitHub PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#about-personal-access-tokens) with `repo` scope.
+
 
 ## Architecture
 
@@ -128,60 +169,64 @@ Or run a command inside the docker image:
 
 ## Running jobs locally
 
-Adding jobs locally is most easily done with the `jobrunner.cli.add_job`
-command e.g
+Adding jobs locally is most easily done with the `just add-job` command, which
+calls `jobrunner.cli.add_job` with a study repo and an action to run e.g.
 ```
-python -m jobrunner.cli.add_job https://github.com/opensafely/os-demo-research run_all
+just add-job https://github.com/opensafely/os-demo-research run_all
 ```
 
 As well as URLs this will accept paths to local git repos e.g.
 ```
-python -m jobrunner.cli.add_job ../os-demo-research run_all
+just add-job ../os-demo-research run_all
 ```
 
-If you now run the main loop you'll see it pick up the jobs:
+You can now run the main loop and you'll see it pick up the jobs:
 ```
-python -m jobrunner.run
+just run
 ```
 
-See the full set of options it accepts with:
+See the full set of options `add-job` will accept with:
 ```
 python -m jobrunner.cli.add_job --help
 ```
 
+## Running jobs on the test backend
+
+The [test backend](https://github.com/opensafely-core/backend-server/tree/main/backends/test) is
+a test version of an OpenSAFELY backend which has no access to patient data, but can be used to
+schedule and run jobs in a production-like environment.
+
+You will need ssh access to test.opensafely.org in order to add jobs using the CLI. This
+currently requires the same permissions as any non-test backend; see the
+[developer permissions documentation](https://bennett.wiki/products/developer-permissions-log/#platform-developerstesters) for further details.
+
+```
+ssh <your-username>@test.opensafely.org
+sudo su - opensafely
+
+just jobrunner/add-job https://github.com/opensafely/os-demo-research run_all
+```
+
+You will see the output of the newly created job (note that if it returns `'state': 'succeeded'`
+in the displayed json, the job has already run successfully on the test backend. Use `-f` to
+force dependencies to re-run).
+
+The jobrunner service is already running in the background on the test backend, so
+jobs should be picked up and run automatically. Check the job logs to see the progress of your
+job. From the output of `just add-job`, find the new job's `id` value.
+
+Now check the logs for this job:
+
+```
+just jobrunner/logs-id <your-job-id>
+```
+
 ## job-runner docker image
 
-Building the dev docker image:
+Building the docker image:
 
-    make -C docker-build                   # build base and dev image
-    make -C docker-build ENV=prod          # build base and prod image
-    make -C docker-build ARGS=--no-cache   # build without cache
-
-
-### Exposing the host's docker service
-
-By default, running the docker container will mount your host's
-`/var/run/docker.sock` into the container and use that for job-runner to run
-jobs. It does some matching of docker GIDs to do so.
-
-However, it also supports accessing docker over ssh:
-
-    make -C docker enable-docker-over-ssh
-
-The docker-compose invocations will now talk to your host docker over SSH,
-possibly on a remote machine. You can disable with:
-
-    make -C docker disable-docker-over-ssh
-
-Note: The above commands will automatically generate a local ed25519
-dev ssh key, and add it to your `~/.ssh/authorized_keys` file. You can use
-`just docker-clean` to remove this.  If you wish to use a different user/host,
-you can do so:
-
-1. Specify `SSH_USER` and `SSH_HOST` environment variables.
-2. Add an authorized ed25519 private key for that user to `docker/ssh/id_ed25519`.
-3. Run `touch docker/ssh/id_ed25519.authorized` to let Make know that it is all
-   set up.
+    just docker/build                   # build base and dev image
+    just docker/build prod              # build base and prod image
 
 
 ## Database schema and migrations
@@ -225,29 +270,10 @@ or is out of date, as a protection against misconfiguration.
 To initialise or migrate the database, you can use the migrate command:
 
 ```sh
-python -m jobrunner.cli.migrate
+just migrate
 ```
 
-
 ## Deploying
-jobrunner is currently deployed by hand because of the difficulties of adding automated deploys to backend servers.
 
-Connect to the relevant backend server:
-
-### TPP
-1. Log onto the VPN
-1. RDP onto L3
-1. SSH into the linux VM running on L3
-1. Switch to the [jobrunner user](https://github.com/opensafely-core/backend-server/blob/main/playbook.md#jobrunner-user)
-
-
-### EMIS
-1. SSH into EMIS
-
-
-When you're connected to the relevant server:
-1. [Switch to the jobrunner user](https://github.com/opensafely-core/backend-server/blob/main/playbook.md#jobrunner-user)
-1. Change to the `/srv/backend-server` directory
-1. [Deploy job-runner](https://github.com/opensafely-core/backend-server/blob/main/playbook.md#deploy-job-runner)
-  1. Note the sections on dependencies and config, if those are relevant to your deploy
-1. [Watch the logs for errors](https://github.com/opensafely-core/backend-server/blob/main/playbook.md#viewing-job-runner-logs)
+The jobrunner docker image is built by GitHub actions on merges to `main` and deployed automatically
+on backend servers.

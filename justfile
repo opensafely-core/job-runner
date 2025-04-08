@@ -53,6 +53,7 @@ _dotenv:
     if [[ ! -f .env ]]; then
       echo "No '.env' file found; creating a default '.env' from 'dotenv-sample'"
       cp dotenv-sample .env
+      ./local-setup.sh
     fi
 
 # Ensure dev and prod requirements installed and up to date
@@ -150,5 +151,8 @@ fix: devenv
     just --fmt --unstable --justfile docker/justfile
 
 # Run the dev project
-run repo action: devenv
-    $BIN/python -m jobrunner.cli.add_job {{ repo }} {{ action }}
+add-job *args: devenv
+    $BIN/python -m jobrunner.cli.add_job {{ args }}
+
+run: devenv
+    $BIN/python -m jobrunner.run

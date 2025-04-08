@@ -9,11 +9,11 @@ JOB_SERVER_TOKEN=pass
 
 # A location where cohort CSVs (one row per patient) should be
 # stored. This folder must exist.
-HIGH_PRIVACY_STORAGE_BASE=/workdir/workspaces
+HIGH_PRIVACY_STORAGE_BASE=
 
 # A location where script outputs (some for publication) should be
 # stored
-MEDIUM_PRIVACY_STORAGE_BASE=/workdir/workspaces
+MEDIUM_PRIVACY_STORAGE_BASE=
 
 # A Github developer token that has read access to private repos
 PRIVATE_REPO_ACCESS_TOKEN=
