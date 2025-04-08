@@ -135,38 +135,50 @@ def handle_run_job_task(task, api, mode=None):
     """
     job = JobDefinition.from_dict(task.definition)
 
-    # only consider these modes if we are not about to cancel the job
-    if not job_definition.cancelled:
-        if mode == "db-maintenance" and job_definition.allow_database_access:
-            log.warning(f"DB maintenance mode active, killing db job {job.id}")
-            # we ignore the JobStatus returned from these API calls, as this is not a hard error
-            api.terminate(job_definition)
-            api.cleanup(job_definition)
+    initial_status = api.get_status(job)
 
-            return (
-                StatusCode.WAITING_DB_MAINTENANCE,
-                "Waiting for database to finish maintenance",
-            )
-
-    initial_status = api.get_status(job_definition)
+    # TODO: get current span and add these
+    # attrs = {
+    #     "initial_state": task.state.name,
+    #     "initial_code": task.status_code.name,
+    # }
 
     # cancelled is driven by user request, so is handled explicitly first
-    if job_definition.cancelled:
+    if job.cancelled:
+        # TODO: check logic here
         # if initial_status.state == ExecutorState.EXECUTED the job has already finished, so we
         # don't need to do anything here
         if initial_status.state == ExecutorState.EXECUTING:
-            api.terminate(job_definition)  # synchronous operation
-            new_status = api.get_status(job_definition)
-            new_statuscode, _default_message = STATE_MAP[new_status.state]
-            return new_statuscode, "Cancelled whilst executing"
+            api.terminate(job)  # synchronous operation
+            new_status = api.get_status(job)  # Executed (if no error)
+            update_controller(task, new_status.state, new_status.timestamp_ns)
+            return
         if initial_status.state == ExecutorState.PREPARED:
             # Nb. no need to actually run finalize() in this case
-            return StatusCode.FINALIZED, "Cancelled whilst prepared"
+            api.cleanup(job)
+            update_controller(task, StatusCode.FINALIZED, time.time_ns())
+            return
         if initial_status.state == ExecutorState.UNKNOWN:
-            return StatusCode.CANCELLED_BY_USER, "Cancelled by user"
+            update_controller(task, StatusCode.CANCELLED_BY_USER, time.time_ns())
+            return
+        # if we get here, initial_status.state == ExecutorState.EXECUTED
+        # No action to take for this cancelled job, so continue; EXECUTED state
+        # will be handled below
+
+    # We're not cancelled; check if we're in db maintentance and we need to terminate this job
+    elif mode == "db-maintenance" and job.allow_database_access:
+        log.warning(f"DB maintenance mode active, killing db job {job.id}")
+        # we ignore the JobStatus returned from these API calls, as this is not a hard error
+        api.terminate(job)
+        api.cleanup(job)
+
+        return (
+            StatusCode.WAITING_DB_MAINTENANCE,
+            "Waiting for database to finish maintenance",
+        )
 
     # handle the simple no change needed states.
-    if initial_status.state in STABLE_STATES:
+    if initial_status.state in STABLE_STATES:  # now only EXECUTING
         # no action needed, simply update job message and timestamp, which is likely a no-op
         return STATE_MAP[initial_status.state]
 
@@ -221,11 +233,27 @@ def handle_run_job_task(task, api, mode=None):
         )
 
 
-# TODO: we will want to save error info in case the controller asks us about this job again
-def mark_job_as_failed(job, code, message, error=None, **attrs):
+def update_controller(
+    task, executor_state, timestamp, results: dict = None, complete: bool = False
+):
+    # TODO: wrap update_controller to get current span and add these
+    # span.set_attribute("final_state", job.state.name)
+    # span.set_attribute("final_code", job.status_code.name)
+    # TODO: convert executor_state to TaskStage
+    # TODO: timestamp might be None if it comes from JobStatus - add a default to JobStatus
+    task_api.update_controller(task, executor_state, timestamp, results, complete)
+
+
+def mark_job_as_failed(task, code, message, error=None, **attrs):
     if error is None:
         error = True
-
+    
+    # TODO: This used to call set_state; we will want to instead 
+    # update_controller and save error info somewhere in case the controller
+    # asks us about this job again
+    # Code is a StatusCode.INTERNAL_ERROR, which is not a TaskStage
+    # update controller with ExecutorState.ERROR, and pass the error message somewhere?
+    # update_controller(task, ExecutorState.ERROR)
 
 def get_reason_job_not_started(job):
     log.debug("Querying for running jobs")
