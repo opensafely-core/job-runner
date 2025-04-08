@@ -66,13 +66,6 @@ def handle_tasks(api: ExecutorAPI | None):
 
 
 # we do not control the transition from these states, the executor does
-STABLE_STATES = [
-    ExecutorState.PREPARING,
-    ExecutorState.EXECUTING,
-    ExecutorState.FINALIZING,
-]
-
-
 def handle_single_task(task, api):
     """The top level handler for a task.
 
