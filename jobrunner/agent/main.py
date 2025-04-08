@@ -112,6 +112,36 @@ def trace_handle_task(task, api, mode):
             raise
 
 
+def handle_cancel_job_task(task, api):
+    # CODE DUMP - not working, just preserving all bits of cancellation logic
+    # from handle_run_job_task for fixing up later
+    job = JobDefinition.from_dict(task.definition)
+
+    job_status = api.get_status(job)
+
+    # TODO: check logic here
+    # if job_status.state == ExecutorState.EXECUTED the job has already finished, so we
+    # don't need to do anything here
+    if job_status.state == ExecutorState.EXECUTING:
+        api.terminate(job)  # synchronous operation
+        new_status = api.get_status(job)  # Executed (if no error)
+        update_controller(task, new_status.state, new_status.timestamp_ns)
+        return
+    if job_status.state == ExecutorState.PREPARED:
+        # Nb. no need to actually run finalize() in this case. The FINALIZED
+        # state will be handled and cleaned up further down the loop
+        update_controller(task, ExecutorState.FINALIZED)
+        return
+    if job_status.state == ExecutorState.UNKNOWN:
+        update_controller(task, ExecutorState.UNKNOWN)
+        return
+
+    # Cancelled jobs that have had cleanup() should now be again set to cancelled here to ensure
+    # they finish in the FAILED state
+    api.cleanup(job)
+    update_controller(task, job_status.state, complete=True)
+
+
 def handle_run_job_task(task, api, mode=None):
     """Handle an active task.
 
@@ -136,30 +166,8 @@ def handle_run_job_task(task, api, mode=None):
     #     "initial_code": task.status_code.name,
     # }
 
-    # cancelled is driven by user request, so is handled explicitly first
-    if job.cancelled:
-        # TODO: check logic here
-        # if initial_status.state == ExecutorState.EXECUTED the job has already finished, so we
-        # don't need to do anything here
-        if initial_status.state == ExecutorState.EXECUTING:
-            api.terminate(job)  # synchronous operation
-            new_status = api.get_status(job)  # Executed (if no error)
-            update_controller(task, new_status.state, new_status.timestamp_ns)
-            return
-        if initial_status.state == ExecutorState.PREPARED:
-            # Nb. no need to actually run finalize() in this case. The FINALIZED
-            # state will be handled and cleaned up further down the loop
-            update_controller(task, ExecutorState.FINALIZED, time.time_ns())
-            return
-        if initial_status.state == ExecutorState.UNKNOWN:
-            update_controller(task, ExecutorState.UNKNOWN, time.time_ns())
-            return
-        # if we get here, initial_status.state == ExecutorState.EXECUTED
-        # No action to take for this cancelled job, so continue; EXECUTED state
-        # will be handled below
-
-    # We're not cancelled; check if we're in db maintentance and we need to terminate this job
-    elif mode == "db-maintenance" and job.allow_database_access:
+    # check if we're in db maintentance and we need to terminate this job
+    if mode == "db-maintenance" and job.allow_database_access:
         # TODO: Only terminate if PREPARED or EXECUTING
         log.warning(f"DB maintenance mode active, killing db job {job.id}")
         # we ignore the JobStatus returned from these API calls, as this is not a hard error
@@ -198,15 +206,6 @@ def handle_run_job_task(task, api, mode=None):
         return
 
     elif initial_status.state == ExecutorState.FINALIZED:  # pragma: no branch
-        # Cancelled jobs that have had cleanup() should now be again set to cancelled here to ensure
-        # they finish in the FAILED state
-        if job.cancelled:
-            api.cleanup(job)
-            update_controller(
-                task, initial_status.state, initial_status.timestamp_ns, complete=True
-            )
-            return
-
         # final state - we have finished!
         results = api.get_results(job)
         # Cleanup and update controller with results
