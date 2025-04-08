@@ -1,3 +1,4 @@
+import time
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -79,9 +80,8 @@ class ExecutorState(Enum):
 class JobStatus:
     state: ExecutorState
     message: str | None = None
-    timestamp_ns: int = (
-        None  # timestamp this JobStatus occurred, in integer nanoseconds
-    )
+    # timestamp this JobStatus occurred, in integer nanoseconds
+    timestamp_ns: int = field(default_factory=time.time_ns)
     metrics: dict = field(default_factory=dict)
 
 
