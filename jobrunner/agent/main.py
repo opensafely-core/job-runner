@@ -166,17 +166,6 @@ def handle_run_job_task(task, api, mode=None):
     #     "initial_code": task.status_code.name,
     # }
 
-    # check if we're in db maintentance and we need to terminate this job
-    if mode == "db-maintenance" and job.allow_database_access:
-        # TODO: Only terminate if PREPARED or EXECUTING
-        log.warning(f"DB maintenance mode active, killing db job {job.id}")
-        # we ignore the JobStatus returned from these API calls, as this is not a hard error
-        api.terminate(job)
-        api.cleanup(job)
-
-        update_controller(task, ExecutorState.UNKNOWN, time.time_ns())
-        return
-
     # handle the simple no change needed states.
     if initial_status.state == ExecutorState.EXECUTING:  # now only EXECUTING
         # no action needed, simply update job message and timestamp, which is likely a no-op
