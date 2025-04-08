@@ -7,11 +7,7 @@ from opentelemetry import trace
 from jobrunner import config
 from jobrunner.agent import task_api
 from jobrunner.executors import get_executor_api
-from jobrunner.job_executor import (
-    ExecutorAPI,
-    ExecutorState,
-    JobDefinition,
-)
+from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import StatusCode
 from jobrunner.queries import get_flag_value
@@ -158,7 +154,7 @@ def handle_run_job_task(task, api, mode=None):
     if job_status.state == ExecutorState.ERROR:
         # something has gone wrong since we last checked
         # This is for idempotency of previous errors
-        update_controller(task, job_status.state, job_status.timestamp_ns)
+        update_controller(task, job_status)
 
     # TODO: get current span and add these
     # attrs = {
@@ -169,7 +165,7 @@ def handle_run_job_task(task, api, mode=None):
     # handle the simple no change needed states.
     if job_status.state == ExecutorState.EXECUTING:  # now only EXECUTING
         # no action needed, simply update job message and timestamp, which is likely a no-op
-        update_controller(task, job_status.state, job_status.timestamp_ns)
+        update_controller(task, job_status)
         return
 
     # ok, handle the state transitions that are our responsibility
@@ -178,20 +174,21 @@ def handle_run_job_task(task, api, mode=None):
         # prepare is synchronous, which means set our code to PREPARING
         # before calling  api.prepare(), and we expect it to be PREPARED
         # when finished
-        update_controller(task, ExecutorState.PREPARING, time.time_ns())
+        update_controller(task, JobStatus(ExecutorState.PREPARING))
         new_status = api.prepare(job)
-        update_controller(task, new_status.state, new_status.timestamp_ns)
+        update_controller(task, new_status)
         return
 
     elif job_status.state == ExecutorState.PREPARED:
         new_status = api.execute(job)
-        update_controller(task, new_status.state, new_status.timestamp_ns)
+        update_controller(task, new_status)
         return
 
     elif job_status.state == ExecutorState.EXECUTED:
-        update_controller(task, job_status.state, job_status.timestamp_ns)
+        # finalize is also synchronous
+        update_controller(task, job_status)
         new_status = api.finalize(job)
-        update_controller(task, new_status.state, new_status.timestamp_ns)
+        update_controller(task, new_status)
         return
 
     elif job_status.state == ExecutorState.FINALIZED:  # pragma: no branch
@@ -201,8 +198,7 @@ def handle_run_job_task(task, api, mode=None):
         api.cleanup(job)
         update_controller(
             task,
-            job_status.state,
-            job_status.timestamp_ns,
+            job_status,
             results,
             complete=True,
         )
@@ -212,14 +208,16 @@ def handle_run_job_task(task, api, mode=None):
 
 
 def update_controller(
-    task, executor_state, timestamp, results: dict = None, complete: bool = False
+    task, status: JobStatus, results: dict = None, complete: bool = False
 ):
     # TODO: wrap update_controller to get current span and add these
     # span.set_attribute("final_state", job.state.name)
     # span.set_attribute("final_code", job.status_code.name)
     # TODO: convert executor_state to TaskStage
     # TODO: timestamp might be None if it comes from JobStatus - add a default to JobStatus
-    task_api.update_controller(task, executor_state, timestamp, results, complete)
+    task_api.update_controller(
+        task, status.state, status.timestamp_ns, results, complete
+    )
 
 
 def mark_task_as_error(task, code, message, error=None, **attrs):
