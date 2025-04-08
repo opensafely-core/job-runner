@@ -1,26 +1,20 @@
-import datetime
 import logging
-import os
 import sys
 import time
 
 from opentelemetry import trace
 
-from jobrunner import config, tracing
+from jobrunner import config
 from jobrunner.agent import task_api
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorState,
     JobDefinition,
-    Privacy,
-    Study,
 )
-from jobrunner.lib import ns_timestamp_to_datetime
-from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.models import Job, State, StatusCode
-from jobrunner.queries import calculate_workspace_state, get_flag_value
+from jobrunner.models import StatusCode
+from jobrunner.queries import get_flag_value
 
 
 log = logging.getLogger(__name__)
@@ -91,7 +85,7 @@ def handle_single_task(task, api):
         trace_handle_task(task, api, mode)
     except Exception as exc:
         # TODO: change this function to update controller and save error info somewhere
-        mark_job_as_failed(
+        mark_task_as_error(
             task,
             StatusCode.INTERNAL_ERROR,
             "Internal error: this usually means a platform issue rather than a problem "
@@ -137,6 +131,12 @@ def handle_run_job_task(task, api, mode=None):
 
     initial_status = api.get_status(job)
 
+    # TODO: Update get_status to detect an error.json and read it.
+    if initial_status.state == ExecutorState.ERROR:
+        # something has gone wrong since we last checked
+        # This is for idempotency of previous errors
+        update_controller(task, initial_status.state, initial_status.timestamp_ns)
+
     # TODO: get current span and add these
     # attrs = {
     #     "initial_state": task.state.name,
@@ -154,12 +154,12 @@ def handle_run_job_task(task, api, mode=None):
             update_controller(task, new_status.state, new_status.timestamp_ns)
             return
         if initial_status.state == ExecutorState.PREPARED:
-            # Nb. no need to actually run finalize() in this case
-            api.cleanup(job)
-            update_controller(task, StatusCode.FINALIZED, time.time_ns())
+            # Nb. no need to actually run finalize() in this case. The FINALIZED
+            # state will be handled and cleaned up further down the loop
+            update_controller(task, ExecutorState.FINALIZED, time.time_ns())
             return
         if initial_status.state == ExecutorState.UNKNOWN:
-            update_controller(task, StatusCode.CANCELLED_BY_USER, time.time_ns())
+            update_controller(task, ExecutorState.UNKNOWN, time.time_ns())
             return
         # if we get here, initial_status.state == ExecutorState.EXECUTED
         # No action to take for this cancelled job, so continue; EXECUTED state
@@ -167,70 +167,67 @@ def handle_run_job_task(task, api, mode=None):
 
     # We're not cancelled; check if we're in db maintentance and we need to terminate this job
     elif mode == "db-maintenance" and job.allow_database_access:
+        # TODO: Only terminate if PREPARED or EXECUTING
         log.warning(f"DB maintenance mode active, killing db job {job.id}")
         # we ignore the JobStatus returned from these API calls, as this is not a hard error
         api.terminate(job)
         api.cleanup(job)
 
-        return (
-            StatusCode.WAITING_DB_MAINTENANCE,
-            "Waiting for database to finish maintenance",
-        )
+        update_controller(task, ExecutorState.UNKNOWN, time.time_ns())
+        return
 
     # handle the simple no change needed states.
-    if initial_status.state in STABLE_STATES:  # now only EXECUTING
+    if initial_status.state == ExecutorState.EXECUTING:  # now only EXECUTING
         # no action needed, simply update job message and timestamp, which is likely a no-op
-        return STATE_MAP[initial_status.state]
-
-    # TODO: We can never get here from get_status. Api methods should raise
-    # ExecutorError instead of returning an error job status
-    if initial_status.state == ExecutorState.ERROR:
-        # something has gone wrong since we last checked
-        raise ExecutorError(initial_status.message)
+        update_controller(task, initial_status.state, initial_status.timestamp_ns)
+        return
 
     # ok, handle the state transitions that are our responsibility
-    if initial_status.state == ExecutorState.UNKNOWN:
+    elif initial_status.state == ExecutorState.UNKNOWN:
         # a new job
         # prepare is synchronous, which means set our code to PREPARING
         # before calling  api.prepare(), and we expect it to be PREPARED
         # when finished
-        # TODO: update controller before and after calling prepare
-        new_status = api.prepare(job_definition)
-        return STATE_MAP[new_status.state]
+        update_controller(task, ExecutorState.PREPARING, time.time_ns())
+        new_status = api.prepare(job)
+        update_controller(task, new_status.state, new_status.timestamp_ns)
+        return
 
     elif initial_status.state == ExecutorState.PREPARED:
-        new_status = api.execute(job_definition)
-        return STATE_MAP[new_status.state]
+        new_status = api.execute(job)
+        update_controller(task, new_status.state, new_status.timestamp_ns)
+        return
 
     elif initial_status.state == ExecutorState.EXECUTED:
-        # TODO: update controller before and after calling finalize
-        new_status = api.finalize(job_definition)
-        return STATE_MAP[new_status.state]
+        update_controller(task, initial_status.state, initial_status.timestamp_ns)
+        new_status = api.finalize(job)
+        update_controller(task, new_status.state, new_status.timestamp_ns)
+        return
 
     elif initial_status.state == ExecutorState.FINALIZED:  # pragma: no branch
         # Cancelled jobs that have had cleanup() should now be again set to cancelled here to ensure
         # they finish in the FAILED state
-        if job_definition.cancelled:
-            # TODO: update controller
-            # TODO: move cleanup to finalize?
-            api.cleanup(job_definition)
+        if job.cancelled:
+            api.cleanup(job)
+            update_controller(
+                task, initial_status.state, initial_status.timestamp_ns, complete=True
+            )
             return
 
         # final state - we have finished!
-        results = api.get_results(job_definition)
-        # TODO: update controller with results
-
-        api.cleanup(job_definition)
-
-        # we are done here
+        results = api.get_results(job)
+        # Cleanup and update controller with results
+        api.cleanup(job)
+        update_controller(
+            task,
+            initial_status.state,
+            initial_status.timestamp_ns,
+            results,
+            complete=True,
+        )
         return
 
-    # following logic is common to all non-final transitions
-
-    else:
-        raise InvalidTransition(
-            f"unexpected state transition of job {job.id} from {initial_status.state} to {new_status.state}: {new_status.message}"
-        )
+    raise InvalidTransition(f"unexpected state of job {job.id}: {initial_status.state}")
 
 
 def update_controller(
@@ -244,81 +241,16 @@ def update_controller(
     task_api.update_controller(task, executor_state, timestamp, results, complete)
 
 
-def mark_job_as_failed(task, code, message, error=None, **attrs):
+def mark_task_as_error(task, code, message, error=None, **attrs):
     if error is None:
         error = True
-    
-    # TODO: This used to call set_state; we will want to instead 
+
+    # TODO: This used to call set_state; we will want to instead
     # update_controller and save error info somewhere in case the controller
-    # asks us about this job again
+    # asks us about this job again. We will need to update get_status to detect that this has happened and handle it in handle_task
     # Code is a StatusCode.INTERNAL_ERROR, which is not a TaskStage
     # update controller with ExecutorState.ERROR, and pass the error message somewhere?
     # update_controller(task, ExecutorState.ERROR)
-
-def get_reason_job_not_started(job):
-    log.debug("Querying for running jobs")
-    running_jobs = find_where(Job, state=State.RUNNING)
-    log.debug("Query done")
-    used_resources = sum(
-        get_job_resource_weight(running_job) for running_job in running_jobs
-    )
-    required_resources = get_job_resource_weight(job)
-    if used_resources + required_resources > config.MAX_WORKERS:
-        if required_resources > 1:  # pragma: no cover
-            return (
-                StatusCode.WAITING_ON_WORKERS,
-                "Waiting on available workers for resource intensive job",
-            )
-        else:
-            return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
-
-    if job.requires_db:
-        running_db_jobs = len([j for j in running_jobs if j.requires_db])
-        if running_db_jobs >= config.MAX_DB_WORKERS:
-            return (
-                StatusCode.WAITING_ON_DB_WORKERS,
-                "Waiting on available database workers",
-            )
-
-    if os.environ.get("FUNTIMES", False):  # pragma: no cover
-        # allow any db job to run
-        if job.requires_db:
-            return None
-
-        # allow OSI non-db jobs to run
-        if job.workspace.endswith("-interactive"):
-            return None
-
-        # nope all other jobs
-        return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
-
-
-def list_outputs_from_action(workspace, action):
-    for job in calculate_workspace_state(workspace):
-        if job.action == action:
-            return job.output_files
-
-    # The action has never been run before
-    return []
-
-
-def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):
-    """
-    Get the job's resource weight by checking its workspace and action against
-    the config file, default to 1 otherwise
-    """
-    action_patterns = weights.get(job.workspace)
-    if action_patterns:
-        for pattern, weight in action_patterns.items():
-            if pattern.fullmatch(job.action):
-                return weight
-    return 1
-
-
-def update_job(job):
-    # The cancelled field is written by the sync thread and we should never update it. The sync thread never updates
-    # any other fields after it has created the job, so we're always safe to modify them.
-    update(job, exclude_fields=["cancelled"])
 
 
 if __name__ == "__main__":  # pragma: no cover
