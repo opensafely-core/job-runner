@@ -121,6 +121,7 @@ def handle_single_job(job, api):
     try:
         trace_handle_job(job, api, mode)
     except Exception as exc:
+        # TODO: change to update controller
         mark_job_as_failed(
             job,
             StatusCode.INTERNAL_ERROR,
@@ -169,9 +170,6 @@ def handle_job(job, api, mode=None):
     """
     job_definition = job_to_job_definition(job)
 
-    # does this api have synchronous_transitions?
-    synchronous_transitions = getattr(api, "synchronous_transitions", [])
-
     # only consider these modes if we are not about to cancel the job
     if not job_definition.cancelled:
         if mode == "db-maintenance" and job_definition.allow_database_access:
@@ -202,34 +200,13 @@ def handle_job(job, api, mode=None):
         if initial_status.state == ExecutorState.UNKNOWN:
             return StatusCode.CANCELLED_BY_USER, "Cancelled by user"
 
-    # check if we've transitioned since we last checked and trace it.
-    # this is because we don't always have the correct docker starting
-    # timestamp when we first transition to EXECUTING, as the container may not
-    # have actually started up when we return from api.execute() (as docker run
-    # -d returns imeadiately). So we update the state with the correct docker
-    # StartedAt timestamp here. Why we did it this way I am not sure. We
-    # probably don't care about the accuracy of a few seconds on the trace. We
-    # could instead wait on teh contrainer to come up before returning from
-    # api.execute(), and reteurn with the correct timestamp.
-    # Anyway, I think we should just delete this, as I suspect we'll be
-    # re-working JOB tracing
-    if initial_status.state in STATE_MAP:
-        # TODO -- simplify to just handle EXECUTING -> EXECUTED
-        initial_code, initial_message = STATE_MAP[initial_status.state]
-        if initial_code != job.status_code:
-            return initial_code, initial_message, initial_status.timestamp_ns
-
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
-        if job.state == State.PENDING:  # pragma: no cover
-            log.warning(
-                f"state error: got {initial_status.state} for a job we thought was PENDING"
-            )
         # no action needed, simply update job message and timestamp, which is likely a no-op
-        code, message = STATE_MAP[initial_status.state]
-        set_code(job, code, message)
-        return
+        return STATE_MAP[initial_status.state]
 
+    # TODO: We can never get here from get_status. Api methods should raise
+    # ExecutorError instead of returning an error job status
     if initial_status.state == ExecutorState.ERROR:
         # something has gone wrong since we last checked
         raise ExecutorError(initial_status.message)
@@ -237,95 +214,34 @@ def handle_job(job, api, mode=None):
     # ok, handle the state transitions that are our responsibility
     if initial_status.state == ExecutorState.UNKNOWN:
         # a new job
-        if job.state == State.RUNNING:  # pragma: no cover
-            log.warning(
-                "state error: got UNKNOWN state for a job we thought was RUNNING"
-            )
-
-        # check dependencies
-        awaited_states = get_states_of_awaited_jobs(job)
-        if State.FAILED in awaited_states:
-            mark_job_as_failed(
-                job,
-                StatusCode.DEPENDENCY_FAILED,
-                "Not starting as dependency failed",
-            )
-            return
-
-        if any(state != State.SUCCEEDED for state in awaited_states):
-            set_code(
-                job,
-                StatusCode.WAITING_ON_DEPENDENCIES,
-                "Waiting on dependencies",
-            )
-            return
-
-        # Temporary fix to reintroduce concurrency limits lost in the move to
-        # the executor API. Ideally this should be the responsiblity of the
-        # executor, but implementing that for the local executor requries some
-        # work
-        not_started_reason = get_reason_job_not_started(job)
-        if not_started_reason:
-            code, message = not_started_reason
-            set_code(job, code, message)
-            return
-
-        if ExecutorState.PREPARING in synchronous_transitions:
-            # prepare is synchronous, which means set our code to PREPARING
-            # before calling  api.prepare(), and we expect it to be PREPARED
-            # when finished
-            code, message = STATE_MAP[ExecutorState.PREPARING]
-            set_code(job, code, message)
-            expected_state = ExecutorState.PREPARED
-        else:
-            expected_state = ExecutorState.PREPARING
-
+        # prepare is synchronous, which means set our code to PREPARING
+        # before calling  api.prepare(), and we expect it to be PREPARED
+        # when finished
+        # TODO: update controller before and after calling prepare
         new_status = api.prepare(job_definition)
+        return STATE_MAP[new_status.state]
 
     elif initial_status.state == ExecutorState.PREPARED:
-        expected_state = ExecutorState.EXECUTING
         new_status = api.execute(job_definition)
+        return STATE_MAP[new_status.state]
 
     elif initial_status.state == ExecutorState.EXECUTED:
-        if ExecutorState.FINALIZING in synchronous_transitions:
-            # finalize is synchronous, which means set our code to FINALIZING
-            # before calling  api.finalize(), and we expect it to be FINALIZED
-            # when finished
-            code, message = STATE_MAP[ExecutorState.FINALIZING]
-            set_code(job, code, message)
-            expected_state = ExecutorState.FINALIZED
-        else:
-            expected_state = ExecutorState.FINALIZING
-
+        # TODO: update controller before and after calling finalize
         new_status = api.finalize(job_definition)
+        return STATE_MAP[new_status.state]
 
     elif initial_status.state == ExecutorState.FINALIZED:  # pragma: no branch
         # Cancelled jobs that have had cleanup() should now be again set to cancelled here to ensure
         # they finish in the FAILED state
         if job_definition.cancelled:
-            mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+            # TODO: update controller
+            # TODO: move cleanup to finalize?
             api.cleanup(job_definition)
             return
 
         # final state - we have finished!
         results = api.get_results(job_definition)
-
-        save_results(job, job_definition, results)
-        obsolete = get_obsolete_files(job_definition, results.outputs)
-
-        # nb. obsolete is always empty due to a bug - see
-        # https://github.com/opensafely-core/job-runner/issues/750
-        if obsolete:  # pragma: no cover
-            errors = api.delete_files(job_definition.workspace, Privacy.HIGH, obsolete)
-            if errors:
-                log.error(
-                    f"Failed to delete high privacy files from workspace {job_definition.workspace}: {errors}"
-                )
-            api.delete_files(job_definition.workspace, Privacy.MEDIUM, obsolete)
-            if errors:
-                log.error(
-                    f"Failed to delete medium privacy files from workspace {job_definition.workspace}: {errors}"
-                )
+        # TODO: update controller with results
 
         api.cleanup(job_definition)
 
@@ -334,91 +250,13 @@ def handle_job(job, api, mode=None):
 
     # following logic is common to all non-final transitions
 
-    if new_status.state == initial_status.state:
-        # no change in state, i.e. back pressure
-        set_code(
-            job,
-            StatusCode.WAITING_ON_WORKERS,
-            "Waiting on available resources",
-        )
-
-    elif new_status.state == expected_state:
-        # successful state change to the expected next state
-        code, message = STATE_MAP[new_status.state]
-        set_code(job, code, message)
-
-    elif new_status.state == ExecutorState.ERROR:
-        # all transitions can go straight to error
-        raise ExecutorError(new_status.message)
-
     else:
         raise InvalidTransition(
             f"unexpected state transition of job {job.id} from {initial_status.state} to {new_status.state}: {new_status.message}"
         )
 
 
-def save_results(job, job_definition, results):
-    """Extract the results of the execution and update the job accordingly."""
-    # save job outputs
-    job.outputs = results.outputs
-    job.level4_excluded_files = results.level4_excluded_files
-
-    message = None
-    error = False
-
-    if results.exit_code != 0:
-        code = StatusCode.NONZERO_EXIT
-        error = True
-        message = "Job exited with an error"
-        if results.message:  # pragma: no cover
-            message += f": {results.message}"
-        elif job_definition.allow_database_access:
-            error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
-            if error_msg:  # pragma: no cover
-                message += f": {error_msg}"
-
-    elif results.unmatched_patterns:
-        job.unmatched_outputs = results.unmatched_outputs
-        code = StatusCode.UNMATCHED_PATTERNS
-        error = True
-        # If the job fails because an output was missing its very useful to
-        # show the user what files were created as often the issue is just a
-        # typo
-        message = "No outputs found matching patterns:\n - {}".format(
-            "\n - ".join(results.unmatched_patterns)
-        )
-
-    else:
-        code = StatusCode.SUCCEEDED
-        message = "Completed successfully"
-
-        if results.level4_excluded_files:
-            message += f", but {len(results.level4_excluded_files)} file(s) marked as moderately_sensitive were excluded. See job log for details."
-
-    set_code(job, code, message, error=error, results=results)
-
-
-def get_obsolete_files(job_definition, outputs):
-    """Get files that need to be deleted.
-
-    These are files that we previously output by this action but were not
-    output by the latest execution of it, so they've been removed or renamed.
-
-    It does case insenstive comparison, as we don't know the the filesystems
-    these will end up being stored on.
-    """
-    keep_files = {str(name).lower() for name in outputs}
-    obsolete = []
-
-    for existing in list_outputs_from_action(
-        job_definition.workspace, job_definition.action
-    ):
-        name = str(existing).lower()
-        if name not in keep_files:  # pragma: no cover
-            obsolete.append(str(existing))
-    return obsolete
-
-
+# TODO: this will be loaded from the controller (as a task definition dict)
 def job_to_job_definition(job):
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
@@ -486,124 +324,10 @@ def job_to_job_definition(job):
     )
 
 
-def get_states_of_awaited_jobs(job):
-    job_ids = job.wait_for_job_ids
-    if not job_ids:
-        return []
-
-    log.debug("Querying database for state of dependencies")
-    states = select_values(Job, "state", id__in=job_ids)
-    log.debug("Done query")
-    return states
-
-
+# TODO: we will want to save error info in case the controller asks us about this job again
 def mark_job_as_failed(job, code, message, error=None, **attrs):
     if error is None:
         error = True
-
-    set_code(job, code, message, error=error, **attrs)
-
-
-def set_code(
-    job, new_status_code, message, error=None, results=None, timestamp_ns=None, **attrs
-):
-    """Set the granular status code state.
-
-    We also trace this transition with OpenTelemetry traces.
-
-    Note: timestamp precision in the db is to the nearest second, which made
-    sense when we were tracking fewer high level states. But now we are
-    tracking more granular states, subsecond precision is needed to avoid odd
-    collisions when states transition in <1s. Due to this, timestamp parameter
-    should be the output of time.time() i.e. a float representing seconds.
-    """
-    if timestamp_ns is None:
-        t = time.time()
-        timestamp_s = int(t)
-        timestamp_ns = int(t * 1e9)
-    else:
-        timestamp_s = int(timestamp_ns / 1e9)
-
-    # if status code has changed then trace it and update
-    if job.status_code != new_status_code:
-        # handle timer measurement errors
-        if job.status_code_updated_at > timestamp_ns:  # pragma: no cover
-            # we somehow have a negative duration, which honeycomb does funny things with.
-            # This can happen in tests, where things are fast, but we've seen it in production too.
-            duration = datetime.timedelta(
-                microseconds=int((timestamp_ns - job.status_code_updated_at) / 1e3)
-            )
-            log.warning(
-                f"negative state duration of {duration}, clamping to 1ms\n"
-                f"before: {job.status_code:<24} at {ns_timestamp_to_datetime(job.status_code_updated_at)}\n"
-                f"after : {new_status_code:<24} at {ns_timestamp_to_datetime(timestamp_ns)}\n"
-            )
-            timestamp_ns = int(job.status_code_updated_at + 1e6)  # set duration to 1ms
-            timestamp_s = int(timestamp_ns // 1e9)
-
-        # update coarse state and timings for user
-        if new_status_code in [StatusCode.PREPARED, StatusCode.PREPARING]:
-            # we've started running
-            job.state = State.RUNNING
-            job.started_at = timestamp_s
-        elif new_status_code in [StatusCode.CANCELLED_BY_USER]:
-            # only set this cancelled status after any finalize/cleanup processes
-            job.state = State.FAILED
-        elif new_status_code.is_final_code:
-            job.completed_at = timestamp_s
-            if new_status_code == StatusCode.SUCCEEDED:
-                job.state = State.SUCCEEDED
-            else:
-                job.state = State.FAILED
-        # we sometimes reset the job back to pending
-        elif new_status_code in [
-            StatusCode.WAITING_ON_REBOOT,
-            StatusCode.WAITING_DB_MAINTENANCE,
-        ]:
-            job.state = State.PENDING
-            job.started_at = None
-
-        # job trace: we finished the previous state
-        tracing.finish_current_state(
-            job, timestamp_ns, error=error, message=message, results=results, **attrs
-        )
-
-        # update db object
-        job.status_code = new_status_code
-        job.status_message = message
-        job.updated_at = timestamp_s
-
-        # use higher precision timestamp for state change time
-        job.status_code_updated_at = timestamp_ns
-        update_job(job)
-
-        if new_status_code.is_final_code:
-            # transitioning to a final state, so just record that state
-            tracing.record_final_state(
-                job,
-                timestamp_ns,
-                error=error,
-                message=message,
-                results=results,
-                **attrs,
-            )
-
-        log.info(job.status_message, extra={"status_code": job.status_code})
-
-    # If the status message hasn't changed then we only update the timestamp
-    # once a minute. This gives the user some confidence that the job is still
-    # active without writing to the database every single time we poll
-    elif timestamp_s - job.updated_at >= 60:  # pragma: no cover
-        job.updated_at = timestamp_s
-        log.debug("Updating job timestamp")
-        update_job(job)
-        log.debug("Update done")
-        # For long running jobs we don't want to fill the logs up with "Job X
-        # is still running" messages, but it is useful to have semi-regular
-        # confirmations in the logs that it is still running. The below will
-        # log approximately once every 10 minutes.
-        if datetime.datetime.fromtimestamp(timestamp_s).minute % 10 == 0:
-            log.info(job.status_message, extra={"status_code": job.status_code})
 
 
 def get_reason_job_not_started(job):
