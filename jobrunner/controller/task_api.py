@@ -21,7 +21,7 @@ def mark_task_inactive(task):
     it, and records the completion time.
     """
     task.active = False
-    task.completed_at = int(time.time())
+    task.finished_at = int(time.time())
     database.update(task)
 
 

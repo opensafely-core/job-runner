@@ -9,7 +9,10 @@ def test_insert_runjob_task(db):
     job = job_factory()
 
     task = Task(
-        id=job.id, type=TaskType.RUNJOB, definition=job_to_job_definition(job).to_dict()
+        id=job.id,
+        backend="test",
+        type=TaskType.RUNJOB,
+        definition=job_to_job_definition(job).to_dict(),
     )
 
     task_api.insert_task(task)
@@ -24,7 +27,10 @@ def test_mark_inactive(db):
     job = job_factory()
 
     task = Task(
-        id=job.id, type=TaskType.RUNJOB, definition=job_to_job_definition(job).to_dict()
+        id=job.id,
+        backend="test",
+        type=TaskType.RUNJOB,
+        definition=job_to_job_definition(job).to_dict(),
     )
 
     task_api.insert_task(task)
