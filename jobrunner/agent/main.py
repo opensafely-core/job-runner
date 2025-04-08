@@ -7,6 +7,7 @@ import time
 from opentelemetry import trace
 
 from jobrunner import config, tracing
+from jobrunner.agent import task_api
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import (
     ExecutorAPI,
@@ -46,32 +47,28 @@ def main(exit_callback=lambda _: False):  # pragma: no cover
 
     while True:
         with tracer.start_as_current_span("LOOP", attributes={"loop": True}):
-            active_jobs = handle_jobs(api)
+            active_tasks = handle_tasks(api)
 
-        if exit_callback(active_jobs):
+        if exit_callback(active_tasks):
             break
 
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(api: ExecutorAPI | None):
-    log.debug("Querying database for active jobs")
-    active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
-    log.debug("Done query")
+def handle_tasks(api: ExecutorAPI | None):
+    active_tasks = task_api.get_active_tasks()
 
-    handled_jobs = []
+    handled_tasks = []
 
-    while active_jobs:
-        job = active_jobs.pop(0)
-
+    for task in active_tasks:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
-        with set_log_context(job=job):
-            handle_single_job(job, api)
+        with set_log_context(task=task.id):
+            handle_single_task(task, api)
 
-        handled_jobs.append(job)
+        handled_tasks.append(task)
 
-    return handled_jobs
+    return handled_tasks
 
 
 # we do not control the transition from these states, the executor does
@@ -82,20 +79,20 @@ STABLE_STATES = [
 ]
 
 
-def handle_single_job(job, api):
-    """The top level handler for a job.
+def handle_single_task(task, api):
+    """The top level handler for a task.
 
-    Mainly exists to wrap the job handling in an exception handler.
+    Mainly exists to wrap the task handling in an exception handler.
     """
-    # we re-read the flags before considering each job, so make sure they apply
+    # we re-read the flags before considering each task, so make sure they apply
     # as soon as possible when set.
     mode = get_flag_value("mode")
     try:
-        trace_handle_job(job, api, mode)
+        trace_handle_task(task, api, mode)
     except Exception as exc:
-        # TODO: change to update controller
+        # TODO: change this function to update controller and save error info somewhere
         mark_job_as_failed(
-            job,
+            task,
             StatusCode.INTERNAL_ERROR,
             "Internal error: this usually means a platform issue rather than a problem "
             "for users to fix.\n"
@@ -112,30 +109,26 @@ def handle_single_job(job, api):
         raise
 
 
-def trace_handle_job(job, api, mode):
-    """Call handle job with tracing."""
-    attrs = {
-        "initial_state": job.state.name,
-        "initial_code": job.status_code.name,
-    }
+def trace_handle_task(task, api, mode):
+    """Call handle task with tracing."""
 
     with tracer.start_as_current_span("LOOP_JOB") as span:
-        tracing.set_span_metadata(span, job, **attrs)
+        # TODO: we'll need an agent/task version of set_span_metadata (and possibly
+        # more of tracing.py) as the current one sets info about a Job, and will
+        # probably still be used in some for by the controller
+        # tracing.set_span_metadata(span, task)
         try:
-            handle_job(job, api, mode)
+            handle_run_job_task(task, api, mode)
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
             raise
-        else:
-            span.set_attribute("final_state", job.state.name)
-            span.set_attribute("final_code", job.status_code.name)
 
 
-def handle_job(job, api, mode=None):
-    """Handle an active job.
+def handle_run_job_task(task, api, mode=None):
+    """Handle an active task.
 
-    This contains the main state machine logic for a job. For the most part,
+    This contains the main state machine logic for a task. For the most part,
     state transitions follow the same logic, which is abstracted. Some
     transitions require special logic, mainly the initial and final states, as
     well as supporting cancellation and various operational modes.
