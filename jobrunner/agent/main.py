@@ -133,7 +133,7 @@ def handle_run_job_task(task, api, mode=None):
     transitions require special logic, mainly the initial and final states, as
     well as supporting cancellation and various operational modes.
     """
-    job_definition = job_to_job_definition(job)
+    job = JobDefinition.from_dict(task.definition)
 
     # only consider these modes if we are not about to cancel the job
     if not job_definition.cancelled:
@@ -219,74 +219,6 @@ def handle_run_job_task(task, api, mode=None):
         raise InvalidTransition(
             f"unexpected state transition of job {job.id} from {initial_status.state} to {new_status.state}: {new_status.message}"
         )
-
-
-# TODO: this will be loaded from the controller (as a task definition dict)
-def job_to_job_definition(job):
-    allow_database_access = False
-    env = {"OPENSAFELY_BACKEND": config.BACKEND}
-    if job.requires_db:
-        if not config.USING_DUMMY_DATA_BACKEND:
-            allow_database_access = True
-            env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
-            if config.TEMP_DATABASE_NAME:  # pragma: no cover
-                env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
-            if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:  # pragma: no cover
-                env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
-                env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
-            if config.EMIS_ORGANISATION_HASH:  # pragma: no cover
-                env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
-    # Prepend registry name
-    action_args = job.action_args
-    image = action_args.pop(0)
-    full_image = f"{config.DOCKER_REGISTRY}/{image}"
-    if image.startswith("stata-mp"):  # pragma: no cover
-        env["STATA_LICENSE"] = str(config.STATA_LICENSE)
-
-    # Jobs which are running reusable actions pull their code from the reusable
-    # action repo, all other jobs pull their code from the study repo
-    study = Study(job.action_repo_url or job.repo_url, job.action_commit or job.commit)
-    # Both of action commit and repo_url should be set if either are
-    assert bool(job.action_commit) == bool(job.action_repo_url)
-
-    input_files = []
-    for action in job.requires_outputs_from:
-        for filename in list_outputs_from_action(job.workspace, action):
-            input_files.append(filename)
-
-    outputs = {}
-    for privacy_level, named_patterns in job.output_spec.items():
-        for name, pattern in named_patterns.items():
-            outputs[pattern] = privacy_level
-
-    if job.cancelled:
-        job_definition_cancelled = "user"
-    else:
-        job_definition_cancelled = None
-
-    return JobDefinition(
-        id=job.id,
-        job_request_id=job.job_request_id,
-        study=study,
-        workspace=job.workspace,
-        action=job.action,
-        created_at=job.created_at,
-        image=full_image,
-        args=action_args,
-        env=env,
-        inputs=input_files,
-        output_spec=outputs,
-        allow_database_access=allow_database_access,
-        database_name=job.database_name if allow_database_access else None,
-        # in future, these may come from the JobRequest, but for now, we have
-        # config defaults.
-        cpu_count=config.DEFAULT_JOB_CPU_COUNT,
-        memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
-        level4_max_filesize=config.LEVEL4_MAX_FILESIZE,
-        level4_max_csv_rows=config.LEVEL4_MAX_CSV_ROWS,
-        level4_file_types=list(config.LEVEL4_FILE_TYPES),
-        cancelled=job_definition_cancelled,
-    )
 
 
 # TODO: we will want to save error info in case the controller asks us about this job again
