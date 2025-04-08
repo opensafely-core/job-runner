@@ -81,34 +81,6 @@ STABLE_STATES = [
     ExecutorState.FINALIZING,
 ]
 
-# map ExecutorState to StatusCode
-STATE_MAP = {
-    ExecutorState.PREPARING: (
-        StatusCode.PREPARING,
-        "Preparing your code and workspace files",
-    ),
-    ExecutorState.PREPARED: (
-        StatusCode.PREPARED,
-        "Prepared and ready to run",
-    ),
-    ExecutorState.EXECUTING: (
-        StatusCode.EXECUTING,
-        "Executing job on the backend",
-    ),
-    ExecutorState.EXECUTED: (
-        StatusCode.EXECUTED,
-        "Job has finished executing and is waiting to be finalized",
-    ),
-    ExecutorState.FINALIZING: (
-        StatusCode.FINALIZING,
-        "Recording job results",
-    ),
-    ExecutorState.FINALIZED: (
-        StatusCode.FINALIZED,
-        "Finished recording results",
-    ),
-}
-
 
 def handle_single_job(job, api):
     """The top level handler for a job.
