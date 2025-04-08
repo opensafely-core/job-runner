@@ -152,13 +152,13 @@ def handle_run_job_task(task, api, mode=None):
     """
     job = JobDefinition.from_dict(task.definition)
 
-    initial_status = api.get_status(job)
+    job_status = api.get_status(job)
 
     # TODO: Update get_status to detect an error.json and read it.
-    if initial_status.state == ExecutorState.ERROR:
+    if job_status.state == ExecutorState.ERROR:
         # something has gone wrong since we last checked
         # This is for idempotency of previous errors
-        update_controller(task, initial_status.state, initial_status.timestamp_ns)
+        update_controller(task, job_status.state, job_status.timestamp_ns)
 
     # TODO: get current span and add these
     # attrs = {
@@ -167,13 +167,13 @@ def handle_run_job_task(task, api, mode=None):
     # }
 
     # handle the simple no change needed states.
-    if initial_status.state == ExecutorState.EXECUTING:  # now only EXECUTING
+    if job_status.state == ExecutorState.EXECUTING:  # now only EXECUTING
         # no action needed, simply update job message and timestamp, which is likely a no-op
-        update_controller(task, initial_status.state, initial_status.timestamp_ns)
+        update_controller(task, job_status.state, job_status.timestamp_ns)
         return
 
     # ok, handle the state transitions that are our responsibility
-    elif initial_status.state == ExecutorState.UNKNOWN:
+    elif job_status.state == ExecutorState.UNKNOWN:
         # a new job
         # prepare is synchronous, which means set our code to PREPARING
         # before calling  api.prepare(), and we expect it to be PREPARED
@@ -183,32 +183,32 @@ def handle_run_job_task(task, api, mode=None):
         update_controller(task, new_status.state, new_status.timestamp_ns)
         return
 
-    elif initial_status.state == ExecutorState.PREPARED:
+    elif job_status.state == ExecutorState.PREPARED:
         new_status = api.execute(job)
         update_controller(task, new_status.state, new_status.timestamp_ns)
         return
 
-    elif initial_status.state == ExecutorState.EXECUTED:
-        update_controller(task, initial_status.state, initial_status.timestamp_ns)
+    elif job_status.state == ExecutorState.EXECUTED:
+        update_controller(task, job_status.state, job_status.timestamp_ns)
         new_status = api.finalize(job)
         update_controller(task, new_status.state, new_status.timestamp_ns)
         return
 
-    elif initial_status.state == ExecutorState.FINALIZED:  # pragma: no branch
+    elif job_status.state == ExecutorState.FINALIZED:  # pragma: no branch
         # final state - we have finished!
         results = api.get_results(job)
         # Cleanup and update controller with results
         api.cleanup(job)
         update_controller(
             task,
-            initial_status.state,
-            initial_status.timestamp_ns,
+            job_status.state,
+            job_status.timestamp_ns,
             results,
             complete=True,
         )
         return
 
-    raise InvalidTransition(f"unexpected state of job {job.id}: {initial_status.state}")
+    raise InvalidTransition(f"unexpected state of job {job.id}: {job_status.state}")
 
 
 def update_controller(
