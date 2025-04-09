@@ -146,66 +146,67 @@ def handle_run_job_task(task, api):
     well as supporting cancellation and various operational modes.
     """
     job = JobDefinition.from_dict(task.definition)
-    # TODO: if job.allow_database_access, then we need to populate job.env with
-    # various secrets, as per run.py:job_to_job_definition
+    with set_log_context(job=job.id):
+        # TODO: if job.allow_database_access, then we need to populate job.env with
+        # various secrets, as per run.py:job_to_job_definition
 
-    job_status = api.get_status(job)
+        job_status = api.get_status(job)
 
-    # TODO: get current span and add these
-    # attrs = {
-    #     "initial_code": task.status_code.name,
-    # }
+        # TODO: get current span and add these
+        # attrs = {
+        #     "initial_code": task.status_code.name,
+        # }
 
-    # TODO: Update get_status to detect an error.json and read it.
-    # I think that JobStatus should probably grow .error and .result fields,
-    # which get_status can populate. Then all the logic is self contained.
-    if job_status.state == ExecutorState.ERROR:
-        # something has gone wrong since we last checked
-        # This is for idempotency of previous errors
-        update_controller(task, job_status)
+        # TODO: Update get_status to detect an error.json and read it.
+        # I think that JobStatus should probably grow .error and .result fields,
+        # which get_status can populate. Then all the logic is self contained.
+        if job_status.state == ExecutorState.ERROR:
+            # something has gone wrong since we last checked
+            # This is for idempotency of previous errors
+            update_controller(task, job_status)
 
-    # handle the simple no change needed states.
-    if job_status.state == ExecutorState.EXECUTING:  # now only EXECUTING
-        # no action needed, simply update job message and timestamp, which is likely a no-op
-        update_controller(task, job_status)
-        return
+        # handle the simple no change needed states.
+        if job_status.state == ExecutorState.EXECUTING:  # now only EXECUTING
+            # no action needed, simply update job message and timestamp, which is likely a no-op
+            update_controller(task, job_status)
+            return
 
-    # ok, handle the state transitions that are our responsibility
-    elif job_status.state == ExecutorState.UNKNOWN:
-        # a new job
-        # prepare is synchronous, which means set our code to PREPARING
-        # before calling  api.prepare(), and we expect it to be PREPARED
-        # when finished
-        update_controller(task, JobStatus(ExecutorState.PREPARING))
-        new_status = api.prepare(job)
-        update_controller(task, new_status)
-        return
+        # ok, handle the state transitions that are our responsibility
+        elif job_status.state == ExecutorState.UNKNOWN:
+            # a new job
+            # prepare is synchronous, which means set our code to PREPARING
+            # before calling  api.prepare(), and we expect it to be PREPARED
+            # when finished
+            update_controller(task, JobStatus(ExecutorState.PREPARING))
+            new_status = api.prepare(job)
+            update_controller(task, new_status)
+            return
 
-    elif job_status.state == ExecutorState.PREPARED:
-        new_status = api.execute(job)
-        update_controller(task, new_status)
-        return
+        elif job_status.state == ExecutorState.PREPARED:
+            new_status = api.execute(job)
+            update_controller(task, new_status)
+            return
 
-    elif job_status.state == ExecutorState.EXECUTED:
-        # finalize is also synchronous
-        update_controller(task, JobStatus(ExecutorState.FINALIZING))
-        new_status = api.finalize(job)
-        update_controller(task, new_status)
+        elif job_status.state == ExecutorState.EXECUTED:
+            # finalize is also synchronous
+            update_controller(task, JobStatus(ExecutorState.FINALIZING))
+            new_status = api.finalize(job)
+            update_controller(task, new_status)
 
-        # final state - we have finished!
-        # we don't want JobResults
-        results = api.get_metadata(job)
-        # Cleanup and update controller with results
-        api.cleanup(job)
-        update_controller(
-            task,
-            new_status,
-            {"results": results},
-            complete=True,
-        )
-        return
+            # final state - we have finished!
+            # we don't want JobResults
+            results = api.get_metadata(job)
+            # Cleanup and update controller with results
+            api.cleanup(job)
+            update_controller(
+                task,
+                new_status,
+                {"results": results},
+                complete=True,
+            )
+            return
 
-    raise InvalidTransition(f"unexpected state of job {job.id}: {job_status.state}")
+        raise InvalidTransition(f"unexpected state of job {job.id}: {job_status.state}")
 
 
 def update_controller(
