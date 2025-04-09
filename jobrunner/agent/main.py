@@ -109,6 +109,7 @@ def trace_handle_task(task, api, mode):
 
 
 def handle_cancel_job_task(task, api):
+    # TODO: make it work!
     # CODE DUMP - not working, just preserving all bits of cancellation logic
     # from handle_run_job_task for fixing up later
     job = JobDefinition.from_dict(task.definition)
@@ -152,18 +153,18 @@ def handle_run_job_task(task, api, mode=None):
 
     job_status = api.get_status(job)
 
+    # TODO: get current span and add these
+    # attrs = {
+    #     "initial_code": task.status_code.name,
+    # }
+
     # TODO: Update get_status to detect an error.json and read it.
-    # I think that JobStatus should probably grow a .error and .result fields,
+    # I think that JobStatus should probably grow .error and .result fields,
     # which get_status can populate. Then all the logic is self contained.
     if job_status.state == ExecutorState.ERROR:
         # something has gone wrong since we last checked
         # This is for idempotency of previous errors
         update_controller(task, job_status)
-
-    # TODO: get current span and add these
-    # attrs = {
-    #     "initial_code": task.status_code.name,
-    # }
 
     # handle the simple no change needed states.
     if job_status.state == ExecutorState.EXECUTING:  # now only EXECUTING
@@ -189,20 +190,19 @@ def handle_run_job_task(task, api, mode=None):
 
     elif job_status.state == ExecutorState.EXECUTED:
         # finalize is also synchronous
-        update_controller(task, job_status)
+        update_controller(task, JobStatus(ExecutorState.FINALIZING))
         new_status = api.finalize(job)
         update_controller(task, new_status)
-        return
 
-    elif job_status.state == ExecutorState.FINALIZED:  # pragma: no branch
         # final state - we have finished!
-        results = api.get_results(job)
+        # we don't want JobResults
+        results = api.get_metadata(job)
         # Cleanup and update controller with results
         api.cleanup(job)
         update_controller(
             task,
-            job_status,
-            results,
+            new_status,
+            {"results": results},
             complete=True,
         )
         return
@@ -217,9 +217,7 @@ def update_controller(
     # span.set_attribute("final_code", job.status_code.name)
     # TODO: task trace telemetry
     # TODO: send any error or results
-    task_api.update_controller(
-        task, status.state.value, status.timestamp_ns, results, complete
-    )
+    task_api.update_controller(task, status.state.value, results, complete)
 
 
 def mark_task_as_error(task, code, message, error=None, **attrs):
