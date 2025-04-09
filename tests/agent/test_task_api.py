@@ -1,11 +1,11 @@
 from jobrunner.agent import task_api
 from jobrunner.controller import task_api as controller_api
-from tests.factories import runjob_task_factory
+from tests.factories import runjob_db_task_factory
 
 
 def test_get_active_jobs(db):
-    task1 = runjob_task_factory()
-    task2 = runjob_task_factory()
+    task1 = runjob_db_task_factory()
+    task2 = runjob_db_task_factory()
     controller_api.mark_task_inactive(task2)
 
     active = task_api.get_active_tasks()
@@ -14,7 +14,7 @@ def test_get_active_jobs(db):
 
 
 def test_update_controller(db):
-    task = runjob_task_factory()
+    task = runjob_db_task_factory()
 
     task_api.update_controller(
         task,
@@ -30,7 +30,7 @@ def test_update_controller(db):
 
 
 def test_full_job_stages(db):
-    task = runjob_task_factory()
+    task = runjob_db_task_factory()
 
     stages = [
         "PREPARING",
