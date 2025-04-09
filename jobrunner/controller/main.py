@@ -13,13 +13,8 @@ import time
 from opentelemetry import trace
 
 from jobrunner import config, tracing
-from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import (
-    ExecutorAPI,
-    ExecutorRetry,
-    ExecutorState,
     JobDefinition,
-    Privacy,
     Study,
 )
 from jobrunner.lib import ns_timestamp_to_datetime
@@ -31,20 +26,6 @@ from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 log = logging.getLogger(__name__)
 tracer = trace.get_tracer("loop")
-
-EXECUTOR_RETRIES = {}
-
-
-class RetriesExceeded(Exception):
-    pass
-
-
-class InvalidTransition(Exception):
-    pass
-
-
-class ExecutorError(Exception):
-    pass
 
 
 def main(exit_callback=lambda _: False):  # pragma: no cover
@@ -100,42 +81,6 @@ def handle_jobs():
         handled_jobs.append(job)
 
     return handled_jobs
-
-
-# we do not control the transition from these states, the executor does
-STABLE_STATES = [
-    ExecutorState.PREPARING,
-    ExecutorState.EXECUTING,
-    ExecutorState.FINALIZING,
-]
-
-# map ExecutorState to StatusCode
-STATE_MAP = {
-    ExecutorState.PREPARING: (
-        StatusCode.PREPARING,
-        "Preparing your code and workspace files",
-    ),
-    ExecutorState.PREPARED: (
-        StatusCode.PREPARED,
-        "Prepared and ready to run",
-    ),
-    ExecutorState.EXECUTING: (
-        StatusCode.EXECUTING,
-        "Executing job on the backend",
-    ),
-    ExecutorState.EXECUTED: (
-        StatusCode.EXECUTED,
-        "Job has finished executing and is waiting to be finalized",
-    ),
-    ExecutorState.FINALIZING: (
-        StatusCode.FINALIZING,
-        "Recording job results",
-    ),
-    ExecutorState.FINALIZED: (
-        StatusCode.FINALIZED,
-        "Finished recording results",
-    ),
-}
 
 
 def handle_single_job(job):
