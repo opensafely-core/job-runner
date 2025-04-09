@@ -241,27 +241,6 @@ def save_results(job, job_definition, results):
     set_code(job, code, message, error=error, results=results)
 
 
-def get_obsolete_files(job_definition, outputs):
-    """Get files that need to be deleted.
-
-    These are files that we previously output by this action but were not
-    output by the latest execution of it, so they've been removed or renamed.
-
-    It does case insenstive comparison, as we don't know the the filesystems
-    these will end up being stored on.
-    """
-    keep_files = {str(name).lower() for name in outputs}
-    obsolete = []
-
-    for existing in list_outputs_from_action(
-        job_definition.workspace, job_definition.action
-    ):
-        name = str(existing).lower()
-        if name not in keep_files:  # pragma: no cover
-            obsolete.append(str(existing))
-    return obsolete
-
-
 def job_to_job_definition(job):
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
