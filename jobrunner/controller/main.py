@@ -15,6 +15,7 @@ from opentelemetry import trace
 from jobrunner import config, tracing
 from jobrunner.job_executor import (
     JobDefinition,
+    JobResults,
     Study,
 )
 from jobrunner.lib import ns_timestamp_to_datetime
@@ -26,6 +27,13 @@ from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 log = logging.getLogger(__name__)
 tracer = trace.get_tracer("loop")
+
+
+class PlatformError(Exception):
+    """
+    Indicates that something went wrong when running a job that is external to anything
+    that happened within the container
+    """
 
 
 def main(exit_callback=lambda _: False):  # pragma: no cover
@@ -144,7 +152,79 @@ def handle_job(job, mode=None, paused=None):
     transitions require special logic, mainly the initial and final states, as
     well as supporting cancellation and various operational modes.
     """
-    raise NotImplementedError()
+    assert job.state in (State.PENDING, State.RUNNING)
+
+    # Cancellation is driven by user request, so is handled explicitly first
+    if job.cancelled:
+        cancel_job(job)
+        mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+        return
+
+    # Handle special modes. TODO: These need to be made backend-specific
+    if paused:
+        if job.state == State.PENDING:
+            # Do not start the job, keep it pending
+            set_code(
+                job,
+                StatusCode.WAITING_PAUSED,
+                "Backend is currently paused for maintenance, job will start once this is completed",
+            )
+            return
+
+    if mode == "db-maintenance" and job.requires_db:
+        if job.state == State.RUNNING:
+            log.warning(f"DB maintenance mode active, killing db job {job.id}")
+            cancel_job(job)
+
+        # Reset state to pending and exit
+        set_code(
+            job,
+            StatusCode.WAITING_DB_MAINTENANCE,
+            "Waiting for database to finish maintenance",
+        )
+        return
+
+    # A new job, which may or may not be ready to start
+    if job.state == State.PENDING:
+        # Check states of jobs we're depending on
+        awaited_states = get_states_of_awaited_jobs(job)
+        if State.FAILED in awaited_states:
+            mark_job_as_failed(
+                job,
+                StatusCode.DEPENDENCY_FAILED,
+                "Not starting as dependency failed",
+            )
+            return
+
+        if any(state != State.SUCCEEDED for state in awaited_states):
+            set_code(
+                job,
+                StatusCode.WAITING_ON_DEPENDENCIES,
+                "Waiting on dependencies",
+            )
+            return
+
+        # Give me ONE GOOD REASON why I shouldn't start you running right now!
+        not_started_reason = get_reason_job_not_started(job)
+        if not_started_reason:
+            code, message = not_started_reason
+            set_code(job, code, message)
+            return
+
+        start_job(job)
+        set_code(job, StatusCode.EXECUTING, "Executing job on the backend")
+    else:
+        assert job.state == State.RUNNING
+        task = get_task_for_job(job)
+        assert task is not None
+        if task.agent_complete:
+            if job_error := task.agent_results.get("error"):
+                # Handled elsewhere
+                raise PlatformError(job_error)
+            else:
+                job_results = JobResults.from_dict(task.agent_results["results"])
+                save_results(job, job_results)
+                # TODO: Delete obsolete files
 
 
 def save_results(job, job_definition, results):
@@ -428,6 +508,18 @@ def update_job(job):
     # The cancelled field is written by the sync thread and we should never update it. The sync thread never updates
     # any other fields after it has created the job, so we're always safe to modify them.
     update(job, exclude_fields=["cancelled"])
+
+
+def start_job(job):
+    raise NotImplementedError()
+
+
+def cancel_job(job):
+    raise NotImplementedError()
+
+
+def get_task_for_job(job):
+    raise NotImplementedError()
 
 
 if __name__ == "__main__":  # pragma: no cover
