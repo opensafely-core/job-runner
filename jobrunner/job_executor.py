@@ -48,10 +48,13 @@ class JobDefinition:
     @classmethod
     def from_dict(cls, data: dict):
         # Create the nested Study instance
-        study_data = data.pop("study")
-        study = Study(
-            git_repo_url=study_data["git_repo_url"], commit=study_data["commit"]
-        )
+        study_data = data.pop("study", None)
+        if study_data:
+            study = Study(
+                git_repo_url=study_data["git_repo_url"], commit=study_data["commit"]
+            )
+        else:
+            study = None
 
         # Create the JobDefinition instance with the Study object
         return cls(study=study, **{k: v for k, v in data.items()})
