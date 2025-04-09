@@ -10,7 +10,6 @@ from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import StatusCode
-from jobrunner.queries import get_flag_value
 
 
 log = logging.getLogger(__name__)
@@ -69,9 +68,8 @@ def handle_single_task(task, api):
     """
     # we re-read the flags before considering each task, so make sure they apply
     # as soon as possible when set.
-    mode = get_flag_value("mode")
     try:
-        trace_handle_task(task, api, mode)
+        trace_handle_task(task, api)
     except Exception as exc:
         # TODO: change this function to update controller and save error info somewhere
         mark_task_as_error(
@@ -92,7 +90,7 @@ def handle_single_task(task, api):
         raise
 
 
-def trace_handle_task(task, api, mode):
+def trace_handle_task(task, api):
     """Call handle task with tracing."""
 
     with tracer.start_as_current_span("LOOP_JOB") as span:
@@ -101,7 +99,7 @@ def trace_handle_task(task, api, mode):
         # probably still be used in some for by the controller
         # tracing.set_span_metadata(span, task)
         try:
-            handle_run_job_task(task, api, mode)
+            handle_run_job_task(task, api)
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
@@ -139,7 +137,7 @@ def handle_cancel_job_task(task, api):
     update_controller(task, job_status.state, complete=True)
 
 
-def handle_run_job_task(task, api, mode=None):
+def handle_run_job_task(task, api):
     """Handle an active task.
 
     This contains the main state machine logic for a task. For the most part,
