@@ -90,6 +90,9 @@ def handle_single_job(job):
     """
     # we re-read the flags before considering each job, so make sure they apply
     # as soon as possible when set.
+    # TODO: These flags are going to need to be set per-backend so we'll need to figure
+    # out how to do that and then retrive the values for the backend associated with
+    # each job
     mode = get_flag_value("mode")
     paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
@@ -187,6 +190,7 @@ def save_results(job, job_definition, results):
 
 def job_to_job_definition(job):
     allow_database_access = False
+    # TODO: This will need to become a field on `Job` and fetched from there
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
     if job.requires_db:
         if not config.USING_DUMMY_DATA_BACKEND:
