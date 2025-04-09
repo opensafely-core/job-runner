@@ -108,8 +108,23 @@ class JobResults:
     base_created: str = "unknown"
 
     @classmethod
-    def from_dict(cls, data: dict):
-        return cls(**data)
+    def from_dict(cls, metadata: dict):
+        return cls(
+            outputs=metadata["outputs"],
+            unmatched_patterns=metadata["unmatched_patterns"],
+            unmatched_outputs=metadata["unmatched_outputs"],
+            exit_code=int(metadata["exit_code"]),
+            image_id=metadata["docker_image_id"],
+            message=metadata["status_message"],
+            unmatched_hint=metadata["hint"],
+            timestamp_ns=metadata["timestamp_ns"],
+            action_version=metadata["action_version"],
+            action_revision=metadata["action_revision"],
+            action_created=metadata["action_created"],
+            base_revision=metadata["base_revision"],
+            base_created=metadata["base_created"],
+            level4_excluded_files=metadata["level4_excluded_files"],
+        )
 
 
 class ExecutorRetry(Exception):
