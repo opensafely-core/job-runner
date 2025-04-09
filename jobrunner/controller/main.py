@@ -50,11 +50,10 @@ class ExecutorError(Exception):
 
 def main(exit_callback=lambda _: False):  # pragma: no cover
     log.info("jobrunner.run loop started")
-    api = get_executor_api()
 
     while True:
         with tracer.start_as_current_span("LOOP", attributes={"loop": True}):
-            active_jobs = handle_jobs(api)
+            active_jobs = handle_jobs()
 
         if exit_callback(active_jobs):
             break
@@ -62,7 +61,7 @@ def main(exit_callback=lambda _: False):  # pragma: no cover
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(api: ExecutorAPI | None):
+def handle_jobs():
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -93,7 +92,7 @@ def handle_jobs(api: ExecutorAPI | None):
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            handle_single_job(job, api)
+            handle_single_job(job)
 
         # Add running jobs to the workspace count
         if job.state == State.RUNNING:
@@ -140,7 +139,7 @@ STATE_MAP = {
 }
 
 
-def handle_single_job(job, api):
+def handle_single_job(job):
     """The top level handler for a job.
 
     Mainly exists to wrap the job handling in an exception handler.
@@ -150,7 +149,7 @@ def handle_single_job(job, api):
     mode = get_flag_value("mode")
     paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
-        trace_handle_job(job, api, mode, paused)
+        trace_handle_job(job, mode, paused)
     except Exception as exc:
         mark_job_as_failed(
             job,
@@ -170,7 +169,7 @@ def handle_single_job(job, api):
         raise
 
 
-def trace_handle_job(job, api, mode, paused):
+def trace_handle_job(job, mode, paused):
     """Call handle job with tracing."""
     attrs = {
         "initial_state": job.state.name,
@@ -180,7 +179,7 @@ def trace_handle_job(job, api, mode, paused):
     with tracer.start_as_current_span("LOOP_JOB") as span:
         tracing.set_span_metadata(span, job, **attrs)
         try:
-            handle_job(job, api, mode, paused)
+            handle_job(job, mode, paused)
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
@@ -190,7 +189,7 @@ def trace_handle_job(job, api, mode, paused):
             span.set_attribute("final_code", job.status_code.name)
 
 
-def handle_job(job, api, mode=None, paused=None):
+def handle_job(job, mode=None, paused=None):
     """Handle an active job.
 
     This contains the main state machine logic for a job. For the most part,
