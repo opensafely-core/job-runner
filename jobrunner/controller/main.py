@@ -13,6 +13,7 @@ import time
 from opentelemetry import trace
 
 from jobrunner import config, tracing
+from jobrunner.controller.task_api import insert_task, mark_task_inactive
 from jobrunner.job_executor import (
     JobDefinition,
     JobResults,
@@ -21,7 +22,7 @@ from jobrunner.job_executor import (
 from jobrunner.lib import ns_timestamp_to_datetime
 from jobrunner.lib.database import find_where, select_values, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.models import Job, State, StatusCode
+from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 
@@ -511,15 +512,51 @@ def update_job(job):
 
 
 def start_job(job):
-    raise NotImplementedError()
+    insert_task(create_task_for_job(job))
 
 
-def cancel_job(job):
-    raise NotImplementedError()
+def create_task_for_job(job):
+    previous_tasks = find_where(Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB)
+    assert all(t.active is False for t in previous_tasks)
+    task_number = len(previous_tasks) + 1
+    return Task(
+        # Zero-pad the task number so tasks sort lexically
+        id=f"{job.id}-{task_number:03}",
+        type=TaskType.RUNJOB,
+        definition=job_to_job_definition(job).to_dict(),
+        # TODO: Uncomment this when Job grows a `backend` field
+        # backed=job.backend,
+    )
 
 
 def get_task_for_job(job):
-    raise NotImplementedError()
+    # TODO: I think jobs need to store the ID of the task they are currently associated
+    # with. But for now, it works to always get the most recently created task for a
+    # given job.
+    tasks = find_where(Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB)
+    # Task IDs are constructed such that, for a given job, lexical order matches
+    # creation order
+    tasks.sort(key=lambda t: t.id)
+    if tasks:
+        assert all(not t.active for t in tasks[:-1])
+        return tasks[-1]
+    else:
+        return None
+
+
+def cancel_job(job):
+    runjob_task = get_task_for_job(job)
+    if not runjob_task or not runjob_task.active:
+        return
+    mark_task_inactive(runjob_task)
+    canceljob_task = Task(
+        id=f"{runjob_task.id}-cancel",
+        type=TaskType.CANCELJOB,
+        definition={"job_id": job.id},
+        # TODO: Uncomment this when Job grows a `backend` field
+        # backed=job.backend,
+    )
+    insert_task(canceljob_task)
 
 
 if __name__ == "__main__":  # pragma: no cover
