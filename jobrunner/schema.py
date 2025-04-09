@@ -24,3 +24,13 @@ class AgentTask:
     type: TaskType  # noqa: A003
     definition: dict
     created_at: int = None
+
+    @classmethod
+    def from_task(cls, task):
+        return cls(
+            id=task.id,
+            backend=task.backend,
+            type=task.type,
+            definition=task.definition,
+            created_at=task.created_at,
+        )
