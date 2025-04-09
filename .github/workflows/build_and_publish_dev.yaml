@@ -1,0 +1,38 @@
+name: Tag repo; build and publish assets for dev branch
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: job-runner-dev
+  PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
+  STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
+
+permissions:
+  packages: write
+  contents: write
+
+jobs:
+  build-and-publish-docker-image:
+    runs-on: ubuntu-latest
+    name: Build and publish docker image
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Set up Just
+      uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6
+    - name: Build image
+      run: |
+        just docker/build dev # build base and dev images
+        just docker/build prod # explicitly build prod as well
+    - name: Test image
+      run: just docker/test
+    - name: Log into GitHub Container Registry
+      run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
+    - name: Push image to GitHub Container Registry
+      run: |
+        IMAGE_ID="ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME"
+        docker tag "$IMAGE_NAME" "$IMAGE_ID:latest"
+        docker push "$IMAGE_ID:latest"
