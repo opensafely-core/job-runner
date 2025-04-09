@@ -20,7 +20,7 @@ from jobrunner.job_executor import (
     Study,
 )
 from jobrunner.lib import ns_timestamp_to_datetime
-from jobrunner.lib.database import find_where, select_values, update
+from jobrunner.lib.database import find_where, select_values, transaction, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import calculate_workspace_state, get_flag_value
@@ -105,7 +105,8 @@ def handle_single_job(job):
     mode = get_flag_value("mode")
     paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
-        trace_handle_job(job, mode, paused)
+        with transaction():
+            trace_handle_job(job, mode, paused)
     except Exception as exc:
         mark_job_as_failed(
             job,
