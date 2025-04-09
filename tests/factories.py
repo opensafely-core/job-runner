@@ -125,7 +125,10 @@ def runjob_task_factory(*args, state=State.RUNNING, **kwargs):
     """Set up a job and corresponding task"""
     job = job_factory(*args, state=state, **kwargs)
     task = Task(
-        id=job.id, type=TaskType.RUNJOB, definition=job_to_job_definition(job).to_dict()
+        id=job.id,
+        backend="test",
+        type=TaskType.RUNJOB,
+        definition=job_to_job_definition(job).to_dict(),
     )
     task_api.insert_task(task)
     return task
