@@ -150,14 +150,7 @@ def handle_single_job(job, api):
     mode = get_flag_value("mode")
     paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
-        synchronous_transition = trace_handle_job(job, api, mode, paused)
-
-        # provide a way to shortcut moving a job on to the next state right away
-        # this is intended to support executors where some state transitions
-        # are synchronous, particularly the local executor where prepare is
-        # synchronous and can be time consuming.
-        if synchronous_transition:
-            trace_handle_job(job, api, mode, paused)
+        trace_handle_job(job, api, mode, paused)
     except Exception as exc:
         mark_job_as_failed(
             job,
@@ -187,7 +180,7 @@ def trace_handle_job(job, api, mode, paused):
     with tracer.start_as_current_span("LOOP_JOB") as span:
         tracing.set_span_metadata(span, job, **attrs)
         try:
-            synchronous_transition = handle_job(job, api, mode, paused)
+            handle_job(job, api, mode, paused)
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
@@ -195,8 +188,6 @@ def trace_handle_job(job, api, mode, paused):
         else:
             span.set_attribute("final_state", job.state.name)
             span.set_attribute("final_code", job.status_code.name)
-
-    return synchronous_transition
 
 
 def handle_job(job, api, mode=None, paused=None):
