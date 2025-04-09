@@ -381,7 +381,11 @@ def set_code(
             timestamp_s = int(timestamp_ns // 1e9)
 
         # update coarse state and timings for user
-        if new_status_code in [StatusCode.PREPARED, StatusCode.PREPARING]:
+        if new_status_code in [
+            StatusCode.PREPARED,
+            StatusCode.PREPARING,
+            StatusCode.EXECUTING,
+        ]:
             # we've started running
             job.state = State.RUNNING
             job.started_at = timestamp_s
