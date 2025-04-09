@@ -276,14 +276,6 @@ def job_to_job_definition(job):
     if job.requires_db:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
-            env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
-            if config.TEMP_DATABASE_NAME:  # pragma: no cover
-                env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
-            if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:  # pragma: no cover
-                env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
-                env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
-            if config.EMIS_ORGANISATION_HASH:  # pragma: no cover
-                env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
     # Prepend registry name
     action_args = job.action_args
     image = action_args.pop(0)
