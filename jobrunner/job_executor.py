@@ -1,3 +1,4 @@
+import time
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -47,10 +48,13 @@ class JobDefinition:
     @classmethod
     def from_dict(cls, data: dict):
         # Create the nested Study instance
-        study_data = data.pop("study")
-        study = Study(
-            git_repo_url=study_data["git_repo_url"], commit=study_data["commit"]
-        )
+        study_data = data.pop("study", None)
+        if study_data:
+            study = Study(
+                git_repo_url=study_data["git_repo_url"], commit=study_data["commit"]
+            )
+        else:
+            study = None
 
         # Create the JobDefinition instance with the Study object
         return cls(study=study, **{k: v for k, v in data.items()})
@@ -79,9 +83,8 @@ class ExecutorState(Enum):
 class JobStatus:
     state: ExecutorState
     message: str | None = None
-    timestamp_ns: int = (
-        None  # timestamp this JobStatus occurred, in integer nanoseconds
-    )
+    # timestamp this JobStatus occurred, in integer nanoseconds
+    timestamp_ns: int = field(default_factory=time.time_ns)
     metrics: dict = field(default_factory=dict)
 
 
@@ -108,8 +111,23 @@ class JobResults:
     base_created: str = "unknown"
 
     @classmethod
-    def from_dict(cls, data: dict):
-        return cls(**data)
+    def from_dict(cls, metadata: dict):
+        return cls(
+            outputs=metadata["outputs"],
+            unmatched_patterns=metadata["unmatched_patterns"],
+            unmatched_outputs=metadata["unmatched_outputs"],
+            exit_code=int(metadata["exit_code"]),
+            image_id=metadata["docker_image_id"],
+            message=metadata["status_message"],
+            unmatched_hint=metadata["hint"],
+            timestamp_ns=metadata["timestamp_ns"],
+            action_version=metadata["action_version"],
+            action_revision=metadata["action_revision"],
+            action_created=metadata["action_created"],
+            base_revision=metadata["base_revision"],
+            base_created=metadata["base_created"],
+            level4_excluded_files=metadata["level4_excluded_files"],
+        )
 
 
 class ExecutorRetry(Exception):

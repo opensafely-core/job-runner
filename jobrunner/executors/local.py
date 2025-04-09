@@ -332,25 +332,12 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.EXECUTED, timestamp_ns=timestamp_ns, metrics=metrics
             )
 
-    def get_results(self, job_definition):
-        metadata = read_job_metadata(job_definition)
+    def get_metadata(self, job_definition):
+        return read_job_metadata(job_definition)
 
-        return JobResults(
-            outputs=metadata["outputs"],
-            unmatched_patterns=metadata["unmatched_patterns"],
-            unmatched_outputs=metadata["unmatched_outputs"],
-            exit_code=int(metadata["exit_code"]),
-            image_id=metadata["docker_image_id"],
-            message=metadata["status_message"],
-            unmatched_hint=metadata["hint"],
-            timestamp_ns=metadata["timestamp_ns"],
-            action_version=metadata["action_version"],
-            action_revision=metadata["action_revision"],
-            action_created=metadata["action_created"],
-            base_revision=metadata["base_revision"],
-            base_created=metadata["base_created"],
-            level4_excluded_files=metadata["level4_excluded_files"],
-        )
+    def get_results(self, job_definition):
+        metadata = self.get_metadata(job_definition)
+        return JobResults.from_dict(metadata)
 
     def delete_files(self, workspace, privacy, files):
         if privacy == Privacy.HIGH:

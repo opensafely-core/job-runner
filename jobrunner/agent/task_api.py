@@ -7,14 +7,7 @@ def get_active_tasks() -> list[AgentTask]:
     """Get a list of active tasks from the controller"""
     # cheating for now - should be HTTP API call
     return [
-        AgentTask(
-            id=t.id,
-            backend=t.backend,
-            type=t.type,
-            definition=t.definition,
-            created_at=t.created_at,
-        )
-        for t in database.find_where(ControllerTask, active=True)
+        AgentTask.from_task(t) for t in database.find_where(ControllerTask, active=True)
     ]
 
 
