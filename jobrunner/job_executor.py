@@ -107,6 +107,10 @@ class JobResults:
     base_revision: str = "unknown"
     base_created: str = "unknown"
 
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(**data)
+
 
 class ExecutorRetry(Exception):
     """Indicates to the job scheduler that there's a temporary issue and to try again later."""

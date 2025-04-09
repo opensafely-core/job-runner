@@ -42,4 +42,12 @@ def update_controller(
     db_task.agent_stage = stage
     db_task.agent_results = results
     db_task.agent_complete = complete
+    # This looks like the agent overstepping itself but I think this is the behaviour we
+    # need to simulate how the HTTP handler will work. The controller endpoint which
+    # receives task updates will always mark tasks as inactive if the agent says they're
+    # complete: there's no point continuing to ask for updates on completed tasks. Note
+    # that these are still semantically different things though because the controller
+    # can mark tasks inactive even when they're not complete.
+    if complete:
+        db_task.active = False
     database.update(db_task)
