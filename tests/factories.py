@@ -121,7 +121,7 @@ def metrics_factory(job=None, metrics=None):
     record_stats.write_job_metrics(job.id, metrics)
 
 
-def runjob_task_factory(*args, state=State.RUNNING, **kwargs):
+def runjob_db_task_factory(*args, state=State.RUNNING, **kwargs):
     """Set up a job and corresponding task"""
     job = job_factory(*args, state=state, **kwargs)
     task = Task(
