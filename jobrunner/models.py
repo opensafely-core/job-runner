@@ -384,7 +384,7 @@ class Task:
     __tableschema__ = """
         CREATE TABLE tasks (
             id TEXT,
-            backend TEST,
+            backend TEXT,
             type TEXT,
             definition TEXT,
             active BOOLEAN,
