@@ -229,7 +229,7 @@ def handle_job(job, mode=None, paused=None):
                 # TODO: Delete obsolete files
 
 
-def save_results(job, job_definition, results):
+def save_results(job, results):
     """Extract the results of the execution and update the job accordingly."""
     # save job outputs
     job.outputs = results.outputs
@@ -244,7 +244,7 @@ def save_results(job, job_definition, results):
         message = "Job exited with an error"
         if results.message:  # pragma: no cover
             message += f": {results.message}"
-        elif job_definition.allow_database_access:
+        elif job.requires_db:
             error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
             if error_msg:  # pragma: no cover
                 message += f": {error_msg}"
