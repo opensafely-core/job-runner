@@ -110,6 +110,24 @@ class JobResults:
     base_revision: str = "unknown"
     base_created: str = "unknown"
 
+    def to_dict(self):
+        return dict(
+            outputs=self.outputs,
+            unmatched_patterns=self.unmatched_patterns,
+            unmatched_outputs=self.unmatched_outputs,
+            exit_code=self.exit_code,
+            docker_image_id=self.image_id,
+            status_message=self.message,
+            hint=self.unmatched_hint,
+            timestamp_ns=self.timestamp_ns,
+            action_version=self.action_version,
+            action_revision=self.action_revision,
+            action_created=self.action_created,
+            base_revision=self.base_revision,
+            base_created=self.base_created,
+            level4_excluded_files=self.level4_excluded_files,
+        )
+
     @classmethod
     def from_dict(cls, metadata: dict):
         return cls(
