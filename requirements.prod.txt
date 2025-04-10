@@ -128,34 +128,34 @@ importlib-metadata==8.6.1 \
 opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip \
     --hash=sha256:1b63f0ea0d6df2d3ecedbb6fc0550185e96b5164b956bc2b5d5eb47cb0d0611f
     # via opensafely-jobrunner (pyproject.toml)
-opentelemetry-api==1.31.1 \
-    --hash=sha256:137ad4b64215f02b3000a0292e077641c8611aab636414632a9b9068593b7e91 \
-    --hash=sha256:1511a3f470c9c8a32eeea68d4ea37835880c0eed09dd1a0187acc8b1301da0a1
+opentelemetry-api==1.32.0 \
+    --hash=sha256:15df743c765078611f376037b0d9111ec5c1febf2ec9440cdd919370faa1ce55 \
+    --hash=sha256:2623280c916f9b19cad0aa4280cb171265f19fd2909b0d47e4f06f7c83b02cb5
     # via
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.31.1 \
-    --hash=sha256:7cadf89dbab12e217a33c5d757e67c76dd20ce173f8203e7370c4996f2e9efd8 \
-    --hash=sha256:c748e224c01f13073a2205397ba0e415dcd3be9a0f95101ba4aace5fc730e0da
+opentelemetry-exporter-otlp-proto-common==1.32.0 \
+    --hash=sha256:277a63a18768b3b460d082a489f6f80d4ae2c1e6b185bb701c6bd4e91405e4bd \
+    --hash=sha256:2bca672f2a279c4f517115e635c0cc1269d07b2982a36681c521f7e56179a222
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.31.1 \
-    --hash=sha256:5dee1f051f096b13d99706a050c39b08e3f395905f29088bfe59e54218bd1cf4 \
-    --hash=sha256:723bd90eb12cfb9ae24598641cb0c92ca5ba9f1762103902f6ffee3341ba048e
+opentelemetry-exporter-otlp-proto-http==1.32.0 \
+    --hash=sha256:a5dfd94603da86e313e4f4fb8d181fd3b64a7c2a9c7b408c3653d2b1bc68d14f \
+    --hash=sha256:e2ffecd6d2220eaf1291a46339f109bc0a57ee7c4c6abb8174df418bf00ce01f
     # via opensafely-jobrunner (pyproject.toml)
-opentelemetry-proto==1.31.1 \
-    --hash=sha256:1398ffc6d850c2f1549ce355744e574c8cd7c1dba3eea900d630d52c41d07178 \
-    --hash=sha256:d93e9c2b444e63d1064fb50ae035bcb09e5822274f1683886970d2734208e790
+opentelemetry-proto==1.32.0 \
+    --hash=sha256:f699269dc037e18fba05442580a8682c9fbd0f4c7f5addfed82c44be0c53c5ff \
+    --hash=sha256:f8b70ae52f4ef8a4e4c0760e87c9071e07ece2618c080d4839bef44c0156cd44
     # via
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.31.1 \
-    --hash=sha256:882d021321f223e37afaca7b4e06c1d8bbc013f9e17ff48a7aa017460a8e7dae \
-    --hash=sha256:c95f61e74b60769f8ff01ec6ffd3d29684743404603df34b20aa16a49dc8d903
+opentelemetry-sdk==1.32.0 \
+    --hash=sha256:5ff07fb371d1ab1189fa7047702e2e888b5403c5efcbb18083cae0d5aa5f58d2 \
+    --hash=sha256:ed252d035c22a15536c1f603ca089298daab60850fc2f5ddfa95d95cc1c043ea
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.52b1 \
-    --hash=sha256:72b42db327e29ca8bb1b91e8082514ddf3bbf33f32ec088feb09526ade4bc77e \
-    --hash=sha256:7b3d226ecf7523c27499758a58b542b48a0ac8d12be03c0488ff8ec60c5bae5d
+opentelemetry-semantic-conventions==0.53b0 \
+    --hash=sha256:05b7908e1da62d72f9bf717ed25c72f566fe005a2dd260c61b11e025f2552cf6 \
+    --hash=sha256:561da89f766ab51615c0e72b12329e0a1bc16945dbd62c8646ffc74e36a1edff
     # via opentelemetry-sdk
 protobuf==5.29.4 \
     --hash=sha256:13eb236f8eb9ec34e63fc8b1d6efd2777d062fa6aaa68268fb67cf77f6839ad7 \
