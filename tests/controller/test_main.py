@@ -4,40 +4,38 @@ from opentelemetry import trace
 from jobrunner import config, run
 from jobrunner.controller import main
 from jobrunner.job_executor import ExecutorState, JobStatus
-from jobrunner.models import State, StatusCode
+from jobrunner.lib import database
+from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from tests.conftest import get_trace
 from tests.factories import StubExecutorAPI, job_factory
 from tests.fakes import RecordingExecutor
 
 
+def run_controller_loop_once():
+    main.main(exit_callback=lambda _: True)
+
+
 def test_handle_pending_job_cancelled(db):
-    api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, cancelled=True)
+    job = job_factory()
+    run_controller_loop_once()
 
-    assert job.id not in api.tracker["prepare"]
-    assert job.id not in api.tracker["terminate"]
-    assert job.id not in api.tracker["finalize"]
-    assert job.id not in api.tracker["cleanup"]
+    tasks = database.find_all(Task)
+    assert len(tasks) == 1
+    assert tasks[0].type == TaskType.RUNJOB
+    assert tasks[0].active
 
-    run.handle_job(job, api)
+    database.update_where(Job, dict(cancelled=True), id=job.id)
 
-    assert job.id not in api.tracker["prepare"]
-    assert job.id not in api.tracker["terminate"]
-    assert job.id not in api.tracker["finalize"]
-    assert job.id not in api.tracker["cleanup"]
+    run_controller_loop_once()
 
-    # executor state
-    job_definition = run.job_to_job_definition(job)
-    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
+    runjob_tasks = database.find_where(Task, type=TaskType.RUNJOB)
+    canceljob_tasks = database.find_where(Task, type=TaskType.CANCELJOB)
+    assert len(runjob_tasks) == 1
+    assert not runjob_tasks[0].active
+    assert len(canceljob_tasks) == 1
 
-    # run.handle_job(job, api)
+    job = database.find_one(Job, id=job.id)
 
-    # assert job.id not in api.tracker["prepare"]
-    # assert job.id in api.tracker["terminate"]
-    # assert job.id not in api.tracker["finalize"]
-    # assert job.id not in api.tracker["cleanup"]
-
-    # our state
     assert job.state == State.FAILED
     assert job.status_message == "Cancelled by user"
     assert job.status_code == StatusCode.CANCELLED_BY_USER
