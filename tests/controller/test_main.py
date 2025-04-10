@@ -301,20 +301,16 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
 
 
 def test_handle_pending_cancelled_db_maintenance_mode(db, backend_db_config):
-    api = StubExecutorAPI()
-    job = api.add_test_job(
-        ExecutorState.UNKNOWN,
-        State.PENDING,
+    set_flag("mode", "db-maintenance")
+    job = job_factory(
         run_command="cohortextractor:latest generate_cohort",
         requires_db=True,
         cancelled=True,
     )
 
-    run.handle_job(job, api, mode="db-maintenance")
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
 
-    # executor state
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
-    # our state
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.CANCELLED_BY_USER
     assert job.status_message == "Cancelled by user"
