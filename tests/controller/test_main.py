@@ -2,17 +2,30 @@ import pytest
 from opentelemetry import trace
 
 from jobrunner import config, run
+from jobrunner.agent import task_api as agent_task_api
 from jobrunner.controller import main
 from jobrunner.job_executor import ExecutorState, JobStatus
 from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from tests.conftest import get_trace
-from tests.factories import StubExecutorAPI, job_factory
+from tests.factories import StubExecutorAPI, job_factory, job_results_factory
 from tests.fakes import RecordingExecutor
 
 
 def run_controller_loop_once():
     main.main(exit_callback=lambda _: True)
+
+
+def set_job_task_results(job, job_results):
+    runjob_task = database.find_one(
+        Task, type=TaskType.RUNJOB, id__like=f"{job.id}-%", active=True
+    )
+    agent_task_api.update_controller(
+        runjob_task,
+        stage="",
+        results={"results": job_results.to_dict(), "error": None},
+        complete=True,
+    )
 
 
 def test_handle_pending_job_cancelled(db):
@@ -144,28 +157,26 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
 
 
 def test_handle_job_finalized_success_with_large_file(db):
-    api = StubExecutorAPI()
-
     # insert previous outputs
     job_factory(
         state=State.SUCCEEDED,
         status_code=StatusCode.SUCCEEDED,
         outputs={"output/output.csv": "moderately_sensitive"},
     )
+    # create new job
+    job = job_factory()
 
-    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
-    api.set_job_result(
+    run_controller_loop_once()
+    set_job_task_results(
         job,
-        outputs={"output/output.csv": "moderately_sensitive"},
-        level4_excluded_files={"output/output.csv": "too big"},
+        job_results_factory(
+            outputs={"output/output.csv": "moderately_sensitive"},
+            level4_excluded_files={"output/output.csv": "too big"},
+        ),
     )
+    run_controller_loop_once()
 
-    run.handle_job(job, api)
-
-    # executor state
-    assert job.id in api.tracker["cleanup"]
-    # its been cleaned up and is now unknown
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    job = database.find_one(Job, id=job.id)
 
     # our state
     assert job.state == State.SUCCEEDED
