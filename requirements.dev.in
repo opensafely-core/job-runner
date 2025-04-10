@@ -10,6 +10,7 @@ pip-tools
 pre-commit
 pytest
 pytest-cov
+pytest-django
 pytest-freezer
 pytest-responses
 requests_mock
