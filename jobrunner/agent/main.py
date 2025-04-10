@@ -52,7 +52,7 @@ def handle_tasks(api: ExecutorAPI | None):
     for task in active_tasks:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
-        with set_log_context(task=task.id):
+        with set_log_context(task=task):
             handle_single_task(task, api)
 
         handled_tasks.append(task)

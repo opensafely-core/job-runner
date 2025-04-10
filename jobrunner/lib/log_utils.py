@@ -101,6 +101,7 @@ def formatting_filter(record):
         "job_definition"
     )
     req = getattr(record, "job_request", None) or ctx.get("job_request")
+    task = getattr(record, "task", None) or ctx.get("task")
 
     status_code = getattr(record, "status_code", None)
     if job and not status_code:
@@ -118,6 +119,9 @@ def formatting_filter(record):
         tags["id"] = job_definition.id
     if req:
         tags["req"] = req.id
+    if task:
+        tags["task"] = task.id
+        tags["task_type"] = task.type
 
     record.tags = " ".join(f"{k}={v}" for k, v in tags.items())
 
