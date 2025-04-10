@@ -192,6 +192,9 @@ def handle_run_job_task(task, api):
                 update_controller(task, new_status)
 
             case ExecutorState.PREPARED:
+                if job.allow_database_access:
+                    inject_db_secrets(job)
+
                 new_status = api.execute(job)
                 update_controller(task, new_status)
 
@@ -254,6 +257,22 @@ def mark_task_as_error(task, error):
     update_controller(
         task, JobStatus(ExecutorState.ERROR), results={"error": error}, complete=True
     )
+
+
+def inject_db_secrets(job):
+    """Inject the configured db secrets into the job's environ."""
+    assert job.allow_database_access
+    if config.USING_DUMMY_DATA_BACKEND:
+        return
+
+    job.env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
+    if config.TEMP_DATABASE_NAME:
+        job.env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
+    if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
+        job.env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
+        job.env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
+    if config.EMIS_ORGANISATION_HASH:
+        job.env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
 
 
 if __name__ == "__main__":  # pragma: no cover
