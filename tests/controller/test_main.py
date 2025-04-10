@@ -1,16 +1,14 @@
 import pytest
 from opentelemetry import trace
 
-from jobrunner import config, run
+from jobrunner import config
 from jobrunner.agent import task_api as agent_task_api
 from jobrunner.controller import main
-from jobrunner.job_executor import ExecutorState, JobStatus
 from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import set_flag
 from tests.conftest import get_trace
 from tests.factories import job_factory, job_results_factory
-from tests.fakes import RecordingExecutor
 
 
 def run_controller_loop_once():
@@ -370,18 +368,14 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
         cancelled=True,
         outputs={"output-from-cancelled-run": "highly_sensitive_output"},
     )
-
-    api = RecordingExecutor(
-        JobStatus(ExecutorState.UNKNOWN), JobStatus(ExecutorState.PREPARING)
+    job_factory(
+        id="3",
+        requires_outputs_from=["other-action"],
     )
-    run.handle_job(
-        job_factory(
-            id="3", requires_outputs_from=["other-action"], state=State.PENDING
-        ),
-        api,
-    )
+    run_controller_loop_once()
 
-    assert api.job_definition.inputs == ["output-from-completed-run"]
+    task = database.find_one(Task)
+    assert task.definition["inputs"] == ["output-from-completed-run"]
 
 
 def test_job_definition_limits(db):
