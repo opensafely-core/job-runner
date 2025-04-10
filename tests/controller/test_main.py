@@ -203,27 +203,23 @@ def test_handle_job_finalized_success_with_large_file(db):
 def test_handle_job_finalized_failed_exit_code(
     exit_code, run_command, extra_message, db, backend_db_config
 ):
-    api = StubExecutorAPI()
-    job = api.add_test_job(
-        ExecutorState.FINALIZED,
-        State.RUNNING,
-        StatusCode.FINALIZED,
+    job = job_factory(
         run_command=run_command,
         requires_db="cohortextractor" in run_command,
     )
-    api.set_job_result(
+
+    run_controller_loop_once()
+    set_job_task_results(
         job,
-        outputs={"output/file.csv": "highly_sensitive"},
-        exit_code=exit_code,
-        message=None,
+        job_results_factory(
+            outputs={"output/file.csv": "highly_sensitive"},
+            exit_code=exit_code,
+            message=None,
+        ),
     )
+    run_controller_loop_once()
 
-    run.handle_job(job, api)
-
-    # executor state
-    assert job.id in api.tracker["cleanup"]
-    # its been cleaned up and is now unknown
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    job = database.find_one(Job, id=job.id)
 
     # our state
     assert job.state == State.FAILED
@@ -235,7 +231,6 @@ def test_handle_job_finalized_failed_exit_code(
     assert job.outputs == {"output/file.csv": "highly_sensitive"}
 
     spans = get_trace("jobs")
-    assert spans[-3].name == "FINALIZED"
     completed_span = spans[-2]
     assert completed_span.name == "NONZERO_EXIT"
     assert completed_span.attributes["exit_code"] == exit_code
