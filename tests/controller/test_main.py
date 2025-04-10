@@ -4,7 +4,7 @@ import pytest
 from opentelemetry import trace
 
 from jobrunner import config, run
-from jobrunner.job_executor import ExecutorState, JobStatus, Privacy
+from jobrunner.job_executor import ExecutorState, JobStatus
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import StubExecutorAPI, job_factory
@@ -144,42 +144,6 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     # tracing
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
-
-
-@pytest.mark.xfail
-def test_handle_job_finalized_success_with_delete(db):
-    api = StubExecutorAPI()
-
-    # insert previous outputs
-    job_factory(
-        state=State.SUCCEEDED,
-        status_code=StatusCode.SUCCEEDED,
-        outputs={"output/old.csv": "highly_sensitive"},
-        created_at=time.time() - 10,
-    )
-
-    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
-    api.set_job_result(job, outputs={"output/file.csv": "highly_sensitive"})
-
-    run.handle_job(job, api)
-
-    # executor state
-    assert job.id in api.tracker["cleanup"]
-    # its been cleaned up and is now unknown
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
-
-    # our state
-    assert job.state == State.SUCCEEDED
-    assert job.status_message == "Completed successfully"
-    assert job.outputs == {"output/file.csv": "highly_sensitive"}
-    assert api.deleted["workspace"][Privacy.MEDIUM] == ["output/old.csv"]
-    assert api.deleted["workspace"][Privacy.HIGH] == ["output/old.csv"]
-
-    # tracing
-    spans = get_trace("jobs")
-    assert spans[-3].name == "FINALIZED"
-    assert spans[-2].name == "SUCCEEDED"
-    assert spans[-1].name == "JOB"
 
 
 def test_handle_job_finalized_success_with_large_file(db):
