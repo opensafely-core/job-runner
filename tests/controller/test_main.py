@@ -243,21 +243,19 @@ def test_handle_job_finalized_failed_exit_code(
 
 
 def test_handle_job_finalized_failed_unmatched_patterns(db):
-    api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.FINALIZED, State.RUNNING, StatusCode.FINALIZED)
-    api.set_job_result(
+    job = job_factory()
+    run_controller_loop_once()
+    set_job_task_results(
         job,
-        outputs={"output/file.csv": "highly_sensitive"},
-        unmatched_patterns=["badfile.csv"],
-        unmatched_outputs=["otherbadfile.csv"],
+        job_results_factory(
+            outputs={"output/file.csv": "highly_sensitive"},
+            unmatched_patterns=["badfile.csv"],
+            unmatched_outputs=["otherbadfile.csv"],
+        ),
     )
+    run_controller_loop_once()
 
-    run.handle_job(job, api)
-
-    # executor state
-    assert job.id in api.tracker["cleanup"]
-    # its been cleaned up and is now unknown
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    job = database.find_one(Job, id=job.id)
 
     # our state
     assert job.state == State.FAILED
@@ -266,7 +264,6 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     assert job.unmatched_outputs == ["otherbadfile.csv"]
 
     spans = get_trace("jobs")
-    assert spans[-3].name == "FINALIZED"
     completed_span = spans[-2]
     assert completed_span.name == "UNMATCHED_PATTERNS"
     assert completed_span.attributes["outputs"] == 1
