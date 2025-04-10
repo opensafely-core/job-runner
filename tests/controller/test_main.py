@@ -125,19 +125,16 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
 
 def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     monkeypatch.setattr(config, "MAX_DB_WORKERS", 0)
-    api = StubExecutorAPI()
-    job = api.add_test_job(
-        ExecutorState.UNKNOWN,
-        State.PENDING,
-        run_command="cohortextractor:latest generate_cohort",
+    job = job_factory(
+        run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,
     )
+    run_controller_loop_once()
 
-    run.handle_job(job, api)
+    tasks = database.find_all(Task)
+    job = database.find_one(Job, id=job.id)
 
-    # executor doesn't even know about it
-    assert job.id not in api.tracker["prepare"]
-
+    assert len(tasks) == 0
     assert job.state == State.PENDING
     assert job.status_message == "Waiting on available database workers"
     assert job.status_code == StatusCode.WAITING_ON_DB_WORKERS
