@@ -146,6 +146,7 @@ def handle_run_job_task(task, api):
     well as supporting cancellation and various operational modes.
     """
     job = JobDefinition.from_dict(task.definition)
+
     with set_log_context(job=job.id):
         # TODO: if job.allow_database_access, then we need to populate job.env with
         # various secrets, as per run.py:job_to_job_definition
@@ -178,6 +179,9 @@ def handle_run_job_task(task, api):
                 update_controller(task, new_status)
 
             case ExecutorState.PREPARED:
+                if job.allow_database_access:
+                    inject_db_secrets(job)
+
                 new_status = api.execute(job)
                 update_controller(task, new_status)
 
@@ -224,6 +228,22 @@ def mark_task_as_error(task, code, message, error=None, **attrs):
     # Code is a StatusCode.INTERNAL_ERROR, which is not a TaskStage
     # update controller with ExecutorState.ERROR, and pass the error message somewhere?
     # update_controller(task, ExecutorState.ERROR)
+
+
+def inject_db_secrets(job):
+    """Inject the configured db secrets into the job's environ."""
+    assert job.allow_database_access
+    if config.USING_DUMMY_DATA_BACKEND:
+        return
+
+    job.env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
+    if config.TEMP_DATABASE_NAME:
+        job.env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
+    if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
+        job.env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
+        job.env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
+    if config.EMIS_ORGANISATION_HASH:
+        job.env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
 
 
 if __name__ == "__main__":  # pragma: no cover
