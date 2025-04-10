@@ -9,7 +9,7 @@ from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import set_flag
 from tests.conftest import get_trace
-from tests.factories import StubExecutorAPI, job_factory, job_results_factory
+from tests.factories import job_factory, job_results_factory
 from tests.fakes import RecordingExecutor
 
 
@@ -336,27 +336,20 @@ def test_handle_pending_pause_mode(db, backend_db_config):
 
 
 def test_handle_running_pause_mode(db, backend_db_config):
-    api = StubExecutorAPI()
-    job = api.add_test_job(
-        ExecutorState.EXECUTING,
-        State.RUNNING,
-        StatusCode.EXECUTING,
-        status_message="doing my thang",
+    job = job_factory(
         run_command="cohortextractor:latest generate_cohort",
         requires_db=True,
     )
 
-    run.handle_job(job, api, paused=True)
+    # Start it running, then pause, then update its status
+    run_controller_loop_once()
+    set_flag("paused", "True")
+    run_controller_loop_once()
 
-    # check we did nothing
-    # executor state
-    assert api.get_status(job).state == ExecutorState.EXECUTING
-    # our state
+    job = database.find_one(Job, id=job.id)
+
     assert job.state == State.RUNNING
     assert "paused" not in job.status_message
-
-    spans = get_trace("jobs")
-    assert len(spans) == 0  # no spans
 
 
 def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
