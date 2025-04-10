@@ -5,7 +5,7 @@ import time
 from opentelemetry import trace
 
 from jobrunner import config
-from jobrunner.agent import task_api
+from jobrunner.agent import task_api, tracing
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.log_utils import configure_logging, set_log_context
@@ -13,7 +13,7 @@ from jobrunner.models import StatusCode
 
 
 log = logging.getLogger(__name__)
-tracer = trace.get_tracer("loop")
+tracer = trace.get_tracer("agent_loop")
 
 EXECUTOR_RETRIES = {}
 
@@ -31,11 +31,13 @@ class ExecutorError(Exception):
 
 
 def main(exit_callback=lambda _: False):  # pragma: no cover
-    log.info("jobrunner.run loop started")
+    log.info("jobrunner.agent.main loop started")
     api = get_executor_api()
 
     while True:
-        with tracer.start_as_current_span("LOOP", attributes={"loop": True}):
+        with tracer.start_as_current_span(
+            "AGENT_LOOP", attributes={"agent_loop": True}
+        ):
             active_tasks = handle_tasks(api)
 
         if exit_callback(active_tasks):
@@ -51,7 +53,7 @@ def handle_tasks(api: ExecutorAPI | None):
 
     for task in active_tasks:
         # `set_log_context` ensures that all log messages triggered anywhere
-        # further down the stack will have `job` set on them
+        # further down the stack will have `task` set on them
         with set_log_context(task=task):
             handle_single_task(task, api)
 
@@ -93,11 +95,8 @@ def handle_single_task(task, api):
 def trace_handle_task(task, api):
     """Call handle task with tracing."""
 
-    with tracer.start_as_current_span("LOOP_JOB") as span:
-        # TODO: we'll need an agent/task version of set_span_metadata (and possibly
-        # more of tracing.py) as the current one sets info about a Job, and will
-        # probably still be used in some for by the controller
-        # tracing.set_span_metadata(span, task)
+    with tracer.start_as_current_span("LOOP_TASK") as span:
+        tracing.set_task_span_metadata(span, task)
         try:
             handle_run_job_task(task, api)
         except Exception as exc:
@@ -152,10 +151,10 @@ def handle_run_job_task(task, api):
 
         job_status = api.get_status(job)
 
-        # TODO: get current span and add these
-        # attrs = {
-        #     "initial_code": task.status_code.name,
-        # }
+        span = trace.get_current_span()
+        tracing.set_job_span_metadata(
+            span, job, initial_job_status=job_status.state.name
+        )
 
         # TODO: Update get_status to detect an error.json and read it.
         # I think that JobStatus should probably grow .error and .result fields,
@@ -207,10 +206,28 @@ def handle_run_job_task(task, api):
 def update_controller(
     task, status: JobStatus, results: dict = None, complete: bool = False
 ):
-    # TODO: wrap update_controller to get current span from loop trace and add these
-    # span.set_attribute("final_code", job.status_code.name)
-    # TODO: task trace telemetry
-    # TODO: send any error or results
+    """
+    Wrap the update_controller call to set the final job status on the current
+    span from the agent_loop trace
+    Note that we set final_job_status twice when we call prepare and finalise, as
+    we update the controller before (when status is PREPARING/FINALIZING) and
+    after, (when status is PREPARED/FINALIZED); this is OK, because we'll still
+    record the final status at the end of this loop.
+    """
+    span = trace.get_current_span()
+    attributes = {
+        "final_job_status": status.state.name,
+        "complete": complete,
+    }
+    if results is not None:
+        results_attrs = results.get("results")
+        if results_attrs:
+            attributes.update(**results_attrs)
+        error = results.get("error")
+        if error:
+            attributes.update(error=error)
+
+    span.set_attributes(attributes)
     task_api.update_controller(task, status.state.value, results, complete)
 
 
