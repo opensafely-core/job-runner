@@ -2,6 +2,7 @@ import pytest
 from opentelemetry import trace
 
 from jobrunner import config, run
+from jobrunner.controller import main
 from jobrunner.job_executor import ExecutorState, JobStatus
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
@@ -413,14 +414,14 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
 
 def test_job_definition_limits(db):
     job = job_factory()
-    job_definition = run.job_to_job_definition(job)
+    job_definition = main.job_to_job_definition(job)
     assert job_definition.cpu_count == 2
     assert job_definition.memory_limit == "4G"
 
 
 def test_mark_job_as_failed_adds_error(db):
     job = job_factory()
-    run.mark_job_as_failed(job, StatusCode.INTERNAL_ERROR, "error")
+    main.mark_job_as_failed(job, StatusCode.INTERNAL_ERROR, "error")
 
     # tracing
     spans = get_trace("jobs")
