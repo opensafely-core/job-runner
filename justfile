@@ -154,5 +154,8 @@ fix: devenv
 add-job *args: devenv
     $BIN/python -m jobrunner.cli.add_job {{ args }}
 
-run: devenv
-    $BIN/python -m jobrunner.run
+run-agent: devenv
+    $BIN/python -m jobrunner.agent.main
+
+run-controller: devenv
+    $BIN/python -m jobrunner.controller.main
