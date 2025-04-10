@@ -7,6 +7,7 @@ from jobrunner.controller import main
 from jobrunner.job_executor import ExecutorState, JobStatus
 from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
+from jobrunner.queries import set_flag
 from tests.conftest import get_trace
 from tests.factories import StubExecutorAPI, job_factory, job_results_factory
 from tests.fakes import RecordingExecutor
@@ -281,18 +282,15 @@ def backend_db_config(monkeypatch):
 
 
 def test_handle_pending_db_maintenance_mode(db, backend_db_config):
-    api = StubExecutorAPI()
-    job = api.add_test_job(
-        ExecutorState.UNKNOWN,
-        State.PENDING,
+    set_flag("mode", "db-maintenance")
+    job = job_factory(
         run_command="cohortextractor:latest generate_cohort",
         requires_db=True,
     )
 
-    run.handle_job(job, api, mode="db-maintenance")
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
 
-    # executor state
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
     assert job.state == State.PENDING
     assert job.status_code == StatusCode.WAITING_DB_MAINTENANCE
     assert job.status_message == "Waiting for database to finish maintenance"
