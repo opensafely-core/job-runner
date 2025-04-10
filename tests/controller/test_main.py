@@ -82,22 +82,17 @@ def test_handle_job_pending_dependency_failed(db):
 
 
 def test_handle_pending_job_waiting_on_dependency(db):
-    api = StubExecutorAPI()
-    dependency = api.add_test_job(ExecutorState.EXECUTING, State.RUNNING)
-
-    job = api.add_test_job(
-        ExecutorState.UNKNOWN,
-        State.PENDING,
+    dependency = job_factory()
+    job = job_factory(
+        state=State.PENDING,
         job_request_id=dependency.job_request_id,
         action="action2",
         wait_for_job_ids=[dependency.id],
     )
 
-    run.handle_job(job, api)
+    run_controller_loop_once()
 
-    # executor state
-    assert job.id not in api.tracker["prepare"]
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
+    job = database.find_one(Job, id=job.id)
 
     # our state
     assert job.state == State.PENDING
