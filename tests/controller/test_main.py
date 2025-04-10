@@ -106,14 +106,14 @@ def test_handle_pending_job_waiting_on_dependency(db):
 
 def test_handle_job_waiting_on_workers(monkeypatch, db):
     monkeypatch.setattr(config, "MAX_WORKERS", 0)
-    api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
 
-    run.handle_job(job, api)
+    job = job_factory()
+    run_controller_loop_once()
 
-    # executor doesn't even know about it
-    assert job.id not in api.tracker["prepare"]
+    tasks = database.find_all(Task)
+    job = database.find_one(Job, id=job.id)
 
+    assert len(tasks) == 0
     assert job.state == State.PENDING
     assert job.status_message == "Waiting on available workers"
     assert job.status_code == StatusCode.WAITING_ON_WORKERS
