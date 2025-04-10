@@ -146,7 +146,7 @@ def handle_run_job_task(task, api):
     well as supporting cancellation and various operational modes.
     """
     job = JobDefinition.from_dict(task.definition)
-    with set_log_context(job=job.id):
+    with set_log_context(job_definition=job):
         # TODO: if job.allow_database_access, then we need to populate job.env with
         # various secrets, as per run.py:job_to_job_definition
 

@@ -97,6 +97,9 @@ def formatting_filter(record):
 
     ctx = set_log_context.current_context
     job = getattr(record, "job", None) or ctx.get("job")
+    job_definition = getattr(record, "job_definition", None) or ctx.get(
+        "job_definition"
+    )
     req = getattr(record, "job_request", None) or ctx.get("job_request")
 
     status_code = getattr(record, "status_code", None)
@@ -111,6 +114,8 @@ def formatting_filter(record):
         tags["workspace"] = job.workspace
         tags["action"] = job.action
         tags["id"] = job.id
+    elif job_definition:
+        tags["id"] = job_definition.id
     if req:
         tags["req"] = req.id
 
