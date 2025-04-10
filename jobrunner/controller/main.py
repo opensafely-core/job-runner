@@ -518,7 +518,7 @@ def create_task_for_job(job):
         type=TaskType.RUNJOB,
         definition=job_to_job_definition(job).to_dict(),
         # TODO: Uncomment this when Job grows a `backend` field
-        # backed=job.backend,
+        backend="",  # job.backend,
     )
 
 
@@ -547,7 +547,7 @@ def cancel_job(job):
         type=TaskType.CANCELJOB,
         definition={"job_id": job.id},
         # TODO: Uncomment this when Job grows a `backend` field
-        # backed=job.backend,
+        backend="",  # job.backend,
     )
     insert_task(canceljob_task)
 
