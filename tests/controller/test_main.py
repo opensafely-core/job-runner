@@ -177,7 +177,7 @@ def test_handle_job_finalized_success_with_large_file(db):
     [
         (
             3,
-            "cohortextractor generate_cohort",
+            "ehrql generate-dataset dataset.py --output data.csv",
             (
                 "A transient database error occurred, your job may run "
                 "if you try it again, if it keeps failing then contact tech support"
@@ -185,12 +185,12 @@ def test_handle_job_finalized_success_with_large_file(db):
         ),
         (
             4,
-            "cohortextractor generate_cohort",
+            "ehrql generate-dataset dataset.py --output data.csv",
             "New data is being imported into the database, please try again in a few hours",
         ),
         (
             5,
-            "cohortextractor generate_cohort",
+            "ehrql generate-dataset dataset.py --output data.csv",
             "Something went wrong with the database, please contact tech support",
         ),
         # the same exit codes for a job that doesn't have access to the database show no message
@@ -204,7 +204,7 @@ def test_handle_job_finalized_failed_exit_code(
 ):
     job = job_factory(
         run_command=run_command,
-        requires_db="cohortextractor" in run_command,
+        requires_db="ehrql" in run_command,
     )
 
     run_controller_loop_once()
@@ -282,7 +282,7 @@ def backend_db_config(monkeypatch):
 def test_handle_pending_db_maintenance_mode(db, backend_db_config):
     set_flag("mode", "db-maintenance")
     job = job_factory(
-        run_command="cohortextractor:latest generate_cohort",
+        run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,
     )
 
@@ -301,7 +301,7 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
 def test_handle_pending_cancelled_db_maintenance_mode(db, backend_db_config):
     set_flag("mode", "db-maintenance")
     job = job_factory(
-        run_command="cohortextractor:latest generate_cohort",
+        run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,
         cancelled=True,
     )
@@ -318,7 +318,7 @@ def test_handle_pending_cancelled_db_maintenance_mode(db, backend_db_config):
 def test_handle_pending_pause_mode(db, backend_db_config):
     set_flag("paused", "True")
     job = job_factory(
-        run_command="cohortextractor:latest generate_cohort",
+        run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,
     )
 
@@ -335,7 +335,7 @@ def test_handle_pending_pause_mode(db, backend_db_config):
 
 def test_handle_running_pause_mode(db, backend_db_config):
     job = job_factory(
-        run_command="cohortextractor:latest generate_cohort",
+        run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,
     )
 
