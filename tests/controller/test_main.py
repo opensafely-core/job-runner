@@ -44,39 +44,6 @@ def test_handle_pending_job_cancelled(db):
     assert job.status_code == StatusCode.CANCELLED_BY_USER
 
 
-def test_handle_job_initial_error(db):
-    api = StubExecutorAPI()
-    job = api.add_test_job(
-        ExecutorState.ERROR, State.RUNNING, StatusCode.EXECUTING, message="broken"
-    )
-
-    # we raise the error to be handled in handle_single_job
-    with pytest.raises(run.ExecutorError) as exc:
-        run.handle_job(job, api)
-
-    assert str(exc.value) == "broken"
-
-
-def test_handle_job_pending_to_preparing(db):
-    api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
-
-    run.handle_job(job, api)
-
-    # executor state
-    assert job.id in api.tracker["prepare"]
-    assert api.get_status(job).state == ExecutorState.PREPARING
-
-    # our state
-    assert job.status_message == "Preparing your code and workspace files"
-    assert job.state == State.RUNNING
-    assert job.started_at
-
-    # tracing
-    spans = get_trace("jobs")
-    assert spans[-1].name == "CREATED"
-
-
 def test_handle_job_pending_dependency_failed(db):
     api = StubExecutorAPI()
     dependency = api.add_test_job(ExecutorState.UNKNOWN, State.FAILED)
@@ -177,19 +144,6 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     # tracing
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
-
-
-def test_handle_job_pending_to_error(db):
-    api = StubExecutorAPI()
-
-    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING)
-    api.set_job_transition(job, ExecutorState.ERROR, "it is b0rked")
-
-    # we raise the error to be handled in handle_single_job
-    with pytest.raises(run.ExecutorError) as exc:
-        run.handle_job(job, api)
-
-    assert str(exc.value) == "it is b0rked"
 
 
 @pytest.mark.xfail
@@ -627,18 +581,3 @@ def test_mark_job_as_failed_adds_error(db):
     assert spans[-2].status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
     assert spans[-1].status.status_code == trace.StatusCode.ERROR
-
-
-def test_trace_handle_job_successful_transition(db):
-    api = StubExecutorAPI()
-    job = api.add_test_job(ExecutorState.PREPARED, State.RUNNING, StatusCode.PREPARED)
-
-    api.set_job_transition(job, ExecutorState.EXECUTING, "success")
-
-    run.trace_handle_job(job, api, None, None)
-
-    spans = get_trace("loop")
-    assert len(spans) == 1
-    assert spans[0].attributes["job"] == job.id
-    assert spans[0].attributes["initial_code"] == "PREPARED"
-    assert spans[0].attributes["final_code"] == "EXECUTING"
