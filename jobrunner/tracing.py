@@ -253,6 +253,15 @@ def set_span_metadata(span, job, error=None, results=None, **attrs):
         attributes.update(attrs)
     attributes.update(trace_attributes(job, results))
 
+    set_span_attributes(span, attributes)
+
+    if error:
+        span.set_status(trace.Status(trace.StatusCode.ERROR, str(error)))
+    if isinstance(error, Exception):
+        span.record_exception(error)
+
+
+def set_span_attributes(span, attributes):
     # opentelemetry can only handle serializing certain attribute types
     clean_attrs = {}
     for k, v in attributes.items():
@@ -268,11 +277,6 @@ def set_span_metadata(span, job, error=None, results=None, **attrs):
         clean_attrs[k] = v
 
     span.set_attributes(clean_attrs)
-
-    if error:
-        span.set_status(trace.Status(trace.StatusCode.ERROR, str(error)))
-    if isinstance(error, Exception):
-        span.record_exception(error)
 
 
 def trace_attributes(job, results=None):
