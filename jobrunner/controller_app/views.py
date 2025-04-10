@@ -1,5 +1,8 @@
-from django.template.response import TemplateResponse
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 
+@csrf_exempt
 def index(request):
-    return TemplateResponse(request, "controller.html")
+    response = JsonResponse({"method": request.method})
+    return response
