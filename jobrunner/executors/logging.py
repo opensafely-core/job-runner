@@ -26,6 +26,9 @@ class LoggingExecutor(ExecutorAPI):
         self._add_logging(self._wrapped.terminate)
         self._add_logging(self._wrapped.cleanup)
 
+    def get_metadata(self, job_definition: JobDefinition) -> JobResults:
+        return self._wrapped.get_metadata(job_definition)
+
     def get_results(self, job_definition: JobDefinition) -> JobResults:
         return self._wrapped.get_results(job_definition)
 
