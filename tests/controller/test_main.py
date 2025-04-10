@@ -318,19 +318,15 @@ def test_handle_pending_cancelled_db_maintenance_mode(db, backend_db_config):
 
 
 def test_handle_pending_pause_mode(db, backend_db_config):
-    api = StubExecutorAPI()
-    job = api.add_test_job(
-        ExecutorState.UNKNOWN,
-        State.PENDING,
+    set_flag("paused", "True")
+    job = job_factory(
         run_command="cohortextractor:latest generate_cohort",
         requires_db=True,
     )
 
-    run.handle_job(job, api, paused=True)
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
 
-    # executor state
-    assert api.get_status(job).state == ExecutorState.UNKNOWN
-    # our state
     assert job.state == State.PENDING
     assert job.started_at is None
     assert "paused" in job.status_message
