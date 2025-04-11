@@ -99,96 +99,36 @@ def test_handle_job_with_error(mock_update_controller, db):
     assert span.status.description == "Exception: foo"
 
 
-
-def test_handle_prepared_job_cancelled(db, monkeypatch):
+@pytest.mark.parametrize(
+    "initial_state,final_state,terminate,finalize,cleanup",
+    [
+        (ExecutorState.PREPARED, ExecutorState.FINALIZED, False, False, False),
+        (ExecutorState.EXECUTING, ExecutorState.FINALIZED, True, True, True),
+        (ExecutorState.UNKNOWN, ExecutorState.UNKNOWN, False, False, False),
+        (ExecutorState.EXECUTED, ExecutorState.FINALIZED, False, True, True),
+        (ExecutorState.ERROR, ExecutorState.ERROR, False, True, True),
+        (ExecutorState.FINALIZED, ExecutorState.FINALIZED, False, False, True),
+    ],
+)
+def test_handle_cancel_job(
+    db, initial_state, final_state, terminate, finalize, cleanup
+):
     api = StubExecutorAPI()
 
-    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
+    task, job_id = api.add_test_canceljob_task(initial_state)
 
-    assert job.id not in api.tracker["prepare"]
-    run.handle_job(job, api)
-    assert job.id in api.tracker["prepare"]
-    assert job.state == State.RUNNING
-    assert job.status_code == StatusCode.PREPARING
+    main.handle_single_task(task, api)
 
-    api.set_job_status_from_executor_state(job, ExecutorState.PREPARED)
+    task = controller_task_api.get_task(task.id)
+    assert task.agent_stage == final_state.value
+    assert task.agent_complete
 
-    job.cancelled = True
+    assert (job_id in api.tracker["terminate"]) == terminate
+    assert (job_id in api.tracker["finalize"]) == finalize
+    assert (job_id in api.tracker["cleanup"]) == cleanup
 
-    run.handle_job(job, api)
-
-    # executor state
-    job_definition = run.job_to_job_definition(job)
-
-    # StubExecutorAPI needs state setting to FINALIZED, local executor is able to
-    # determine this for itself based on the presence of volume & absence of container
-    api.set_job_status_from_executor_state(job, ExecutorState.FINALIZED)
-
-    # put this here for completeness so that we can compare to other executors
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-    assert job.status_code == StatusCode.FINALIZED
-    assert job.state == State.RUNNING
-
-    assert job.id not in api.tracker["cleanup"]
-    run.handle_job(job, api)
-    assert job.id in api.tracker["cleanup"]
-
-    assert job.id in api.tracker["prepare"]
-    assert job.id not in api.tracker["terminate"]
-    assert job.id not in api.tracker["finalize"]
-    assert job.id in api.tracker["cleanup"]
-
-    # our state
-    assert job.state == State.FAILED
-    assert job.status_message == "Cancelled by user"
-    assert job.status_code == StatusCode.CANCELLED_BY_USER
-
-
-def test_handle_running_job_cancelled(db, monkeypatch):
-    api = StubExecutorAPI()
-
-    job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
-
-    assert job.id not in api.tracker["prepare"]
-    run.handle_job(job, api)
-    assert job.id in api.tracker["prepare"]
-    assert job.state == State.RUNNING
-    assert job.status_code == StatusCode.PREPARING
-
-    api.set_job_status_from_executor_state(job, ExecutorState.PREPARED)
-
-    assert job.id not in api.tracker["execute"]
-    run.handle_job(job, api)
-    assert job.id in api.tracker["execute"]
-    assert job.state == State.RUNNING
-    assert job.status_code == StatusCode.EXECUTING
-
-    job.cancelled = True
-
-    assert job.id not in api.tracker["terminate"]
-    run.handle_job(job, api)
-    assert job.id in api.tracker["terminate"]
-
-    # executor state
-    job_definition = run.job_to_job_definition(job)
-    assert api.get_status(job_definition).state == ExecutorState.EXECUTED
-
-    assert job.state == State.RUNNING
-    assert job.status_code == StatusCode.EXECUTED
-
-    assert job.id not in api.tracker["finalize"]
-    run.handle_job(job, api)
-    assert job.id in api.tracker["finalize"]
-
-    api.set_job_status_from_executor_state(job, ExecutorState.FINALIZED)
-
-    assert job.state == State.RUNNING
-    assert job.status_code == StatusCode.FINALIZING
-
-    assert job.id not in api.tracker["cleanup"]
-    run.handle_job(job, api)
-    assert job.id in api.tracker["cleanup"]
-
-    assert job.state == State.FAILED
-    assert job.status_message == "Cancelled by user"
-    assert job.status_code == StatusCode.CANCELLED_BY_USER
+    spans = get_trace("agent_loop")
+    assert len(spans) == 1
+    span = spans[0]
+    assert span.attributes["initial_job_status"] == initial_state.name
+    assert span.attributes["final_job_status"] == final_state.name
