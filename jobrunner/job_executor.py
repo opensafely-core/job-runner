@@ -39,8 +39,7 @@ class JobDefinition:
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
     level4_file_types: list = field(default_factory=lambda: [".csv"])
-    # if a job has been cancelled, the name of the canceller - either "user" or "admin"
-    cancelled: str = None
+    cancelled: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -76,7 +75,7 @@ class JobDefinition:
             allow_database_access=None,
             level4_max_csv_rows=None,
             level4_max_filesize=None,
-            cancelled=None,
+            cancelled=False,
         )
         defaults.update(**kwargs)
 
