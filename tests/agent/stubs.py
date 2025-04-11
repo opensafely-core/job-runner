@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from jobrunner.job_executor import ExecutorState, JobDefinition, JobStatus
 from jobrunner.schema import AgentTask
-from tests.factories import runjob_db_task_factory
+from tests.factories import canceljob_db_task_factory, runjob_db_task_factory
 
 
 class StubExecutorAPI:
@@ -40,7 +40,7 @@ class StubExecutorAPI:
         self.deleted = defaultdict(lambda: defaultdict(list))
         self.last_time = int(time.time())
 
-    def add_test_task(
+    def add_test_runjob_task(
         self,
         executor_state,
         timestamp=None,
@@ -50,6 +50,16 @@ class StubExecutorAPI:
 
         task = AgentTask.from_task(runjob_db_task_factory(**kwargs))
         job = JobDefinition.from_dict(task.definition)
+        self.set_job_status(job.id, executor_state)
+        return task, job.id
+
+    def add_test_canceljob_task(
+        self,
+        executor_state,
+        **kwargs,
+    ) -> AgentTask:
+        task = AgentTask.from_task(canceljob_db_task_factory(**kwargs))
+        job = JobDefinition.from_job_id(task.definition["job_id"], cancelled="user")
         self.set_job_status(job.id, executor_state)
         return task, job.id
 

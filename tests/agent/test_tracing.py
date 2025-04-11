@@ -7,7 +7,7 @@ from tests.conftest import get_trace
 def test_tracing_state_change_attributes(db):
     api = StubExecutorAPI()
 
-    task, job_id = api.add_test_task(ExecutorState.UNKNOWN)
+    task, job_id = api.add_test_runjob_task(ExecutorState.UNKNOWN)
     # prepare is synchronous
     api.set_job_transition(job_id, ExecutorState.PREPARED)
     main.handle_single_task(task, api)
@@ -55,7 +55,7 @@ def test_tracing_state_change_attributes(db):
 def test_tracing_final_state_attributes(db):
     api = StubExecutorAPI()
 
-    task, job_id = api.add_test_task(ExecutorState.EXECUTED)
+    task, job_id = api.add_test_runjob_task(ExecutorState.EXECUTED)
     api.set_job_transition(
         job_id, ExecutorState.FINALIZED, hook=lambda job_id: api.set_job_result(job_id)
     )

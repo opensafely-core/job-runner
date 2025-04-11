@@ -15,7 +15,7 @@ def test_handle_job_full_execution(db, freezer):
 
     api = StubExecutorAPI()
 
-    task, job_id = api.add_test_task(ExecutorState.UNKNOWN)
+    task, job_id = api.add_test_runjob_task(ExecutorState.UNKNOWN)
 
     freezer.tick(1)
 
@@ -71,7 +71,7 @@ def test_handle_job_full_execution(db, freezer):
 def test_handle_job_with_error(mock_update_controller, db):
     api = StubExecutorAPI()
 
-    task, job_id = api.add_test_task(ExecutorState.UNKNOWN)
+    task, job_id = api.add_test_runjob_task(ExecutorState.UNKNOWN)
 
     api.set_job_transition(
         job_id, ExecutorState.PREPARED, hook=Mock(side_effect=Exception("foo"))
