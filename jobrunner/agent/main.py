@@ -110,6 +110,9 @@ def handle_cancel_job_task(task, api):
     # a dummy JobDefinition to use with the executor API. job ID is all we
     # need to find out the current status and do the actions required to
     # cancel and clean up
+    # TODO: finalize() writes job logs, and will be missing some expected information
+    # if only job_id is passed (from job definition fields, it expects to write
+    # job id, job_request_id, created_at, database_name and commit)
     job = JobDefinition.from_job_id(task.definition["job_id"], cancelled=True)
 
     job_status = api.get_status(job)
