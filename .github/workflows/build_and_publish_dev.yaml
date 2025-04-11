@@ -34,5 +34,6 @@ jobs:
     - name: Push image to GitHub Container Registry
       run: |
         IMAGE_ID="ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME"
-        docker tag "job-runner-prod" "$IMAGE_ID:latest"
+        # we use docker compose to build the job-runner-prod image as job-runner
+        docker tag "job-runner" "$IMAGE_ID:latest"
         docker push "$IMAGE_ID:latest"
