@@ -501,7 +501,10 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["status_message"] = results.message
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
-    job_metadata["commit"] = job_definition.study.commit
+    if job_definition.study is not None:
+        job_metadata["commit"] = job_definition.study.commit
+    else:
+        job_metadata["commit"] = None
     job_metadata["database_name"] = job_definition.database_name
     job_metadata["hint"] = results.unmatched_hint
     # all calculated results
