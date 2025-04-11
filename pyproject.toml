@@ -9,6 +9,8 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "Django",
+    "gunicorn",
     "opensafely-pipeline@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip",
     "ruyaml",
     "requests",
