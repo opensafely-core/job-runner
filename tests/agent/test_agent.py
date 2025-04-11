@@ -1,3 +1,7 @@
+from unittest.mock import Mock, patch
+
+import pytest
+
 from jobrunner.agent import main
 from jobrunner.controller import task_api as controller_task_api
 from jobrunner.job_executor import ExecutorState
@@ -61,3 +65,35 @@ def test_handle_job_full_execution(db, freezer):
     assert spans[2].attributes["initial_job_status"] == "EXECUTED"
     assert spans[2].attributes["final_job_status"] == "FINALIZED"
     assert spans[2].attributes["complete"]
+
+
+@patch("jobrunner.agent.task_api.update_controller")
+def test_handle_job_with_error(mock_update_controller, db):
+    api = StubExecutorAPI()
+
+    task, job_id = api.add_test_task(ExecutorState.UNKNOWN)
+
+    api.set_job_transition(
+        job_id, ExecutorState.PREPARED, hook=Mock(side_effect=Exception("foo"))
+    )
+
+    with pytest.raises(Exception):
+        main.handle_single_task(task, api)
+
+    assert mock_update_controller.called_with(
+        task=task,
+        stage=ExecutorState.ERROR,
+        results={"error": "Exception('foo')"},
+        complete=True,
+    )
+
+    spans = get_trace("agent_loop")
+    assert len(spans) == 1
+    span = spans[0]
+    # update_controller is called with the error state outside of the
+    # LOOP_TASK span, so final state is still PREPARING
+    assert span.attributes["initial_job_status"] == "UNKNOWN"
+    assert span.attributes["final_job_status"] == "PREPARING"
+    # exception info has been added to the span
+    assert span.status.status_code.name == "ERROR"
+    assert span.status.description == "Exception: foo"
