@@ -9,7 +9,6 @@ from jobrunner.agent import task_api, tracing
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.models import StatusCode
 
 
 log = logging.getLogger(__name__)
@@ -73,15 +72,9 @@ def handle_single_task(task, api):
     try:
         trace_handle_task(task, api)
     except Exception as exc:
-        # TODO: change this function to update controller and save error info somewhere
         mark_task_as_error(
             task,
-            StatusCode.INTERNAL_ERROR,
-            "Internal error: this usually means a platform issue rather than a problem "
-            "for users to fix.\n"
-            "The tech team are automatically notified of these errors and will be "
-            "investigating.",
-            error=exc,
+            error=str(exc),
         )
         # Do not clean up, as we may want to debug
         #
@@ -159,7 +152,6 @@ def handle_run_job_task(task, api):
         # TODO: Update get_status to detect an error.json and read it.
         # I think that JobStatus should probably grow .error and .result fields,
         # which get_status can populate. Then all the logic is self contained.
-        #
         match job_status.state:
             case (
                 ExecutorState.ERROR | ExecutorState.EXECUTING | ExecutorState.FINALIZED
@@ -231,16 +223,14 @@ def update_controller(
     task_api.update_controller(task, status.state.value, results, complete)
 
 
-def mark_task_as_error(task, code, message, error=None, **attrs):
-    if error is None:
-        error = True
-
-    # TODO: This used to call set_state; we will want to instead
-    # update_controller and save error info somewhere in case the controller
-    # asks us about this job again. We will need to update get_status to detect that this has happened and handle it in handle_task
-    # Code is a StatusCode.INTERNAL_ERROR, which is not a TaskStage
-    # update controller with ExecutorState.ERROR, and pass the error message somewhere?
-    # update_controller(task, ExecutorState.ERROR)
+def mark_task_as_error(task, error):
+    """
+    Pass error information on to the controller and mark this task as complete
+    """
+    # TODO: persist error info
+    update_controller(
+        task, JobStatus(ExecutorState.ERROR), results={"error": error}, complete=True
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover
