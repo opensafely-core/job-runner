@@ -414,3 +414,6 @@ class Task:
     agent_complete: bool = False
     # results of the task, inlcuding any error information
     agent_results: dict = None
+
+    # ensure this table exists
+    migration(4, __tableschema__)
