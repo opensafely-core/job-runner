@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: job-runner-dev
+  IMAGE_NAME: job-runner-split
   PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
 
@@ -34,5 +34,5 @@ jobs:
     - name: Push image to GitHub Container Registry
       run: |
         IMAGE_ID="ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME"
-        docker tag "$IMAGE_NAME" "$IMAGE_ID:latest"
+        docker tag "job-runner-prod" "$IMAGE_ID:latest"
         docker push "$IMAGE_ID:latest"
