@@ -134,6 +134,19 @@ def runjob_db_task_factory(*args, state=State.RUNNING, **kwargs):
     return task
 
 
+def canceljob_db_task_factory(*args, state=State.RUNNING, **kwargs):
+    """Set up a job and corresponding task"""
+    job = job_factory(*args, state=state, cancelled=True, **kwargs)
+    task = Task(
+        id=job.id,
+        backend="test",
+        type=TaskType.CANCELJOB,
+        definition={"job_id": job.id},
+    )
+    task_api.insert_task(task)
+    return task
+
+
 class StubExecutorAPI:
     """Dummy implementation of the ExecutorAPI, for use in tests.
 
