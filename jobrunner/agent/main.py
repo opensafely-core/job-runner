@@ -110,7 +110,7 @@ def handle_cancel_job_task(task, api):
     # a dummy JobDefinition to use with the executor API. job ID is all we
     # need to find out the current status and do the actions required to
     # cancel and clean up
-    job = JobDefinition.from_job_id(task.definition["job_id"], cancelled="user")
+    job = JobDefinition.from_job_id(task.definition["job_id"], cancelled=True)
 
     job_status = api.get_status(job)
 

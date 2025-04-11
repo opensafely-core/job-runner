@@ -251,9 +251,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         docker.kill(container_name(job_definition))
 
-        return JobStatus(
-            ExecutorState.EXECUTED, f"Job terminated by {job_definition.cancelled}"
-        )
+        return JobStatus(ExecutorState.EXECUTED, "Job terminated by user")
 
     def cleanup(self, job_definition):
         if config.CLEAN_UP_DOCKER_OBJECTS:
@@ -442,7 +440,7 @@ def finalize_job(job_definition):
             )
 
     elif exit_code == 137 and job_definition.cancelled:
-        message = f"Job cancelled by {job_definition.cancelled}"
+        message = "Job cancelled by user"
     # Nb. this flag has been observed to be unreliable on some versions of Linux
     elif (
         container_metadata["State"]["ExitCode"] == 137
