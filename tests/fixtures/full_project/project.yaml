@@ -65,17 +65,47 @@ actions:
         somefile: cohortextractor-somefile.csv
 
   generate_dataset:
-    run: ehrql:v1 generate-dataset analysis/dataset_definition.py --output=output/dataset.csv --dummy-data-file=test-data/ehrql-dummy-data.csv
+    run: ehrql:v1 generate-dataset analysis/dataset_definition.py --output=output/dataset.csv
     outputs:
       highly_sensitive:
         cohort: output/dataset.csv
 
-  analyse_data_ehrql:
-    run: python:latest python analysis/count_by_year.py output/dataset.csv output/count_by_year.csv
+  generate_dataset_with_dummy_data:
+    # we provide --output-dir here to distinguish the action from the one above
+    run: ehrql:v1 generate-dataset analysis/dataset_definition.py --output=output/extra/dataset.csv --dummy-data-file=test-data/ehrql-dummy-data.csv
+    outputs:
+      highly_sensitive:
+        cohort: output/extra/dataset.csv
+
+  prepare_data_m_ehrql:
+      run: python:latest python analysis/filter_by_sex.py M output/dataset.csv ehrql-male.csv
+      needs: [generate_dataset]
+      outputs:
+        highly_sensitive:
+          male_cohort: ehrql-male*.csv
+
+  prepare_data_f_ehrql:
+    run: python:latest python analysis/filter_by_sex.py F output/dataset.csv ehrql-female.csv
     needs: [generate_dataset]
     outputs:
+      highly_sensitive:
+        female_cohort: ehrql-female*.csv
+
+  prepare_data_with_quote_in_filename_ehrql:
+    run: python:latest python analysis/filter_by_sex.py F output/dataset.csv "ehrql-qu'ote.csv"
+    needs: [generate_dataset]
+    outputs:
+      highly_sensitive:
+        quote_cohort: "ehrql-qu'ote.csv"
+
+  analyse_data_ehrql:
+    run: python:latest python analysis/count_lines.py ehrql-counts.txt
+    config:
+      files: ["ehrql-male.csv", "ehrql-female.csv", "ehrql-qu'ote.csv"]
+    needs: [prepare_data_m_ehrql, prepare_data_f_ehrql, prepare_data_with_quote_in_filename_ehrql]
+    outputs:
       moderately_sensitive:
-        count: output/count_by_year.csv
+        count: ehrql-counts.txt
 
   derp_action:
     run: python:latest python analysis/dummy_action.py output/dummy.txt
@@ -85,11 +115,20 @@ actions:
         dummy: output/dummy.txt
 
   test_cancellation_ehrql:
-    run: python:latest python analysis/count_by_year.py output/dataset.csv output/count_by_year_cancelled.csv
+    run: python:latest python analysis/count_by_year.py output/dataset.csv ehrql-somefile.csv
     needs: [generate_dataset]
     outputs:
       highly_sensitive:
-        count: output/count_by_year_cancelled.csv
+        somefile: ehrql-somefile.csv
+
+  test_reusable_action_ehrql:
+    run: minimal-action:v1.1.0 output/dataset.csv
+    config:
+      suffix: .backup
+    needs: [generate_dataset]
+    outputs:
+      highly_sensitive:
+        cohort: output/dataset.backup.csv
 
   copy_highly_sensitive_data:
     run: python:latest python -c 'import shutil; shutil.copyfile("output/dataset.csv", "output/data.csv")'

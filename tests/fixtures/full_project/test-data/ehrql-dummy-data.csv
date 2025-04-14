@@ -1,4 +1,4 @@
-patient_id,year_of_birth
-1,1943
-2,2000
-3,2010
+patient_id,year_of_birth,sex
+1,1943,male
+2,2000,female
+3,2010,male
