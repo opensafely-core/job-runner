@@ -141,7 +141,7 @@ def canceljob_db_task_factory(*args, state=State.RUNNING, **kwargs):
         id=job.id,
         backend="test",
         type=TaskType.CANCELJOB,
-        definition={"job_id": job.id},
+        definition=job_to_job_definition(job).to_dict(),
     )
     task_api.insert_task(task)
     return task

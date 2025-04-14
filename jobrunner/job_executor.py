@@ -58,29 +58,6 @@ class JobDefinition:
         # Create the JobDefinition instance with the Study object
         return cls(study=study, **{k: v for k, v in data.items()})
 
-    @classmethod
-    def from_job_id(cls, job_id, **kwargs):
-        # Create a JobDefinition with empty values for everything except id
-        defaults = dict(
-            job_request_id=None,
-            study=None,
-            workspace=None,
-            action=None,
-            created_at=None,
-            image=None,
-            args=None,
-            env=None,
-            inputs=None,
-            output_spec=None,
-            allow_database_access=None,
-            level4_max_csv_rows=None,
-            level4_max_filesize=None,
-            cancelled=False,
-        )
-        defaults.update(**kwargs)
-
-        return cls(id=job_id, **defaults)
-
 
 class ExecutorState(Enum):
     # Job is currently preparing to run: creating volumes,copying files, etc
