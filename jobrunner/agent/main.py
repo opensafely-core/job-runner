@@ -113,7 +113,7 @@ def handle_cancel_job_task(task, api):
     # TODO: finalize() writes job logs, and will be missing some expected information
     # if only job_id is passed (from job definition fields, it expects to write
     # job id, job_request_id, created_at, database_name and commit)
-    job = JobDefinition.from_job_id(task.definition["job_id"], cancelled=True)
+    job = JobDefinition.from_dict(task.definition)
 
     job_status = api.get_status(job)
 

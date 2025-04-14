@@ -544,7 +544,7 @@ def cancel_job(job):
     canceljob_task = Task(
         id=f"{runjob_task.id}-cancel",
         type=TaskType.CANCELJOB,
-        definition={"job_id": job.id},
+        definition=job_to_job_definition(job).to_dict(),
         # TODO: Uncomment this when Job grows a `backend` field
         backend="",  # job.backend,
     )

@@ -59,7 +59,7 @@ class StubExecutorAPI:
         **kwargs,
     ) -> AgentTask:
         task = AgentTask.from_task(canceljob_db_task_factory(**kwargs))
-        job = JobDefinition.from_job_id(task.definition["job_id"], cancelled="user")
+        job = JobDefinition.from_dict(task.definition)
         self.set_job_status(job.id, executor_state)
         return task, job.id
 
