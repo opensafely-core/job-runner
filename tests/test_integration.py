@@ -374,6 +374,9 @@ def test_integration(
     )
     # Disable repo URL checking so we can run using a local test repo
     monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
+    # Ensure that we have enough workers to start the jobs we expect in the test
+    # (CI may have fewer actual available workers than this)
+    monkeypatch.setattr("jobrunner.config.MAX_WORKERS", 4)
 
     ensure_docker_images_present(image, "python")
 
