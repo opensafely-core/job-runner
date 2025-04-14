@@ -172,12 +172,12 @@ Or run a command inside the docker image:
 Adding jobs locally is most easily done with the `just add-job` command, which
 calls `jobrunner.cli.add_job` with a study repo and an action to run e.g.
 ```
-just add-job https://github.com/opensafely/os-demo-research run_all
+just add-job https://github.com/opensafely/test-age-distribution run_all
 ```
 
 As well as URLs this will accept paths to local git repos e.g.
 ```
-just add-job ../os-demo-research run_all
+just add-job ../test-age-distribution run_all
 ```
 
 You can now run the main loop and you'll see it pick up the jobs:
