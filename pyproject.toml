@@ -31,6 +31,17 @@ omit = ["jobrunner/cli/manifests.py", "jobrunner/cli/migrate.py", 'jobrunner/ser
 fail_under = 100
 show_missing = true
 skip_covered = true
+exclude_also = [
+    # this indicates that the line should never be hit
+    "assert False.*",
+    # multiline default case pattern
+    "case _:\\n\\s*assert False",
+    # this condition is only true when a module is run as a script
+    'if __name__ == "__main__":',
+    # this indicates that a method should be defined in a subclass
+    "raise NotImplementedError",
+]
+
 
 [tool.coverage.html]
 show_contexts = true
