@@ -208,7 +208,7 @@ def test_handle_job_finalized_success_with_large_file(db):
 
 
 @pytest.mark.parametrize(
-    "exit_code,run_command,extra_message",
+    "exit_code,run_command,extra_message,results_message",
     [
         (
             3,
@@ -217,25 +217,40 @@ def test_handle_job_finalized_success_with_large_file(db):
                 "A transient database error occurred, your job may run "
                 "if you try it again, if it keeps failing then contact tech support"
             ),
+            None,
         ),
         (
             4,
             "ehrql generate-dataset dataset.py --output data.csv",
             "New data is being imported into the database, please try again in a few hours",
+            None,
         ),
         (
             5,
             "ehrql generate-dataset dataset.py --output data.csv",
             "Something went wrong with the database, please contact tech support",
+            None,
+        ),
+        (
+            5,
+            "ehrql generate-dataset dataset.py --output data.csv",
+            "Something went wrong with the database, please contact tech support",
+            "A message from the results",
+        ),
+        (
+            7,  # an unknown DATABASE_EXIT_CODE
+            "ehrql generate-dataset dataset.py --output data.csv",
+            None,
+            None,
         ),
         # the same exit codes for a job that doesn't have access to the database show no message
-        (3, "python foo.py", None),
-        (4, "python foo.py", None),
-        (5, "python foo.py", None),
+        (3, "python foo.py", None, "A message from the results"),
+        (4, "python foo.py", None, None),
+        (5, "python foo.py", None, None),
     ],
 )
 def test_handle_job_finalized_failed_exit_code(
-    exit_code, run_command, extra_message, db, backend_db_config
+    exit_code, run_command, extra_message, results_message, db, backend_db_config
 ):
     job = job_factory(
         run_command=run_command,
@@ -248,7 +263,7 @@ def test_handle_job_finalized_failed_exit_code(
         job_results_factory(
             outputs={"output/file.csv": "highly_sensitive"},
             exit_code=exit_code,
-            message=None,
+            message=results_message,
         ),
     )
     run_controller_loop_once()
@@ -258,8 +273,13 @@ def test_handle_job_finalized_failed_exit_code(
     # our state
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.NONZERO_EXIT
+
     expected = "Job exited with an error"
-    if extra_message:
+
+    # A message from the results beats a DB exit code message
+    if results_message:
+        expected += f": {results_message}"
+    elif extra_message:
         expected += f": {extra_message}"
     assert job.status_message == expected
     assert job.outputs == {"output/file.csv": "highly_sensitive"}
