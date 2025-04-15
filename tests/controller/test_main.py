@@ -595,6 +595,23 @@ def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
     assert last_info_log.message == "Waiting on dependencies"
 
 
+@pytest.mark.parametrize(
+    "run_command,expect_env",
+    [
+        ("stata-mp:latest analysis/analyse.do", True),
+        ("erhql:v1 analysis/dataset_definition.py", False),
+    ],
+)
+def test_job_definition_stata_license(db, monkeypatch, run_command, expect_env):
+    monkeypatch.setattr(config, "STATA_LICENSE", "dummy-license")
+    job = job_factory(run_command=run_command)
+    job_definition = main.job_to_job_definition(job)
+    if expect_env:
+        assert job_definition.env["STATA_LICENSE"] == "dummy-license"
+    else:
+        assert "STATA_LICENSE" not in job_definition.env
+
+
 def test_mark_job_as_failed_adds_error(db):
     job = job_factory()
     main.mark_job_as_failed(job, StatusCode.INTERNAL_ERROR, "error")
