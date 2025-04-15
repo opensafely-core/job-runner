@@ -242,7 +242,9 @@ class ExecutorAPI:
 
         """
 
-    def finalize(self, job_definition: JobDefinition) -> JobStatus:
+    def finalize(
+        self, job_definition: JobDefinition, cancelled: bool = False
+    ) -> JobStatus:
         """
         Launch the finalization of a job, transitioning from EXECUTED to FINALIZING.
 
@@ -356,7 +358,7 @@ class NullExecutorAPI(ExecutorAPI):
     def execute(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def finalize(self, job_definition):  # pragma: nocover
+    def finalize(self, job_definition, cancelled=False):  # pragma: nocover
         raise NotImplementedError
 
     def terminate(self, job_definition):  # pragma: nocover

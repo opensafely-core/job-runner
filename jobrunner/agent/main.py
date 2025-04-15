@@ -132,10 +132,10 @@ def handle_cancel_job_task(task, api):
                 new_status = api.terminate(job)
                 update_controller(task, new_status)
                 # call finalize to write the job logs
-                final_status = api.finalize(job)
+                final_status = api.finalize(job, cancelled=True)
             case ExecutorState.EXECUTED | ExecutorState.ERROR:
                 # job has finished or errored, call finalize to write the job logs
-                final_status = api.finalize(job)
+                final_status = api.finalize(job, cancelled=True)
             case _:  # pragma: no cover
                 raise InvalidTransition(
                     f"unexpected state of job {job.id}: {job_status.state}"
