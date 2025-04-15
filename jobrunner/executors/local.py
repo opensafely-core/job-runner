@@ -523,7 +523,7 @@ def get_job_metadata(
     job_metadata["docker_image_id"] = container_metadata.get("Image")
     # convert exit code to str so 0 exit codes get logged
     job_metadata["exit_code"] = str(container_metadata.get("State", {}).get("ExitCode"))
-    job_metadata["oom_killed"] = container_metadata.get("State", {}.get("OOMKilled"))
+    job_metadata["oom_killed"] = container_metadata.get("State", {}).get("OOMKilled")
     job_metadata["status_message"] = results.message
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
