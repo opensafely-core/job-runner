@@ -4,6 +4,7 @@ from opentelemetry import trace
 from jobrunner import config
 from jobrunner.agent import task_api as agent_task_api
 from jobrunner.controller import main
+from jobrunner.controller.main import PlatformError
 from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import set_flag
@@ -15,14 +16,14 @@ def run_controller_loop_once():
     main.main(exit_callback=lambda _: True)
 
 
-def set_job_task_results(job, job_results):
+def set_job_task_results(job, job_results, error=None):
     runjob_task = database.find_one(
         Task, type=TaskType.RUNJOB, id__like=f"{job.id}-%", active=True
     )
     agent_task_api.update_controller(
         runjob_task,
         stage="",
-        results={"results": job_results.to_dict(), "error": None},
+        results={"results": job_results.to_dict(), "error": error},
         complete=True,
     )
 
@@ -269,6 +270,28 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     assert completed_span.attributes["unmatched_patterns"] == 1
     assert completed_span.attributes["unmatched_outputs"] == 1
     assert spans[-1].name == "JOB"
+
+
+def test_handle_job_finalized_failed_with_error(db):
+    # insert previous outputs
+    # create new job
+    job = job_factory()
+
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.RUNNING
+
+    set_job_task_results(job, job_results_factory(), error=str(Exception("foo")))
+
+    with pytest.raises(PlatformError):
+        run_controller_loop_once()
+
+    job = database.find_one(Job, id=job.id)
+
+    # our state
+    assert job.state == State.FAILED
+    assert job.status_code == StatusCode.INTERNAL_ERROR
+    assert "Internal error" in job.status_message
 
 
 @pytest.fixture
