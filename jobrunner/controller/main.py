@@ -478,11 +478,12 @@ def list_outputs_from_action(workspace, action):
     return []
 
 
-def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):
+def get_job_resource_weight(job, weights=None):
     """
     Get the job's resource weight by checking its workspace and action against
     the config file, default to 1 otherwise
     """
+    weights = weights or config.JOB_RESOURCE_WEIGHTS
     action_patterns = weights.get(job.workspace)
     if action_patterns:
         for pattern, weight in action_patterns.items():
