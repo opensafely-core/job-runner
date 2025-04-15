@@ -106,16 +106,13 @@ def trace_handle_task(task, api):
 
 
 def handle_cancel_job_task(task, api):
-    # A CANCELJOB task just sends a job_id in its task definition; construct
-    # a dummy JobDefinition to use with the executor API. job ID is all we
-    # need to find out the current status and do the actions required to
-    # cancel and clean up
-    # TODO: finalize() writes job logs, and will be missing some expected information
-    # if only job_id is passed (from job definition fields, it expects to write
-    # job id, job_request_id, created_at, database_name and commit)
+    """
+    Handle cancelling a job. The actions required to terminate, finalize and clean
+    up a job depend on its state at the point of cancellation
+    """
     job = JobDefinition.from_dict(task.definition)
 
-    job_status = api.get_status(job)
+    job_status = api.get_status(job, cancelled=True)
 
     span = trace.get_current_span()
     span.set_attributes({"id": job.id, "initial_job_status": job_status.state.name})

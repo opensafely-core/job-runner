@@ -263,7 +263,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         return JobStatus(ExecutorState.UNKNOWN)
 
-    def get_status(self, job_definition, timeout=15):
+    def get_status(self, job_definition, timeout=15, cancelled=False):
         name = container_name(job_definition)
         try:
             container = docker.container_inspect(
@@ -279,7 +279,7 @@ class LocalDockerAPI(ExecutorAPI):
         metrics = record_stats.read_job_metrics(job_definition.id)
 
         if container is None:  # container doesn't exist
-            if job_definition.cancelled:
+            if cancelled:
                 if volumes.volume_exists(job_definition):
                     # jobs prepared but not running do not need to finalize, so we
                     # proceed directly to the FINALIZED state here
