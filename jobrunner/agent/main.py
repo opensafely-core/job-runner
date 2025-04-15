@@ -106,41 +106,46 @@ def trace_handle_task(task, api):
 
 
 def handle_cancel_job_task(task, api):
-    # A CANCELJOB task just sends a job_id in its task definition; construct
-    # a dummy JobDefinition to use with the executor API. job ID is all we
-    # need to find out the current status and do the actions required to
-    # cancel and clean up
-    # TODO: finalize() writes job logs, and will be missing some expected information
-    # if only job_id is passed (from job definition fields, it expects to write
-    # job id, job_request_id, created_at, database_name and commit)
+    """
+    Handle cancelling a job. The actions required to terminate, finalize and clean
+    up a job depend on its state at the point of cancellation
+    """
     job = JobDefinition.from_dict(task.definition)
 
-    job_status = api.get_status(job)
+    job_status = api.get_status(job, cancelled=True)
 
     span = trace.get_current_span()
     span.set_attributes({"id": job.id, "initial_job_status": job_status.state.name})
 
+    # tell the controller what stage we're at now
+    update_controller(task, job_status)
+
     with set_log_context(job_definition=job):
         match job_status.state:
-            case ExecutorState.UNKNOWN | ExecutorState.FINALIZED:
-                # The job hasn't started or has already finished
+            case ExecutorState.FINALIZED:
+                # The job has already finished and been finalized, nothing to do here
                 final_status = job_status
-            case ExecutorState.PREPARED:
-                # Nb. no need to actually run finalize() in this case.
-                final_status = JobStatus(ExecutorState.FINALIZED)
+            case (
+                ExecutorState.UNKNOWN
+                | ExecutorState.PREPARED
+                | ExecutorState.EXECUTED
+                | ExecutorState.ERROR
+            ):
+                # States wehere we need to run finalize()
+                # If the job hasn't started; we run finalize() to record metadata, including
+                # its cancelled state. If it's finished or errored, finalize() will also write the job logs
+                final_status = api.finalize(job, cancelled=True)
             case ExecutorState.EXECUTING:
                 new_status = api.terminate(job)
                 update_controller(task, new_status)
                 # call finalize to write the job logs
-                final_status = api.finalize(job)
-            case ExecutorState.EXECUTED | ExecutorState.ERROR:
-                # job has finished or errored, call finalize to write the job logs
-                final_status = api.finalize(job)
+                final_status = api.finalize(job, cancelled=True)
             case _:  # pragma: no cover
                 raise InvalidTransition(
                     f"unexpected state of job {job.id}: {job_status.state}"
                 )
 
+        # Clean up based on the starting job state
         if job_status.state in [
             ExecutorState.EXECUTING,
             ExecutorState.EXECUTED,

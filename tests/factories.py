@@ -281,7 +281,7 @@ class StubExecutorAPI:
             job_definition, ExecutorState.PREPARED, ExecutorState.EXECUTING, "execute"
         )
 
-    def finalize(self, job_definition):
+    def finalize(self, job_definition, cancelled=False):
         if self.get_status(job_definition).state == ExecutorState.UNKNOWN:
             # job was cancelled before it started running
             assert job_definition.cancelled
@@ -335,7 +335,7 @@ class StubExecutorAPI:
             job_definition, ExecutorState.ERROR, ExecutorState.UNKNOWN, "cleanup"
         )
 
-    def get_status(self, job_definition):
+    def get_status(self, job_definition, cancelled=False):
         return self.job_statuses.get(
             job_definition.id, JobStatus(ExecutorState.UNKNOWN)
         )

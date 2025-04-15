@@ -73,6 +73,12 @@ def read_job_metadata(job_definition):
     return None
 
 
+def write_job_metadata(job_definition, job_metadata):
+    metadata_path = get_log_dir(job_definition) / METADATA_FILE
+    metadata_path.parent.mkdir(exist_ok=True, parents=True)
+    metadata_path.write_text(json.dumps(job_metadata, indent=2))
+
+
 def job_metadata_path(job_definition):
     """Return the expected path for the metadata for a job.
 
@@ -212,16 +218,20 @@ class LocalDockerAPI(ExecutorAPI):
 
         return JobStatus(ExecutorState.EXECUTING)
 
-    def finalize(self, job_definition):
-        current_status = self.get_status(job_definition)
-        if current_status.state == ExecutorState.UNKNOWN:
-            # job had not started running, so do not finalize
-            return current_status
+    def finalize(self, job_definition, cancelled=False):
+        current_status = self.get_status(job_definition, cancelled=cancelled)
 
-        assert current_status.state in [ExecutorState.EXECUTED, ExecutorState.ERROR]
+        if not cancelled:
+            # We can finalize a cancelled job from any status, even if it hasn't
+            # started yet.
+            if current_status.state == ExecutorState.UNKNOWN:
+                # job had not started running, so do not finalize
+                return current_status
+
+            assert current_status.state in [ExecutorState.EXECUTED, ExecutorState.ERROR]
 
         try:
-            finalize_job(job_definition)
+            finalize_job(job_definition, cancelled)
         except LocalDockerError as exc:  # pragma: no cover
             return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
@@ -263,7 +273,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         return JobStatus(ExecutorState.UNKNOWN)
 
-    def get_status(self, job_definition, timeout=15):
+    def get_status(self, job_definition, timeout=15, cancelled=False):
         name = container_name(job_definition)
         try:
             container = docker.container_inspect(
@@ -279,12 +289,15 @@ class LocalDockerAPI(ExecutorAPI):
         metrics = record_stats.read_job_metrics(job_definition.id)
 
         if container is None:  # container doesn't exist
-            if job_definition.cancelled:
+            # cancelled=True indicates that we are in the process of cancelling this
+            # job. If we're not, the job may have been previously cancelled; look up
+            # its cancelled status in job metadata, if it exists
+            if cancelled or (self.get_metadata(job_definition) or {}).get("cancelled"):
                 if volumes.volume_exists(job_definition):
-                    # jobs prepared but not running do not need to finalize, so we
-                    # proceed directly to the FINALIZED state here
+                    # jobs prepared but not running still need to finalize, in order
+                    # to record their cancelled state
                     return JobStatus(
-                        ExecutorState.FINALIZED,
+                        ExecutorState.PREPARED,
                         "Prepared job was cancelled",
                         metrics=metrics,
                     )
@@ -395,21 +408,22 @@ def prepare_job(job_definition):
     volumes.write_timestamp(job_definition, TIMESTAMP_REFERENCE_FILE)
 
 
-def finalize_job(job_definition):
+def finalize_job(job_definition, cancelled):
     container_metadata = docker.container_inspect(
         container_name(job_definition), none_if_not_exists=True
     )
     if not container_metadata:  # pragma: no cover
-        if job_definition.cancelled:
-            # no logs to retain if the container didn't start yet
-            return
-        else:
+        # there's no error if the container doesn't exist because it's been
+        # cancelled before it starts. We still want to record minimal metadata
+        # for cancelled jobs so we can retrieve that information later if necessary
+        if not cancelled:
             raise LocalDockerError(
                 f"Job container {container_name(job_definition)} has vanished"
             )
-    redact_environment_variables(container_metadata)
+    else:
+        redact_environment_variables(container_metadata)
 
-    if job_definition.cancelled:
+    if cancelled:
         # assume no outputs because our job didn't finish
         outputs = {}
         unmatched_patterns = []
@@ -418,48 +432,55 @@ def finalize_job(job_definition):
         outputs, unmatched_patterns = find_matching_outputs(job_definition)
         unmatched_outputs = get_unmatched_outputs(job_definition, outputs)
 
-    exit_code = container_metadata["State"]["ExitCode"]
-    labels = container_metadata.get("Config", {}).get("Labels", {})
+    if container_metadata:
+        exit_code = container_metadata["State"]["ExitCode"]
+        labels = container_metadata.get("Config", {}).get("Labels", {})
 
-    # First get the user-friendly message for known database exit codes, for jobs
-    # that have db access
-    unmatched_hint = None
+        # First get the user-friendly message for known database exit codes, for jobs
+        # that have db access
+        unmatched_hint = None
 
-    if exit_code == 0 and outputs and not unmatched_patterns:
-        message = "Completed successfully"
+        if exit_code == 0 and outputs and not unmatched_patterns:
+            message = "Completed successfully"
 
-    elif exit_code == 0 and unmatched_patterns:
-        message = "\n  No outputs found matching patterns:\n - {}".format(
-            "\n   - ".join(unmatched_patterns)
-        )
-        if unmatched_outputs:
-            unmatched_hint = (
-                "\n  Did you mean to match one of these files instead?\n - {}".format(
+        elif exit_code == 0 and unmatched_patterns:
+            message = "\n  No outputs found matching patterns:\n - {}".format(
+                "\n   - ".join(unmatched_patterns)
+            )
+            if unmatched_outputs:
+                unmatched_hint = "\n  Did you mean to match one of these files instead?\n - {}".format(
                     "\n   - ".join(unmatched_outputs)
                 )
-            )
 
-    elif exit_code == 137 and job_definition.cancelled:
-        message = "Job cancelled by user"
-    # Nb. this flag has been observed to be unreliable on some versions of Linux
-    elif (
-        container_metadata["State"]["ExitCode"] == 137
-        and container_metadata["State"]["OOMKilled"]
-    ):
-        message = "Job ran out of memory"
-        memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
-        if memory_limit > 0:  # pragma: no cover
-            gb_limit = memory_limit / (1024**3)
-            message += f" (limit was {gb_limit:.2f}GB)"
+        elif exit_code == 137 and cancelled:
+            message = "Job cancelled by user"
+        # Nb. this flag has been observed to be unreliable on some versions of Linux
+        elif (
+            container_metadata["State"]["ExitCode"] == 137
+            and container_metadata["State"]["OOMKilled"]
+        ):
+            message = "Job ran out of memory"
+            memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
+            if memory_limit > 0:  # pragma: no cover
+                gb_limit = memory_limit / (1024**3)
+                message += f" (limit was {gb_limit:.2f}GB)"
+        else:
+            message = config.DOCKER_EXIT_CODES.get(exit_code)
     else:
-        message = config.DOCKER_EXIT_CODES.get(exit_code)
+        # We should only get here if a job has been cancelled
+        assert cancelled
+        message = "Job cancelled by user"
+        exit_code = None
+        labels = {}
+        container_metadata = {}
+        unmatched_hint = None
 
     results = JobResults(
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,
         unmatched_outputs=unmatched_outputs,
         exit_code=exit_code,
-        image_id=container_metadata["Image"],
+        image_id=container_metadata.get("Image"),
         message=message,
         unmatched_hint=unmatched_hint,
         timestamp_ns=time.time_ns(),
@@ -470,11 +491,16 @@ def finalize_job(job_definition):
         base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
     job_metadata = get_job_metadata(
-        job_definition, outputs, container_metadata, results
+        job_definition, outputs, container_metadata, results, cancelled=cancelled
     )
 
-    if job_definition.cancelled:
-        write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
+    if cancelled:
+        if container_metadata:
+            # Cancelled after job started, write job logs and metadata
+            write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
+        else:
+            # Cancelled before job started, just write the metadata
+            write_job_metadata(job_definition, job_metadata)
     else:
         excluded = persist_outputs(job_definition, results.outputs, job_metadata)
         job_metadata["level4_excluded_files"] = excluded
@@ -486,7 +512,9 @@ def finalize_job(job_definition):
     return results
 
 
-def get_job_metadata(job_definition, outputs, container_metadata, results):
+def get_job_metadata(
+    job_definition, outputs, container_metadata, results, cancelled=False
+):
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
     job_metadata = dict()
@@ -494,17 +522,14 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["job_definition_request_id"] = job_definition.job_request_id
     job_metadata["created_at"] = job_definition.created_at
     job_metadata["completed_at"] = int(time.time())
-    job_metadata["docker_image_id"] = container_metadata["Image"]
+    job_metadata["docker_image_id"] = container_metadata.get("Image")
     # convert exit code to str so 0 exit codes get logged
-    job_metadata["exit_code"] = str(container_metadata["State"]["ExitCode"])
-    job_metadata["oom_killed"] = container_metadata["State"]["OOMKilled"]
+    job_metadata["exit_code"] = str(container_metadata.get("State", {}).get("ExitCode"))
+    job_metadata["oom_killed"] = container_metadata.get("State", {}.get("OOMKilled"))
     job_metadata["status_message"] = results.message
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
-    if job_definition.study is not None:
-        job_metadata["commit"] = job_definition.study.commit
-    else:
-        job_metadata["commit"] = None
+    job_metadata["commit"] = job_definition.study.commit
     job_metadata["database_name"] = job_definition.database_name
     job_metadata["hint"] = results.unmatched_hint
     # all calculated results
@@ -517,6 +542,7 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["base_revision"] = results.base_revision
     job_metadata["base_created"] = results.base_created
     job_metadata["level4_excluded_files"] = {}
+    job_metadata["cancelled"] = cancelled
     return job_metadata
 
 
@@ -527,9 +553,7 @@ def write_job_logs(
     # Dump useful info in log directory
     log_dir = get_log_dir(job_definition)
     write_log_file(job_definition, job_metadata, log_dir / "logs.txt", excluded)
-    metadata_path = get_log_dir(job_definition) / METADATA_FILE
-    metadata_path.write_text(json.dumps(job_metadata, indent=2))
-
+    write_job_metadata(job_definition, job_metadata)
     if copy_log_to_workspace:
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
         workspace_log_file = (

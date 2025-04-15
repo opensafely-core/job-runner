@@ -215,7 +215,7 @@ def handle_job(job, api, mode=None, paused=None):
     is_synchronous = False
 
     # only consider these modes if we are not about to cancel the job
-    if not job_definition.cancelled:
+    if not job.cancelled:
         # handle special modes before considering executor state, as they ignore it
         if paused:
             if job.state == State.PENDING:
@@ -257,7 +257,7 @@ def handle_job(job, api, mode=None, paused=None):
         EXECUTOR_RETRIES.pop(job.id, None)
 
     # cancelled is driven by user request, so is handled explicitly first
-    if job_definition.cancelled:
+    if job.cancelled:
         # if initial_status.state == ExecutorState.EXECUTED the job has already finished, so we
         # don't need to do anything here
         if initial_status.state == ExecutorState.EXECUTING:
@@ -374,7 +374,7 @@ def handle_job(job, api, mode=None, paused=None):
     elif initial_status.state == ExecutorState.FINALIZED:  # pragma: no branch
         # Cancelled jobs that have had cleanup() should now be again set to cancelled here to ensure
         # they finish in the FAILED state
-        if job_definition.cancelled:
+        if job.cancelled:
             mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
             api.cleanup(job_definition)
             return
@@ -533,11 +533,6 @@ def job_to_job_definition(job):
         for name, pattern in named_patterns.items():
             outputs[pattern] = privacy_level
 
-    if job.cancelled:
-        job_definition_cancelled = "user"
-    else:
-        job_definition_cancelled = None
-
     return JobDefinition(
         id=job.id,
         job_request_id=job.job_request_id,
@@ -559,7 +554,6 @@ def job_to_job_definition(job):
         level4_max_filesize=config.LEVEL4_MAX_FILESIZE,
         level4_max_csv_rows=config.LEVEL4_MAX_CSV_ROWS,
         level4_file_types=list(config.LEVEL4_FILE_TYPES),
-        cancelled=job_definition_cancelled,
     )
 
 

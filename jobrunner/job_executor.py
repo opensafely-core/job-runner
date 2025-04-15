@@ -39,7 +39,6 @@ class JobDefinition:
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
     level4_file_types: list = field(default_factory=lambda: [".csv"])
-    cancelled: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -47,13 +46,10 @@ class JobDefinition:
     @classmethod
     def from_dict(cls, data: dict):
         # Create the nested Study instance
-        study_data = data.pop("study", None)
-        if study_data:
-            study = Study(
-                git_repo_url=study_data["git_repo_url"], commit=study_data["commit"]
-            )
-        else:
-            study = None
+        study_data = data.pop("study", {})
+        study = Study(
+            git_repo_url=study_data.get("git_repo_url"), commit=study_data.get("commit")
+        )
 
         # Create the JobDefinition instance with the Study object
         return cls(study=study, **{k: v for k, v in data.items()})
@@ -243,7 +239,9 @@ class ExecutorAPI:
 
         """
 
-    def finalize(self, job_definition: JobDefinition) -> JobStatus:
+    def finalize(
+        self, job_definition: JobDefinition, cancelled: bool = False
+    ) -> JobStatus:
         """
         Launch the finalization of a job, transitioning from EXECUTED to FINALIZING.
 
@@ -308,7 +306,7 @@ class ExecutorAPI:
         out-of-band mechanisms for cleaning up resources associated with such failures.
         """
 
-    def get_status(self, job_definition: JobDefinition) -> JobStatus:
+    def get_status(self, job_definition: JobDefinition, cancelled=False) -> JobStatus:
         """
         Return the current status of a job.
 
@@ -357,13 +355,13 @@ class NullExecutorAPI(ExecutorAPI):
     def execute(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def finalize(self, job_definition):  # pragma: nocover
+    def finalize(self, job_definition, cancelled=False):  # pragma: nocover
         raise NotImplementedError
 
     def terminate(self, job_definition):  # pragma: nocover
         raise NotImplementedError
 
-    def get_status(self, job_definition):  # pragma: nocover
+    def get_status(self, job_definition, cancelled=False):  # pragma: nocover
         raise NotImplementedError
 
     def get_results(self, job_definition):  # pragma: nocover

@@ -100,19 +100,17 @@ def test_handle_job_with_error(mock_update_controller, db):
 
 
 @pytest.mark.parametrize(
-    "initial_state,final_state,terminate,finalize,cleanup",
+    "initial_state,terminate,finalize,cleanup",
     [
-        (ExecutorState.PREPARED, ExecutorState.FINALIZED, False, False, False),
-        (ExecutorState.EXECUTING, ExecutorState.FINALIZED, True, True, True),
-        (ExecutorState.UNKNOWN, ExecutorState.UNKNOWN, False, False, False),
-        (ExecutorState.EXECUTED, ExecutorState.FINALIZED, False, True, True),
-        (ExecutorState.ERROR, ExecutorState.ERROR, False, True, True),
-        (ExecutorState.FINALIZED, ExecutorState.FINALIZED, False, False, True),
+        (ExecutorState.PREPARED, False, True, False),
+        (ExecutorState.EXECUTING, True, True, True),
+        (ExecutorState.UNKNOWN, False, True, False),
+        (ExecutorState.EXECUTED, False, True, True),
+        (ExecutorState.ERROR, False, True, True),
+        (ExecutorState.FINALIZED, False, False, True),
     ],
 )
-def test_handle_cancel_job(
-    db, initial_state, final_state, terminate, finalize, cleanup
-):
+def test_handle_cancel_job(db, initial_state, terminate, finalize, cleanup):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_canceljob_task(initial_state)
@@ -120,7 +118,9 @@ def test_handle_cancel_job(
     main.handle_single_task(task, api)
 
     task = controller_task_api.get_task(task.id)
-    assert task.agent_stage == final_state.value
+    # All tasks end up in FINALIZED, even if they've errored or haven't
+    # started yet
+    assert task.agent_stage == ExecutorState.FINALIZED.value
     assert task.agent_complete
 
     assert (job_id in api.tracker["terminate"]) == terminate
@@ -131,4 +131,4 @@ def test_handle_cancel_job(
     assert len(spans) == 1
     span = spans[0]
     assert span.attributes["initial_job_status"] == initial_state.name
-    assert span.attributes["final_job_status"] == final_state.name
+    assert span.attributes["final_job_status"] == ExecutorState.FINALIZED.name

@@ -131,15 +131,16 @@ class StubExecutorAPI:
             job, ExecutorState.PREPARED, ExecutorState.EXECUTING, "execute"
         )
 
-    def finalize(self, job):
-        if self.get_status(job).state == ExecutorState.UNKNOWN:
-            # job was cancelled before it started running
-            return self.get_status(job)
-
+    def finalize(self, job, cancelled=False):
+        if cancelled:
+            # a finalize can be called from any status if we're cancelling a job
+            executor_state = self.get_status(job).state
+        else:
+            executor_state = ExecutorState.EXECUTED
         self.tracker["finalize"].add(job.id)
 
         return self.do_transition(
-            job, ExecutorState.EXECUTED, ExecutorState.FINALIZED, "finalize"
+            job, executor_state, ExecutorState.FINALIZED, "finalize"
         )
 
     def terminate(self, job):
@@ -179,7 +180,7 @@ class StubExecutorAPI:
             job, ExecutorState.ERROR, ExecutorState.UNKNOWN, "cleanup"
         )
 
-    def get_status(self, job):
+    def get_status(self, job, cancelled=False):
         return self.job_statuses.get(job.id, JobStatus(ExecutorState.UNKNOWN))
 
     def get_metadata(self, job):

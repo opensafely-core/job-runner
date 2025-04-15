@@ -40,8 +40,8 @@ class LoggingExecutor(ExecutorAPI):
         return getattr(self._wrapped, "synchronous_transitions", [])
 
     def _add_logging(self, method: Callable[[JobDefinition], JobStatus]):
-        def wrapper(job_definition: JobDefinition) -> JobStatus:
-            status = method(job_definition)
+        def wrapper(job_definition: JobDefinition, **kwargs) -> JobStatus:
+            status = method(job_definition, **kwargs)
             if self._is_new_state(job_definition, status.state):
                 self._write_log(job_definition, status)
                 self._state_cache[job_definition.id] = status.state
