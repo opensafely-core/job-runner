@@ -37,7 +37,7 @@ class PlatformError(Exception):
     """
 
 
-def main(exit_callback=lambda _: False):  # pragma: no cover
+def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
 
     while True:
@@ -242,11 +242,11 @@ def save_results(job, results):
         code = StatusCode.NONZERO_EXIT
         error = True
         message = "Job exited with an error"
-        if results.message:  # pragma: no cover
+        if results.message:
             message += f": {results.message}"
         elif job.requires_db:
             error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
-            if error_msg:  # pragma: no cover
+            if error_msg:
                 message += f": {error_msg}"
 
     elif results.unmatched_patterns:
@@ -281,7 +281,7 @@ def job_to_job_definition(job):
     action_args = job.action_args
     image = action_args.pop(0)
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
-    if image.startswith("stata-mp"):  # pragma: no cover
+    if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 
     # Jobs which are running reusable actions pull their code from the reusable
@@ -365,7 +365,7 @@ def set_code(
     # if status code has changed then trace it and update
     if job.status_code != new_status_code:
         # handle timer measurement errors
-        if job.status_code_updated_at > timestamp_ns:  # pragma: no cover
+        if job.status_code_updated_at > timestamp_ns:
             # we somehow have a negative duration, which honeycomb does funny things with.
             # This can happen in tests, where things are fast, but we've seen it in production too.
             duration = datetime.timedelta(
@@ -435,7 +435,7 @@ def set_code(
     # If the status message hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
     # active without writing to the database every single time we poll
-    elif timestamp_s - job.updated_at >= 60:  # pragma: no cover
+    elif timestamp_s - job.updated_at >= 60:
         job.updated_at = timestamp_s
         log.debug("Updating job timestamp")
         update_job(job)
@@ -457,7 +457,7 @@ def get_reason_job_not_started(job):
     )
     required_resources = get_job_resource_weight(job)
     if used_resources + required_resources > config.MAX_WORKERS:
-        if required_resources > 1:  # pragma: no cover
+        if required_resources > 1:
             return (
                 StatusCode.WAITING_ON_WORKERS,
                 "Waiting on available workers for resource intensive job",
