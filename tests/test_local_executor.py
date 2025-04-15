@@ -876,9 +876,7 @@ def test_pending_job_terminated_not_finalized(
 
 
 @pytest.mark.needs_docker
-def test_prepared_job_terminated_not_finalized(
-    docker_cleanup, job_definition, tmp_work_dir
-):
+def test_prepared_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     job_definition.args = ["sleep", "101"]
 
     api = local.LocalDockerAPI()
@@ -887,11 +885,12 @@ def test_prepared_job_terminated_not_finalized(
     assert status.state == ExecutorState.PREPARED
     assert api.get_status(job_definition).state == ExecutorState.PREPARED
 
-    job_definition.cancelled = "user"
+    # Finalizing the job as cancelled sets cancelled metadata
+    api.finalize(job_definition, cancelled=True)
+    assert api.get_metadata(job_definition)["cancelled"]
 
-    # nb. do not run terminate() or finalize() because we do not have a container
-
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    # The job state is still prepared, because it hasn't cleaned up yet
+    assert api.get_status(job_definition).state == ExecutorState.PREPARED
 
     with pytest.raises(Exception):
         api.get_results(job_definition)
@@ -905,7 +904,7 @@ def test_prepared_job_terminated_not_finalized(
 
 
 @pytest.mark.needs_docker
-def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_work_dir):
+def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     job_definition.args = ["sleep", "101"]
 
     api = local.LocalDockerAPI()
@@ -918,12 +917,12 @@ def test_running_job_terminated_finalized(docker_cleanup, job_definition, tmp_wo
     assert status.state == ExecutorState.EXECUTING
     assert api.get_status(job_definition).state == ExecutorState.EXECUTING
 
-    job_definition.cancelled = "user"
     status = api.terminate(job_definition)
     assert status.state == ExecutorState.EXECUTED
     assert api.get_status(job_definition).state == ExecutorState.EXECUTED
 
-    status = api.finalize(job_definition)
+    status = api.finalize(job_definition, cancelled=True)
+    assert api.get_metadata(job_definition)["cancelled"]
     assert status.state == ExecutorState.FINALIZED
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
