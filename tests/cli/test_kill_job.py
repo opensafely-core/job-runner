@@ -195,7 +195,7 @@ def test_kill_job_no_container_metadata(tmp_work_dir, db, monkeypatch):
         return [job]
 
     # no container metadata
-    mocker.container_inspect.return_value = None
+    mocker.container_inspect.return_value = {}
 
     # set both the docker module names used to the mocker version
     monkeypatch.setattr(kill_job, "docker", mocker)
