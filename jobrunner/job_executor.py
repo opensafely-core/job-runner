@@ -39,7 +39,6 @@ class JobDefinition:
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
     level4_file_types: list = field(default_factory=lambda: [".csv"])
-    cancelled: bool = False
 
     def to_dict(self):
         return asdict(self)
