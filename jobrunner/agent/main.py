@@ -9,6 +9,7 @@ from jobrunner.agent import task_api, tracing
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.log_utils import configure_logging, set_log_context
+from jobrunner.schema import TaskType
 
 
 log = logging.getLogger(__name__)
@@ -91,7 +92,13 @@ def trace_handle_task(task, api):
     with tracer.start_as_current_span("LOOP_TASK") as span:
         tracing.set_task_span_metadata(span, task)
         try:
-            handle_run_job_task(task, api)
+            match task.type:
+                case TaskType.RUNJOB:
+                    handle_run_job_task(task, api)
+                case TaskType.CANCELJOB:
+                    handle_cancel_job_task(task, api)
+                case _:
+                    assert False, f"Unknown task type {task.type}"
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
@@ -99,34 +106,50 @@ def trace_handle_task(task, api):
 
 
 def handle_cancel_job_task(task, api):
-    # TODO: make it work!
-    # CODE DUMP - not working, just preserving all bits of cancellation logic
-    # from handle_run_job_task for fixing up later
+    # A CANCELJOB task just sends a job_id in its task definition; construct
+    # a dummy JobDefinition to use with the executor API. job ID is all we
+    # need to find out the current status and do the actions required to
+    # cancel and clean up
+    # TODO: finalize() writes job logs, and will be missing some expected information
+    # if only job_id is passed (from job definition fields, it expects to write
+    # job id, job_request_id, created_at, database_name and commit)
     job = JobDefinition.from_dict(task.definition)
 
     job_status = api.get_status(job)
 
-    # TODO: check logic here
-    # if job_status.state == ExecutorState.EXECUTED the job has already finished, so we
-    # don't need to do anything here
-    if job_status.state == ExecutorState.EXECUTING:
-        api.terminate(job)  # synchronous operation
-        new_status = api.get_status(job)  # Executed (if no error)
-        update_controller(task, new_status.state, new_status.timestamp_ns)
-        return
-    if job_status.state == ExecutorState.PREPARED:
-        # Nb. no need to actually run finalize() in this case. The FINALIZED
-        # state will be handled and cleaned up further down the loop
-        update_controller(task, ExecutorState.FINALIZED)
-        return
-    if job_status.state == ExecutorState.UNKNOWN:
-        update_controller(task, ExecutorState.UNKNOWN)
-        return
+    span = trace.get_current_span()
+    span.set_attributes({"id": job.id, "initial_job_status": job_status.state.name})
 
-    # Cancelled jobs that have had cleanup() should now be again set to cancelled here to ensure
-    # they finish in the FAILED state
-    api.cleanup(job)
-    update_controller(task, job_status.state, complete=True)
+    with set_log_context(job_definition=job):
+        match job_status.state:
+            case ExecutorState.UNKNOWN | ExecutorState.FINALIZED:
+                # The job hasn't started or has already finished
+                final_status = job_status
+            case ExecutorState.PREPARED:
+                # Nb. no need to actually run finalize() in this case.
+                final_status = JobStatus(ExecutorState.FINALIZED)
+            case ExecutorState.EXECUTING:
+                new_status = api.terminate(job)
+                update_controller(task, new_status)
+                # call finalize to write the job logs
+                final_status = api.finalize(job)
+            case ExecutorState.EXECUTED | ExecutorState.ERROR:
+                # job has finished or errored, call finalize to write the job logs
+                final_status = api.finalize(job)
+            case _:  # pragma: no cover
+                raise InvalidTransition(
+                    f"unexpected state of job {job.id}: {job_status.state}"
+                )
+
+        if job_status.state in [
+            ExecutorState.EXECUTING,
+            ExecutorState.EXECUTED,
+            ExecutorState.FINALIZED,
+            ExecutorState.ERROR,
+        ]:
+            api.cleanup(job)
+
+        update_controller(task, final_status, complete=True)
 
 
 def handle_run_job_task(task, api):
@@ -135,7 +158,7 @@ def handle_run_job_task(task, api):
     This contains the main state machine logic for a task. For the most part,
     state transitions follow the same logic, which is abstracted. Some
     transitions require special logic, mainly the initial and final states, as
-    well as supporting cancellation and various operational modes.
+    well as various operational modes.
     """
     job = JobDefinition.from_dict(task.definition)
     with set_log_context(job_definition=job):

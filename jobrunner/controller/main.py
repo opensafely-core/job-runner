@@ -321,8 +321,7 @@ def job_to_job_definition(job):
         level4_max_filesize=config.LEVEL4_MAX_FILESIZE,
         level4_max_csv_rows=config.LEVEL4_MAX_CSV_ROWS,
         level4_file_types=list(config.LEVEL4_FILE_TYPES),
-        # Vestigial attribute which can be removed when we update JobDefinition
-        cancelled=None,
+        cancelled=job.cancelled,
     )
 
 
@@ -545,7 +544,7 @@ def cancel_job(job):
     canceljob_task = Task(
         id=f"{runjob_task.id}-cancel",
         type=TaskType.CANCELJOB,
-        definition={"job_id": job.id},
+        definition=job_to_job_definition(job).to_dict(),
         # TODO: Uncomment this when Job grows a `backend` field
         backend="",  # job.backend,
     )

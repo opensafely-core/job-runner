@@ -251,9 +251,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         docker.kill(container_name(job_definition))
 
-        return JobStatus(
-            ExecutorState.EXECUTED, f"Job terminated by {job_definition.cancelled}"
-        )
+        return JobStatus(ExecutorState.EXECUTED, "Job terminated by user")
 
     def cleanup(self, job_definition):
         if config.CLEAN_UP_DOCKER_OBJECTS:
@@ -442,7 +440,7 @@ def finalize_job(job_definition):
             )
 
     elif exit_code == 137 and job_definition.cancelled:
-        message = f"Job cancelled by {job_definition.cancelled}"
+        message = "Job cancelled by user"
     # Nb. this flag has been observed to be unreliable on some versions of Linux
     elif (
         container_metadata["State"]["ExitCode"] == 137
@@ -503,7 +501,10 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["status_message"] = results.message
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
-    job_metadata["commit"] = job_definition.study.commit
+    if job_definition.study is not None:
+        job_metadata["commit"] = job_definition.study.commit
+    else:
+        job_metadata["commit"] = None
     job_metadata["database_name"] = job_definition.database_name
     job_metadata["hint"] = results.unmatched_hint
     # all calculated results
