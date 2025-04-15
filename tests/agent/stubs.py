@@ -180,7 +180,7 @@ class StubExecutorAPI:
             job, ExecutorState.ERROR, ExecutorState.UNKNOWN, "cleanup"
         )
 
-    def get_status(self, job):
+    def get_status(self, job, cancelled=False):
         return self.job_statuses.get(job.id, JobStatus(ExecutorState.UNKNOWN))
 
     def get_metadata(self, job):
