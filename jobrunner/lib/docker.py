@@ -280,7 +280,7 @@ def container_inspect(name, key="", none_if_not_exists=False, timeout=None):
             and e.returncode == 1
             and b"no such container" in e.stderr.lower()
         ):
-            return
+            return {}
         else:  # pragma: no cover
             raise
     return json.loads(response.stdout)

@@ -286,7 +286,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         metrics = record_stats.read_job_metrics(job_definition.id)
 
-        if container is None:  # container doesn't exist
+        if not container:  # container doesn't exist
             # cancelled=True indicates that we are in the process of cancelling this
             # job. If we're not, the job may have been previously cancelled; look up
             # its cancelled status in job metadata, if it exists
