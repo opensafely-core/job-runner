@@ -281,7 +281,7 @@ class StubExecutorAPI:
             job_definition, ExecutorState.PREPARED, ExecutorState.EXECUTING, "execute"
         )
 
-    def finalize(self, job_definition):
+    def finalize(self, job_definition, cancelled=False):
         if self.get_status(job_definition).state == ExecutorState.UNKNOWN:
             # job was cancelled before it started running
             assert job_definition.cancelled
