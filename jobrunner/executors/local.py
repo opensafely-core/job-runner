@@ -213,12 +213,16 @@ class LocalDockerAPI(ExecutorAPI):
         return JobStatus(ExecutorState.EXECUTING)
 
     def finalize(self, job_definition, cancelled=False):
-        current_status = self.get_status(job_definition)
-        if current_status.state == ExecutorState.UNKNOWN:
-            # job had not started running, so do not finalize
-            return current_status
+        current_status = self.get_status(job_definition, cancelled=cancelled)
 
-        assert current_status.state in [ExecutorState.EXECUTED, ExecutorState.ERROR]
+        if not cancelled:
+            # We can finalize a cancelled job from any status, even if it hasn't
+            # started yet.
+            if current_status.state == ExecutorState.UNKNOWN:
+                # job had not started running, so do not finalize
+                return current_status
+
+            assert current_status.state in [ExecutorState.EXECUTED, ExecutorState.ERROR]
 
         try:
             finalize_job(job_definition, cancelled)
@@ -281,10 +285,10 @@ class LocalDockerAPI(ExecutorAPI):
         if container is None:  # container doesn't exist
             if cancelled:
                 if volumes.volume_exists(job_definition):
-                    # jobs prepared but not running do not need to finalize, so we
-                    # proceed directly to the FINALIZED state here
+                    # jobs prepared but not running still need to finalize, in order
+                    # to record their cancelled state
                     return JobStatus(
-                        ExecutorState.FINALIZED,
+                        ExecutorState.PREPARED,
                         "Prepared job was cancelled",
                         metrics=metrics,
                     )
