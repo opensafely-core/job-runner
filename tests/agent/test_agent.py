@@ -4,7 +4,7 @@ import pytest
 
 from jobrunner.agent import main
 from jobrunner.controller import task_api as controller_task_api
-from jobrunner.job_executor import ExecutorState
+from jobrunner.job_executor import ExecutorState, JobDefinition
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
 
@@ -65,6 +65,39 @@ def test_handle_job_full_execution(db, freezer):
     assert spans[2].attributes["initial_job_status"] == "EXECUTED"
     assert spans[2].attributes["final_job_status"] == "FINALIZED"
     assert spans[2].attributes["complete"]
+
+
+@pytest.mark.parametrize(
+    "executor_state",
+    [
+        ExecutorState.ERROR,
+        ExecutorState.EXECUTING,
+        ExecutorState.FINALIZED,
+    ],
+)
+def test_handle_job_stable_states(db, executor_state):
+    api = StubExecutorAPI()
+    task, job_id = api.add_test_runjob_task(executor_state)
+
+    with patch("jobrunner.agent.task_api.update_controller") as mock_update_controller:
+        job = JobDefinition.from_dict(task.definition)
+
+    main.handle_run_job_task(task, api)
+
+    # should be in the same state
+    assert mock_update_controller.called_with(
+        task,
+        executor_state,
+        None,
+        False if executor_state == ExecutorState.EXECUTING else True,
+    )
+
+    assert job.id not in api.tracker["prepare"]
+    assert job.id not in api.tracker["execute"]
+    assert job.id not in api.tracker["finalize"]
+
+    # no spans
+    assert len(get_trace("jobs")) == 0
 
 
 @patch("jobrunner.agent.task_api.update_controller")
