@@ -212,7 +212,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         return JobStatus(ExecutorState.EXECUTING)
 
-    def finalize(self, job_definition):
+    def finalize(self, job_definition, cancelled=False):
         current_status = self.get_status(job_definition)
         if current_status.state == ExecutorState.UNKNOWN:
             # job had not started running, so do not finalize
@@ -221,7 +221,7 @@ class LocalDockerAPI(ExecutorAPI):
         assert current_status.state in [ExecutorState.EXECUTED, ExecutorState.ERROR]
 
         try:
-            finalize_job(job_definition)
+            finalize_job(job_definition, cancelled)
         except LocalDockerError as exc:  # pragma: no cover
             return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
@@ -395,12 +395,12 @@ def prepare_job(job_definition):
     volumes.write_timestamp(job_definition, TIMESTAMP_REFERENCE_FILE)
 
 
-def finalize_job(job_definition):
+def finalize_job(job_definition, cancelled):
     container_metadata = docker.container_inspect(
         container_name(job_definition), none_if_not_exists=True
     )
     if not container_metadata:  # pragma: no cover
-        if job_definition.cancelled:
+        if cancelled:
             # no logs to retain if the container didn't start yet
             return
         else:
@@ -409,7 +409,7 @@ def finalize_job(job_definition):
             )
     redact_environment_variables(container_metadata)
 
-    if job_definition.cancelled:
+    if cancelled:
         # assume no outputs because our job didn't finish
         outputs = {}
         unmatched_patterns = []
@@ -439,7 +439,7 @@ def finalize_job(job_definition):
                 )
             )
 
-    elif exit_code == 137 and job_definition.cancelled:
+    elif exit_code == 137 and cancelled:
         message = "Job cancelled by user"
     # Nb. this flag has been observed to be unreliable on some versions of Linux
     elif (

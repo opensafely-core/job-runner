@@ -242,7 +242,9 @@ class ExecutorAPI:
 
         """
 
-    def finalize(self, job_definition: JobDefinition) -> JobStatus:
+    def finalize(
+        self, job_definition: JobDefinition, cancelled: bool = False
+    ) -> JobStatus:
         """
         Launch the finalization of a job, transitioning from EXECUTED to FINALIZING.
 
