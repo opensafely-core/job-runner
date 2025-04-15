@@ -221,9 +221,7 @@ def handle_run_job_task(task, api):
                     complete=True,
                 )
             case _:
-                raise InvalidTransition(
-                    f"unexpected state of job {job.id}: {job_status.state}"
-                )
+                assert False, f"unexpected state of job {job.id}: {job_status.state}"
 
 
 def update_controller(
