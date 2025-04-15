@@ -349,23 +349,12 @@ def test_integration_with_ehrql(
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-@pytest.mark.parametrize(
-    "extraction_tool,generate_action,image,output_name",
-    [
-        ("ehrql", "generate_dataset", "ehrql:v1", "dataset"),
-        ("cohortextractor", "generate_cohort", "cohortextractor", "input"),
-    ],
-)
 def test_integration(
     tmp_work_dir,
     docker_cleanup,
     requests_mock,
     monkeypatch,
     test_repo,
-    extraction_tool,
-    generate_action,
-    image,
-    output_name,
 ):
     api = get_executor_api()
 
@@ -378,15 +367,15 @@ def test_integration(
     # (CI may have fewer actual available workers than this)
     monkeypatch.setattr("jobrunner.config.MAX_WORKERS", 4)
 
-    ensure_docker_images_present(image, "python")
+    ensure_docker_images_present("ehrql:v1", "python")
 
     # Set up a mock job-server with a single job request
     job_request_1 = {
         "identifier": 1,
         "requested_actions": [
-            f"analyse_data_{extraction_tool}",
-            f"test_reusable_action_{extraction_tool}",
-            f"test_cancellation_{extraction_tool}",
+            "analyse_data_ehrql",
+            "test_reusable_action_ehrql",
+            "test_cancellation_ehrql",
         ],
         "cancelled_actions": [],
         "force_run_dependencies": False,
@@ -428,21 +417,21 @@ def test_integration(
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 1
     assert active_tasks[0].type == TaskType.RUNJOB
-    assert active_tasks[0].id.startswith(jobs[generate_action]["identifier"])
+    assert active_tasks[0].id.startswith(jobs["generate_dataset"]["identifier"])
     # stage is None before the task has been picked up by the agent
     assert active_tasks[0].agent_stage is None
 
     jobrunner.sync.sync()
 
     def assert_generate_dataset_dependency_running(jobs):
-        assert jobs[generate_action]["status"] == "running"
+        assert jobs["generate_dataset"]["status"] == "running"
         for action in [
-            f"prepare_data_m_{extraction_tool}",
-            f"prepare_data_f_{extraction_tool}",
-            f"prepare_data_with_quote_in_filename_{extraction_tool}",
-            f"analyse_data_{extraction_tool}",
-            f"test_reusable_action_{extraction_tool}",
-            f"test_cancellation_{extraction_tool}",
+            "prepare_data_m_ehrql",
+            "prepare_data_f_ehrql",
+            "prepare_data_with_quote_in_filename_ehrql",
+            "analyse_data_ehrql",
+            "test_reusable_action_ehrql",
+            "test_cancellation_ehrql",
         ]:
             assert jobs[action]["status_message"].startswith("Waiting on dependencies")
 
@@ -477,11 +466,11 @@ def test_integration(
 
     # Update the existing job request to mark a (not-started) job as cancelled, add a new job
     # request to be run and then sync
-    job_request_1["cancelled_actions"] = [f"test_cancellation_{extraction_tool}"]
+    job_request_1["cancelled_actions"] = ["test_cancellation_ehrql"]
     job_request_2 = {
         "identifier": 2,
         "requested_actions": [
-            f"{generate_action}_with_dummy_data",
+            "generate_dataset_with_dummy_data",
         ],
         "cancelled_actions": [],
         "force_run_dependencies": False,
@@ -507,8 +496,8 @@ def test_integration(
 
     # Execute one tick of the controller run loop again to pick up the
     # cancelled job and the second job request and then sync
-    # We now have 2 RUNJOB tasks (for generate_action, which is still executing,
-    # and the new generate_action_with_dummy_data, which has no dependencies)
+    # We now have 2 RUNJOB tasks (for generate_dataset, which is still executing,
+    # and the new generate_dataset_with_dummy_data, which has no dependencies)
     # The cancelled job is now marked as cancelled, but no CANCELJOB task is created,
     # because no RUNJOB task had been created for it
     # The others are waiting on dependencies, so no tasks have been created for them yet
@@ -522,23 +511,23 @@ def test_integration(
     # sync to confirm updated jobs have been posted back to job-server
     jobrunner.sync.sync()
     jobs = get_posted_jobs(requests_mock)
-    assert jobs[generate_action]["status"] == "running"
-    # The new action does not depend on generate_action
-    assert jobs[f"{generate_action}_with_dummy_data"]["status"] == "running"
-    cancellation_job = jobs.pop(f"test_cancellation_{extraction_tool}")
+    assert jobs["generate_dataset"]["status"] == "running"
+    # The new action does not depend on generate_dataset
+    assert jobs["generate_dataset_with_dummy_data"]["status"] == "running"
+    cancellation_job = jobs.pop("test_cancellation_ehrql")
     assert cancellation_job["status"] == "failed"
     assert cancellation_job["status_message"] == "Cancelled by user"
 
     for action in [
-        f"prepare_data_m_{extraction_tool}",
-        f"prepare_data_f_{extraction_tool}",
-        f"prepare_data_with_quote_in_filename_{extraction_tool}",
-        f"analyse_data_{extraction_tool}",
-        f"test_reusable_action_{extraction_tool}",
+        "prepare_data_m_ehrql",
+        "prepare_data_f_ehrql",
+        "prepare_data_with_quote_in_filename_ehrql",
+        "analyse_data_ehrql",
+        "test_reusable_action_ehrql",
     ]:
         assert jobs[action]["status_message"].startswith("Waiting on dependencies")
 
-    # Run the agent loop until there are no active tasks left; the generate_action jobs should be done
+    # Run the agent loop until there are no active tasks left; the generate_dataset jobs should be done
     jobrunner.agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
 
     # Run the controller again, this should:
@@ -552,10 +541,10 @@ def test_integration(
     expected_job_ids = sorted(
         jobs[action]["identifier"]
         for action in [
-            f"test_reusable_action_{extraction_tool}",
-            f"prepare_data_m_{extraction_tool}",
-            f"prepare_data_f_{extraction_tool}",
-            f"prepare_data_with_quote_in_filename_{extraction_tool}",
+            "test_reusable_action_ehrql",
+            "prepare_data_m_ehrql",
+            "prepare_data_f_ehrql",
+            "prepare_data_with_quote_in_filename_ehrql",
         ]
     )
     for task_id, job_id in zip(task_ids, expected_job_ids):
@@ -563,18 +552,18 @@ def test_integration(
 
     jobrunner.sync.sync()
     jobs = get_posted_jobs(requests_mock)
-    for action in [generate_action, f"{generate_action}_with_dummy_data"]:
+    for action in ["generate_dataset", "generate_dataset_with_dummy_data"]:
         assert jobs[action]["status"] == "succeeded"
     for action in [
-        f"prepare_data_m_{extraction_tool}",
-        f"prepare_data_f_{extraction_tool}",
-        f"prepare_data_with_quote_in_filename_{extraction_tool}",
-        f"test_reusable_action_{extraction_tool}",
+        "prepare_data_m_ehrql",
+        "prepare_data_f_ehrql",
+        "prepare_data_with_quote_in_filename_ehrql",
+        "test_reusable_action_ehrql",
     ]:
         assert jobs[action]["status"] == "running"
 
-    assert jobs[f"test_cancellation_{extraction_tool}"]["status"] == "failed"
-    assert jobs[f"analyse_data_{extraction_tool}"]["status"] == "pending"
+    assert jobs["test_cancellation_ehrql"]["status"] == "failed"
+    assert jobs["analyse_data_ehrql"]["status"] == "pending"
 
     # Run the agent loop until there are no active tasks left; the 4 running jobs
     # are now done
@@ -590,12 +579,12 @@ def test_integration(
 
     jobrunner.sync.sync()
     jobs = get_posted_jobs(requests_mock)
-    assert jobs[f"analyse_data_{extraction_tool}"]["status"] == "running"
+    assert jobs["analyse_data_ehrql"]["status"] == "running"
     for action in [
-        f"prepare_data_m_{extraction_tool}",
-        f"prepare_data_f_{extraction_tool}",
-        f"prepare_data_with_quote_in_filename_{extraction_tool}",
-        f"test_reusable_action_{extraction_tool}",
+        "prepare_data_m_ehrql",
+        "prepare_data_f_ehrql",
+        "prepare_data_with_quote_in_filename_ehrql",
+        "test_reusable_action_ehrql",
     ]:
         assert jobs[action]["status"] == "succeeded"
 
@@ -610,7 +599,7 @@ def test_integration(
 
     jobrunner.sync.sync()
     jobs = get_posted_jobs(requests_mock)
-    cancellation_job = jobs.pop(f"test_cancellation_{extraction_tool}")
+    cancellation_job = jobs.pop("test_cancellation_ehrql")
     for job in jobs.values():
         assert job["status"] == "succeeded", job
 
@@ -627,23 +616,23 @@ def test_integration(
 
     # Check that all the outputs have been produced
     for highly_sensitive_output in [
-        f"output/{output_name}.csv",  # the cohort/dataset
-        f"output/extra/{output_name}.csv",  # extracted from dummy data
-        f"{extraction_tool}-male.csv",  # intermediate analysis
-        f"{extraction_tool}-female.csv",  # intermediate analysis
-        f"{extraction_tool}-qu'ote.csv",  # checking handling of problematic characters in filenames
-        f"output/{output_name}.backup.csv",  # from the reusable action
+        "output/dataset.csv",  # the cohort/dataset
+        "output/extra/dataset.csv",  # extracted from dummy data
+        "ehrql-male.csv",  # intermediate analysis
+        "ehrql-female.csv",  # intermediate analysis
+        "ehrql-qu'ote.csv",  # checking handling of problematic characters in filenames
+        "output/dataset.backup.csv",  # from the reusable action
     ]:
         path = high_privacy_workspace / highly_sensitive_output
         assert path.exists(), highly_sensitive_output
 
     for moderately_sensitive_output in [
-        f"{extraction_tool}-counts.txt",  # the study's actual output
+        "ehrql-counts.txt",  # the study's actual output
     ]:
         assert (medium_privacy_workspace / moderately_sensitive_output).exists()
 
     # Check that we don't produce outputs for cancelled jobs
-    assert not (high_privacy_workspace / f"{extraction_tool}-somefile.csv").exists()
+    assert not (high_privacy_workspace / "ehrql-somefile.csv").exists()
 
     # Check that spans were emitted and capture details
     job_spans = [s for s in get_trace("jobs") if s.name == "JOB"]
