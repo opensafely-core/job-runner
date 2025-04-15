@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from opentelemetry import trace
 
@@ -121,6 +123,38 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
     # tracing
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
+
+
+def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
+    monkeypatch.setattr(config, "MAX_WORKERS", 2)
+    monkeypatch.setattr(
+        config, "JOB_RESOURCE_WEIGHTS", {"workspace": {re.compile(r"action\d{1}"): 1.5}}
+    )
+
+    # This action requires 1.5 workers, set requires_db to ensure it's the first one run
+    job1 = job_factory(workspace="workspace", action="action1", requires_db=True)
+    # This action requires 1.5 workers, only 0.5 left after first one is running
+    job2 = job_factory(workspace="workspace", action="action2")
+    # This action requires 1 worker, only 0.5 left after first one is running
+    job3 = job_factory(workspace="workspace", action="non_matching_action")
+    run_controller_loop_once()
+
+    job1 = database.find_one(Job, id=job1.id)
+    job2 = database.find_one(Job, id=job2.id)
+    job3 = database.find_one(Job, id=job3.id)
+
+    assert job1.state == State.RUNNING
+    assert job1.status_code == StatusCode.EXECUTING
+
+    assert job2.state == State.PENDING
+    assert (
+        job2.status_message == "Waiting on available workers for resource intensive job"
+    )
+    assert job2.status_code == StatusCode.WAITING_ON_WORKERS
+
+    assert job3.state == State.PENDING
+    assert job3.status_message == "Waiting on available workers"
+    assert job3.status_code == StatusCode.WAITING_ON_WORKERS
 
 
 def test_handle_job_waiting_on_db_workers(monkeypatch, db):
