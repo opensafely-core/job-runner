@@ -449,7 +449,7 @@ def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir):
 @pytest.mark.needs_docker
 def test_finalize_no_container_metadata(monkeypatch, job_definition, tmp_work_dir):
     mocker = mock.MagicMock(spec=local.docker)
-    mocker.container_inspect.return_value = None
+    mocker.container_inspect.return_value = {}
 
     job_definition.args = ["false"]
     job_definition.output_spec = {
