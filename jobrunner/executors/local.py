@@ -407,14 +407,15 @@ def finalize_job(job_definition, cancelled):
         container_name(job_definition), none_if_not_exists=True
     )
     if not container_metadata:  # pragma: no cover
-        if cancelled:
-            # no logs to retain if the container didn't start yet
-            return
-        else:
+        # there's no error if the container doesn't exist because it's been
+        # cancelled before it starts. We still want to record minimal metadata
+        # for cancelled jobs so we can retrieve that information later if necessary
+        if not cancelled:
             raise LocalDockerError(
                 f"Job container {container_name(job_definition)} has vanished"
             )
-    redact_environment_variables(container_metadata)
+    else:
+        redact_environment_variables(container_metadata)
 
     if cancelled:
         # assume no outputs because our job didn't finish
@@ -425,48 +426,55 @@ def finalize_job(job_definition, cancelled):
         outputs, unmatched_patterns = find_matching_outputs(job_definition)
         unmatched_outputs = get_unmatched_outputs(job_definition, outputs)
 
-    exit_code = container_metadata["State"]["ExitCode"]
-    labels = container_metadata.get("Config", {}).get("Labels", {})
+    if container_metadata:
+        exit_code = container_metadata["State"]["ExitCode"]
+        labels = container_metadata.get("Config", {}).get("Labels", {})
 
-    # First get the user-friendly message for known database exit codes, for jobs
-    # that have db access
-    unmatched_hint = None
+        # First get the user-friendly message for known database exit codes, for jobs
+        # that have db access
+        unmatched_hint = None
 
-    if exit_code == 0 and outputs and not unmatched_patterns:
-        message = "Completed successfully"
+        if exit_code == 0 and outputs and not unmatched_patterns:
+            message = "Completed successfully"
 
-    elif exit_code == 0 and unmatched_patterns:
-        message = "\n  No outputs found matching patterns:\n - {}".format(
-            "\n   - ".join(unmatched_patterns)
-        )
-        if unmatched_outputs:
-            unmatched_hint = (
-                "\n  Did you mean to match one of these files instead?\n - {}".format(
+        elif exit_code == 0 and unmatched_patterns:
+            message = "\n  No outputs found matching patterns:\n - {}".format(
+                "\n   - ".join(unmatched_patterns)
+            )
+            if unmatched_outputs:
+                unmatched_hint = "\n  Did you mean to match one of these files instead?\n - {}".format(
                     "\n   - ".join(unmatched_outputs)
                 )
-            )
 
-    elif exit_code == 137 and cancelled:
-        message = "Job cancelled by user"
-    # Nb. this flag has been observed to be unreliable on some versions of Linux
-    elif (
-        container_metadata["State"]["ExitCode"] == 137
-        and container_metadata["State"]["OOMKilled"]
-    ):
-        message = "Job ran out of memory"
-        memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
-        if memory_limit > 0:  # pragma: no cover
-            gb_limit = memory_limit / (1024**3)
-            message += f" (limit was {gb_limit:.2f}GB)"
+        elif exit_code == 137 and cancelled:
+            message = "Job cancelled by user"
+        # Nb. this flag has been observed to be unreliable on some versions of Linux
+        elif (
+            container_metadata["State"]["ExitCode"] == 137
+            and container_metadata["State"]["OOMKilled"]
+        ):
+            message = "Job ran out of memory"
+            memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
+            if memory_limit > 0:  # pragma: no cover
+                gb_limit = memory_limit / (1024**3)
+                message += f" (limit was {gb_limit:.2f}GB)"
+        else:
+            message = config.DOCKER_EXIT_CODES.get(exit_code)
     else:
-        message = config.DOCKER_EXIT_CODES.get(exit_code)
+        # We should only get here if a job has been cancelled
+        assert cancelled
+        message = "Job cancelled by user"
+        exit_code = None
+        labels = {}
+        container_metadata = {}
+        unmatched_hint = None
 
     results = JobResults(
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,
         unmatched_outputs=unmatched_outputs,
         exit_code=exit_code,
-        image_id=container_metadata["Image"],
+        image_id=container_metadata.get("Image"),
         message=message,
         unmatched_hint=unmatched_hint,
         timestamp_ns=time.time_ns(),
@@ -477,11 +485,16 @@ def finalize_job(job_definition, cancelled):
         base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
     job_metadata = get_job_metadata(
-        job_definition, outputs, container_metadata, results
+        job_definition, outputs, container_metadata, results, cancelled=cancelled
     )
 
-    if job_definition.cancelled:
-        write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
+    if cancelled:
+        if container_metadata:
+            # Cancelled after job started, write job logs and metadata
+            write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
+        else:
+            # Cancelled before job started, just write the metadata
+            write_job_metadata(job_definition, job_metadata)
     else:
         excluded = persist_outputs(job_definition, results.outputs, job_metadata)
         job_metadata["level4_excluded_files"] = excluded
@@ -493,7 +506,9 @@ def finalize_job(job_definition, cancelled):
     return results
 
 
-def get_job_metadata(job_definition, outputs, container_metadata, results):
+def get_job_metadata(
+    job_definition, outputs, container_metadata, results, cancelled=False
+):
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
     job_metadata = dict()
@@ -501,10 +516,10 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["job_definition_request_id"] = job_definition.job_request_id
     job_metadata["created_at"] = job_definition.created_at
     job_metadata["completed_at"] = int(time.time())
-    job_metadata["docker_image_id"] = container_metadata["Image"]
+    job_metadata["docker_image_id"] = container_metadata.get("Image")
     # convert exit code to str so 0 exit codes get logged
-    job_metadata["exit_code"] = str(container_metadata["State"]["ExitCode"])
-    job_metadata["oom_killed"] = container_metadata["State"]["OOMKilled"]
+    job_metadata["exit_code"] = str(container_metadata.get("State", {}).get("ExitCode"))
+    job_metadata["oom_killed"] = container_metadata.get("State", {}.get("OOMKilled"))
     job_metadata["status_message"] = results.message
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
@@ -524,6 +539,7 @@ def get_job_metadata(job_definition, outputs, container_metadata, results):
     job_metadata["base_revision"] = results.base_revision
     job_metadata["base_created"] = results.base_created
     job_metadata["level4_excluded_files"] = {}
+    job_metadata["cancelled"] = cancelled
     return job_metadata
 
 
@@ -534,9 +550,7 @@ def write_job_logs(
     # Dump useful info in log directory
     log_dir = get_log_dir(job_definition)
     write_log_file(job_definition, job_metadata, log_dir / "logs.txt", excluded)
-    metadata_path = get_log_dir(job_definition) / METADATA_FILE
-    metadata_path.write_text(json.dumps(job_metadata, indent=2))
-
+    write_job_metadata(job_definition, job_metadata)
     if copy_log_to_workspace:
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
         workspace_log_file = (
@@ -551,6 +565,12 @@ def write_job_logs(
                 workspace_log_file,
                 medium_privacy_dir / METADATA_DIR / f"{job_definition.action}.log",
             )
+
+
+def write_job_metadata(job_definition, job_metadata):
+    metadata_path = get_log_dir(job_definition) / METADATA_FILE
+    metadata_path.parent.mkdir(exist_ok=True, parents=True)
+    metadata_path.write_text(json.dumps(job_metadata, indent=2))
 
 
 def persist_outputs(job_definition, outputs, job_metadata):
