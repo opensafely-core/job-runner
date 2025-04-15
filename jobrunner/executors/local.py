@@ -283,7 +283,10 @@ class LocalDockerAPI(ExecutorAPI):
         metrics = record_stats.read_job_metrics(job_definition.id)
 
         if container is None:  # container doesn't exist
-            if cancelled:
+            # cancelled=True indicates that we are in the process of cancelling this
+            # job. If we're not, the job may have been previously cancelled; look up
+            # its cancelled status in job metadata, if it exists
+            if cancelled or (self.get_metadata(job_definition) or {}).get("cancelled"):
                 if volumes.volume_exists(job_definition):
                     # jobs prepared but not running still need to finalize, in order
                     # to record their cancelled state
