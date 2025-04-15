@@ -392,6 +392,35 @@ def test_handle_pending_cancelled_db_maintenance_mode(db, backend_db_config):
     assert job.started_at is None
 
 
+def test_handle_running_db_maintenance_mode(db, backend_db_config):
+    job = job_factory(
+        run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
+        requires_db=True,
+    )
+    # Start it running, then set the flag
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.RUNNING
+
+    set_flag("mode", "db-maintenance")
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+
+    # job has been set back to pending
+    assert job.state == State.PENDING
+    assert job.status_code == StatusCode.WAITING_DB_MAINTENANCE
+    assert job.status_message == "Waiting for database to finish maintenance"
+    assert job.started_at is None
+
+    # the RUNJOB task is no longer active and a new CANCELJOB task has been created
+    tasks = database.find_all(Task)
+    assert len(tasks) == 2
+    assert tasks[0].type == TaskType.RUNJOB
+    assert not tasks[0].active
+    assert tasks[1].type == TaskType.CANCELJOB
+    assert tasks[1].active
+
+
 def test_handle_pending_pause_mode(db, backend_db_config):
     set_flag("paused", "True")
     job = job_factory(
