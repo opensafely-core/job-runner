@@ -309,7 +309,7 @@ class ExecutorAPI:
         out-of-band mechanisms for cleaning up resources associated with such failures.
         """
 
-    def get_status(self, job_definition: JobDefinition) -> JobStatus:
+    def get_status(self, job_definition: JobDefinition, cancelled=False) -> JobStatus:
         """
         Return the current status of a job.
 
