@@ -73,6 +73,12 @@ def read_job_metadata(job_definition):
     return None
 
 
+def write_job_metadata(job_definition, job_metadata):
+    metadata_path = get_log_dir(job_definition) / METADATA_FILE
+    metadata_path.parent.mkdir(exist_ok=True, parents=True)
+    metadata_path.write_text(json.dumps(job_metadata, indent=2))
+
+
 def job_metadata_path(job_definition):
     """Return the expected path for the metadata for a job.
 
@@ -562,12 +568,6 @@ def write_job_logs(
                 workspace_log_file,
                 medium_privacy_dir / METADATA_DIR / f"{job_definition.action}.log",
             )
-
-
-def write_job_metadata(job_definition, job_metadata):
-    metadata_path = get_log_dir(job_definition) / METADATA_FILE
-    metadata_path.parent.mkdir(exist_ok=True, parents=True)
-    metadata_path.write_text(json.dumps(job_metadata, indent=2))
 
 
 def persist_outputs(job_definition, outputs, job_metadata):
