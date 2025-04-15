@@ -181,10 +181,12 @@ def handle_run_job_task(task, api):
         # I think that JobStatus should probably grow .error and .result fields,
         # which get_status can populate. Then all the logic is self contained.
         match job_status.state:
-            case (
-                ExecutorState.ERROR | ExecutorState.EXECUTING | ExecutorState.FINALIZED
-            ):
-                # No action needed, just inform the controller we are in this stage
+            case ExecutorState.ERROR | ExecutorState.FINALIZED:
+                # No action needed, just inform the controller we are in this completed stage
+                update_controller(task, job_status, complete=True)
+
+            case ExecutorState.EXECUTING:
+                # Still waitin'
                 update_controller(task, job_status)
 
             case ExecutorState.UNKNOWN:
