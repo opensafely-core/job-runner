@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+from unittest.mock import patch
 
 import pytest
 from opentelemetry import trace
@@ -623,3 +624,20 @@ def test_mark_job_as_failed_adds_error(db):
     assert spans[-2].status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
     assert spans[-1].status.status_code == trace.StatusCode.ERROR
+
+
+@patch("jobrunner.controller.main.handle_job")
+def test_handle_error(patched_handle_job, db, monkeypatch):
+    monkeypatch.setattr(config, "JOB_LOOP_INTERVAL", 0)
+
+    # mock 2 controller loops, successfull first pass and an
+    # exception on the second loop
+    patched_handle_job.side_effect = [None, Exception("foo")]
+    job = job_factory()
+
+    with pytest.raises(Exception):
+        main.main()
+
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.FAILED
+    assert job.status_code == StatusCode.INTERNAL_ERROR
