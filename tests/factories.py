@@ -147,6 +147,11 @@ def canceljob_db_task_factory(*args, state=State.RUNNING, **kwargs):
     return task
 
 
+def job_definition_factory(*args, **kwargs):
+    job = job_factory(*args, **kwargs)
+    return job_to_job_definition(job)
+
+
 class StubExecutorAPI:
     """Dummy implementation of the ExecutorAPI, for use in tests.
 
