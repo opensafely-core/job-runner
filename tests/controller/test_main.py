@@ -1,3 +1,5 @@
+import datetime
+import logging
 import re
 
 import pytest
@@ -489,6 +491,108 @@ def test_job_definition_limits(db):
     job_definition = main.job_to_job_definition(job)
     assert job_definition.cpu_count == 2
     assert job_definition.memory_limit == "4G"
+
+
+def datetime_to_ns(datetime):
+    return datetime.timestamp() * 1e9
+
+
+@pytest.mark.parametrize(
+    "status_code_updated_at,new_status_code_updated_at",
+    [
+        (
+            # previous updated at is before now
+            datetime_to_ns(datetime.datetime(2025, 3, 1, 9, 5, 10, 99999)),
+            # new updated_at is now (in ns)
+            datetime_to_ns(datetime.datetime(2025, 3, 1, 10, 5, 10, 99999)),
+        ),
+        (
+            # previous updated at is after now
+            datetime_to_ns(datetime.datetime(2025, 3, 1, 10, 5, 11, 99999)),
+            # new updated at timestamp is limited to 1ms after the previous one
+            datetime_to_ns(datetime.datetime(2025, 3, 1, 10, 5, 11, 99999)) + 1e6,
+        ),
+    ],
+)
+def test_status_code_timing(
+    db, freezer, status_code_updated_at, new_status_code_updated_at
+):
+    mock_now = datetime.datetime(2025, 3, 1, 10, 5, 10, 99999)
+    freezer.move_to(mock_now)
+
+    job = job_factory(
+        state=State.PENDING,
+        status_code=StatusCode.WAITING_ON_WORKERS,
+        status_code_updated_at=status_code_updated_at,
+    )
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.RUNNING
+
+    assert job.status_code_updated_at == new_status_code_updated_at
+
+
+def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
+    mock_now = datetime.datetime(2025, 3, 1, 10, 5, 10, 99999)
+    caplog.set_level(logging.INFO)
+    freezer.move_to(mock_now)
+
+    # setup a job that's waiting on a dependency; this will recall
+    # set_code each time through the controller loop
+    dependency = job_factory()
+    job = job_factory(
+        state=State.PENDING,
+        job_request_id=dependency.job_request_id,
+        action="action2",
+        wait_for_job_ids=[dependency.id],
+    )
+
+    run_controller_loop_once()
+
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.PENDING
+    assert job.status_message == "Waiting on dependencies"
+    assert job.status_code == StatusCode.WAITING_ON_DEPENDENCIES
+    # updated at is set to the current timestamp in seconds
+    assert job.updated_at == int(mock_now.timestamp())
+    assert job.status_code_updated_at == datetime_to_ns(mock_now)
+
+    # move forwards less than 1 min, updated_at does not change
+    mock_now_1 = datetime.datetime(2025, 3, 1, 10, 5, 40, 99999)
+    freezer.move_to(mock_now_1)
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.PENDING
+    assert job.updated_at == int(mock_now.timestamp())
+    assert job.status_code_updated_at == datetime_to_ns(mock_now)
+
+    # move forwards more than 1 min, updated_at is updated to current timestamp
+    # status_code_updated_at does not change
+    mock_now_2 = datetime.datetime(2025, 3, 1, 10, 6, 11, 99999)
+    freezer.move_to(mock_now_2)
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.PENDING
+    assert job.updated_at == int(mock_now_2.timestamp())
+    assert job.status_code_updated_at == datetime_to_ns(mock_now)
+
+    last_info_log = [
+        record for record in caplog.records if record.levelno == logging.INFO
+    ][-1]
+    assert last_info_log.message != "Waiting on dependencies"
+
+    # move forward to a time that's divisible by 10 mins
+    mock_now_3 = datetime.datetime(2025, 3, 1, 10, 20, 11, 99999)
+    freezer.move_to(mock_now_3)
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.PENDING
+    assert job.updated_at == int(mock_now_3.timestamp())
+    assert job.status_code_updated_at == datetime_to_ns(mock_now)
+    last_info_log = [
+        record for record in caplog.records if record.levelno == logging.INFO
+    ][-1]
+    assert last_info_log.message == "Waiting on dependencies"
 
 
 def test_mark_job_as_failed_adds_error(db):
