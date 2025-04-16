@@ -42,7 +42,7 @@ def test_handle_job_full_execution(db, freezer):
 
     def finalize(job):
         freezer.tick(1)
-        api.set_job_result(job.id)
+        api.set_job_metadata(job.id)
 
     api.set_job_transition(job_id, ExecutorState.FINALIZED, hook=finalize)
     assert job_id not in api.tracker["finalize"]

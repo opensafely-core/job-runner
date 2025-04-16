@@ -61,7 +61,7 @@ def test_tracing_final_state_attributes(db):
 
     task, job_id = api.add_test_runjob_task(ExecutorState.EXECUTED)
     api.set_job_transition(
-        job_id, ExecutorState.FINALIZED, hook=lambda job: api.set_job_result(job.id)
+        job_id, ExecutorState.FINALIZED, hook=lambda job: api.set_job_metadata(job.id)
     )
     main.handle_single_task(task, api)
 
