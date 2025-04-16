@@ -125,8 +125,6 @@ def workspace_is_archived(workspace):
 class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
-    synchronous_transitions = [ExecutorState.PREPARING, ExecutorState.FINALIZING]
-
     def prepare(self, job_definition):
         # Check the workspace is not archived
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
