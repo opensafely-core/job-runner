@@ -5,11 +5,11 @@ automatically re-run after a reboot.
 
 import argparse
 
+from jobrunner.controller.main import set_code
 from jobrunner.executors import volumes
 from jobrunner.executors.local import container_name, docker
 from jobrunner.lib.database import find_where
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.run import set_code
 
 
 def main(pause=True):
