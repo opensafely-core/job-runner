@@ -1048,3 +1048,11 @@ def test_delete_volume_error_file_bindmount_skips_and_logs(job_definition, caplo
     assert path in caplog.records[-1].msg
     # *not* an exception log, just an error one
     assert caplog.records[-1].exc_text is None
+
+
+@pytest.mark.needs_docker
+def test_finalize_job_with_error(job_definition):
+    local.finalize_job(job_definition, error={"test": "foo"}, cancelled=False)
+    metadata = local.read_job_metadata(job_definition)
+    assert metadata["error"] == {"test": "foo"}
+    assert metadata["status_message"] == "Job errored"
