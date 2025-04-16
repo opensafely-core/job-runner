@@ -70,7 +70,7 @@ def read_job_metadata(job_definition):
     if path:
         return json.loads(path.read_text())
 
-    return None
+    return {}
 
 
 def write_job_metadata(job_definition, job_metadata):
