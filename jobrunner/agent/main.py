@@ -252,15 +252,9 @@ def update_controller(
         "final_job_status": status.state.name,
         "complete": complete,
     }
-
     tracing.set_job_results_metadata(span, status.results, attributes)
     log_state_change(task, status, previous_status)
-
-    controller_results = None
-    if status.results:
-        controller_results = {"results": status.results}
-
-    task_api.update_controller(task, status.state.value, controller_results, complete)
+    task_api.update_controller(task, status.state.value, status.results, complete)
 
 
 def log_state_change(task, status, previous_status):

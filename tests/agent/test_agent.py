@@ -76,7 +76,7 @@ def test_handle_job_full_execution(db, freezer, caplog):
     task = controller_task_api.get_task(task.id)
     assert task.agent_stage == ExecutorState.FINALIZED.value
     assert task.agent_complete
-    assert "results" in task.agent_results
+    assert task.agent_results
 
     # Note EXECUTING -> EXECUTED happens outside of the agent loop
     # handler, so in this last call to handle_single_task, the job
@@ -126,7 +126,7 @@ def test_handle_job_stable_states(db, executor_state):
     mock_update_controller.assert_called_with(
         task,
         executor_state.value,
-        None,
+        {},
         False if executor_state == ExecutorState.EXECUTING else True,
     )
 
