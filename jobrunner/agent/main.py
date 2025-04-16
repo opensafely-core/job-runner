@@ -219,20 +219,14 @@ def handle_run_job_task(task, api):
                     previous_status=job_status,
                 )
                 new_status = api.finalize(job)
-                # Update controller with the state after finalizing
-                # Note that we are NOT complete until we retrieve and send the results
-                update_controller(task, new_status, previous_status=finalizing_status)
-
-                # we don't want JobResults here; results is a metadata dict that contains results
-                # and other metadata
-                results = api.get_metadata(job)
-                # Cleanup and update controller with results
                 api.cleanup(job)
+
+                # We are now finalized, which is our final state - we have finished!
+                # Cleanup and update controller with results
                 update_controller(
                     task,
                     new_status,
-                    previous_status=new_status,
-                    results={"results": results},
+                    previous_status=finalizing_status,
                     complete=True,
                 )
             case _:
@@ -243,7 +237,6 @@ def update_controller(
     task,
     status: JobStatus,
     previous_status: JobStatus = None,
-    results: dict = None,
     complete: bool = False,
 ):
     """
@@ -259,9 +252,15 @@ def update_controller(
         "final_job_status": status.state.name,
         "complete": complete,
     }
-    tracing.set_job_results_metadata(span, results, attributes)
+
+    tracing.set_job_results_metadata(span, status.results, attributes)
     log_state_change(task, status, previous_status)
-    task_api.update_controller(task, status.state.value, results, complete)
+
+    controller_results = None
+    if status.results:
+        controller_results = {"results": status.results}
+
+    task_api.update_controller(task, status.state.value, controller_results, complete)
 
 
 def log_state_change(task, status, previous_status):

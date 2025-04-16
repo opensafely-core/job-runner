@@ -115,7 +115,9 @@ class StubExecutorAPI:
 
         timestamp_ns = time.time_ns()
         self.set_job_status(job.id, executor_state, message, timestamp_ns)
-        return JobStatus(executor_state, message, timestamp_ns)
+        return JobStatus(
+            executor_state, message, timestamp_ns, results=self.metadata.get(job.id, {})
+        )
 
     def prepare(self, job):
         self.tracker["prepare"].add(job.id)
@@ -180,9 +182,6 @@ class StubExecutorAPI:
 
     def get_status(self, job, cancelled=False):
         return self.job_statuses.get(job.id, JobStatus(ExecutorState.UNKNOWN))
-
-    def get_metadata(self, job):
-        return self.metadata.get(job.id)
 
     def get_results(self, job):
         raise NotImplementedError()

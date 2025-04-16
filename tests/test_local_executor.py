@@ -886,9 +886,8 @@ def test_prepared_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     assert api.get_status(job_definition).state == ExecutorState.PREPARED
 
     # Finalizing the job as cancelled sets cancelled metadata
-    api.finalize(job_definition, cancelled=True)
-    assert api.get_metadata(job_definition)["cancelled"]
-
+    status = api.finalize(job_definition, cancelled=True)
+    assert status.results["cancelled"]
     # The job state is still prepared, because it hasn't cleaned up yet
     assert api.get_status(job_definition).state == ExecutorState.PREPARED
 
@@ -922,7 +921,7 @@ def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     assert api.get_status(job_definition).state == ExecutorState.EXECUTED
 
     status = api.finalize(job_definition, cancelled=True)
-    assert api.get_metadata(job_definition)["cancelled"]
+    assert status.results["cancelled"]
     assert status.state == ExecutorState.FINALIZED
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 

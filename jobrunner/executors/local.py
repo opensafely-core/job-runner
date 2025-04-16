@@ -234,7 +234,7 @@ class LocalDockerAPI(ExecutorAPI):
             return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
         # this api is synchronous, so we are now FINALIZED
-        return JobStatus(ExecutorState.FINALIZED)
+        return self.get_status(job_definition)
 
     def terminate(self, job_definition):
         current_status = self.get_status(job_definition)
@@ -284,13 +284,15 @@ class LocalDockerAPI(ExecutorAPI):
                 f"docker timed out after {timeout}s inspecting container {name}"
             )
 
+        job_metadata = read_job_metadata(job_definition)
+
         metrics = record_stats.read_job_metrics(job_definition.id)
 
         if not container:  # container doesn't exist
             # cancelled=True indicates that we are in the process of cancelling this
             # job. If we're not, the job may have been previously cancelled; look up
             # its cancelled status in job metadata, if it exists
-            if cancelled or (self.get_metadata(job_definition) or {}).get("cancelled"):
+            if cancelled or job_metadata.get("cancelled"):
                 if volumes.volume_exists(job_definition):
                     # jobs prepared but not running still need to finalize, in order
                     # to record their cancelled state
@@ -298,12 +300,14 @@ class LocalDockerAPI(ExecutorAPI):
                         ExecutorState.PREPARED,
                         "Prepared job was cancelled",
                         metrics=metrics,
+                        results=job_metadata,
                     )
                 else:
                     return JobStatus(
                         ExecutorState.UNKNOWN,
                         "Pending job was cancelled",
                         metrics=metrics,
+                        results=job_metadata,
                     )
 
             # timestamp file presence means we have finished preparing
@@ -327,11 +331,12 @@ class LocalDockerAPI(ExecutorAPI):
             return JobStatus(
                 ExecutorState.EXECUTING, timestamp_ns=timestamp_ns, metrics=metrics
             )
-        elif job_metadata := read_job_metadata(job_definition):
+        elif job_metadata:
             return JobStatus(
                 ExecutorState.FINALIZED,
                 timestamp_ns=job_metadata["timestamp_ns"],
                 metrics=metrics,
+                results=job_metadata,
             )
         else:
             # container present but not running, i.e. finished
@@ -341,11 +346,8 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.EXECUTED, timestamp_ns=timestamp_ns, metrics=metrics
             )
 
-    def get_metadata(self, job_definition):
-        return read_job_metadata(job_definition)
-
     def get_results(self, job_definition):
-        metadata = self.get_metadata(job_definition)
+        metadata = read_job_metadata(job_definition)
         return JobResults.from_dict(metadata)
 
     def delete_files(self, workspace, privacy, files):
