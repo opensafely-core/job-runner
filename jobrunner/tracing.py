@@ -338,7 +338,7 @@ def trace_attributes(job, results=None):
     return attrs
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     # local testing utility for tracing
     import time
 

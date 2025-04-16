@@ -546,7 +546,7 @@ def cancel_job(job):
     insert_task(canceljob_task)
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     configure_logging()
 
     try:
