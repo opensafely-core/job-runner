@@ -77,3 +77,33 @@ def trace_job_attributes(job: JobDefinition):
     )
 
     return attrs
+
+
+def set_job_results_metadata(span, job_results, attributes=None):
+    attributes = attributes or {}
+
+    if job_results is not None:
+        results = job_results.get("results")
+        error = job_results.get("error")
+
+        if results:
+            attributes.update(
+                dict(
+                    exit_code=results["exit_code"],
+                    image_id=results["docker_image_id"],
+                    outputs=len(results["outputs"]),
+                    unmatched_patterns=len(results["unmatched_patterns"]),
+                    unmatched_outputs=len(results["unmatched_outputs"]),
+                    executor_message=results["status_message"],
+                    action_version=results["action_version"],
+                    action_revision=results["action_revision"],
+                    action_created=results["action_created"],
+                    base_revision=results["base_revision"],
+                    base_created=results["base_created"],
+                    cancelled=results["cancelled"],
+                )
+            )
+        if error:
+            attributes.update(error=error)
+
+    set_span_attributes(span, attributes)
