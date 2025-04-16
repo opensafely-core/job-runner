@@ -134,11 +134,26 @@ def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
         config, "JOB_RESOURCE_WEIGHTS", {"workspace": {re.compile(r"action\d{1}"): 1.5}}
     )
 
-    # This action requires 1.5 workers, set requires_db to ensure it's the first one run
+    # Resource-heavy jobs can be configured with a weighting, which is used as a
+    # multiplier to determine how many resources are needed. This means that we don't
+    # start a resource-heavy job unless there are extra workers available.
+
+    # Used resources are calculated by summing the currently running actions multiplied by
+    # their weights (or a default 1)
+    # Required resources are calculated similarly for the current job.
+    # A job can start if the used resources + required resources are less than our MAX_WORKERS
+
+    # This action requires 1.5 resources. No other jobs are running, so we have 2 resources (i.e.
+    # the MAX_WORKERS) currently available.
+    # We set requires_db to ensure it's the first one run
     job1 = job_factory(workspace="workspace", action="action1", requires_db=True)
-    # This action requires 1.5 workers, only 0.5 left after first one is running
+
+    # This action requires 1.5 resources. job1 is already running and using 1.5 resources.
+    # We have 2 max workers, so only 0.5 resources are left after first one is running
     job2 = job_factory(workspace="workspace", action="action2")
-    # This action requires 1 worker, only 0.5 left after first one is running
+
+    # This action requires 1 resource, so will only run when at least 1 resource is available
+    # Only 0.5 resources are left as job1 is using 1.5 is running
     job3 = job_factory(workspace="workspace", action="non_matching_action")
     run_controller_loop_once()
 
@@ -582,6 +597,10 @@ def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
     ][-1]
     assert last_info_log.message != "Waiting on dependencies"
 
+    # For long running jobs, we log (at INFO level) that the job is still running
+    # every 10 mins, calculated by checking if the current minute is divisible by
+    # 10. This means we don't fill up the logs with "still running" messages on
+    # every loop.
     # move forward to a time that's divisible by 10 mins
     mock_now_3 = datetime.datetime(2025, 3, 1, 10, 20, 11, 99999)
     freezer.move_to(mock_now_3)
@@ -630,7 +649,7 @@ def test_mark_job_as_failed_adds_error(db):
 def test_handle_error(patched_handle_job, db, monkeypatch):
     monkeypatch.setattr(config, "JOB_LOOP_INTERVAL", 0)
 
-    # mock 2 controller loops, successfull first pass and an
+    # mock 2 controller loops, successful first pass and an
     # exception on the second loop
     patched_handle_job.side_effect = [None, Exception("foo")]
     job = job_factory()
