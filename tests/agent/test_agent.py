@@ -2,9 +2,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from jobrunner.agent import main
+from jobrunner import config
+from jobrunner.agent import main, task_api
 from jobrunner.controller import task_api as controller_task_api
-from jobrunner.job_executor import ExecutorState
+from jobrunner.job_executor import ExecutorState, JobDefinition
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
 
@@ -39,9 +40,9 @@ def test_handle_job_full_execution(db, freezer):
     freezer.tick(1)
     # finalize is synchronous
 
-    def finalize(job_id):
+    def finalize(job):
         freezer.tick(1)
-        api.set_job_result(job_id)
+        api.set_job_result(job.id)
 
     api.set_job_transition(job_id, ExecutorState.FINALIZED, hook=finalize)
     assert job_id not in api.tracker["finalize"]
@@ -65,6 +66,60 @@ def test_handle_job_full_execution(db, freezer):
     assert spans[2].attributes["initial_job_status"] == "EXECUTED"
     assert spans[2].attributes["final_job_status"] == "FINALIZED"
     assert spans[2].attributes["complete"]
+
+
+@pytest.mark.parametrize(
+    "executor_state",
+    [
+        ExecutorState.ERROR,
+        ExecutorState.EXECUTING,
+        ExecutorState.FINALIZED,
+    ],
+)
+def test_handle_job_stable_states(db, executor_state):
+    api = StubExecutorAPI()
+    task, job_id = api.add_test_runjob_task(executor_state)
+    job = JobDefinition.from_dict(task.definition)
+
+    with patch(
+        "jobrunner.agent.task_api.update_controller", spec=task_api.update_controller
+    ) as mock_update_controller:
+        main.handle_single_task(task, api)
+
+    # should be in the same state
+    mock_update_controller.assert_called_with(
+        task,
+        executor_state.value,
+        None,
+        False if executor_state == ExecutorState.EXECUTING else True,
+    )
+
+    assert job.id not in api.tracker["prepare"]
+    assert job.id not in api.tracker["execute"]
+    assert job.id not in api.tracker["finalize"]
+
+    # no spans
+    assert len(get_trace("jobs")) == 0
+    spans = get_trace("agent_loop")
+    assert len(spans) == 1
+
+    assert spans[0].attributes["initial_job_status"] == executor_state.name
+    assert spans[0].attributes["final_job_status"] == executor_state.name
+
+
+def test_handle_job_requires_db_has_secrets(db, monkeypatch):
+    api = StubExecutorAPI()
+    monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
+    monkeypatch.setattr(config, "DATABASE_URLS", {None: "dburl"})
+
+    task, job_id = api.add_test_runjob_task(ExecutorState.PREPARED, requires_db=True)
+
+    def check_env(definition):
+        assert definition.env["DATABASE_URL"] == "dburl"
+
+    api.set_job_transition(job_id, ExecutorState.EXECUTING, hook=check_env)
+
+    main.handle_run_job_task(task, api)
 
 
 @patch("jobrunner.agent.task_api.update_controller")

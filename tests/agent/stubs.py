@@ -110,7 +110,7 @@ class StubExecutorAPI:
         elif job.id in self.transitions:
             executor_state, message, hook = self.transitions.pop(job.id)
             if hook:
-                hook(job.id)
+                hook(job)
         else:
             executor_state = next_executor_state
             message = "executor message"
