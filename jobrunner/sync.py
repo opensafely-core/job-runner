@@ -162,7 +162,7 @@ def job_to_remote_format(job):
     }
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     configure_logging()
 
     try:

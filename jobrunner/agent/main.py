@@ -280,7 +280,7 @@ def inject_db_secrets(job):
         job.env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     configure_logging()
 
     try:
