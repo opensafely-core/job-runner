@@ -56,12 +56,8 @@ def trace_job_attributes(job: JobDefinition):
     """These attributes are added to every span in order to slice and dice by
     each as needed.
     """
-    if job.study:
-        repo_url = job.study.git_repo_url or ""
-        commit = job.study.commit or ""
-    else:
-        repo_url = ""
-        commit = ""
+    repo_url = job.study.git_repo_url or ""
+    commit = job.study.commit or ""
 
     attrs = dict(
         job=job.id,
