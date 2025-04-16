@@ -224,7 +224,7 @@ def handle_job(job, mode=None, paused=None):
                 # Handled elsewhere
                 raise PlatformError(job_error)
             else:
-                job_results = JobResults.from_dict(task.agent_results["results"])
+                job_results = JobResults.from_dict(task.agent_results)
                 save_results(job, job_results)
                 # TODO: Delete obsolete files
 

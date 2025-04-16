@@ -25,10 +25,14 @@ def set_job_task_results(job, job_results, error=None):
     runjob_task = database.find_one(
         Task, type=TaskType.RUNJOB, id__like=f"{job.id}-%", active=True
     )
+    results = job_results.to_dict()
+    if error:
+        results["error"] = error
+
     agent_task_api.update_controller(
         runjob_task,
         stage="",
-        results={"results": job_results.to_dict(), "error": error},
+        results=results,
         complete=True,
     )
 
