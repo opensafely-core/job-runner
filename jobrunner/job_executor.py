@@ -268,8 +268,7 @@ class ExecutorAPI:
 
         If the job has been cancelled, it should only preserve the action log file.
 
-        When the finalize task finishes, the get_status() call should now return FINALIZED for this job, and
-        get_results() call should return the JobResults for this job.
+        When the finalize task finishes, the get_status() call should now return FINALIZED for this job.
 
         This method must be idempotent. If called with a job that is already running an finalize task, it must not
         launch a new task, and simply return successfully with FINALIZING.
@@ -300,7 +299,7 @@ class ExecutorAPI:
 
         This method must be idempotent; it will be called at least once for every finished job. The implementation
         may defer resource cleanup to this method if necessary in order to correctly implement idempotency of
-        get_status() or get_results(). If the job is unknown, it should still return UNKNOWN successfully.
+        get_status(). If the job is unknown, it should still return UNKNOWN successfully.
 
         This method will not be called for a job that raises an unexpected exception from ExecutorAPI in order
         to facilitate debugging of unexpected failures. It may therefore be necessary for the backend to provide
@@ -322,19 +321,6 @@ class ExecutorAPI:
         irreversible cleanup which loses information about must be deferred to ExecutorAPI.cleanup() which will only be
         called once the results have been persisted.
 
-        """
-
-    def get_results(self, job_definition: JobDefinition) -> JobResults:
-        """
-        Return the finalized results for a job.
-
-        The results must include a list of output files that the job produced which matched its output spec. It
-        should also include a list of files that it produced but which did not match the output spec, to aid in
-        debugging during study development.
-
-        This method must be idempotent; it may be called more than once for a job even after it has finished, so any
-        irreversible cleanup which loses information about must be deferred to ExecutorAPI.cleanup() which will only be
-        called once the results have been persisted.
         """
 
     def delete_files(self, workspace: str, privacy: Privacy, files: [str]) -> list[str]:
