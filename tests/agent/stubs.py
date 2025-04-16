@@ -183,8 +183,5 @@ class StubExecutorAPI:
     def get_status(self, job, cancelled=False):
         return self.job_statuses.get(job.id, JobStatus(ExecutorState.UNKNOWN))
 
-    def get_results(self, job):
-        raise NotImplementedError()
-
     def delete_files(self, workspace, privacy, files):
         self.deleted[workspace][privacy].extend(files)

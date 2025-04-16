@@ -346,10 +346,6 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.EXECUTED, timestamp_ns=timestamp_ns, metrics=metrics
             )
 
-    def get_results(self, job_definition):
-        metadata = read_job_metadata(job_definition)
-        return JobResults.from_dict(metadata)
-
     def delete_files(self, workspace, privacy, files):
         if privacy == Privacy.HIGH:
             root = get_high_privacy_workspace(workspace)

@@ -358,19 +358,16 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-
     # for test debugging if any asserts fail
     print(get_docker_log(job_definition))
-    results = api.get_results(job_definition)
-    assert results.exit_code == 0
-    assert results.outputs == {
+    assert status.results["exit_code"] == "0"
+    assert status.results["outputs"] == {
         "output/output.csv": "highly_sensitive",
         "output/summary.csv": "moderately_sensitive",
         "output/summary.txt": "moderately_sensitive",
     }
-    assert results.unmatched_patterns == []
-    assert results.message == "Completed successfully"
+    assert status.results["unmatched_patterns"] == []
+    assert status.results["status_message"] == "Completed successfully"
 
     log_dir = local.get_log_dir(job_definition)
     log_file = log_dir / "logs.txt"
@@ -435,15 +432,14 @@ def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir):
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    # we don't need to wait
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-
     # for test debugging if any asserts fail
     print(get_docker_log(job_definition))
-    results = api.get_results(job_definition)
-    assert results.exit_code == 1
-    assert results.outputs == {}
-    assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
+    assert status.results["exit_code"] == "1"
+    assert status.results["outputs"] == {}
+    assert status.results["unmatched_patterns"] == [
+        "output/output.*",
+        "output/summary.*",
+    ]
 
 
 @pytest.mark.needs_docker
@@ -484,24 +480,24 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir):
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    # we don't need to wait
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-
     # for test debugging if any asserts fail
     print(get_docker_log(job_definition))
-    results = api.get_results(job_definition)
-    assert results.exit_code == 0
-    assert results.outputs == {}
-    assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
-    assert results.unmatched_outputs == ["unmatched"]
-    assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
+    assert status.results["exit_code"] == "0"
+    assert status.results["outputs"] == {}
+    assert status.results["unmatched_patterns"] == [
+        "output/output.*",
+        "output/summary.*",
+    ]
+    assert status.results["unmatched_outputs"] == ["unmatched"]
+    assert status.results[
+        "status_message"
+    ] == "\n  No outputs found matching patterns:\n - {}".format(
         "\n   - ".join(["output/output.*", "output/summary.*"])
     )
-    assert (
-        results.unmatched_hint
-        == "\n  Did you mean to match one of these files instead?\n - {}".format(
-            "\n   - ".join(["unmatched"])
-        )
+    assert status.results[
+        "hint"
+    ] == "\n  Did you mean to match one of these files instead?\n - {}".format(
+        "\n   - ".join(["unmatched"])
     )
 
 
@@ -526,17 +522,18 @@ def test_finalize_unmatched_output(docker_cleanup, job_definition, tmp_work_dir)
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    # we don't need to wait
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-
     # for test debugging if any asserts fail
     print(get_docker_log(job_definition))
-    results = api.get_results(job_definition)
-    assert results.exit_code == 0
-    assert results.outputs == {}
-    assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
-    assert results.unmatched_outputs == []
-    assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
+    assert status.results["exit_code"] == "0"
+    assert status.results["outputs"] == {}
+    assert status.results["unmatched_patterns"] == [
+        "output/output.*",
+        "output/summary.*",
+    ]
+    assert status.results["unmatched_outputs"] == []
+    assert status.results[
+        "status_message"
+    ] == "\n  No outputs found matching patterns:\n - {}".format(
         "\n   - ".join(["output/output.*", "output/summary.*"])
     )
 
@@ -559,12 +556,13 @@ def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir):
 
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
-    # we don't need to wait
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    assert status.state == ExecutorState.FINALIZED
 
-    results = api.get_results(job_definition)
-    assert results.exit_code == 137
-    assert results.message == "Job killed by OpenSAFELY admin or memory limits"
+    assert status.results["exit_code"] == "137"
+    assert (
+        status.results["status_message"]
+        == "Job killed by OpenSAFELY admin or memory limits"
+    )
 
     assert log_dir_log_file_exists(job_definition)
     assert workspace_log_file_exists(job_definition)
@@ -588,13 +586,11 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    # we don't need to wait
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-
-    results = api.get_results(job_definition)
-    assert results.exit_code == 137
+    assert status.results["exit_code"] == "137"
     # Note, 6MB is rounded to 0.01GBM by the formatter
-    assert results.message == "Job ran out of memory (limit was 0.01GB)"
+    assert (
+        status.results["status_message"] == "Job ran out of memory (limit was 0.01GB)"
+    )
 
     assert log_dir_log_file_exists(job_definition)
     assert workspace_log_file_exists(job_definition)
@@ -625,10 +621,8 @@ def test_finalize_large_level4_outputs(docker_cleanup, job_definition, tmp_work_
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    result = api.get_results(job_definition)
-
-    assert result.exit_code == 0
-    assert result.level4_excluded_files == {
+    assert status.results["exit_code"] == "0"
+    assert status.results["level4_excluded_files"] == {
         "output/output.txt": "File size of 1.0Mb is larger that limit of 0.5Mb.",
     }
 
@@ -676,10 +670,8 @@ def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    result = api.get_results(job_definition)
-
-    assert result.exit_code == 0
-    assert result.level4_excluded_files == {
+    assert status.results["exit_code"] == "0"
+    assert status.results["level4_excluded_files"] == {
         "output/output.rds": "File type of .rds is not valid level 4 file",
     }
 
@@ -726,10 +718,8 @@ def test_finalize_patient_id_header(docker_cleanup, job_definition, tmp_work_dir
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    result = api.get_results(job_definition)
-
-    assert result.exit_code == 0
-    assert result.level4_excluded_files == {
+    assert status.results["exit_code"] == "0"
+    assert status.results["level4_excluded_files"] == {
         "output/output.csv": "File has patient_id column",
     }
 
@@ -781,10 +771,8 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir):
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    result = api.get_results(job_definition)
-
-    assert result.exit_code == 0
-    assert result.level4_excluded_files == {
+    assert status.results["exit_code"] == "0"
+    assert status.results["level4_excluded_files"] == {
         "output/output.csv": "File row count (11) exceeds maximum allowed rows (10)",
     }
 
@@ -833,7 +821,7 @@ def test_finalize_large_level4_outputs_cleanup(
     level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
     message_file = level4_dir / "output/output.txt.txt"
     message_file.parent.mkdir(exist_ok=True, parents=True)
-    message_file.write_text("message")
+    message_file.write_text("status_message")
 
     api = local.LocalDockerAPI()
 
@@ -847,10 +835,8 @@ def test_finalize_large_level4_outputs_cleanup(
     status = api.finalize(job_definition)
     assert status.state == ExecutorState.FINALIZED
 
-    result = api.get_results(job_definition)
-
-    assert result.exit_code == 0
-    assert result.level4_excluded_files == {}
+    assert status.results["exit_code"] == "0"
+    assert status.results["level4_excluded_files"] == {}
     assert not message_file.exists()
 
 
@@ -868,9 +854,6 @@ def test_pending_job_terminated_not_finalized(
     assert status.state == ExecutorState.UNKNOWN
     assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
-    # nb. no need to run terminate(), finalize() or cleanup()
-    with pytest.raises(Exception):
-        api.get_results(job_definition)
     assert not log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
 
@@ -890,9 +873,6 @@ def test_prepared_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     assert status.results["cancelled"]
     # The job state is still prepared, because it hasn't cleaned up yet
     assert api.get_status(job_definition).state == ExecutorState.PREPARED
-
-    with pytest.raises(Exception):
-        api.get_results(job_definition)
 
     status = api.cleanup(job_definition)
     assert status.state == ExecutorState.UNKNOWN
@@ -923,12 +903,8 @@ def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     status = api.finalize(job_definition, cancelled=True)
     assert status.results["cancelled"]
     assert status.state == ExecutorState.FINALIZED
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
-
-    results = api.get_results(job_definition)
-
-    assert results.exit_code == 137
-    assert results.message == "Job cancelled by user"
+    assert status.results["exit_code"] == str(137)
+    assert status.results["status_message"] == "Job cancelled by user"
 
     # Calling terminate again on a finalized job just returns the current status
     status = api.terminate(job_definition)
