@@ -96,8 +96,15 @@ def test_tracing_final_state_attributes(db):
         "unmatched_patterns",
         "image_id",
         "unmatched_outputs",
-        "message",
+        "executor_message",
         "exit_code",
+        "outputs",
+        "action_version",
+        "action_revision",
+        "action_created",
+        "base_revision",
+        "base_created",
+        "cancelled",
     }
     # attributes added from the task
     assert span.attributes["backend"] == "test"
@@ -116,7 +123,7 @@ def test_set_task_span_metadata_no_attrs(db):
     tracer = trace.get_tracer("test")
 
     span = tracer.start_span("test")
-    set_job_span_metadata(span, task)
+    set_task_span_metadata(span, task)
     assert span.attributes["backend"] == "test"
     assert span.attributes["task_type"] == "RUNJOB"
     assert span.attributes["task"] == task.id

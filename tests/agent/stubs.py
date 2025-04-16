@@ -90,8 +90,13 @@ class StubExecutorAPI:
             "unmatched_patterns": [],
             "unmatched_outputs": [],
             "exit_code": 0,
-            "image_id": "image_id",
-            "message": "message",
+            "docker_image_id": "image_id",
+            "status_message": "message",
+            "action_version": "unknown",
+            "action_revision": "unknown",
+            "action_created": "unknown",
+            "base_revision": "unknown",
+            "base_created": "unknown",
         }
         kwargs = {**defaults, **kwargs}
         self.results[job_id] = kwargs
