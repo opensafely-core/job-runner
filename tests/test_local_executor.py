@@ -106,7 +106,7 @@ def workspace_log_file_exists(job_definition):
 
 
 def test_read_metadata_path(job_definition):
-    assert local.read_job_metadata(job_definition) is None
+    assert local.read_job_metadata(job_definition) == {}
 
     globbed_path = (
         config.JOB_LOG_DIR
