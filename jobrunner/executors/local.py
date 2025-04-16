@@ -404,22 +404,15 @@ def prepare_job(job_definition):
     volumes.write_timestamp(job_definition, TIMESTAMP_REFERENCE_FILE)
 
 
-def finalize_job(job_definition, cancelled):
+def finalize_job(job_definition, cancelled, error=None):
     container_metadata = docker.container_inspect(
         container_name(job_definition), none_if_not_exists=True
     )
-    if not container_metadata:  # pragma: no cover
-        # there's no error if the container doesn't exist because it's been
-        # cancelled before it starts. We still want to record minimal metadata
-        # for cancelled jobs so we can retrieve that information later if necessary
-        if not cancelled:
-            raise LocalDockerError(
-                f"Job container {container_name(job_definition)} has vanished"
-            )
-    else:
-        redact_environment_variables(container_metadata)
+    exit_code = None
+    labels = {}
+    unmatched_hint = None
 
-    if cancelled:
+    if cancelled or error:
         # assume no outputs because our job didn't finish
         outputs = {}
         unmatched_patterns = []
@@ -429,12 +422,12 @@ def finalize_job(job_definition, cancelled):
         unmatched_outputs = get_unmatched_outputs(job_definition, outputs)
 
     if container_metadata:
+        redact_environment_variables(container_metadata)
         exit_code = container_metadata["State"]["ExitCode"]
         labels = container_metadata.get("Config", {}).get("Labels", {})
 
         # First get the user-friendly message for known database exit codes, for jobs
         # that have db access
-        unmatched_hint = None
 
         if exit_code == 0 and outputs and not unmatched_patterns:
             message = "Completed successfully"
@@ -462,14 +455,15 @@ def finalize_job(job_definition, cancelled):
                 message += f" (limit was {gb_limit:.2f}GB)"
         else:
             message = config.DOCKER_EXIT_CODES.get(exit_code)
-    else:
-        # We should only get here if a job has been cancelled
-        assert cancelled
+
+    elif cancelled:
         message = "Job cancelled by user"
-        exit_code = None
-        labels = {}
-        container_metadata = {}
-        unmatched_hint = None
+
+    elif error:
+        message = "Job errored"
+
+    else:
+        assert False
 
     results = JobResults(
         outputs=outputs,
@@ -489,8 +483,10 @@ def finalize_job(job_definition, cancelled):
     job_metadata = get_job_metadata(
         job_definition, outputs, container_metadata, results, cancelled=cancelled
     )
+    if error:
+        job_metadata["error"] = error
 
-    if cancelled:
+    if cancelled or error:
         if container_metadata:
             # Cancelled after job started, write job logs and metadata
             write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
