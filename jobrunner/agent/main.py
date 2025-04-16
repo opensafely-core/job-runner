@@ -15,18 +15,8 @@ from jobrunner.schema import TaskType
 log = logging.getLogger(__name__)
 tracer = trace.get_tracer("agent_loop")
 
-EXECUTOR_RETRIES = {}
-
-
-class RetriesExceeded(Exception):
-    pass
-
 
 class InvalidTransition(Exception):
-    pass
-
-
-class ExecutorError(Exception):
     pass
 
 
