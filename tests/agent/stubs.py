@@ -131,7 +131,7 @@ class StubExecutorAPI:
             job, ExecutorState.PREPARED, ExecutorState.EXECUTING, "execute"
         )
 
-    def finalize(self, job, cancelled=False):
+    def finalize(self, job, cancelled=False, error=None):
         if cancelled:
             # a finalize can be called from any status if we're cancelling a job
             executor_state = self.get_status(job).state
@@ -140,7 +140,10 @@ class StubExecutorAPI:
         self.tracker["finalize"].add(job.id)
 
         return self.do_transition(
-            job, executor_state, ExecutorState.FINALIZED, "finalize"
+            job,
+            executor_state,
+            ExecutorState.ERROR if error else ExecutorState.FINALIZED,
+            "finalize",
         )
 
     def terminate(self, job):
