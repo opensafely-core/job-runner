@@ -840,7 +840,9 @@ def test_finalize_large_level4_outputs_cleanup(
     assert not message_file.exists()
 
 
-def test_finalize_already_finalized_idempotent(job_definition, docker_cleanup):
+def test_finalize_already_finalized_idempotent(
+    job_definition, docker_cleanup, tmp_work_dir
+):
     api = local.LocalDockerAPI()
 
     status = api.prepare(job_definition)
@@ -858,7 +860,7 @@ def test_finalize_already_finalized_idempotent(job_definition, docker_cleanup):
 
 
 def test_finalize_already_finalized_with_error_idempotent(
-    job_definition, docker_cleanup
+    job_definition, docker_cleanup, tmp_work_dir
 ):
     api = local.LocalDockerAPI()
 
@@ -882,7 +884,7 @@ def test_finalize_already_finalized_with_error_idempotent(
 
 
 @pytest.mark.needs_docker
-def test_finalize_with_error_when_unknown(job_definition, docker_cleanup):
+def test_finalize_with_error_when_unknown(job_definition, docker_cleanup, tmp_work_dir):
     api = local.LocalDockerAPI()
     status = api.finalize(job_definition, error={"test": "foo"})
     assert status.state == ExecutorState.ERROR
