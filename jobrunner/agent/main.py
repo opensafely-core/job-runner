@@ -242,15 +242,7 @@ def update_controller(
         "final_job_status": status.state.name,
         "complete": complete,
     }
-    if results is not None:
-        results_attrs = results.get("results")
-        if results_attrs:
-            attributes.update(**results_attrs)
-        error = results.get("error")
-        if error:
-            attributes.update(error=error)
-
-    span.set_attributes(attributes)
+    tracing.set_job_results_metadata(span, results, attributes)
     task_api.update_controller(task, status.state.value, results, complete)
 
 
@@ -280,7 +272,7 @@ def inject_db_secrets(job):
         job.env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     configure_logging()
 
     try:

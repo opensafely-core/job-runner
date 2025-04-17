@@ -743,7 +743,7 @@ def update_job(job):
     update(job, exclude_fields=["cancelled"])
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     configure_logging()
 
     try:

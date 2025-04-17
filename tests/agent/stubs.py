@@ -35,7 +35,7 @@ class StubExecutorAPI:
             "cleanup": set(),
         }
         self.transitions = {}
-        self.results = {}
+        self.metadata = {}
         self.job_statuses = {}
         self.deleted = defaultdict(lambda: defaultdict(list))
         self.last_time = int(time.time())
@@ -82,7 +82,7 @@ class StubExecutorAPI:
         """Set the next transition for this job when called"""
         self.transitions[job_id] = (next_executor_state, message, hook)
 
-    def set_job_result(self, job_id, timestamp_ns=None, **kwargs):
+    def set_job_metadata(self, job_id, timestamp_ns=None, **kwargs):
         if timestamp_ns is None:
             timestamp_ns = time.time_ns()
         defaults = {
@@ -90,11 +90,17 @@ class StubExecutorAPI:
             "unmatched_patterns": [],
             "unmatched_outputs": [],
             "exit_code": 0,
-            "image_id": "image_id",
-            "message": "message",
+            "docker_image_id": "image_id",
+            "status_message": "message",
+            "action_version": "unknown",
+            "action_revision": "unknown",
+            "action_created": "unknown",
+            "base_revision": "unknown",
+            "base_created": "unknown",
+            "cancelled": False,
         }
         kwargs = {**defaults, **kwargs}
-        self.results[job_id] = kwargs
+        self.metadata[job_id] = kwargs
 
     def do_transition(
         self,
@@ -184,7 +190,7 @@ class StubExecutorAPI:
         return self.job_statuses.get(job.id, JobStatus(ExecutorState.UNKNOWN))
 
     def get_metadata(self, job):
-        return self.results.get(job.id)
+        return self.metadata.get(job.id)
 
     def get_results(self, job):
         raise NotImplementedError()

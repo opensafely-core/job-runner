@@ -106,7 +106,6 @@ def formatting_filter(record):
     status_code = getattr(record, "status_code", None)
     if job and not status_code:
         status_code = job.status_code
-
     tags = {}
 
     if status_code:
@@ -121,7 +120,7 @@ def formatting_filter(record):
         tags["req"] = req.id
     if task:
         tags["task"] = task.id
-        tags["task_type"] = task.type
+        tags["task_type"] = task.type.name
 
     record.tags = " ".join(f"{k}={v}" for k, v in tags.items())
 

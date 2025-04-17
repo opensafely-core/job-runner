@@ -1,7 +1,11 @@
+from opentelemetry import trace
+
 from jobrunner.agent import main
+from jobrunner.agent.tracing import set_job_span_metadata, set_task_span_metadata
 from jobrunner.job_executor import ExecutorState
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
+from tests.factories import job_definition_factory, runjob_db_task_factory
 
 
 def test_tracing_state_change_attributes(db):
@@ -57,7 +61,7 @@ def test_tracing_final_state_attributes(db):
 
     task, job_id = api.add_test_runjob_task(ExecutorState.EXECUTED)
     api.set_job_transition(
-        job_id, ExecutorState.FINALIZED, hook=lambda job: api.set_job_result(job.id)
+        job_id, ExecutorState.FINALIZED, hook=lambda job: api.set_job_metadata(job.id)
     )
     main.handle_single_task(task, api)
 
@@ -92,8 +96,15 @@ def test_tracing_final_state_attributes(db):
         "unmatched_patterns",
         "image_id",
         "unmatched_outputs",
-        "message",
+        "executor_message",
         "exit_code",
+        "outputs",
+        "action_version",
+        "action_revision",
+        "action_created",
+        "base_revision",
+        "base_created",
+        "cancelled",
     }
     # attributes added from the task
     assert span.attributes["backend"] == "test"
@@ -105,3 +116,76 @@ def test_tracing_final_state_attributes(db):
     assert spans[0].attributes["initial_job_status"] == "EXECUTED"
     assert spans[0].attributes["final_job_status"] == "FINALIZED"
     assert spans[0].attributes["complete"]
+
+
+def test_set_task_span_metadata_no_attrs(db):
+    task = runjob_db_task_factory()
+    tracer = trace.get_tracer("test")
+
+    span = tracer.start_span("test")
+    set_task_span_metadata(span, task)
+    assert span.attributes["backend"] == "test"
+    assert span.attributes["task_type"] == "RUNJOB"
+    assert span.attributes["task"] == task.id
+    assert span.attributes["task_created_at"] == task.created_at * 1e9
+
+
+def test_set_task_span_metadata_attrs(db):
+    task = runjob_db_task_factory()
+    tracer = trace.get_tracer("the-tracer")
+
+    class CustomClass:
+        def __str__(self):
+            return "I am the custom class"
+
+    span = tracer.start_span("the-span")
+    set_task_span_metadata(
+        span,
+        task,
+        custom_attr=CustomClass(),  # test that attr is added and the type coerced to string
+        task_type="should be ignored",  # test that we can't override core task attributes
+    )
+
+    assert span.attributes["backend"] == "test"
+    assert span.attributes["task_type"] == "RUNJOB"  # not "should be ignored"
+    assert span.attributes["task"] == task.id
+    assert span.attributes["task_created_at"] == task.created_at * 1e9
+    assert span.attributes["custom_attr"] == "I am the custom class"
+
+
+def test_set_job_span_metadata_no_attrs(db):
+    job = job_definition_factory()
+    tracer = trace.get_tracer("test")
+
+    span = tracer.start_span("test")
+    set_job_span_metadata(
+        span,
+        job,
+    )
+    assert span.attributes["job"] == job.id
+    assert span.attributes["job_request"] == job.job_request_id
+    assert span.attributes["workspace"] == job.workspace
+
+
+def test_set_job_span_metadata_attrs(db):
+    job = job_definition_factory()
+    tracer = trace.get_tracer("the-tracer")
+
+    class CustomClass:
+        def __str__(self):
+            return "I am the custom class"
+
+    span = tracer.start_span("the-span")
+
+    set_job_span_metadata(
+        span,
+        job,
+        custom_attr=CustomClass(),  # test that attr is added and the type coerced to string
+        action="should be ignored",  # test that we can't override core job attributes
+    )
+
+    assert span.attributes["job"] == job.id
+    assert span.attributes["job_request"] == job.job_request_id
+    assert span.attributes["workspace"] == job.workspace
+    assert span.attributes["action"] == job.action  # not "should be ignored"
+    assert span.attributes["custom_attr"] == "I am the custom class"

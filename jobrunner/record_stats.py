@@ -240,7 +240,7 @@ def update_job_metrics(job, raw_metrics, duration_s, runtime_s):
     return job_metrics
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     configure_logging()
 
     try:
