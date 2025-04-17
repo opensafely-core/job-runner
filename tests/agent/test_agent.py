@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import Mock, patch
 
 import pytest
@@ -10,7 +11,21 @@ from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
 
 
-def test_handle_job_full_execution(db, freezer):
+def assert_state_change_logs(caplog, state_changes):
+    state_change_logs = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.INFO
+        if "State change" in record.msg
+    ]
+    for i, (from_state, to_state) in enumerate(state_changes):
+        assert f"{from_state} -> {to_state}" in state_change_logs[i].msg, [
+            rec.msg for rec in state_change_logs
+        ]
+
+
+def test_handle_job_full_execution(db, freezer, caplog):
+    caplog.set_level(logging.INFO)
     # move to a whole second boundary for easier timestamp maths
     freezer.move_to("2022-01-01T12:34:56")
 
@@ -29,10 +44,20 @@ def test_handle_job_full_execution(db, freezer):
     task = controller_task_api.get_task(task.id)
     assert task.agent_stage == ExecutorState.PREPARED.value
 
+    # expected status transitions so far
+    state_changes = [
+        (ExecutorState.UNKNOWN, ExecutorState.PREPARING),
+        (ExecutorState.PREPARING, ExecutorState.PREPARED),
+    ]
+    assert_state_change_logs(caplog, state_changes)
+
     freezer.tick(1)
     main.handle_single_task(task, api)
     task = controller_task_api.get_task(task.id)
     assert task.agent_stage == ExecutorState.EXECUTING.value
+
+    state_changes.append((ExecutorState.PREPARED, ExecutorState.EXECUTING))
+    assert_state_change_logs(caplog, state_changes)
 
     freezer.tick(1)
     api.set_job_status(job_id, ExecutorState.EXECUTED)
@@ -52,6 +77,17 @@ def test_handle_job_full_execution(db, freezer):
     assert task.agent_stage == ExecutorState.FINALIZED.value
     assert task.agent_complete
     assert "results" in task.agent_results
+
+    # Note EXECUTING -> EXECUTED happens outside of the agent loop
+    # handler, so in this last call to handle_single_task, the job
+    # started in EXECUTED state
+    state_changes.extend(
+        [
+            (ExecutorState.EXECUTED, ExecutorState.FINALIZING),
+            (ExecutorState.FINALIZING, ExecutorState.FINALIZED),
+        ]
+    )
+    assert_state_change_logs(caplog, state_changes)
 
     spans = get_trace("agent_loop")
     # one span each time we called main.handle_single_task
@@ -155,22 +191,37 @@ def test_handle_job_with_error(mock_update_controller, db):
 
 
 @pytest.mark.parametrize(
-    "initial_state,terminate,finalize,cleanup",
+    "initial_state,interim_state,terminate,finalize,cleanup",
     [
-        (ExecutorState.PREPARED, False, True, False),
-        (ExecutorState.EXECUTING, True, True, True),
-        (ExecutorState.UNKNOWN, False, True, False),
-        (ExecutorState.EXECUTED, False, True, True),
-        (ExecutorState.ERROR, False, True, True),
-        (ExecutorState.FINALIZED, False, False, True),
+        (ExecutorState.PREPARED, None, False, True, False),
+        (ExecutorState.EXECUTING, ExecutorState.EXECUTED, True, True, True),
+        (ExecutorState.UNKNOWN, None, False, True, False),
+        (ExecutorState.EXECUTED, None, False, True, True),
+        (ExecutorState.ERROR, None, False, True, True),
+        (ExecutorState.FINALIZED, None, False, False, True),
     ],
 )
-def test_handle_cancel_job(db, initial_state, terminate, finalize, cleanup):
+def test_handle_cancel_job(
+    db, caplog, initial_state, interim_state, terminate, finalize, cleanup
+):
+    caplog.set_level(logging.INFO)
+
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_canceljob_task(initial_state)
 
     main.handle_single_task(task, api)
+
+    # expected status transitions
+    state_changes = [
+        (None, initial_state),
+    ]
+    if interim_state:
+        state_changes.append((initial_state, interim_state))
+        state_changes.append((interim_state, ExecutorState.FINALIZED))
+    elif initial_state != ExecutorState.FINALIZED:
+        state_changes.append((initial_state, ExecutorState.FINALIZED))
+    assert_state_change_logs(caplog, state_changes)
 
     task = controller_task_api.get_task(task.id)
     # All tasks end up in FINALIZED, even if they've errored or haven't

@@ -102,19 +102,27 @@ def handle_cancel_job_task(task, api):
     """
     job = JobDefinition.from_dict(task.definition)
 
-    job_status = api.get_status(job, cancelled=True)
+    initial_job_status = api.get_status(job, cancelled=True)
 
     span = trace.get_current_span()
-    span.set_attributes({"id": job.id, "initial_job_status": job_status.state.name})
+    span.set_attributes(
+        {"id": job.id, "initial_job_status": initial_job_status.state.name}
+    )
+
+    # initialize pre_finalized_job_status as initial_job_status
+    # this may change during the cancellation process, depending on what we need to
+    # do with the job. At the end of the process, we'll log the state change from
+    # pre_finalized_job_status to final_status
+    pre_finalized_job_status = initial_job_status
 
     # tell the controller what stage we're at now
-    update_controller(task, job_status)
+    update_controller(task, initial_job_status, previous_status=None)
 
     with set_log_context(job_definition=job):
-        match job_status.state:
+        match initial_job_status.state:
             case ExecutorState.FINALIZED:
                 # The job has already finished and been finalized, nothing to do here
-                final_status = job_status
+                final_status = initial_job_status
             case (
                 ExecutorState.UNKNOWN
                 | ExecutorState.PREPARED
@@ -126,17 +134,19 @@ def handle_cancel_job_task(task, api):
                 # its cancelled state. If it's finished or errored, finalize() will also write the job logs
                 final_status = api.finalize(job, cancelled=True)
             case ExecutorState.EXECUTING:
-                new_status = api.terminate(job)
-                update_controller(task, new_status)
+                pre_finalized_job_status = api.terminate(job)
+                update_controller(
+                    task, pre_finalized_job_status, previous_status=initial_job_status
+                )
                 # call finalize to write the job logs
                 final_status = api.finalize(job, cancelled=True)
             case _:  # pragma: no cover
                 raise InvalidTransition(
-                    f"unexpected state of job {job.id}: {job_status.state}"
+                    f"unexpected state of job {job.id}: {initial_job_status.state}"
                 )
 
         # Clean up based on the starting job state
-        if job_status.state in [
+        if initial_job_status.state in [
             ExecutorState.EXECUTING,
             ExecutorState.EXECUTED,
             ExecutorState.FINALIZED,
@@ -144,7 +154,9 @@ def handle_cancel_job_task(task, api):
         ]:
             api.cleanup(job)
 
-        update_controller(task, final_status, complete=True)
+        update_controller(
+            task, final_status, previous_status=pre_finalized_job_status, complete=True
+        )
 
 
 def handle_run_job_task(task, api):
@@ -173,43 +185,54 @@ def handle_run_job_task(task, api):
         match job_status.state:
             case ExecutorState.ERROR | ExecutorState.FINALIZED:
                 # No action needed, just inform the controller we are in this completed stage
-                update_controller(task, job_status, complete=True)
+                update_controller(
+                    task, job_status, previous_status=job_status, complete=True
+                )
 
             case ExecutorState.EXECUTING:
                 # Still waitin'
-                update_controller(task, job_status)
+                update_controller(task, job_status, previous_status=job_status)
 
             case ExecutorState.UNKNOWN:
                 # a new job
                 # prepare is synchronous, which means set our code to PREPARING
                 # before calling  api.prepare(), and we expect it to be PREPARED
                 # when finished
-                update_controller(task, JobStatus(ExecutorState.PREPARING))
+                preparing_status = JobStatus(ExecutorState.PREPARING)
+                update_controller(task, preparing_status, previous_status=job_status)
                 new_status = api.prepare(job)
-                update_controller(task, new_status)
+                update_controller(task, new_status, previous_status=preparing_status)
 
             case ExecutorState.PREPARED:
                 if job.allow_database_access:
                     inject_db_secrets(job)
 
                 new_status = api.execute(job)
-                update_controller(task, new_status)
+                update_controller(task, new_status, previous_status=job_status)
 
             case ExecutorState.EXECUTED:
                 # finalize is also synchronous
-                update_controller(task, JobStatus(ExecutorState.FINALIZING))
+                finalizing_status = JobStatus(ExecutorState.FINALIZING)
+                update_controller(
+                    task,
+                    finalizing_status,
+                    previous_status=job_status,
+                )
                 new_status = api.finalize(job)
-                update_controller(task, new_status)
+                # Update controller with the state after finalizing
+                # Note that we are NOT complete until we retrieve and send the results
+                update_controller(task, new_status, previous_status=finalizing_status)
 
-                # We are not finalized, which is our final state - we have finished!
-                # we don't want JobResults
+                # we don't want JobResults here; results is a metadata dict that contains results
+                # and other metadata
                 results = api.get_metadata(job)
                 # Cleanup and update controller with results
                 api.cleanup(job)
                 update_controller(
                     task,
                     new_status,
-                    {"results": results},
+                    previous_status=new_status,
+                    results={"results": results},
                     complete=True,
                 )
             case _:
@@ -217,7 +240,11 @@ def handle_run_job_task(task, api):
 
 
 def update_controller(
-    task, status: JobStatus, results: dict = None, complete: bool = False
+    task,
+    status: JobStatus,
+    previous_status: JobStatus = None,
+    results: dict = None,
+    complete: bool = False,
 ):
     """
     Wrap the update_controller call to set the final job status on the current
@@ -233,7 +260,18 @@ def update_controller(
         "complete": complete,
     }
     tracing.set_job_results_metadata(span, results, attributes)
+    log_state_change(task, status, previous_status)
     task_api.update_controller(task, status.state.value, results, complete)
+
+
+def log_state_change(task, status, previous_status):
+    previous_state = previous_status.state if previous_status is not None else None
+    if status.state == previous_state:
+        return
+    log_message = f"State change for job {task.definition['id']}: {previous_state} -> {status.state}"
+    if status.message:
+        log_message += f" ({status.message})"
+    log.info(log_message)
 
 
 def mark_task_as_error(task, error):
@@ -242,7 +280,11 @@ def mark_task_as_error(task, error):
     """
     # TODO: persist error info
     update_controller(
-        task, JobStatus(ExecutorState.ERROR), results={"error": error}, complete=True
+        task,
+        JobStatus(ExecutorState.ERROR),
+        previous_status=None,
+        results={"error": error},
+        complete=True,
     )
 
 
