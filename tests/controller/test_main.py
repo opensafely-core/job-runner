@@ -494,7 +494,15 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     )
     job_factory(
         id="3",
-        requires_outputs_from=["other-action"],
+        action="action-with-no-outputs",
+        state=State.SUCCEEDED,
+        status_code=StatusCode.SUCCEEDED,
+        created_at=3000,
+        outputs=None,
+    )
+    job_factory(
+        id="4",
+        requires_outputs_from=["other-action", "action-with-no-outputs"],
     )
     run_controller_loop_once()
 

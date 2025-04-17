@@ -24,8 +24,6 @@ class StubExecutorAPI:
 
     """
 
-    synchronous_transitions = []
-
     def __init__(self):
         self.tracker = {
             "prepare": set(),
@@ -68,12 +66,6 @@ class StubExecutorAPI:
         # handle the synchronous state meaning the state has completed
         if timestamp_ns is None:
             timestamp_ns = time.time_ns()
-        synchronous = getattr(self, "synchronous_transitions", [])
-        if executor_state in synchronous:
-            if executor_state == ExecutorState.PREPARING:
-                executor_state = ExecutorState.PREPARED
-            if executor_state == ExecutorState.FINALIZING:
-                executor_state = ExecutorState.FINALIZED
         self.job_statuses[job_id] = JobStatus(executor_state, message, timestamp_ns)
 
     def set_job_transition(
