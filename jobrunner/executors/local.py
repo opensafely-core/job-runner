@@ -216,20 +216,21 @@ class LocalDockerAPI(ExecutorAPI):
 
         return JobStatus(ExecutorState.EXECUTING)
 
-    def finalize(self, job_definition, cancelled=False):
+    def finalize(self, job_definition, cancelled=False, error=None):
         current_status = self.get_status(job_definition, cancelled=cancelled)
 
-        if not cancelled:
+        if current_status.state in [ExecutorState.FINALIZED, ExecutorState.ERROR]:
+            return current_status
+
+        if not (cancelled or error):
             # We can finalize a cancelled job from any status, even if it hasn't
             # started yet.
             if current_status.state == ExecutorState.UNKNOWN:
                 # job had not started running, so do not finalize
                 return current_status
 
-            assert current_status.state in [ExecutorState.EXECUTED, ExecutorState.ERROR]
-
         try:
-            finalize_job(job_definition, cancelled)
+            finalize_job(job_definition, cancelled, error=error)
         except LocalDockerError as exc:  # pragma: no cover
             return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
