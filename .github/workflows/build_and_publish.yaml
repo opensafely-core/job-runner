@@ -2,7 +2,6 @@ name: Tag repo; build and publish assets
 on:
   push:
     branches:
-      - master
       - main
   # this allows us to trigger manually
   workflow_dispatch:
@@ -34,7 +33,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: false
-          release_branches: master,main
+          release_branches: main
 
   build-and-publish-docker-image:
     runs-on: ubuntu-latest
