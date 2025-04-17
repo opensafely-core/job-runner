@@ -116,7 +116,7 @@ def handle_cancel_job_task(task, api):
     pre_finalized_job_status = initial_job_status
 
     # tell the controller what stage we're at now
-    update_controller(task, initial_job_status, previous_status=None)
+    update_job_task(task, initial_job_status, previous_status=None)
 
     with set_log_context(job_definition=job):
         match initial_job_status.state:
@@ -135,7 +135,7 @@ def handle_cancel_job_task(task, api):
                 final_status = api.finalize(job, cancelled=True)
             case ExecutorState.EXECUTING:
                 pre_finalized_job_status = api.terminate(job)
-                update_controller(
+                update_job_task(
                     task, pre_finalized_job_status, previous_status=initial_job_status
                 )
                 # call finalize to write the job logs
@@ -154,7 +154,7 @@ def handle_cancel_job_task(task, api):
         ]:
             api.cleanup(job)
 
-        update_controller(
+        update_job_task(
             task, final_status, previous_status=pre_finalized_job_status, complete=True
         )
 
@@ -185,13 +185,13 @@ def handle_run_job_task(task, api):
         match job_status.state:
             case ExecutorState.ERROR | ExecutorState.FINALIZED:
                 # No action needed, just inform the controller we are in this completed stage
-                update_controller(
+                update_job_task(
                     task, job_status, previous_status=job_status, complete=True
                 )
 
             case ExecutorState.EXECUTING:
                 # Still waitin'
-                update_controller(task, job_status, previous_status=job_status)
+                update_job_task(task, job_status, previous_status=job_status)
 
             case ExecutorState.UNKNOWN:
                 # a new job
@@ -199,31 +199,27 @@ def handle_run_job_task(task, api):
                 # before calling  api.prepare(), and we expect it to be PREPARED
                 # when finished
                 preparing_status = JobStatus(ExecutorState.PREPARING)
-                update_controller(task, preparing_status, previous_status=job_status)
+                update_job_task(task, preparing_status, previous_status=job_status)
                 new_status = api.prepare(job)
-                update_controller(task, new_status, previous_status=preparing_status)
+                update_job_task(task, new_status, previous_status=preparing_status)
 
             case ExecutorState.PREPARED:
                 if job.allow_database_access:
                     inject_db_secrets(job)
 
                 new_status = api.execute(job)
-                update_controller(task, new_status, previous_status=job_status)
+                update_job_task(task, new_status, previous_status=job_status)
 
             case ExecutorState.EXECUTED:
                 # finalize is also synchronous
                 finalizing_status = JobStatus(ExecutorState.FINALIZING)
-                update_controller(
-                    task,
-                    finalizing_status,
-                    previous_status=job_status,
-                )
+                update_job_task(task, finalizing_status, previous_status=job_status)
                 new_status = api.finalize(job)
                 api.cleanup(job)
 
                 # We are now finalized, which is our final state - we have finished!
                 # Cleanup and update controller with results
-                update_controller(
+                update_job_task(
                     task,
                     new_status,
                     previous_status=finalizing_status,
@@ -233,7 +229,7 @@ def handle_run_job_task(task, api):
                 assert False, f"unexpected state of job {job.id}: {job_status.state}"
 
 
-def update_controller(
+def update_job_task(
     task,
     status: JobStatus,
     previous_status: JobStatus = None,
@@ -272,11 +268,10 @@ def mark_task_as_error(task, error):
     Pass error information on to the controller and mark this task as complete
     """
     # TODO: persist error info
-    update_controller(
+    update_job_task(
         task,
         JobStatus(ExecutorState.ERROR),
         previous_status=None,
-        results={"error": error},
         complete=True,
     )
 
