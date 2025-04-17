@@ -158,7 +158,7 @@ def test_handle_job_requires_db_has_secrets(db, monkeypatch):
     main.handle_run_job_task(task, api)
 
 
-@patch("jobrunner.agent.task_api.update_controller")
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_job_with_error(mock_update_controller, db):
     api = StubExecutorAPI()
 
@@ -171,10 +171,10 @@ def test_handle_job_with_error(mock_update_controller, db):
     with pytest.raises(Exception):
         main.handle_single_task(task, api)
 
-    assert mock_update_controller.called_with(
+    mock_update_controller.assert_called_with(
         task=task,
-        stage=ExecutorState.ERROR,
-        results={"error": "Exception('foo')"},
+        stage=ExecutorState.ERROR.value,
+        results={},
         complete=True,
     )
 
