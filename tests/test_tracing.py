@@ -338,7 +338,23 @@ def test_set_span_metadata_error(db):
 
 
 def test_set_span_metadata_non_recording_span_with_invalid_attribute_type(db, caplog):
+    # This is a test for a previous bug, where logging an invalid type for a
+    # a non-recording span attempted to call span.name (non-recording spans have no
+    # name attribute)
     job = job_factory()
     non_recording_span = trace.NonRecordingSpan({})
-    tracing.set_span_metadata(non_recording_span, job, foo=None)
-    assert "attribute foo was set invalid type: None" in caplog.text
+    tracing.set_span_metadata(non_recording_span, job, bar=dict())
+    assert "attribute bar was set invalid type: {}" in caplog.text
+
+
+def test_set_span_metadata_invalid_attribute_type(db, caplog):
+    job = job_factory()
+    tracer = trace.get_tracer("test")
+    span = tracer.start_span("test")
+    tracing.set_span_metadata(span, job, foo=None, bar=dict(), foobar=set())
+    assert "attribute foo was set invalid type" not in caplog.text
+    assert "attribute bar was set invalid type: {}" in caplog.text
+    assert "attribute foobar was set invalid type: set()" in caplog.text
+    assert span.attributes["foo"] == "None"
+    assert span.attributes["bar"] == "{}"
+    assert span.attributes["foobar"] == "set()"
