@@ -840,6 +840,129 @@ def test_finalize_large_level4_outputs_cleanup(
     assert not message_file.exists()
 
 
+def test_finalize_already_finalized_idempotent(job_definition, docker_cleanup):
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+    assert status.state == ExecutorState.EXECUTED
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+    # check persistance and idempotence. if finalize actually called
+    # finalize_job, we would expect an assertion error here
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+
+def test_finalize_already_finalized_with_error_idempotent(
+    job_definition, docker_cleanup
+):
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+    assert status.state == ExecutorState.EXECUTED
+    status = api.finalize(job_definition, error={"test": "foo"})
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+    assert status.results["exit_code"] == "0"
+
+    # check persistance and idempotence. if finalize actually called
+    # finalize_job, we would expect an assertion error here
+    status = api.finalize(job_definition)
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+    assert status.results["exit_code"] == "0"
+
+
+@pytest.mark.needs_docker
+def test_finalize_with_error_when_unknown(job_definition, docker_cleanup):
+    api = local.LocalDockerAPI()
+    status = api.finalize(job_definition, error={"test": "foo"})
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+    assert status.results["exit_code"] == "None"
+
+    # check persistant
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+    assert status.results["exit_code"] == "None"
+
+
+@pytest.mark.needs_docker
+def test_finalize_with_error_when_prepared(
+    job_definition, docker_cleanup, tmp_work_dir
+):
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+
+    status = api.finalize(job_definition, error={"test": "foo"})
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+    assert status.results["exit_code"] == "None"
+
+    # check persistant
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+    assert status.results["exit_code"] == "None"
+
+
+@pytest.mark.needs_docker
+def test_finalize_with_error_when_executing(
+    job_definition, docker_cleanup, tmp_work_dir
+):
+    job_definition.args = ["sleep", "101"]
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+
+    status = api.finalize(job_definition, error={"test": "foo"})
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+    assert status.results["exit_code"] == "0"
+
+    # check persistant
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+
+
+@pytest.mark.needs_docker
+def test_finalize_with_error_when_executed(
+    job_definition, docker_cleanup, tmp_work_dir
+):
+    api = local.LocalDockerAPI()
+
+    status = api.prepare(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    status = api.execute(job_definition)
+    assert status.state == ExecutorState.EXECUTING
+    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    status = api.finalize(job_definition, error={"test": "foo"})
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+    assert status.results["exit_code"] == "0"
+
+    # check persistant
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.ERROR
+    assert status.results["error"] == {"test": "foo"}
+
+
 @pytest.mark.needs_docker
 def test_pending_job_terminated_not_finalized(
     docker_cleanup, job_definition, tmp_work_dir
