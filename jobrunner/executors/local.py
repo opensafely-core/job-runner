@@ -318,7 +318,7 @@ class LocalDockerAPI(ExecutorAPI):
                         metrics=metrics,
                         results=job_metadata,
                     )
-                else:
+                else:  # pragma: no cover
                     return JobStatus(
                         ExecutorState.UNKNOWN,
                         "Pending job was cancelled",
