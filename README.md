@@ -51,7 +51,7 @@ belong to a workspace:
     "workspace": {
         "name": "my workspace",
         "repo": "https://github.com/opensafely/job-integration-tests",
-        "branch": "master",
+        "branch": "main",
         "db": "full"
     }
 }
