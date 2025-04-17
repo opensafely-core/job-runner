@@ -115,7 +115,9 @@ class StubExecutorAPI:
 
         timestamp_ns = time.time_ns()
         self.set_job_status(job.id, executor_state, message, timestamp_ns)
-        return JobStatus(executor_state, message, timestamp_ns)
+        return JobStatus(
+            executor_state, message, timestamp_ns, results=self.metadata.get(job.id, {})
+        )
 
     def prepare(self, job):
         self.tracker["prepare"].add(job.id)
@@ -129,16 +131,25 @@ class StubExecutorAPI:
             job, ExecutorState.PREPARED, ExecutorState.EXECUTING, "execute"
         )
 
-    def finalize(self, job, cancelled=False):
-        if cancelled:
-            # a finalize can be called from any status if we're cancelling a job
+    def finalize(self, job, cancelled=False, error=None):
+        if cancelled or error:
+            # a finalize can be called from any status if we're cancelling or erroring
             executor_state = self.get_status(job).state
         else:
             executor_state = ExecutorState.EXECUTED
         self.tracker["finalize"].add(job.id)
 
+        if error:
+            # ensure passed error data is set in metadata
+            metadata = self.metadata.get(job.id, {})
+            metadata["error"] = error
+            self.set_job_metadata(job.id, **metadata)
+
         return self.do_transition(
-            job, executor_state, ExecutorState.FINALIZED, "finalize"
+            job,
+            executor_state,
+            ExecutorState.ERROR if error else ExecutorState.FINALIZED,
+            "finalize",
         )
 
     def terminate(self, job):
@@ -180,12 +191,6 @@ class StubExecutorAPI:
 
     def get_status(self, job, cancelled=False):
         return self.job_statuses.get(job.id, JobStatus(ExecutorState.UNKNOWN))
-
-    def get_metadata(self, job):
-        return self.metadata.get(job.id)
-
-    def get_results(self, job):
-        raise NotImplementedError()
 
     def delete_files(self, workspace, privacy, files):
         self.deleted[workspace][privacy].extend(files)
