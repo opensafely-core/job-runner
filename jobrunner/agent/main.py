@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+import traceback
 
 from opentelemetry import trace
 
@@ -56,28 +57,8 @@ def handle_tasks(api: ExecutorAPI | None):
 def handle_single_task(task, api):
     """The top level handler for a task.
 
-    Mainly exists to wrap the task handling in an exception handler.
+    Mainly exists to wrap the task handling in an exception handler, and trace it.
     """
-    # we re-read the flags before considering each task, so make sure they apply
-    # as soon as possible when set.
-    try:
-        trace_handle_task(task, api)
-    except Exception as exc:
-        mark_task_as_error(
-            task,
-            error=str(exc),
-        )
-        # Do not clean up, as we may want to debug
-        #
-        # Raising will kill the main loop, by design. The service manager
-        # will restart, and this job will be ignored when it does, as
-        # it has failed. If we have an internal error, a full restart
-        # might recover better.
-        raise
-
-
-def trace_handle_task(task, api):
-    """Call handle task with tracing."""
 
     with tracer.start_as_current_span("LOOP_TASK") as span:
         tracing.set_task_span_metadata(span, task)
@@ -92,6 +73,17 @@ def trace_handle_task(task, api):
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
+            mark_task_as_error(
+                api,
+                task,
+                sys.exc_info(),
+            )
+            # Do not clean up, as we may want to debug
+            #
+            # Raising will kill the main loop, by design. The service manager
+            # will restart, and this job will be ignored when it does, as
+            # it has failed. If we have an internal error, a full restart
+            # might recover better.
             raise
 
 
@@ -263,17 +255,25 @@ def log_state_change(task, status, previous_status):
     log.info(log_message)
 
 
-def mark_task_as_error(task, error):
+def mark_task_as_error(api, task, exc_info):
     """
     Pass error information on to the controller and mark this task as complete
     """
-    # TODO: persist error info
-    update_job_task(
-        task,
-        JobStatus(ExecutorState.ERROR),
-        previous_status=None,
-        complete=True,
-    )
+    exc_type, exc, tb = exc_info
+    error = {
+        "exception": exc_type.__name__,
+        "message": str(exc),
+        "traceback": "".join(traceback.format_exception(exc_type, exc, tb)),
+    }
+
+    match task.type:
+        case TaskType.RUNJOB | TaskType.CANCELJOB:
+            job = JobDefinition.from_dict(task.definition)
+            # this will persist the exception info to disk
+            status = api.finalize(job, error=error)
+            update_job_task(task, status, complete=True)
+        case _:
+            assert False
 
 
 def inject_db_secrets(job):
