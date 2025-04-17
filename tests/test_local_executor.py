@@ -871,12 +871,11 @@ def test_prepared_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     # Finalizing the job as cancelled sets cancelled metadata
     status = api.finalize(job_definition, cancelled=True)
     assert status.results["cancelled"]
-    # The job state is still prepared, because it hasn't cleaned up yet
-    assert api.get_status(job_definition).state == ExecutorState.PREPARED
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
     status = api.cleanup(job_definition)
-    assert status.state == ExecutorState.UNKNOWN
-    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
+    assert status.state == ExecutorState.FINALIZED
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
     assert not log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
@@ -911,8 +910,8 @@ def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     assert status.state == ExecutorState.FINALIZED
 
     status = api.cleanup(job_definition)
-    assert status.state == ExecutorState.UNKNOWN
-    assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
+    assert status.state == ExecutorState.FINALIZED
+    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
     assert log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)

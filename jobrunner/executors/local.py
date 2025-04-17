@@ -269,7 +269,7 @@ class LocalDockerAPI(ExecutorAPI):
         else:  # pragma: no cover
             log.info("Leaving container and volume in place for debugging")
 
-        return JobStatus(ExecutorState.UNKNOWN)
+        return self.get_status(job_definition)
 
     def get_status(self, job_definition, timeout=15, cancelled=False):
         name = container_name(job_definition)
@@ -287,6 +287,21 @@ class LocalDockerAPI(ExecutorAPI):
         job_metadata = read_job_metadata(job_definition)
 
         metrics = record_stats.read_job_metrics(job_definition.id)
+
+        if job_metadata.get("error"):
+            return JobStatus(
+                ExecutorState.ERROR,
+                timestamp_ns=job_metadata["timestamp_ns"],
+                metrics=metrics,
+                results=job_metadata,
+            )
+        elif job_metadata:
+            return JobStatus(
+                ExecutorState.FINALIZED,
+                timestamp_ns=job_metadata["timestamp_ns"],
+                metrics=metrics,
+                results=job_metadata,
+            )
 
         if not container:  # container doesn't exist
             # cancelled=True indicates that we are in the process of cancelling this
@@ -330,13 +345,6 @@ class LocalDockerAPI(ExecutorAPI):
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["StartedAt"])
             return JobStatus(
                 ExecutorState.EXECUTING, timestamp_ns=timestamp_ns, metrics=metrics
-            )
-        elif job_metadata:
-            return JobStatus(
-                ExecutorState.FINALIZED,
-                timestamp_ns=job_metadata["timestamp_ns"],
-                metrics=metrics,
-                results=job_metadata,
             )
         else:
             # container present but not running, i.e. finished
