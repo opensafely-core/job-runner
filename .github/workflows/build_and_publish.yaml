@@ -9,6 +9,7 @@ on:
 
 env:
   IMAGE_NAME: job-runner
+  IMAGE_ID: ghcr.io/opensafely-core/$IMAGE_NAME
   PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
 
@@ -52,9 +53,15 @@ jobs:
       run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
     - name: Push image to GitHub Container Registry
       run: |
-        IMAGE_ID="ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME"
         docker tag "$IMAGE_NAME" "$IMAGE_ID:latest"
         docker push "$IMAGE_ID:latest"
+    - name: Deploy image
+      run: |
+        ssh-agent -a "$SSH_AUTH_SOCK" > /dev/null
+        ssh-add - <<< "${{ secrets.DOKKU4_DEPLOY_SSH_KEY }}"
+        SHA=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_ID:latest")
+        ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" dokku@dokku4.ebmdatalab.net git:from-image job-controller "$SHA"
+
 
   create-release-from-tag:
     name: Create release from tag
