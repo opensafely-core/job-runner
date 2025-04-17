@@ -159,32 +159,65 @@ def test_handle_job_requires_db_has_secrets(db, monkeypatch):
 
 
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_job_with_error(mock_update_controller, db):
+def test_handle_runjob_with_error(mock_update_controller, db):
     api = StubExecutorAPI()
 
-    task, job_id = api.add_test_runjob_task(ExecutorState.UNKNOWN)
+    task, job_id = api.add_test_runjob_task(ExecutorState.PREPARED)
 
     api.set_job_transition(
-        job_id, ExecutorState.PREPARED, hook=Mock(side_effect=Exception("foo"))
+        job_id, ExecutorState.EXECUTING, hook=Mock(side_effect=Exception("foo"))
     )
 
     with pytest.raises(Exception):
         main.handle_single_task(task, api)
 
-    mock_update_controller.assert_called_with(
-        task=task,
-        stage=ExecutorState.ERROR.value,
-        results={},
-        complete=True,
-    )
+    assert mock_update_controller.call_count == 1
+    task, stage, results, complete = mock_update_controller.call_args[0]
+    assert task == task
+    assert stage == ExecutorState.ERROR.value
+    assert results["error"]["exception"] == "Exception"
+    assert results["error"]["message"] == "foo"
+    assert "traceback" in results["error"]
+    assert complete == complete
 
     spans = get_trace("agent_loop")
     assert len(spans) == 1
     span = spans[0]
-    # update_controller is called with the error state outside of the
-    # LOOP_TASK span, so final state is still PREPARING
-    assert span.attributes["initial_job_status"] == "UNKNOWN"
-    assert span.attributes["final_job_status"] == "PREPARING"
+    assert span.attributes["initial_job_status"] == "PREPARED"
+    assert span.attributes["final_job_status"] == "ERROR"
+    # exception info has been added to the span
+    assert span.status.status_code.name == "ERROR"
+    assert span.status.description == "Exception: foo"
+
+
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+def test_handle_canceljob_with_error(mock_update_controller, db):
+    api = StubExecutorAPI()
+
+    task, job_id = api.add_test_canceljob_task(ExecutorState.EXECUTED)
+
+    api.set_job_transition(
+        job_id, ExecutorState.FINALIZED, hook=Mock(side_effect=Exception("foo"))
+    )
+
+    with pytest.raises(Exception):
+        main.handle_single_task(task, api)
+
+    # canceljob handler always calls update first
+    assert mock_update_controller.call_count == 2
+    task, stage, results, complete = mock_update_controller.call_args[0]
+    assert task == task
+    assert stage == ExecutorState.ERROR.value
+    assert results["error"]["exception"] == "Exception"
+    assert results["error"]["message"] == "foo"
+    assert "traceback" in results["error"]
+    assert complete == complete
+
+    spans = get_trace("agent_loop")
+    assert len(spans) == 1
+    span = spans[0]
+    assert span.attributes["initial_job_status"] == "EXECUTED"
+    assert span.attributes["final_job_status"] == "ERROR"
     # exception info has been added to the span
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == "Exception: foo"

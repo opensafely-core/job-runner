@@ -132,12 +132,18 @@ class StubExecutorAPI:
         )
 
     def finalize(self, job, cancelled=False, error=None):
-        if cancelled:
-            # a finalize can be called from any status if we're cancelling a job
+        if cancelled or error:
+            # a finalize can be called from any status if we're cancelling or erroring
             executor_state = self.get_status(job).state
         else:
             executor_state = ExecutorState.EXECUTED
         self.tracker["finalize"].add(job.id)
+
+        if error:
+            # ensure passed error data is set in metadata
+            metadata = self.metadata.get(job.id, {})
+            metadata["error"] = error
+            self.set_job_metadata(job.id, **metadata)
 
         return self.do_transition(
             job,
