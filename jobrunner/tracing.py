@@ -266,13 +266,16 @@ def set_span_attributes(span, attributes):
     clean_attrs = {}
     for k, v in attributes.items():
         if not isinstance(v, OTEL_ATTR_TYPES):
-            # log to help us notice this
-            # If the span has no name attribute (e.g. NonRecordingSpans), log its type instead
-            span_name = getattr(span, "name", type(span))
-            logger.error(
-                f"Trace span {span_name} attribute {k} was set invalid type: {v}, type {type(v)}"
-            )
-            # coerce to string so we preserve some information
+            if v is not None:
+                # log to help us notice this
+                # values can often be None and this isn't particularly interesting, so don't fill up
+                # the logs with that
+                # If the span has no name attribute (e.g. NonRecordingSpans), log its type instead
+                span_name = getattr(span, "name", type(span))
+                logger.error(
+                    f"Trace span {span_name} attribute {k} was set invalid type: {v}, type {type(v)}"
+                )
+                # coerce to string so we preserve some information
             v = str(v)
         clean_attrs[k] = v
 
