@@ -128,6 +128,16 @@ def test_exists_where(tmp_work_dir):
     assert job_id_exists is True
 
 
+def exists_where_null(tmp_work_dir):
+    insert(Job(id="foo123", backend=None))
+    insert(Job(id="foo124", backend="test"))
+    insert(Job(id="foo125", backend="foo"))
+    job_no_backend = exists_where(Job, backend=None)
+    assert job_no_backend is True
+    job_no_backend = exists_where(Job, id="foo124", backend=None)
+    assert job_no_backend is False
+
+
 def test_count_where(tmp_work_dir):
     insert(Job(id="foo123", state=State.PENDING))
     insert(Job(id="foo124", state=State.RUNNING))
