@@ -46,6 +46,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
             project="project",
             orgs=["org1", "org2"],
         ),
+        backend="test",
     )
     create_or_update_jobs(job_request)
     old_job = find_one(Job)
@@ -62,6 +63,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
         " --output-dir=."
     )
     assert old_job.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
+    assert old_job.backend == "test"
     assert old_job.status_message == "Created"
     # Check no new jobs created from same JobRequest
     create_or_update_jobs(job_request)
@@ -88,6 +90,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
             project="project",
             orgs=["org1", "org2"],
         ),
+        backend="test",
     )
     create_or_update_jobs(job_request)
     j = find_one(Job)
@@ -100,6 +103,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     assert j.requires_outputs_from is None
     assert j.run_command is None
     assert j.output_spec is None
+    assert j.backend == "test"
     assert (
         j.status_message
         == f"GitError: Error fetching commit {bad_commit} from {repo_url}"
@@ -125,6 +129,7 @@ def test_create_or_update_jobs_with_unhandled_error(tmp_work_dir, db):
             project="project",
             orgs=["org1", "org2"],
         ),
+        backend="test",
     )
     create_or_update_jobs(job_request)
     j = find_one(Job, job_request_id="123")
@@ -137,6 +142,7 @@ def test_create_or_update_jobs_with_unhandled_error(tmp_work_dir, db):
     assert j.requires_outputs_from is None
     assert j.run_command is None
     assert j.output_spec is None
+    assert j.backend == "test"
     assert j.status_message == "JobRequestError: Internal error"
 
 
@@ -331,7 +337,8 @@ def test_validate_job_request(patch_config, params, exc_msg, exc_cls, monkeypatc
         cancelled_actions=[],
         workspace="1",
         codelists_ok=True,
-        database_name="default",  # note db from from job-server is 'default'
+        database_name="default",  # note db from from job-server is 'default',
+        backend="test",
         original=dict(
             created_by="user",
             project="project",
@@ -361,6 +368,7 @@ def make_job_request(action=None, actions=None, **kwargs):
         database_name="default",
         requested_actions=actions,
         cancelled_actions=[],
+        backend="test",
         original=dict(
             created_by="user",
             project="project",
