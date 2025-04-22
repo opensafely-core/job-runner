@@ -66,6 +66,7 @@ def test_integration(
         "created_by": "user",
         "project": "project",
         "orgs": ["org"],
+        "backend": "test",
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
@@ -161,6 +162,7 @@ def test_integration(
         "created_by": "user",
         "project": "project",
         "orgs": ["org"],
+        "backend": "test",
     }
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",
