@@ -172,13 +172,13 @@ def test_handle_runjob_with_error(mock_update_controller, db):
         main.handle_single_task(task, api)
 
     assert mock_update_controller.call_count == 1
-    task, stage, results, complete = mock_update_controller.call_args[0]
-    assert task == task
+    task2, stage, results, complete = mock_update_controller.call_args[0]
+    assert task2 == task
     assert stage == ExecutorState.ERROR.value
     assert results["error"]["exception"] == "Exception"
     assert results["error"]["message"] == "foo"
     assert "traceback" in results["error"]
-    assert complete == complete
+    assert complete is True
 
     spans = get_trace("agent_loop")
     assert len(spans) == 1
@@ -205,13 +205,13 @@ def test_handle_canceljob_with_error(mock_update_controller, db):
 
     # canceljob handler always calls update first
     assert mock_update_controller.call_count == 2
-    task, stage, results, complete = mock_update_controller.call_args[0]
-    assert task == task
+    task2, stage, results, complete = mock_update_controller.call_args[0]
+    assert task2 == task
     assert stage == ExecutorState.ERROR.value
     assert results["error"]["exception"] == "Exception"
     assert results["error"]["message"] == "foo"
     assert "traceback" in results["error"]
-    assert complete == complete
+    assert complete is True
 
     spans = get_trace("agent_loop")
     assert len(spans) == 1
