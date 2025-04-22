@@ -840,6 +840,7 @@ def test_finalize_large_level4_outputs_cleanup(
     assert not message_file.exists()
 
 
+@pytest.mark.needs_docker
 def test_finalize_already_finalized_idempotent(
     job_definition, docker_cleanup, tmp_work_dir
 ):
@@ -859,6 +860,7 @@ def test_finalize_already_finalized_idempotent(
     assert status.state == ExecutorState.FINALIZED
 
 
+@pytest.mark.needs_docker
 def test_finalize_already_finalized_with_error_idempotent(
     job_definition, docker_cleanup, tmp_work_dir
 ):
