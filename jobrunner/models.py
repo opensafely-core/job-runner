@@ -168,6 +168,7 @@ class Job:
             status_code_updated_at INT,
             level4_excluded_files TEXT,
             requires_db BOOLEAN,
+            backend TEXT,
 
             PRIMARY KEY (id)
         );
@@ -201,6 +202,13 @@ class Job:
         3,
         """
         ALTER TABLE job ADD COLUMN requires_db BOOLEAN;
+        """,
+    )
+
+    migration(
+        5,
+        """
+        ALTER TABLE job ADD COLUMN backend TEXT;
         """,
     )
 
@@ -267,6 +275,9 @@ class Job:
 
     # does the job require db access
     requires_db: bool = False
+
+    # the backend that this job runs on
+    backend: str = None
 
     # used to cache the job_request json by the tracing code
     _job_request = None
