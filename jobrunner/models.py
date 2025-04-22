@@ -113,6 +113,7 @@ class JobRequest:
     database_name: str
     force_run_dependencies: bool = False
     branch: str = None
+    backend: str = None
     original: dict = None
 
 
