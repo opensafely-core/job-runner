@@ -108,9 +108,13 @@ test-verbose *ARGS: devenv
 test-no-docker *ARGS: devenv
     $BIN/python -m pytest -m "not needs_docker" "$@"
 
+# Run a cli command locally
+cli command *ARGS: devenv
+    $BIN/python -m jobrunner.cli.{{ command }} {{ ARGS }}
+
 # Run db migrations locally
 migrate:
-    $BIN/python -m jobrunner.cli.migrate
+    just cli migrate
 
 # Lint and check formatting but don't modify anything
 check: devenv
@@ -151,8 +155,8 @@ fix: devenv
     just --fmt --unstable --justfile docker/justfile
 
 # Run the dev project
-add-job *args: devenv
-    $BIN/python -m jobrunner.cli.add_job {{ args }}
+add-job *args:
+    just cli add_job {{ args }}
 
 run-agent: devenv
     $BIN/python -m jobrunner.agent.main
