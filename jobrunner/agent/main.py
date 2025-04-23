@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+import traceback
 
 from opentelemetry import trace
 
@@ -56,28 +57,8 @@ def handle_tasks(api: ExecutorAPI | None):
 def handle_single_task(task, api):
     """The top level handler for a task.
 
-    Mainly exists to wrap the task handling in an exception handler.
+    Mainly exists to wrap the task handling in an exception handler, and trace it.
     """
-    # we re-read the flags before considering each task, so make sure they apply
-    # as soon as possible when set.
-    try:
-        trace_handle_task(task, api)
-    except Exception as exc:
-        mark_task_as_error(
-            task,
-            error=str(exc),
-        )
-        # Do not clean up, as we may want to debug
-        #
-        # Raising will kill the main loop, by design. The service manager
-        # will restart, and this job will be ignored when it does, as
-        # it has failed. If we have an internal error, a full restart
-        # might recover better.
-        raise
-
-
-def trace_handle_task(task, api):
-    """Call handle task with tracing."""
 
     with tracer.start_as_current_span("LOOP_TASK") as span:
         tracing.set_task_span_metadata(span, task)
@@ -92,6 +73,17 @@ def trace_handle_task(task, api):
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
+            mark_task_as_error(
+                api,
+                task,
+                sys.exc_info(),
+            )
+            # Do not clean up, as we may want to debug
+            #
+            # Raising will kill the main loop, by design. The service manager
+            # will restart, and this job will be ignored when it does, as
+            # it has failed. If we have an internal error, a full restart
+            # might recover better.
             raise
 
 
@@ -116,7 +108,7 @@ def handle_cancel_job_task(task, api):
     pre_finalized_job_status = initial_job_status
 
     # tell the controller what stage we're at now
-    update_controller(task, initial_job_status, previous_status=None)
+    update_job_task(task, initial_job_status, previous_status=None)
 
     with set_log_context(job_definition=job):
         match initial_job_status.state:
@@ -135,7 +127,7 @@ def handle_cancel_job_task(task, api):
                 final_status = api.finalize(job, cancelled=True)
             case ExecutorState.EXECUTING:
                 pre_finalized_job_status = api.terminate(job)
-                update_controller(
+                update_job_task(
                     task, pre_finalized_job_status, previous_status=initial_job_status
                 )
                 # call finalize to write the job logs
@@ -154,7 +146,7 @@ def handle_cancel_job_task(task, api):
         ]:
             api.cleanup(job)
 
-        update_controller(
+        update_job_task(
             task, final_status, previous_status=pre_finalized_job_status, complete=True
         )
 
@@ -185,13 +177,13 @@ def handle_run_job_task(task, api):
         match job_status.state:
             case ExecutorState.ERROR | ExecutorState.FINALIZED:
                 # No action needed, just inform the controller we are in this completed stage
-                update_controller(
+                update_job_task(
                     task, job_status, previous_status=job_status, complete=True
                 )
 
             case ExecutorState.EXECUTING:
                 # Still waitin'
-                update_controller(task, job_status, previous_status=job_status)
+                update_job_task(task, job_status, previous_status=job_status)
 
             case ExecutorState.UNKNOWN:
                 # a new job
@@ -199,51 +191,40 @@ def handle_run_job_task(task, api):
                 # before calling  api.prepare(), and we expect it to be PREPARED
                 # when finished
                 preparing_status = JobStatus(ExecutorState.PREPARING)
-                update_controller(task, preparing_status, previous_status=job_status)
+                update_job_task(task, preparing_status, previous_status=job_status)
                 new_status = api.prepare(job)
-                update_controller(task, new_status, previous_status=preparing_status)
+                update_job_task(task, new_status, previous_status=preparing_status)
 
             case ExecutorState.PREPARED:
                 if job.allow_database_access:
                     inject_db_secrets(job)
 
                 new_status = api.execute(job)
-                update_controller(task, new_status, previous_status=job_status)
+                update_job_task(task, new_status, previous_status=job_status)
 
             case ExecutorState.EXECUTED:
                 # finalize is also synchronous
                 finalizing_status = JobStatus(ExecutorState.FINALIZING)
-                update_controller(
-                    task,
-                    finalizing_status,
-                    previous_status=job_status,
-                )
+                update_job_task(task, finalizing_status, previous_status=job_status)
                 new_status = api.finalize(job)
-                # Update controller with the state after finalizing
-                # Note that we are NOT complete until we retrieve and send the results
-                update_controller(task, new_status, previous_status=finalizing_status)
-
-                # we don't want JobResults here; results is a metadata dict that contains results
-                # and other metadata
-                results = api.get_metadata(job)
-                # Cleanup and update controller with results
                 api.cleanup(job)
-                update_controller(
+
+                # We are now finalized, which is our final state - we have finished!
+                # Cleanup and update controller with results
+                update_job_task(
                     task,
                     new_status,
-                    previous_status=new_status,
-                    results={"results": results},
+                    previous_status=finalizing_status,
                     complete=True,
                 )
             case _:
                 assert False, f"unexpected state of job {job.id}: {job_status.state}"
 
 
-def update_controller(
+def update_job_task(
     task,
     status: JobStatus,
     previous_status: JobStatus = None,
-    results: dict = None,
     complete: bool = False,
 ):
     """
@@ -259,9 +240,9 @@ def update_controller(
         "final_job_status": status.state.name,
         "complete": complete,
     }
-    tracing.set_job_results_metadata(span, results, attributes)
+    tracing.set_job_results_metadata(span, status.results, attributes)
     log_state_change(task, status, previous_status)
-    task_api.update_controller(task, status.state.value, results, complete)
+    task_api.update_controller(task, status.state.value, status.results, complete)
 
 
 def log_state_change(task, status, previous_status):
@@ -274,18 +255,25 @@ def log_state_change(task, status, previous_status):
     log.info(log_message)
 
 
-def mark_task_as_error(task, error):
+def mark_task_as_error(api, task, exc_info):
     """
     Pass error information on to the controller and mark this task as complete
     """
-    # TODO: persist error info
-    update_controller(
-        task,
-        JobStatus(ExecutorState.ERROR),
-        previous_status=None,
-        results={"error": error},
-        complete=True,
-    )
+    exc_type, exc, tb = exc_info
+    error = {
+        "exception": exc_type.__name__,
+        "message": str(exc),
+        "traceback": "".join(traceback.format_exception(exc_type, exc, tb)),
+    }
+
+    match task.type:
+        case TaskType.RUNJOB | TaskType.CANCELJOB:
+            job = JobDefinition.from_dict(task.definition)
+            # this will persist the exception info to disk
+            status = api.finalize(job, error=error)
+            update_job_task(task, status, complete=True)
+        case _:
+            assert False
 
 
 def inject_db_secrets(job):
