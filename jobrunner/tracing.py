@@ -297,7 +297,7 @@ def trace_attributes(job, results=None):
             job._job_request = {}
 
     attrs = dict(
-        backend=config.BACKEND,
+        backend=job.backend,
         job=job.id,
         job_request=job.job_request_id,
         workspace=job.workspace,
