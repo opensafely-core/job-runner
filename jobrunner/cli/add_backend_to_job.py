@@ -1,5 +1,5 @@
 from jobrunner import config
-from jobrunner.lib.database import find_all, find_where, update
+from jobrunner.lib.database import find_where, update
 from jobrunner.models import Job, SavedJobRequest
 
 
@@ -8,13 +8,16 @@ def main():
     Command to add missing backend attribute to jobs. We expect this to only
     run once per backend, prior to moving the controller out of the backend
     """
-    jobs = find_all(Job)
     jobs_missing_backend = find_where(Job, backend=None)
-    if len(jobs) > len(jobs_missing_backend):
-        print("This command has already been run, please confirm you want to re-run:")
+    if jobs_missing_backend:
+        print(
+            "This command will add a backend attribute to all jobs and should only be run from inside a backend. Please confirm you want to continue:"
+        )
         confirm = input("\nY to continue, N to quit\n")
         if confirm.lower() != "y":
             return
+    else:
+        print("All jobs have a backend assigned; nothing to do")
 
     for job in jobs_missing_backend:
         job_requests = find_where(SavedJobRequest, id=job.job_request_id)
