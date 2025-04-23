@@ -186,10 +186,11 @@ def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition):
 def test_prepare_no_image(docker_cleanup, job_definition):
     job_definition.image = "invalid-test-image"
     api = local.LocalDockerAPI()
-    status = api.prepare(job_definition)
 
-    assert status.state == ExecutorState.ERROR
-    assert job_definition.image in status.message.lower()
+    with pytest.raises(local.LocalExecutorError) as exc:
+        api.prepare(job_definition)
+
+    assert job_definition.image in str(exc)
 
 
 @pytest.mark.needs_docker
@@ -201,10 +202,11 @@ def test_prepare_archived(ext, job_definition):
     )
     archive.parent.mkdir(parents=True, exist_ok=True)
     archive.write_text("I exist")
-    status = api.prepare(job_definition)
 
-    assert status.state == ExecutorState.ERROR
-    assert "has been archived"
+    with pytest.raises(local.LocalExecutorError) as exc:
+        api.prepare(job_definition)
+
+    assert "has been archived" in str(exc)
 
 
 @pytest.mark.needs_docker
