@@ -12,7 +12,9 @@ import time
 
 from opentelemetry import trace
 
-from jobrunner import config, tracing
+from jobrunner import tracing
+from jobrunner.config import controller as config
+from jobrunner.config.common import DOCKER_REGISTRY, JOB_LOOP_INTERVAL
 from jobrunner.controller.task_api import insert_task, mark_task_inactive
 from jobrunner.job_executor import (
     JobDefinition,
@@ -47,7 +49,7 @@ def main(exit_callback=lambda _: False):
         if exit_callback(active_jobs):
             break
 
-        time.sleep(config.JOB_LOOP_INTERVAL)
+        time.sleep(JOB_LOOP_INTERVAL)
 
 
 def handle_jobs():
@@ -279,7 +281,7 @@ def job_to_job_definition(job):
     # Prepend registry name
     action_args = job.action_args
     image = action_args.pop(0)
-    full_image = f"{config.DOCKER_REGISTRY}/{image}"
+    full_image = f"{DOCKER_REGISTRY}/{image}"
     if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 

@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from jobrunner import config
+from jobrunner.config import controller as config
 from jobrunner.lib import database, log_utils
 
 

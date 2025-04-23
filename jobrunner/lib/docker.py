@@ -8,7 +8,7 @@ import os
 import re
 import subprocess
 
-from jobrunner import config
+from jobrunner.config.common import DOCKER_REGISTRY
 from jobrunner.lib import atomic_writer
 
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Docker requires a container in order to interact with volumes, but it doesn't
 # much matter what it is for our purposes as long as it has `sh` and `find`
-MANAGEMENT_CONTAINER_IMAGE = f"{config.DOCKER_REGISTRY}/busybox"
+MANAGEMENT_CONTAINER_IMAGE = f"{DOCKER_REGISTRY}/busybox"
 
 # This path is pretty arbitrary: it sets where we mount volumes inside their
 # management containers (which are used for copying files in and out), but this

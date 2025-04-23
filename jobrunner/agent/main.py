@@ -5,8 +5,9 @@ import traceback
 
 from opentelemetry import trace
 
-from jobrunner import config
 from jobrunner.agent import task_api, tracing
+from jobrunner.config import agent as config
+from jobrunner.config.common import JOB_LOOP_INTERVAL
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.log_utils import configure_logging, set_log_context
@@ -34,7 +35,7 @@ def main(exit_callback=lambda _: False):  # pragma: no cover
         if exit_callback(active_tasks):
             break
 
-        time.sleep(config.JOB_LOOP_INTERVAL)
+        time.sleep(JOB_LOOP_INTERVAL)
 
 
 def handle_tasks(api: ExecutorAPI | None):

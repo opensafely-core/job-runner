@@ -13,8 +13,10 @@ import time
 
 from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
-from jobrunner import config, tracing
+from jobrunner import tracing
 from jobrunner.actions import get_action_specification
+from jobrunner.config import agent as agent_config
+from jobrunner.config import controller as config
 from jobrunner.lib.database import exists_where, insert, transaction, update_where
 from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
 from jobrunner.lib.github_validators import (
@@ -128,7 +130,7 @@ def validate_job_request(job_request):
         )
     if not config.USING_DUMMY_DATA_BACKEND:
         database_name = job_request.database_name
-        valid_names = config.DATABASE_URLS.keys()
+        valid_names = agent_config.DATABASE_URLS.keys()
 
         if database_name not in valid_names:
             raise JobRequestError(
@@ -136,10 +138,10 @@ def validate_job_request(job_request):
                 + ", ".join(valid_names)
             )
 
-        if not config.DATABASE_URLS[database_name]:
+        if not agent_config.DATABASE_URLS[database_name]:
             raise JobRequestError(
                 f"Database name '{database_name}' is not currently defined "
-                f"for backend '{config.BACKEND}'"
+                f"for backend '{job_request.backend}'"
             )
     # If we're not restricting to specific Github organisations then there's no
     # point in checking the provenance of the supplied commit

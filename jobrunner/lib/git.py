@@ -9,7 +9,8 @@ import time
 from pathlib import Path, PurePath
 from urllib.parse import urlparse, urlunparse
 
-from jobrunner import config
+from jobrunner.config import agent as agent_config
+from jobrunner.config import common as config
 from jobrunner.lib.string_utils import project_name_from_url
 
 
@@ -332,7 +333,7 @@ def add_access_token_and_proxy(repo_url):
         return repo_url
     # Github accepts arbitrary usernames when using a PAT so this is just for
     # easy identification in the proxy logs
-    username = f"jobrunner-{config.BACKEND}"
+    username = f"jobrunner-{agent_config.BACKEND}"
     # Add the token to the URL
     return urlunparse(parsed._replace(netloc=f"{username}:{token}@{parsed.netloc}"))
 
