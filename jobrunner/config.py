@@ -1,7 +1,6 @@
 import configparser
 import os
 import re
-import subprocess
 import sys
 from multiprocessing import cpu_count
 from pathlib import Path
@@ -20,31 +19,7 @@ def _is_valid_backend_name(name):
 default_work_dir = Path(__file__) / "../../workdir"
 
 
-VERSION = os.environ.get("VERSION", "unknown")
-if VERSION == "unknown":  # pragma: no branch
-    try:
-        ps = subprocess.run(
-            ["git", "describe", "--tags"],
-            text=True,
-            capture_output=True,
-        )
-        VERSION = ps.stdout.strip()
-    except (FileNotFoundError, subprocess.CalledProcessError):  # pragma: no cover
-        pass
-
-
-GIT_SHA = os.environ.get("GIT_SHA", "unknown")
-if GIT_SHA == "unknown":  # pragma: no branch
-    try:
-        ps = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            text=True,
-            capture_output=True,
-        )
-        GIT_SHA = ps.stdout.strip()
-    except (FileNotFoundError, subprocess.CalledProcessError):  # pragma: no cover
-        pass
-
+VERSION = os.environ.get("VERSION", "")
 
 WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()
 DATABASE_FILE = WORKDIR / "db.sqlite"
@@ -138,7 +113,6 @@ if PRESTO_TLS_CERT_PATH:  # pragma: no cover
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
-MAX_RETRIES = int(os.environ.get("MAX_RETRIES", 0))
 
 
 LEVEL4_MAX_FILESIZE = int(
@@ -150,10 +124,6 @@ LEVEL4_MAX_CSV_ROWS = int(os.environ.get("LEVEL4_MAX_CSV_ROWS", 5000))
 LEVEL4_FILE_TYPES = pipeline.constants.LEVEL4_FILE_TYPES
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
-STATA_LICENSE_REPO = os.environ.get(
-    "STATA_LICENSE_REPO",
-    "https://github.com/opensafely/server-instructions.git",
-)
 
 
 ACTIONS_GITHUB_ORG = "opensafely-actions"
