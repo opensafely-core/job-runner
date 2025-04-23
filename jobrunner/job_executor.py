@@ -293,31 +293,3 @@ class ExecutorAPI:
 
         Returns a list of any files that were present but it errored trying to delete them.
         """
-
-
-class NullExecutorAPI(ExecutorAPI):
-    """Null implementation of ExecutorAPI."""
-
-    def prepare(self, job_definition):  # pragma: nocover
-        raise NotImplementedError
-
-    def execute(self, job_definition):  # pragma: nocover
-        raise NotImplementedError
-
-    def finalize(self, job_definition):  # pragma: nocover
-        raise NotImplementedError
-
-    def terminate(self, job_definition):  # pragma: nocover
-        raise NotImplementedError
-
-    def get_status(self, job_definition):  # pragma: nocover
-        raise NotImplementedError
-
-    def get_results(self, job_definition):  # pragma: nocover
-        raise NotImplementedError
-
-    def cleanup(self, job_definition):  # pragma: nocover
-        raise NotImplementedError
-
-    def delete_files(self, workspace, privacy, paths):  # pragma: nocover
-        raise NotImplementedError
