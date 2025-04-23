@@ -25,6 +25,7 @@ def test_job_request_from_remote_format():
         "created_by": "user",
         "project": "project",
         "orgs": ["org"],
+        "backend": "test",
     }
     expected = JobRequest(
         id="123",
@@ -37,6 +38,7 @@ def test_job_request_from_remote_format():
         requested_actions=["generate_cohort"],
         cancelled_actions=["analyse"],
         force_run_dependencies=True,
+        backend="test",
         original=remote_job_request,
     )
     job_request = sync.job_request_from_remote_format(remote_job_request)
@@ -60,6 +62,7 @@ def test_job_request_from_remote_format_database_name_fallback():
         "created_by": "user",
         "project": "project",
         "orgs": ["org"],
+        "backend": "test",
     }
     expected = JobRequest(
         id="123",
@@ -73,6 +76,7 @@ def test_job_request_from_remote_format_database_name_fallback():
         cancelled_actions=["analyse"],
         force_run_dependencies=True,
         original=remote_job_request,
+        backend="test",
     )
     job_request = sync.job_request_from_remote_format(remote_job_request)
     assert job_request == expected

@@ -272,8 +272,7 @@ def save_results(job, results):
 
 def job_to_job_definition(job):
     allow_database_access = False
-    # TODO: This will need to become a field on `Job` and fetched from there
-    env = {"OPENSAFELY_BACKEND": config.BACKEND}
+    env = {"OPENSAFELY_BACKEND": job.backend}
     if job.requires_db:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
@@ -511,8 +510,7 @@ def create_task_for_job(job):
         id=f"{job.id}-{task_number:03}",
         type=TaskType.RUNJOB,
         definition=job_to_job_definition(job).to_dict(),
-        # TODO: Uncomment this when Job grows a `backend` field
-        backend="",  # job.backend,
+        backend=job.backend,
     )
 
 
