@@ -1,11 +1,9 @@
-import configparser
 import os
 import re
 import sys
-from multiprocessing import cpu_count
 from pathlib import Path
 
-import pipeline
+from jobrunner.config.common import WORKDIR
 
 
 class ConfigException(Exception):
@@ -16,29 +14,10 @@ def _is_valid_backend_name(name):
     return bool(re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*[A-Za-z0-9]$", name))
 
 
-default_work_dir = Path(__file__) / "../../workdir"
-
-
-VERSION = os.environ.get("VERSION", "")
-
-WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()
-DATABASE_FILE = WORKDIR / "db.sqlite"
 METRICS_FILE = WORKDIR / "metrics.sqlite"
-GIT_REPO_DIR = WORKDIR / "repos"
 
 # valid archive formats
 ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
-
-
-JOB_SERVER_ENDPOINT = os.environ.get(
-    "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/v2/"
-)
-JOB_SERVER_TOKEN = os.environ.get("JOB_SERVER_TOKEN", "token")
-
-PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
-
-POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
-JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 
 BACKEND = os.environ.get("BACKEND", "expectations")
 if not _is_valid_backend_name(BACKEND):
@@ -46,25 +25,16 @@ if not _is_valid_backend_name(BACKEND):
 
 truthy = ("true", "1", "yes")
 
+# TODO: Both need this; the controller can pass to the agent in the task
+# however, the agent will also need it if adding jobs via CLI
+# When creating a task, controller will need to check this AND backend==expectations
 if os.environ.get("USING_DUMMY_DATA_BACKEND", "false").lower().strip() in truthy:
     USING_DUMMY_DATA_BACKEND = True  # pragma: no cover
 else:
     USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
-ALLOWED_IMAGES = {
-    "cohortextractor",
-    "databuilder",
-    "ehrql",
-    "stata-mp",
-    "r",
-    "jupyter",
-    "python",
-    "sqlrunner",
-}
 
-DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")
-
-
+# TODO Agent only; controller should pass database name only in env, agent should construct the DB url
 def database_urls_from_env(env):
     db_names = ["default", "include_t1oo"]
     return {
@@ -78,7 +48,6 @@ def database_urls_from_env(env):
 
 
 DATABASE_URLS = database_urls_from_env(os.environ)
-
 
 TEMP_DATABASE_NAME = os.environ.get("TEMP_DATABASE_NAME")
 
@@ -111,94 +80,7 @@ if PRESTO_TLS_CERT_PATH:  # pragma: no cover
         )
 
 
-MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
-MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
-
-
-LEVEL4_MAX_FILESIZE = int(
-    os.environ.get("LEVEL4_MAX_FILESIZE", 16 * 1024 * 1024)
-)  # 16mb
-
-LEVEL4_MAX_CSV_ROWS = int(os.environ.get("LEVEL4_MAX_CSV_ROWS", 5000))
-
-LEVEL4_FILE_TYPES = pipeline.constants.LEVEL4_FILE_TYPES
-
-STATA_LICENSE = os.environ.get("STATA_LICENSE")
-
-
-ACTIONS_GITHUB_ORG = "opensafely-actions"
-ACTIONS_GITHUB_ORG_URL = f"https://github.com/{ACTIONS_GITHUB_ORG}"
-
-ALLOWED_GITHUB_ORGS = (
-    os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely").strip().split(",")
-)
-
-# We hardcode this for now, as from a security perspective, we do not want it
-# to be run time configurable
-GIT_PROXY_DOMAIN = "github-proxy.opensafely.org"
-
-
-def parse_job_resource_weights(config_file):
-    """
-    Parse a simple ini file which looks like this:
-
-        [some-workspace-name]
-        my-ram-hungry-action = 4
-        other-actions.* = 1.5
-
-        [other-workspace-name]
-        ...
-
-    Any jobs in the specified workspace will have their action names matched
-    against the regex patterns specified in the config file and will be
-    assigned the weight of the first matching pattern. All other jobs are
-    assigned a weight of 1.
-    """
-    config_file = Path(config_file)
-    weights = {}
-    if config_file.exists():
-        config = configparser.ConfigParser()
-        config.read_string(config_file.read_text(), source=str(config_file))
-        for workspace in config.sections():
-            weights[workspace] = {
-                re.compile(pattern): float(weight)
-                for (pattern, weight) in config.items(workspace)
-            }
-    return weights
-
-
-JOB_RESOURCE_WEIGHTS = parse_job_resource_weights("job-resource-weights.ini")
-
-
 STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
-MAINTENANCE_POLL_INTERVAL = float(
-    os.environ.get("MAINTENANCE_POLL_INTERVAL", "300")
-)  # 5 min
-ENABLE_MAINTENANCE_MODE_THREAD = os.environ.get(
-    "ENABLE_MAINTENANCE_MODE_THREAD", ""
-).lower() in (
-    "true",
-    "yes",
-    "on",
-)
-
-
-# Map known exit codes to user-friendly messages
-DATABASE_EXIT_CODES = {
-    # Custom database-related exit codes return from cohortextractor, see
-    # https://github.com/opensafely-core/cohort-extractor/blob/0a314a909817dbcc48907643e0b6eeff319337db/cohortextractor/cohortextractor.py#L787
-    3: (
-        "A transient database error occurred, your job may run "
-        "if you try it again, if it keeps failing then contact tech support"
-    ),
-    4: "New data is being imported into the database, please try again in a few hours",
-    5: "Something went wrong with the database, please contact tech support",
-}
-
-
-DEFAULT_JOB_CPU_COUNT = float(os.environ.get("DEFAULT_JOB_CPU_COUNT", 2))
-DEFAULT_JOB_MEMORY_LIMIT = os.environ.get("DEFAULT_JOB_MEMORY_LIMIT", "4G")
-
 
 EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI")
 
