@@ -24,7 +24,8 @@ from tests.factories import job_request_factory_raw
 
 @pytest.fixture(autouse=True)
 def disable_github_org_checking(monkeypatch):
-    monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("jobrunner.config.controller.USING_DUMMY_DATA_BACKEND", True)
 
 
 # Basic smoketest to test the full execution path
@@ -303,19 +304,19 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
             JobRequestError,
         ),
         (
-            {"ALLOWED_GITHUB_ORGS": ["test"]},
+            {"controller": {"ALLOWED_GITHUB_ORGS": ["test"]}},
             {"repo_url": "https://not-gihub.com/invalid"},
             "must start https://github.com",
             GithubValidationError,
         ),
         (
-            {"DATABASE_URLS": {"default": None}},
+            {"agent": {"DATABASE_URLS": {"default": None}}},
             {},
             "not currently defined for backend",
             JobRequestError,
         ),
         (
-            {"ALLOWED_GITHUB_ORGS": ["test"]},
+            {"controller": {"ALLOWED_GITHUB_ORGS": ["test"]}},
             {"repo_url": "https://github.com/test"},
             "Repository URL was not of the expected format",
             GithubValidationError,
@@ -323,9 +324,12 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     ],
 )
 def test_validate_job_request(patch_config, params, exc_msg, exc_cls, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.USING_DUMMY_DATA_BACKEND", False)
-    for config_key, config_value in patch_config.items():
-        monkeypatch.setattr(f"jobrunner.config.{config_key}", config_value)
+    monkeypatch.setattr("jobrunner.config.controller.USING_DUMMY_DATA_BACKEND", False)
+    for config_type, config_items in patch_config.items():
+        for config_key, config_value in config_items.items():
+            monkeypatch.setattr(
+                f"jobrunner.config.{config_type}.{config_key}", config_value
+            )
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
     kwargs = dict(
         id="123",

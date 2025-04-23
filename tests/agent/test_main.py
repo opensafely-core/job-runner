@@ -1,5 +1,5 @@
-from jobrunner import config
 from jobrunner.agent import main
+from jobrunner.config import agent as config
 from tests.factories import job_definition_factory
 
 

@@ -6,8 +6,10 @@ from unittest.mock import patch
 import pytest
 from opentelemetry import trace
 
-from jobrunner import config
 from jobrunner.agent import task_api as agent_task_api
+from jobrunner.config import agent as agent_config
+from jobrunner.config import common as common_config
+from jobrunner.config import controller as config
 from jobrunner.controller import main
 from jobrunner.controller.main import PlatformError
 from jobrunner.lib import database
@@ -375,7 +377,7 @@ def backend_db_config(monkeypatch):
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
     # for test jobs, job.database_name is None, so add a dummy connection
     # string for that db
-    monkeypatch.setitem(config.DATABASE_URLS, None, "conn str")
+    monkeypatch.setitem(agent_config.DATABASE_URLS, None, "conn str")
 
 
 def test_handle_pending_db_maintenance_mode(db, backend_db_config):
@@ -659,7 +661,7 @@ def test_mark_job_as_failed_adds_error(db):
 
 @patch("jobrunner.controller.main.handle_job")
 def test_handle_error(patched_handle_job, db, monkeypatch):
-    monkeypatch.setattr(config, "JOB_LOOP_INTERVAL", 0)
+    monkeypatch.setattr(common_config, "JOB_LOOP_INTERVAL", 0)
 
     # mock 2 controller loops, successful first pass and an
     # exception on the second loop

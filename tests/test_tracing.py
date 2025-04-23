@@ -6,7 +6,8 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
-from jobrunner import config, models, tracing
+from jobrunner import models, tracing
+from jobrunner.config import common as common_config
 from tests.conftest import get_trace
 from tests.factories import job_factory, job_request_factory, job_results_factory
 
@@ -79,6 +80,7 @@ def test_trace_attributes(db):
         action_repo_url="action_repo",
         action_commit="commit",
         status_message="message",
+        backend="expectations",
     )
 
     results = job_results_factory(
@@ -138,6 +140,7 @@ def test_trace_attributes_missing(db):
         action="action",
         status_message="message",
         commit="abc123def",
+        backend="expectations",
         # no reusable action
     )
 
@@ -173,7 +176,7 @@ def test_tracing_resource_config():
     assert span.resource.attributes["service.namespace"] == os.environ.get(
         "BACKEND", "unknown"
     )
-    assert span.resource.attributes["service.version"] == config.VERSION
+    assert span.resource.attributes["service.version"] == common_config.VERSION
 
 
 def test_initialise_trace(db):

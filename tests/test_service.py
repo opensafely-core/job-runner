@@ -5,7 +5,8 @@ import time
 
 import pytest
 
-from jobrunner import config, queries, service
+from jobrunner import queries, service
+from jobrunner.config import agent as config
 from jobrunner.lib import database
 
 
