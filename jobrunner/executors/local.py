@@ -11,7 +11,6 @@ from pathlib import Path
 
 from jobrunner import record_stats
 from jobrunner.config import agent as config
-from jobrunner.config import controller as controller_config
 from jobrunner.executors import volumes
 from jobrunner.job_executor import (
     ExecutorAPI,
@@ -766,7 +765,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
                 limit=mb(job_definition.level4_max_filesize),
             )
         )
-    elif suffix not in controller_config.LEVEL4_FILE_TYPES:
+    elif suffix not in job_definition.level4_file_types:
         job_msgs.append(f"File type of {suffix} is not valid level 4 file")
         file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
 
