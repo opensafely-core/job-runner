@@ -16,6 +16,7 @@ from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 from jobrunner import tracing
 from jobrunner.actions import get_action_specification
 from jobrunner.config import controller as config
+from jobrunner.config.common import VALID_DATABASE_NAMES
 from jobrunner.lib.database import exists_where, insert, transaction, update_where
 from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
 from jobrunner.lib.github_validators import (
@@ -126,6 +127,12 @@ def validate_job_request(job_request):
     if re.search(r"[^a-zA-Z0-9_\-]", job_request.workspace):
         raise JobRequestError(
             "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
+        )
+
+    if job_request.database_name not in VALID_DATABASE_NAMES:
+        raise JobRequestError(
+            f"Invalid database name '{job_request.database_name}', allowed are: "
+            + ", ".join(VALID_DATABASE_NAMES)
         )
 
     # If we're not restricting to specific Github organisations then there's no

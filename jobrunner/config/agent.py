@@ -3,7 +3,7 @@ import re
 import sys
 from pathlib import Path
 
-from jobrunner.config.common import WORKDIR
+from jobrunner.config.common import VALID_DATABASE_NAMES, WORKDIR
 
 
 class ConfigException(Exception):
@@ -32,14 +32,14 @@ else:
     USING_DUMMY_DATA_BACKEND = False  # pragma: no cover
 
 
-# TODO Agent only; controller should pass database name only in env, agent should construct the DB url
+# Agent only; the controller passes database name only in env, agent constructs the DB url
+# from [NAME]_DATABASE_URL env variables available only inside the backend
 def database_urls_from_env(env):
-    db_names = ["default", "include_t1oo"]
     return {
         db_name: db_url
         for db_name, db_url in [
             (db_name, env.get(f"{db_name.upper()}_DATABASE_URL"))
-            for db_name in db_names
+            for db_name in VALID_DATABASE_NAMES
         ]
         if db_url
     }

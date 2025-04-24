@@ -88,7 +88,7 @@ def run(argv=None):
         "--workspace", help="Workspace ID (default 'test')", default="test"
     )
     parser.add_argument(
-        "--database", help="Database name (default 'dummy')", default="dummy"
+        "--database", help="Database name (default 'default')", default="default"
     )
     parser.add_argument("-f", "--force-run-dependencies", action="store_true")
 
