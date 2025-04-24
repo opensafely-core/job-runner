@@ -1,7 +1,6 @@
 import configparser
 import os
 import re
-from multiprocessing import cpu_count
 from pathlib import Path
 
 import pipeline
@@ -33,21 +32,29 @@ ALLOWED_IMAGES = {
     "sqlrunner",
 }
 
-# TODO per-backend
-MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
-# TODO per-backend
-MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
-# TODO per-backend
+#  Set workers per-backend. This will be used by the controller to
+# determine if there are enough resources available to start a new
+# job running.
+MAX_WORKERS = {
+    "test": int(os.environ.get("TEST_MAX_WORKERS") or 3),
+    "tpp": int(os.environ.get("TPP_MAX_WORKERS") or 10),
+    "emis": int(os.environ.get("EMIS_MAX_WORKERS") or 10),
+}
+MAX_DB_WORKERS = {
+    "test": int(os.environ.get("TEST_MAX_DB_WORKERS") or MAX_WORKERS["test"]),
+    "tpp": int(os.environ.get("TPP_MAX_DB_WORKERS") or MAX_WORKERS["tpp"]),
+    "emis": int(os.environ.get("EMIS_MAX_DB_WORKERS") or MAX_WORKERS["emis"]),
+}
+
+# Currently we assume all backends will have the same
+# limits on L4 files
 LEVEL4_MAX_FILESIZE = int(
     os.environ.get("LEVEL4_MAX_FILESIZE", 16 * 1024 * 1024)
 )  # 16mb
-# TODO per-backend
 LEVEL4_MAX_CSV_ROWS = int(os.environ.get("LEVEL4_MAX_CSV_ROWS", 5000))
-# TODO per-backend
 LEVEL4_FILE_TYPES = pipeline.constants.LEVEL4_FILE_TYPES
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
-
 
 ACTIONS_GITHUB_ORG = "opensafely-actions"
 ACTIONS_GITHUB_ORG_URL = f"https://github.com/{ACTIONS_GITHUB_ORG}"
@@ -113,7 +120,17 @@ DATABASE_EXIT_CODES = {
     5: "Something went wrong with the database, please contact tech support",
 }
 
-# TODO per-backend
-DEFAULT_JOB_CPU_COUNT = float(os.environ.get("DEFAULT_JOB_CPU_COUNT", 2))
-# TODO per-backend
-DEFAULT_JOB_MEMORY_LIMIT = os.environ.get("DEFAULT_JOB_MEMORY_LIMIT", "4G")
+
+# per-backend job limits
+def job_limits_from_env(env, limit_name, default, transform=str):
+    common_default = transform(env.get(f"DEFAULT_{limit_name.upper()}") or default)
+    return {
+        backend: transform(
+            env.get(f"{backend.upper()}_{limit_name.upper()}") or common_default
+        )
+        for backend in common.BACKENDS
+    }
+
+
+DEFAULT_JOB_CPU_COUNT = job_limits_from_env(os.environ, "job_cpu_count", 2, float)
+DEFAULT_JOB_MEMORY_LIMIT = job_limits_from_env(os.environ, "job_memory_limit", "4G")
