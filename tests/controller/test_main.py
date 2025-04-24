@@ -134,6 +134,41 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
     assert spans[-1].name == "CREATED"
 
 
+def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
+    # backends can run at most 1 job
+    monkeypatch.setattr(config, "MAX_WORKERS", 1)
+
+    # One running job on backend foo
+    # No running jobs on backend bar
+    running_job = job_factory(backend="foo")
+    # run loop once to set it running
+    run_controller_loop_once()
+    tasks = database.find_all(Task)
+    assert len(tasks) == 1
+    running_job = database.find_one(Job, id=running_job.id)
+    assert running_job.state == State.RUNNING
+
+    pending_job1 = job_factory(backend="foo")
+    pending_job2 = job_factory(backend="bar")
+    run_controller_loop_once()
+
+    tasks = database.find_all(Task)
+    # Only one task could be created, for the pending job on backend bar
+    assert len(tasks) == 2
+    assert tasks[-1].id.startswith(pending_job2.id)
+    pending_job1 = database.find_one(Job, id=pending_job1.id)
+    assert pending_job1.state == State.PENDING
+    assert pending_job1.status_message == "Waiting on available workers"
+    assert pending_job1.status_code == StatusCode.WAITING_ON_WORKERS
+
+    pending_job2 = database.find_one(Job, id=pending_job2.id)
+    assert pending_job2.state == State.RUNNING
+
+    # tracing
+    spans = get_trace("jobs")
+    assert spans[-1].name == "CREATED"
+
+
 def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
     monkeypatch.setattr(config, "MAX_WORKERS", 2)
     monkeypatch.setattr(

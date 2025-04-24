@@ -444,7 +444,7 @@ def set_code(job, new_status_code, message, error=None, results=None, **attrs):
 
 def get_reason_job_not_started(job):
     log.debug("Querying for running jobs")
-    running_jobs = find_where(Job, state=State.RUNNING)
+    running_jobs = find_where(Job, state=State.RUNNING, backend=job.backend)
     log.debug("Query done")
     used_resources = sum(
         get_job_resource_weight(running_job) for running_job in running_jobs
