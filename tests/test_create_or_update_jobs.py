@@ -15,7 +15,7 @@ from jobrunner.create_or_update_jobs import (
     create_or_update_jobs,
     validate_job_request,
 )
-from jobrunner.lib.database import find_one, find_where, update_where
+from jobrunner.lib.database import count_where, find_one, find_where, update_where
 from jobrunner.lib.github_validators import GithubValidationError
 from jobrunner.models import Job, JobRequest, State, StatusCode
 from tests.conftest import get_trace
@@ -203,6 +203,37 @@ def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_
     prepare_2_job = find_one(Job, action="prepare_data_2")
     assert set(analyse_job.wait_for_job_ids) == {prepare_1_job.id, prepare_2_job.id}
     assert prepare_2_job.wait_for_job_ids == [generate_job.id]
+
+
+def test_existing_active_jobs_for_other_backends_are_ignored_when_checking_dependencies(
+    tmp_work_dir,
+):
+    # Schedule the same job on 2 backends
+    create_jobs_with_project_file(
+        make_job_request(action="analyse_data", backend="foo"), TEST_PROJECT
+    )
+    create_jobs_with_project_file(
+        make_job_request(action="analyse_data", backend="bar"), TEST_PROJECT
+    )
+
+    # There are now 2 of each job
+    for action in [
+        "generate_cohort",
+        "prepare_data_1",
+        "prepare_data_2",
+        "analyse_data",
+    ]:
+        assert count_where(Job, action=action) == 2
+
+    # Check that they're waiting on the right existing jobs
+    for backend in ["foo", "bar"]:
+        generate_cohort_job = find_one(Job, action="generate_cohort", backend=backend)
+        prepare_1_job = find_one(Job, action="prepare_data_1", backend=backend)
+        prepare_2_job = find_one(Job, action="prepare_data_2", backend=backend)
+        analyse_job = find_one(Job, action="analyse_data", backend=backend)
+
+        assert set(prepare_1_job.wait_for_job_ids) == {generate_cohort_job.id}
+        assert set(analyse_job.wait_for_job_ids) == {prepare_1_job.id, prepare_2_job.id}
 
 
 def test_existing_succeeded_jobs_are_picked_up_when_checking_dependencies(tmp_work_dir):

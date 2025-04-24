@@ -291,7 +291,7 @@ def job_to_job_definition(job):
 
     input_files = []
     for action in job.requires_outputs_from:
-        for filename in list_outputs_from_action(job.workspace, action):
+        for filename in list_outputs_from_action(job.backend, job.workspace, action):
             input_files.append(filename)
 
     outputs = {}
@@ -468,8 +468,8 @@ def get_reason_job_not_started(job):
             )
 
 
-def list_outputs_from_action(workspace, action):
-    for job in calculate_workspace_state(workspace):
+def list_outputs_from_action(backend, workspace, action):
+    for job in calculate_workspace_state(backend, workspace):
         if job.action == action:
             return job.output_files
 

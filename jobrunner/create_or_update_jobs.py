@@ -88,7 +88,7 @@ def create_jobs(job_request):
     project_file = get_project_file(job_request)
     pipeline_config = load_pipeline(project_file)
     latest_jobs = get_latest_jobs_for_actions_in_project(
-        job_request.workspace, pipeline_config
+        job_request.backend, job_request.workspace, pipeline_config
     )
     new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
     assert_new_jobs_created(job_request, new_jobs, latest_jobs)
@@ -154,10 +154,10 @@ def get_project_file(job_request):
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
 
 
-def get_latest_jobs_for_actions_in_project(workspace, pipeline_config):
+def get_latest_jobs_for_actions_in_project(backend, workspace, pipeline_config):
     return [
         job
-        for job in calculate_workspace_state(workspace)
+        for job in calculate_workspace_state(backend, workspace)
         if job.action in pipeline_config.all_actions
     ]
 
