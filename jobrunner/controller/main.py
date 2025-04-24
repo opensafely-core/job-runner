@@ -110,21 +110,22 @@ def handle_single_job(job):
         with transaction():
             trace_handle_job(job, mode, paused)
     except Exception as exc:
-        mark_job_as_failed(
-            job,
-            StatusCode.INTERNAL_ERROR,
-            "Internal error: this usually means a platform issue rather than a problem "
-            "for users to fix.\n"
-            "The tech team are automatically notified of these errors and will be "
-            "investigating.",
-            error=exc,
-        )
-        # Do not clean up, as we may want to debug
-        #
-        # Raising will kill the main loop, by design. The service manager
-        # will restart, and this job will be ignored when it does, as
-        # it has failed. If we have an internal error, a full restart
-        # might recover better.
+        with transaction():
+            mark_job_as_failed(
+                job,
+                StatusCode.INTERNAL_ERROR,
+                "Internal error: this usually means a platform issue rather than a problem "
+                "for users to fix.\n"
+                "The tech team are automatically notified of these errors and will be "
+                "investigating.",
+                error=exc,
+            )
+            # Do not clean up, as we may want to debug
+            #
+            # Raising will kill the main loop, by design. The service manager
+            # will restart, and this job will be ignored when it does, as
+            # it has failed. If we have an internal error, a full restart
+            # might recover better.
         raise
 
 

@@ -383,12 +383,13 @@ def set_cancelled_flag_for_actions(job_request_id, actions):
     # It's important that we modify the Jobs in-place in the database rather than retrieving, updating and re-writing
     # them. If we did the latter then we would risk dirty writes if the run thread modified a Job while we were
     # working.
-    update_where(
-        Job,
-        {
-            "cancelled": True,
-            "completed_at": int(time.time()),
-        },
-        job_request_id=job_request_id,
-        action__in=actions,
-    )
+    with transaction():
+        update_where(
+            Job,
+            {
+                "cancelled": True,
+                "completed_at": int(time.time()),
+            },
+            job_request_id=job_request_id,
+            action__in=actions,
+        )
