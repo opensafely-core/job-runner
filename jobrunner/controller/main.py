@@ -69,9 +69,9 @@ def handle_jobs():
                 # counts in `running_for_workspace` will be up-to-date.
                 0 if job.state == State.RUNNING else 1,
                 # Then process PENDING jobs in order of how many are running in the
-                # workspace. This gives a fairer allocation of capacity among
+                # workspace for that backend. This gives a fairer allocation of capacity among
                 # workspaces.
-                running_for_workspace[job.workspace],
+                running_for_workspace[(job.backend, job.workspace)],
                 # DB jobs are more important than cpu jobs
                 0 if job.requires_db else 1,
                 # Finally use job age as a tie-breaker
@@ -85,9 +85,9 @@ def handle_jobs():
         with set_log_context(job=job):
             handle_single_job(job)
 
-        # Add running jobs to the workspace count
+        # Add running jobs to the backend/workspace count
         if job.state == State.RUNNING:
-            running_for_workspace[job.workspace] += 1
+            running_for_workspace[(job.backend, job.workspace)] += 1
 
         handled_jobs.append(job)
 
