@@ -132,6 +132,7 @@ class LocalDockerAPI(ExecutorAPI):
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
         if not workspace_dir.exists():
             if workspace_is_archived(job_definition.workspace):
+                log.info(f"Workspace {job_definition.workspace} has been archived.")
                 return JobStatus(
                     ExecutorState.ERROR,
                 )
@@ -211,7 +212,8 @@ class LocalDockerAPI(ExecutorAPI):
                 volume_type=volumes.volume_type,
             )
 
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            log.exception(f"Failed to start docker container: {exc}")
             return JobStatus(
                 ExecutorState.ERROR,
             )
@@ -233,7 +235,8 @@ class LocalDockerAPI(ExecutorAPI):
 
         try:
             finalize_job(job_definition, cancelled, error=error)
-        except LocalDockerError:  # pragma: no cover
+        except LocalDockerError as exc:  # pragma: no cover
+            log.exception(f"failed to finalize job: {exc}")
             return JobStatus(
                 ExecutorState.ERROR,
             )
