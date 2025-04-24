@@ -126,7 +126,7 @@ def runjob_db_task_factory(*args, state=State.RUNNING, **kwargs):
     job = job_factory(*args, state=state, **kwargs)
     task = Task(
         id=job.id,
-        backend="test",
+        backend=kwargs.pop("backend", "test"),
         type=TaskType.RUNJOB,
         definition=job_to_job_definition(job).to_dict(),
     )

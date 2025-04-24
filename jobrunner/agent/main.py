@@ -39,7 +39,7 @@ def main(exit_callback=lambda _: False):  # pragma: no cover
 
 
 def handle_tasks(api: ExecutorAPI | None):
-    active_tasks = task_api.get_active_tasks()
+    active_tasks = task_api.get_active_tasks(backend=config.BACKEND)
 
     handled_tasks = []
 
