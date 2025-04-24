@@ -81,7 +81,7 @@ def test_generate_insert_sql(tmp_work_dir):
 
     assert (
         sql
-        == 'INSERT INTO "job" ("id", "job_request_id", "state", "repo_url", "commit", "workspace", "database_name", "action", "action_repo_url", "action_commit", "requires_outputs_from", "wait_for_job_ids", "run_command", "image_id", "output_spec", "outputs", "unmatched_outputs", "status_message", "status_code", "cancelled", "created_at", "updated_at", "started_at", "completed_at", "status_code_updated_at", "trace_context", "level4_excluded_files", "requires_db") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        == 'INSERT INTO "job" ("id", "job_request_id", "state", "repo_url", "commit", "workspace", "database_name", "action", "action_repo_url", "action_commit", "requires_outputs_from", "wait_for_job_ids", "run_command", "image_id", "output_spec", "outputs", "unmatched_outputs", "status_message", "status_code", "cancelled", "created_at", "updated_at", "started_at", "completed_at", "status_code_updated_at", "trace_context", "level4_excluded_files", "requires_db", "backend") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
 
 
@@ -126,6 +126,16 @@ def test_exists_where(tmp_work_dir):
     assert job_state_exists is True
     job_id_exists = exists_where(Job, id="foo124")
     assert job_id_exists is True
+
+
+def exists_where_null(tmp_work_dir):
+    insert(Job(id="foo123", backend=None))
+    insert(Job(id="foo124", backend="test"))
+    insert(Job(id="foo125", backend="foo"))
+    job_no_backend = exists_where(Job, backend=None)
+    assert job_no_backend is True
+    job_no_backend = exists_where(Job, id="foo124", backend=None)
+    assert job_no_backend is False
 
 
 def test_count_where(tmp_work_dir):

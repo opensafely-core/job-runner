@@ -19,6 +19,7 @@ from functools import total_ordering
 
 from jobrunner.lib.database import databaseclass, migration
 from jobrunner.lib.string_utils import slugify
+from jobrunner.schema import TaskType
 
 
 # this is the overall high level state the job-runner uses to decide how to
@@ -112,6 +113,7 @@ class JobRequest:
     database_name: str
     force_run_dependencies: bool = False
     branch: str = None
+    backend: str = None
     original: dict = None
 
 
@@ -167,6 +169,7 @@ class Job:
             status_code_updated_at INT,
             level4_excluded_files TEXT,
             requires_db BOOLEAN,
+            backend TEXT,
 
             PRIMARY KEY (id)
         );
@@ -200,6 +203,13 @@ class Job:
         3,
         """
         ALTER TABLE job ADD COLUMN requires_db BOOLEAN;
+        """,
+    )
+
+    migration(
+        5,
+        """
+        ALTER TABLE job ADD COLUMN backend TEXT;
         """,
     )
 
@@ -266,6 +276,9 @@ class Job:
 
     # does the job require db access
     requires_db: bool = False
+
+    # the backend that this job runs on
+    backend: str = None
 
     # used to cache the job_request json by the tracing code
     _job_request = None
@@ -375,3 +388,44 @@ class Flag:
     def __str__(self):
         ts = self.timestamp_isoformat if self.timestamp else "never set"
         return f"{self.id}={self.value} ({ts})"
+
+
+@databaseclass
+class Task:
+    __tablename__ = "tasks"
+    __tableschema__ = """
+        CREATE TABLE tasks (
+            id TEXT,
+            backend TEXT,
+            type TEXT,
+            definition TEXT,
+            active BOOLEAN,
+            created_at int,
+            finished_at int,
+            agent_stage TEXT,
+            agent_complete BOOLEAN,
+            agent_results TEXT,
+            PRIMARY KEY (id)
+        )
+    """
+
+    # controller set fields
+    id: str  # noqa: A003
+    backend: str
+    type: TaskType  # noqa: A003
+    definition: dict
+    active: bool = True
+    # these timestamps are from the controller's POV
+    # default second resolution
+    created_at: int = None
+    finished_at: int = None
+
+    # state sent from the agent
+    agent_stage: str = None
+    # the task is complete from the agent's POV once this is set
+    agent_complete: bool = False
+    # results of the task, inlcuding any error information
+    agent_results: dict = None
+
+    # ensure this table exists
+    migration(4, __tableschema__)

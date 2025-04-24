@@ -134,6 +134,7 @@ def job_request_from_remote_format(job_request):
             else job_request["workspace"]["db"]
         ),
         force_run_dependencies=job_request["force_run_dependencies"],
+        backend=job_request["backend"],
         original=job_request,
     )
 
@@ -162,7 +163,7 @@ def job_to_remote_format(job):
     }
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     configure_logging()
 
     try:

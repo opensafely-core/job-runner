@@ -253,26 +253,33 @@ def set_span_metadata(span, job, error=None, results=None, **attrs):
         attributes.update(attrs)
     attributes.update(trace_attributes(job, results))
 
-    # opentelemetry can only handle serializing certain attribute types
-    clean_attrs = {}
-    for k, v in attributes.items():
-        if not isinstance(v, OTEL_ATTR_TYPES):
-            # log to help us notice this
-            # If the span has no name attribute (e.g. NonRecordingSpans), log its type instead
-            span_name = getattr(span, "name", type(span))
-            logger.error(
-                f"Trace span {span_name} attribute {k} was set invalid type: {v}, type {type(v)}"
-            )
-            # coerce to string so we preserve some information
-            v = str(v)
-        clean_attrs[k] = v
-
-    span.set_attributes(clean_attrs)
+    set_span_attributes(span, attributes)
 
     if error:
         span.set_status(trace.Status(trace.StatusCode.ERROR, str(error)))
     if isinstance(error, Exception):
         span.record_exception(error)
+
+
+def set_span_attributes(span, attributes):
+    # opentelemetry can only handle serializing certain attribute types
+    clean_attrs = {}
+    for k, v in attributes.items():
+        if not isinstance(v, OTEL_ATTR_TYPES):
+            if v is not None:
+                # log to help us notice this
+                # values can often be None and this isn't particularly interesting, so don't fill up
+                # the logs with that
+                # If the span has no name attribute (e.g. NonRecordingSpans), log its type instead
+                span_name = getattr(span, "name", type(span))
+                logger.error(
+                    f"Trace span {span_name} attribute {k} was set invalid type: {v}, type {type(v)}"
+                )
+                # coerce to string so we preserve some information
+            v = str(v)
+        clean_attrs[k] = v
+
+    span.set_attributes(clean_attrs)
 
 
 def trace_attributes(job, results=None):
@@ -331,7 +338,7 @@ def trace_attributes(job, results=None):
     return attrs
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     # local testing utility for tracing
     import time
 

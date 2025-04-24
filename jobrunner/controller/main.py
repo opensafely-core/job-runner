@@ -7,54 +7,42 @@ updates its state as appropriate.
 import collections
 import datetime
 import logging
-import os
 import sys
 import time
 
 from opentelemetry import trace
 
 from jobrunner import config, tracing
-from jobrunner.executors import get_executor_api
+from jobrunner.controller.task_api import insert_task, mark_task_inactive
 from jobrunner.job_executor import (
-    ExecutorAPI,
-    ExecutorRetry,
-    ExecutorState,
     JobDefinition,
-    Privacy,
+    JobResults,
     Study,
 )
 from jobrunner.lib import ns_timestamp_to_datetime
-from jobrunner.lib.database import find_where, select_values, update
+from jobrunner.lib.database import find_where, select_values, transaction, update
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.models import Job, State, StatusCode
+from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import calculate_workspace_state, get_flag_value
 
 
 log = logging.getLogger(__name__)
 tracer = trace.get_tracer("loop")
 
-EXECUTOR_RETRIES = {}
+
+class PlatformError(Exception):
+    """
+    Indicates that something went wrong when running a job that is external to anything
+    that happened within the container
+    """
 
 
-class RetriesExceeded(Exception):
-    pass
-
-
-class InvalidTransition(Exception):
-    pass
-
-
-class ExecutorError(Exception):
-    pass
-
-
-def main(exit_callback=lambda _: False):  # pragma: no cover
+def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
-    api = get_executor_api()
 
     while True:
         with tracer.start_as_current_span("LOOP", attributes={"loop": True}):
-            active_jobs = handle_jobs(api)
+            active_jobs = handle_jobs()
 
         if exit_callback(active_jobs):
             break
@@ -62,7 +50,7 @@ def main(exit_callback=lambda _: False):  # pragma: no cover
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(api: ExecutorAPI | None):
+def handle_jobs():
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -93,7 +81,7 @@ def handle_jobs(api: ExecutorAPI | None):
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            handle_single_job(job, api)
+            handle_single_job(job)
 
         # Add running jobs to the workspace count
         if job.state == State.RUNNING:
@@ -104,60 +92,21 @@ def handle_jobs(api: ExecutorAPI | None):
     return handled_jobs
 
 
-# we do not control the transition from these states, the executor does
-STABLE_STATES = [
-    ExecutorState.PREPARING,
-    ExecutorState.EXECUTING,
-    ExecutorState.FINALIZING,
-]
-
-# map ExecutorState to StatusCode
-STATE_MAP = {
-    ExecutorState.PREPARING: (
-        StatusCode.PREPARING,
-        "Preparing your code and workspace files",
-    ),
-    ExecutorState.PREPARED: (
-        StatusCode.PREPARED,
-        "Prepared and ready to run",
-    ),
-    ExecutorState.EXECUTING: (
-        StatusCode.EXECUTING,
-        "Executing job on the backend",
-    ),
-    ExecutorState.EXECUTED: (
-        StatusCode.EXECUTED,
-        "Job has finished executing and is waiting to be finalized",
-    ),
-    ExecutorState.FINALIZING: (
-        StatusCode.FINALIZING,
-        "Recording job results",
-    ),
-    ExecutorState.FINALIZED: (
-        StatusCode.FINALIZED,
-        "Finished recording results",
-    ),
-}
-
-
-def handle_single_job(job, api):
+def handle_single_job(job):
     """The top level handler for a job.
 
     Mainly exists to wrap the job handling in an exception handler.
     """
     # we re-read the flags before considering each job, so make sure they apply
     # as soon as possible when set.
+    # TODO: These flags are going to need to be set per-backend so we'll need to figure
+    # out how to do that and then retrive the values for the backend associated with
+    # each job
     mode = get_flag_value("mode")
     paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
-        synchronous_transition = trace_handle_job(job, api, mode, paused)
-
-        # provide a way to shortcut moving a job on to the next state right away
-        # this is intended to support executors where some state transitions
-        # are synchronous, particularly the local executor where prepare is
-        # synchronous and can be time consuming.
-        if synchronous_transition:
-            trace_handle_job(job, api, mode, paused)
+        with transaction():
+            trace_handle_job(job, mode, paused)
     except Exception as exc:
         mark_job_as_failed(
             job,
@@ -177,7 +126,7 @@ def handle_single_job(job, api):
         raise
 
 
-def trace_handle_job(job, api, mode, paused):
+def trace_handle_job(job, mode, paused):
     """Call handle job with tracing."""
     attrs = {
         "initial_state": job.state.name,
@@ -187,7 +136,7 @@ def trace_handle_job(job, api, mode, paused):
     with tracer.start_as_current_span("LOOP_JOB") as span:
         tracing.set_span_metadata(span, job, **attrs)
         try:
-            synchronous_transition = handle_job(job, api, mode, paused)
+            handle_job(job, mode, paused)
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
@@ -196,10 +145,8 @@ def trace_handle_job(job, api, mode, paused):
             span.set_attribute("final_state", job.state.name)
             span.set_attribute("final_code", job.status_code.name)
 
-    return synchronous_transition
 
-
-def handle_job(job, api, mode=None, paused=None):
+def handle_job(job, mode=None, paused=None):
     """Handle an active job.
 
     This contains the main state machine logic for a job. For the most part,
@@ -208,111 +155,40 @@ def handle_job(job, api, mode=None, paused=None):
     well as supporting cancellation and various operational modes.
     """
     assert job.state in (State.PENDING, State.RUNNING)
-    job_definition = job_to_job_definition(job)
 
-    # does this api have synchronous_transitions?
-    synchronous_transitions = getattr(api, "synchronous_transitions", [])
-    is_synchronous = False
-
-    # only consider these modes if we are not about to cancel the job
-    if not job_definition.cancelled:
-        # handle special modes before considering executor state, as they ignore it
-        if paused:
-            if job.state == State.PENDING:
-                # do not start the job, keep it pending
-                set_code(
-                    job,
-                    StatusCode.WAITING_PAUSED,
-                    "Backend is currently paused for maintenance, job will start once this is completed",
-                )
-                return
-
-        if mode == "db-maintenance" and job_definition.allow_database_access:
-            if job.state == State.RUNNING:
-                log.warning(f"DB maintenance mode active, killing db job {job.id}")
-                # we ignore the JobStatus returned from these API calls, as this is not a hard error
-                api.terminate(job_definition)
-                api.cleanup(job_definition)
-
-            # reset state to pending and exit
-            set_code(
-                job,
-                StatusCode.WAITING_DB_MAINTENANCE,
-                "Waiting for database to finish maintenance",
-            )
-            return
-
-    try:
-        initial_status = api.get_status(job_definition)
-    except ExecutorRetry as retry:
-        job_retries = EXECUTOR_RETRIES.get(job.id, 0) + 1
-        EXECUTOR_RETRIES[job.id] = job_retries
-        span = trace.get_current_span()
-        span.set_attribute("executor_retry", True)
-        span.set_attribute("executor_retry_message", str(retry))
-        span.set_attribute("executor_retry_count", job_retries)
-        log.info(f"ExecutorRetry: {retry}")
-        return
-    else:
-        EXECUTOR_RETRIES.pop(job.id, None)
-
-    # cancelled is driven by user request, so is handled explicitly first
-    if job_definition.cancelled:
-        # if initial_status.state == ExecutorState.EXECUTED the job has already finished, so we
-        # don't need to do anything here
-        if initial_status.state == ExecutorState.EXECUTING:
-            api.terminate(job_definition)  # synchronous operation
-            new_status = api.get_status(job_definition)
-            new_statuscode, _default_message = STATE_MAP[new_status.state]
-            set_code(job, new_statuscode, "Cancelled whilst executing")
-            return
-        if initial_status.state == ExecutorState.PREPARED:
-            set_code(
-                job,
-                StatusCode.FINALIZED,
-                "Cancelled whilst prepared",
-            )
-            # Nb. no need to actually run finalize() in this case
-            return
-        if initial_status.state == ExecutorState.UNKNOWN:
-            mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
-            return
-
-    # check if we've transitioned since we last checked and trace it.
-    if initial_status.state in STATE_MAP:
-        initial_code, initial_message = STATE_MAP[initial_status.state]
-        if initial_code != job.status_code:
-            set_code(
-                job,
-                initial_code,
-                initial_message,
-                timestamp_ns=initial_status.timestamp_ns,
-            )
-
-    # handle the simple no change needed states.
-    if initial_status.state in STABLE_STATES:
-        if job.state == State.PENDING:  # pragma: no cover
-            log.warning(
-                f"state error: got {initial_status.state} for a job we thought was PENDING"
-            )
-        # no action needed, simply update job message and timestamp, which is likely a no-op
-        code, message = STATE_MAP[initial_status.state]
-        set_code(job, code, message)
+    # Cancellation is driven by user request, so is handled explicitly first
+    if job.cancelled:
+        cancel_job(job)
+        mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
         return
 
-    if initial_status.state == ExecutorState.ERROR:
-        # something has gone wrong since we last checked
-        raise ExecutorError(initial_status.message)
-
-    # ok, handle the state transitions that are our responsibility
-    if initial_status.state == ExecutorState.UNKNOWN:
-        # a new job
-        if job.state == State.RUNNING:  # pragma: no cover
-            log.warning(
-                "state error: got UNKNOWN state for a job we thought was RUNNING"
+    # Handle special modes. TODO: These need to be made backend-specific
+    if paused:
+        if job.state == State.PENDING:
+            # Do not start the job, keep it pending
+            set_code(
+                job,
+                StatusCode.WAITING_PAUSED,
+                "Backend is currently paused for maintenance, job will start once this is completed",
             )
+            return
 
-        # check dependencies
+    if mode == "db-maintenance" and job.requires_db:
+        if job.state == State.RUNNING:
+            log.warning(f"DB maintenance mode active, killing db job {job.id}")
+            cancel_job(job)
+
+        # Reset state to pending and exit
+        set_code(
+            job,
+            StatusCode.WAITING_DB_MAINTENANCE,
+            "Waiting for database to finish maintenance",
+        )
+        return
+
+    # A new job, which may or may not be ready to start
+    if job.state == State.PENDING:
+        # Check states of jobs we're depending on
         awaited_states = get_states_of_awaited_jobs(job)
         if State.FAILED in awaited_states:
             mark_job_as_failed(
@@ -330,111 +206,30 @@ def handle_job(job, api, mode=None, paused=None):
             )
             return
 
-        # Temporary fix to reintroduce concurrency limits lost in the move to
-        # the executor API. Ideally this should be the responsiblity of the
-        # executor, but implementing that for the local executor requries some
-        # work
+        # Give me ONE GOOD REASON why I shouldn't start you running right now!
         not_started_reason = get_reason_job_not_started(job)
         if not_started_reason:
             code, message = not_started_reason
             set_code(job, code, message)
             return
 
-        if ExecutorState.PREPARING in synchronous_transitions:
-            # prepare is synchronous, which means set our code to PREPARING
-            # before calling  api.prepare(), and we expect it to be PREPARED
-            # when finished
-            code, message = STATE_MAP[ExecutorState.PREPARING]
-            set_code(job, code, message)
-            expected_state = ExecutorState.PREPARED
-            is_synchronous = True
-        else:
-            expected_state = ExecutorState.PREPARING
-
-        new_status = api.prepare(job_definition)
-
-    elif initial_status.state == ExecutorState.PREPARED:
-        expected_state = ExecutorState.EXECUTING
-        new_status = api.execute(job_definition)
-
-    elif initial_status.state == ExecutorState.EXECUTED:
-        if ExecutorState.FINALIZING in synchronous_transitions:
-            # finalize is synchronous, which means set our code to FINALIZING
-            # before calling  api.finalize(), and we expect it to be FINALIZED
-            # when finished
-            code, message = STATE_MAP[ExecutorState.FINALIZING]
-            set_code(job, code, message)
-            expected_state = ExecutorState.FINALIZED
-            is_synchronous = True
-        else:
-            expected_state = ExecutorState.FINALIZING
-
-        new_status = api.finalize(job_definition)
-
-    elif initial_status.state == ExecutorState.FINALIZED:  # pragma: no branch
-        # Cancelled jobs that have had cleanup() should now be again set to cancelled here to ensure
-        # they finish in the FAILED state
-        if job_definition.cancelled:
-            mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
-            api.cleanup(job_definition)
-            return
-
-        # final state - we have finished!
-        results = api.get_results(job_definition)
-
-        save_results(job, job_definition, results)
-        obsolete = get_obsolete_files(job_definition, results.outputs)
-
-        # nb. obsolete is always empty due to a bug - see
-        # https://github.com/opensafely-core/job-runner/issues/750
-        if obsolete:  # pragma: no cover
-            errors = api.delete_files(job_definition.workspace, Privacy.HIGH, obsolete)
-            if errors:
-                log.error(
-                    f"Failed to delete high privacy files from workspace {job_definition.workspace}: {errors}"
-                )
-            api.delete_files(job_definition.workspace, Privacy.MEDIUM, obsolete)
-            if errors:
-                log.error(
-                    f"Failed to delete medium privacy files from workspace {job_definition.workspace}: {errors}"
-                )
-
-        api.cleanup(job_definition)
-
-        # we are done here
-        return
-
-    # following logic is common to all non-final transitions
-
-    if new_status.state == initial_status.state:
-        # no change in state, i.e. back pressure
-        set_code(
-            job,
-            StatusCode.WAITING_ON_WORKERS,
-            "Waiting on available resources",
-        )
-
-    elif new_status.state == expected_state:
-        # successful state change to the expected next state
-        code, message = STATE_MAP[new_status.state]
-        set_code(job, code, message)
-
-        # we want to immediately run this function for this job again to
-        # avoid blocking it as we know the state transition has already
-        # completed.
-        return is_synchronous
-
-    elif new_status.state == ExecutorState.ERROR:
-        # all transitions can go straight to error
-        raise ExecutorError(new_status.message)
-
+        start_job(job)
+        set_code(job, StatusCode.EXECUTING, "Executing job on the backend")
     else:
-        raise InvalidTransition(
-            f"unexpected state transition of job {job.id} from {initial_status.state} to {new_status.state}: {new_status.message}"
-        )
+        assert job.state == State.RUNNING
+        task = get_task_for_job(job)
+        assert task is not None
+        if task.agent_complete:
+            if job_error := task.agent_results.get("error"):
+                # Handled elsewhere
+                raise PlatformError(job_error)
+            else:
+                job_results = JobResults.from_dict(task.agent_results)
+                save_results(job, job_results)
+                # TODO: Delete obsolete files
 
 
-def save_results(job, job_definition, results):
+def save_results(job, results):
     """Extract the results of the execution and update the job accordingly."""
     # save job outputs
     job.outputs = results.outputs
@@ -447,11 +242,11 @@ def save_results(job, job_definition, results):
         code = StatusCode.NONZERO_EXIT
         error = True
         message = "Job exited with an error"
-        if results.message:  # pragma: no cover
+        if results.message:
             message += f": {results.message}"
-        elif job_definition.allow_database_access:
+        elif job.requires_db:
             error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
-            if error_msg:  # pragma: no cover
+            if error_msg:
                 message += f": {error_msg}"
 
     elif results.unmatched_patterns:
@@ -475,46 +270,17 @@ def save_results(job, job_definition, results):
     set_code(job, code, message, error=error, results=results)
 
 
-def get_obsolete_files(job_definition, outputs):
-    """Get files that need to be deleted.
-
-    These are files that we previously output by this action but were not
-    output by the latest execution of it, so they've been removed or renamed.
-
-    It does case insenstive comparison, as we don't know the the filesystems
-    these will end up being stored on.
-    """
-    keep_files = {str(name).lower() for name in outputs}
-    obsolete = []
-
-    for existing in list_outputs_from_action(
-        job_definition.workspace, job_definition.action
-    ):
-        name = str(existing).lower()
-        if name not in keep_files:  # pragma: no cover
-            obsolete.append(str(existing))
-    return obsolete
-
-
 def job_to_job_definition(job):
     allow_database_access = False
-    env = {"OPENSAFELY_BACKEND": config.BACKEND}
+    env = {"OPENSAFELY_BACKEND": job.backend}
     if job.requires_db:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
-            env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
-            if config.TEMP_DATABASE_NAME:  # pragma: no cover
-                env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
-            if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:  # pragma: no cover
-                env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
-                env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
-            if config.EMIS_ORGANISATION_HASH:  # pragma: no cover
-                env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
     # Prepend registry name
     action_args = job.action_args
     image = action_args.pop(0)
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
-    if image.startswith("stata-mp"):  # pragma: no cover
+    if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 
     # Jobs which are running reusable actions pull their code from the reusable
@@ -532,11 +298,6 @@ def job_to_job_definition(job):
     for privacy_level, named_patterns in job.output_spec.items():
         for name, pattern in named_patterns.items():
             outputs[pattern] = privacy_level
-
-    if job.cancelled:
-        job_definition_cancelled = "user"
-    else:
-        job_definition_cancelled = None
 
     return JobDefinition(
         id=job.id,
@@ -558,8 +319,7 @@ def job_to_job_definition(job):
         memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
         level4_max_filesize=config.LEVEL4_MAX_FILESIZE,
         level4_max_csv_rows=config.LEVEL4_MAX_CSV_ROWS,
-        level4_file_types=config.LEVEL4_FILE_TYPES,
-        cancelled=job_definition_cancelled,
+        level4_file_types=list(config.LEVEL4_FILE_TYPES),
     )
 
 
@@ -581,9 +341,7 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
     set_code(job, code, message, error=error, **attrs)
 
 
-def set_code(
-    job, new_status_code, message, error=None, results=None, timestamp_ns=None, **attrs
-):
+def set_code(job, new_status_code, message, error=None, results=None, **attrs):
     """Set the granular status code state.
 
     We also trace this transition with OpenTelemetry traces.
@@ -594,17 +352,14 @@ def set_code(
     collisions when states transition in <1s. Due to this, timestamp parameter
     should be the output of time.time() i.e. a float representing seconds.
     """
-    if timestamp_ns is None:
-        t = time.time()
-        timestamp_s = int(t)
-        timestamp_ns = int(t * 1e9)
-    else:
-        timestamp_s = int(timestamp_ns / 1e9)
+    t = time.time()
+    timestamp_s = int(t)
+    timestamp_ns = int(t * 1e9)
 
     # if status code has changed then trace it and update
     if job.status_code != new_status_code:
         # handle timer measurement errors
-        if job.status_code_updated_at > timestamp_ns:  # pragma: no cover
+        if job.status_code_updated_at > timestamp_ns:
             # we somehow have a negative duration, which honeycomb does funny things with.
             # This can happen in tests, where things are fast, but we've seen it in production too.
             duration = datetime.timedelta(
@@ -619,7 +374,11 @@ def set_code(
             timestamp_s = int(timestamp_ns // 1e9)
 
         # update coarse state and timings for user
-        if new_status_code in [StatusCode.PREPARED, StatusCode.PREPARING]:
+        if new_status_code in [
+            StatusCode.PREPARED,
+            StatusCode.PREPARING,
+            StatusCode.EXECUTING,
+        ]:
             # we've started running
             job.state = State.RUNNING
             job.started_at = timestamp_s
@@ -670,7 +429,7 @@ def set_code(
     # If the status message hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
     # active without writing to the database every single time we poll
-    elif timestamp_s - job.updated_at >= 60:  # pragma: no cover
+    elif timestamp_s - job.updated_at >= 60:
         job.updated_at = timestamp_s
         log.debug("Updating job timestamp")
         update_job(job)
@@ -692,7 +451,7 @@ def get_reason_job_not_started(job):
     )
     required_resources = get_job_resource_weight(job)
     if used_resources + required_resources > config.MAX_WORKERS:
-        if required_resources > 1:  # pragma: no cover
+        if required_resources > 1:
             return (
                 StatusCode.WAITING_ON_WORKERS,
                 "Waiting on available workers for resource intensive job",
@@ -708,18 +467,6 @@ def get_reason_job_not_started(job):
                 "Waiting on available database workers",
             )
 
-    if os.environ.get("FUNTIMES", False):  # pragma: no cover
-        # allow any db job to run
-        if job.requires_db:
-            return None
-
-        # allow OSI non-db jobs to run
-        if job.workspace.endswith("-interactive"):
-            return None
-
-        # nope all other jobs
-        return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
-
 
 def list_outputs_from_action(workspace, action):
     for job in calculate_workspace_state(workspace):
@@ -730,11 +477,12 @@ def list_outputs_from_action(workspace, action):
     return []
 
 
-def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):
+def get_job_resource_weight(job, weights=None):
     """
     Get the job's resource weight by checking its workspace and action against
     the config file, default to 1 otherwise
     """
+    weights = weights or config.JOB_RESOURCE_WEIGHTS
     action_patterns = weights.get(job.workspace)
     if action_patterns:
         for pattern, weight in action_patterns.items():
@@ -749,7 +497,54 @@ def update_job(job):
     update(job, exclude_fields=["cancelled"])
 
 
-if __name__ == "__main__":  # pragma: no cover
+def start_job(job):
+    insert_task(create_task_for_job(job))
+
+
+def create_task_for_job(job):
+    previous_tasks = find_where(Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB)
+    assert all(t.active is False for t in previous_tasks)
+    task_number = len(previous_tasks) + 1
+    return Task(
+        # Zero-pad the task number so tasks sort lexically
+        id=f"{job.id}-{task_number:03}",
+        type=TaskType.RUNJOB,
+        definition=job_to_job_definition(job).to_dict(),
+        backend=job.backend,
+    )
+
+
+def get_task_for_job(job):
+    # TODO: I think jobs need to store the ID of the task they are currently associated
+    # with. But for now, it works to always get the most recently created task for a
+    # given job.
+    tasks = find_where(Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB)
+    # Task IDs are constructed such that, for a given job, lexical order matches
+    # creation order
+    tasks.sort(key=lambda t: t.id)
+    if tasks:
+        assert all(not t.active for t in tasks[:-1])
+        return tasks[-1]
+    else:
+        return None
+
+
+def cancel_job(job):
+    runjob_task = get_task_for_job(job)
+    if not runjob_task or not runjob_task.active:
+        return
+    mark_task_inactive(runjob_task)
+    canceljob_task = Task(
+        id=f"{runjob_task.id}-cancel",
+        type=TaskType.CANCELJOB,
+        definition=job_to_job_definition(job).to_dict(),
+        # TODO: Uncomment this when Job grows a `backend` field
+        backend="",  # job.backend,
+    )
+    insert_task(canceljob_task)
+
+
+if __name__ == "__main__":
     configure_logging()
 
     try:

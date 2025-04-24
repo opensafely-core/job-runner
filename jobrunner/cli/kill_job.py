@@ -4,11 +4,11 @@ Ops utility for killing jobs and cleaning up containers and volumes
 
 import argparse
 
+from jobrunner.controller.main import job_to_job_definition, mark_job_as_failed
 from jobrunner.executors import local
 from jobrunner.job_executor import JobResults
 from jobrunner.lib import database, docker
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.run import job_to_job_definition, mark_job_as_failed
 
 
 def main(partial_job_ids, cleanup=False):
@@ -98,5 +98,5 @@ def run():  # pragma: no cover
     main(**vars(args))
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     run()
