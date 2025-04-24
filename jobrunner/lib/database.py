@@ -156,7 +156,7 @@ def transaction():
     # We're relying here on the fact that because of the lru_cache,
     # `get_connection` actually returns the same connection instance every time
     conn = get_connection()
-    conn.execute("BEGIN")
+    conn.execute("BEGIN IMMEDIATE")
     return conn
 
 
@@ -192,6 +192,15 @@ def get_connection(filename=None):
         # some other process to write the db (e.g. a backfill), then we should
         # stop job-runner.
         conn.execute("PRAGMA journal_mode=WAL")
+        # These settings give much better write performance than the default
+        # without sacrificing consistency guarantees
+        conn.execute("PRAGMA synchronous = NORMAL")
+        # How long (in ms) to let one write transaction wait for another
+        conn.execute("PRAGMA busy_timeout = 5000")
+        # The default cache size is 2MB but we can afford more! Note negative
+        # values set cache size in KB, positive numbers set it by number of
+        # database pages
+        conn.execute("PRAGMA cache_size = -256000")
 
     return cache[filename]
 
