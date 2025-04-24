@@ -54,6 +54,7 @@ _dotenv:
       echo "No '.env' file found; creating a default '.env' from 'dotenv-sample'"
       cp dotenv-sample .env
       ./local-setup.sh
+      echo "Rerun command to load new .env"
     fi
 
 # Ensure dev and prod requirements installed and up to date
