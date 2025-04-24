@@ -200,7 +200,6 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
     action_spec = get_action_specification(
         pipeline_config,
         action,
-        using_dummy_data_backend=config.USING_DUMMY_DATA_BACKEND,
     )
 
     # Walk over the dependencies of this action, creating any necessary jobs,

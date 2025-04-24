@@ -6,8 +6,6 @@ from pipeline.exceptions import ProjectValidationError
 from pipeline.models import Action
 from pipeline.outputs import get_output_dirs
 
-from jobrunner.lib.path_utils import ensure_unix_path
-
 
 class UnknownActionError(ProjectValidationError):
     pass
@@ -22,7 +20,7 @@ class ActionSpecification:
     action: Action
 
 
-def get_action_specification(config, action_id, using_dummy_data_backend=False):
+def get_action_specification(config, action_id):
     """Get a specification for the action from the project.
 
     Args:
@@ -56,18 +54,6 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
 
     # Special case handling for the `cohortextractor generate_cohort` command
     if is_cohortextractor_generate_cohort(run_parts):
-        # Set the size of the dummy data population, if that's what we're
-        # generating.  Possibly this should be moved to the study definition
-        # anyway, which would make this unnecessary.
-        if using_dummy_data_backend:
-            if action_spec.dummy_data_file is not None:
-                run_parts.append(
-                    f"--dummy-data-file={ensure_unix_path(action_spec.dummy_data_file)}"
-                )
-            else:
-                size = config.expectations.population_size
-                run_parts.append(f"--expectations-population={size}")
-
         output_dirs = get_output_dirs(action_spec.outputs)
 
         if len(output_dirs) == 1:  # pragma: no branch
