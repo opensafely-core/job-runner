@@ -502,7 +502,9 @@ def start_job(job):
 
 
 def create_task_for_job(job):
-    previous_tasks = find_where(Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB)
+    previous_tasks = find_where(
+        Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB, backend=job.backend
+    )
     assert all(t.active is False for t in previous_tasks)
     task_number = len(previous_tasks) + 1
     return Task(
@@ -518,7 +520,9 @@ def get_task_for_job(job):
     # TODO: I think jobs need to store the ID of the task they are currently associated
     # with. But for now, it works to always get the most recently created task for a
     # given job.
-    tasks = find_where(Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB)
+    tasks = find_where(
+        Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB, backend=job.backend
+    )
     # Task IDs are constructed such that, for a given job, lexical order matches
     # creation order
     tasks.sort(key=lambda t: t.id)
