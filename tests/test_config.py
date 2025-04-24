@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from jobrunner.config.agent import _is_valid_backend_name, database_urls_from_env
+from jobrunner.config.agent import database_urls_from_env
 
 
 script = """
@@ -94,6 +94,13 @@ def test_config_presto_paths_not_exist(tmp_path):
     assert "PRESTO_TLS_CERT_PATH=cert.notexists" in str(err.value.stderr)
 
 
+def test_config_bad_backend():
+    with pytest.raises(subprocess.CalledProcessError) as err:
+        import_cfg({"BACKEND": "foo"})
+    assert "BACKEND foo is not valid" in str(err.value.stderr)
+    import_cfg({"BACKEND": "test"})
+
+
 @pytest.mark.parametrize(
     "env_value,expected",
     [
@@ -107,19 +114,6 @@ def test_config_presto_paths_not_exist(tmp_path):
 def test_config_truthy(env_value, expected):
     cfg = import_cfg({"USING_DUMMY_DATA_BACKEND": env_value})
     assert cfg["USING_DUMMY_DATA_BACKEND"] == str(expected)
-
-
-@pytest.mark.parametrize(
-    "name,is_valid",
-    [
-        ("foo_BAR-1", True),
-        ("foo_BAR-", False),
-        (" foo", False),
-        ("foo@bar", False),
-    ],
-)
-def test_is_valid_backend_name(name, is_valid):
-    assert _is_valid_backend_name(name) == is_valid
 
 
 def test_database_urls_from_env():

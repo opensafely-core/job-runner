@@ -22,11 +22,6 @@ JOB_SERVER_TOKEN = os.environ.get("JOB_SERVER_TOKEN", "token")
 
 POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
 
-
-# TODO Add a BACKENDS config and validate each job is from a known backend
-# We'll also use the BACKENDS config for looping through BACKENDS in sync
-BACKENDS = []
-
 ALLOWED_IMAGES = {
     "cohortextractor",
     "databuilder",

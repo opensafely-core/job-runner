@@ -1,5 +1,5 @@
 # The name of this backend
-BACKEND=local
+BACKEND=test
 USING_DUMMY_DATA_BACKEND=True
 
 # The endpoint to poll for jobs

@@ -129,6 +129,12 @@ def validate_job_request(job_request):
             "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
         )
 
+    if job_request.backend not in common_config.BACKENDS:
+        raise JobRequestError(
+            f"Invalid backend '{job_request.backend}', allowed are: "
+            + ", ".join(common_config.BACKENDS)
+        )
+
     if job_request.database_name not in common_config.VALID_DATABASE_NAMES:
         raise JobRequestError(
             f"Invalid database name '{job_request.database_name}', allowed are: "

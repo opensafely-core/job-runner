@@ -2,6 +2,14 @@ import os
 from pathlib import Path
 
 
+# A list of known available backends
+# The controller uses this to:
+# - validate each job is from a known backend
+# - looping through BACKENDS in sync
+# The agent uses it to validate its BACKEND config
+BACKENDS = ["test", "tpp", "emis"]
+
+
 # Used for tracing in both agent and controller
 VERSION = os.environ.get("VERSION", "")
 
