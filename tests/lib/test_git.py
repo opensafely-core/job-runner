@@ -249,28 +249,38 @@ def test_commit_fetch_retry_unexpected_error(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "repo_url,token,expected",
+    "repo_url,token,backend,expected",
     [
+        # uses agent BACKEND in username
         (
             "https://github.com/org/repo",
             "token",
+            "test",
             "https://jobrunner-test:token@proxy.com/org/repo",
         ),
+        # no BACKEND, uses ctrl (for controller) in username
+        (
+            "https://github.com/org/repo",
+            "token",
+            None,
+            "https://jobrunner-ctrl:token@proxy.com/org/repo",
+        ),
         # no token, return without username/pass
-        ("https://github.com/org/repo", "", "https://proxy.com/org/repo"),
+        ("https://github.com/org/repo", "", "test", "https://proxy.com/org/repo"),
         # no https, return without username/pass
-        ("http://github.com/org/repo", "token", "http://proxy.com/org/repo"),
+        ("http://github.com/org/repo", "token", "test", "http://proxy.com/org/repo"),
         # already includes username/pass, don't update
         (
             "https://user:pass@github.com/org/repo",
             "token",
+            "test",
             "https://user:pass@proxy.com/org/repo",
         ),
     ],
 )
-def test_add_access_token_and_proxy(repo_url, token, expected, monkeypatch):
+def test_add_access_token_and_proxy(repo_url, token, backend, expected, monkeypatch):
     monkeypatch.setattr("jobrunner.config.common.GIT_PROXY_DOMAIN", "proxy.com")
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "test")
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", backend)
     monkeypatch.setattr("jobrunner.config.common.PRIVATE_REPO_ACCESS_TOKEN", token)
 
     assert add_access_token_and_proxy(repo_url) == expected

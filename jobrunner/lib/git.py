@@ -46,6 +46,14 @@ class GitUnknownRefError(GitError):
     pass
 
 
+def get_github_username():
+    # If we have an agent BACKEND set, use that as the github user
+    if agent_config.BACKEND:
+        return f"jobrunner-{agent_config.BACKEND}"
+    # If there is no agent BACKEND set, assume we are the controller
+    return "jobrunner-ctrl"
+
+
 def read_file_from_repo(repo_url, commit_sha, path):
     """
     Return the contents of the file at `path` in `repo_url` as of `commit_sha`
@@ -333,7 +341,7 @@ def add_access_token_and_proxy(repo_url):
         return repo_url
     # Github accepts arbitrary usernames when using a PAT so this is just for
     # easy identification in the proxy logs
-    username = f"jobrunner-{agent_config.BACKEND}"
+    username = get_github_username()
     # Add the token to the URL
     return urlunparse(parsed._replace(netloc=f"{username}:{token}@{parsed.netloc}"))
 
