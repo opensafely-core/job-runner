@@ -23,6 +23,7 @@ def get_provider():
     resource = Resource.create(
         attributes={
             "service.name": os.environ.get("OTEL_SERVICE_NAME", "jobrunner"),
+            # Note this will be set in the agent only
             "service.namespace": os.environ.get("BACKEND", "unknown"),
             "service.version": VERSION,
         }
