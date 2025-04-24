@@ -9,6 +9,7 @@ env:
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
 
 jobs:
+
   check:
     runs-on: ubuntu-22.04
 
@@ -51,11 +52,14 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-22.04' }}
         run: |
           echo "$PYTHON_VERSION"
+          just devenv
           just test -vvv
 
       - name: Run actual tests on macos
         if: ${{ matrix.os == 'macos-14' }}
-        run: just test-no-docker -vvv
+        run: |
+          just devenv
+          just test-no-docker -vvv
 
   test-docker:
     runs-on: ubuntu-22.04

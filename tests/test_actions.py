@@ -57,13 +57,11 @@ def test_get_action_specification_for_cohortextractor_generate_cohort_action():
         }
     )
 
-    action_spec = get_action_specification(
-        config, "generate_cohort", using_dummy_data_backend=True
-    )
+    action_spec = get_action_specification(config, "generate_cohort")
 
     assert (
         action_spec.run
-        == """cohortextractor:latest generate_cohort --expectations-population=1000 --output-dir=output"""
+        == """cohortextractor:latest generate_cohort --output-dir=output"""
     )
 
 
@@ -104,73 +102,6 @@ def test_get_action_specification_with_config():
     # by default. sys.argv[0] is the script name (either with or without a path,
     # depending on the OS) so we slice obs_run_command to mimic this.
     parser.parse_args(shlex.split(action_spec.run)[2:])
-
-
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="ActionSpecification is only used to build commands for Docker",
-)
-def test_get_action_specification_with_dummy_data_file_flag(tmp_path):
-    dummy_data_file = tmp_path / "test.csv"
-    with dummy_data_file.open("w") as f:
-        f.write("test")
-
-    config = Pipeline.build(
-        **{
-            "version": 1,
-            "actions": {
-                "generate_cohort": {
-                    "run": "cohortextractor:latest generate_cohort",
-                    "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                    "dummy_data_file": str(dummy_data_file),
-                }
-            },
-        }
-    )
-
-    action_spec = get_action_specification(
-        config,
-        "generate_cohort",
-        using_dummy_data_backend=True,
-    )
-
-    expected = " ".join(
-        [
-            "cohortextractor:latest",
-            "generate_cohort",
-            f"--dummy-data-file={dummy_data_file}",
-            "--output-dir=output",
-        ]
-    )
-    assert action_spec.run == expected
-
-
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="ActionSpecification is only used to build commands for Docker",
-)
-def test_get_action_specification_without_dummy_data_file_flag(tmp_path):
-    dummy_data_file = tmp_path / "test.csv"
-    with dummy_data_file.open("w") as f:
-        f.write("test")
-
-    config = Pipeline.build(
-        **{
-            "version": 1,
-            "actions": {
-                "generate_cohort": {
-                    "run": "cohortextractor:latest generate_cohort",
-                    "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                    "dummy_data_file": str(dummy_data_file),
-                }
-            },
-        }
-    )
-
-    action_spec = get_action_specification(config, "generate_cohort")
-
-    expected = "cohortextractor:latest generate_cohort --output-dir=output"
-    assert action_spec.run == expected
 
 
 @pytest.mark.skipif(

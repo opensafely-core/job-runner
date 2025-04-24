@@ -3,7 +3,7 @@ import re
 import sys
 from pathlib import Path
 
-from jobrunner.config.common import WORKDIR
+from jobrunner.config.common import VALID_DATABASE_NAMES, WORKDIR
 
 
 class ConfigException(Exception):
@@ -19,29 +19,27 @@ METRICS_FILE = WORKDIR / "metrics.sqlite"
 # valid archive formats
 ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
 
-BACKEND = os.environ.get("BACKEND", "expectations")
+BACKEND = os.environ.get("BACKEND", "dummy")
 if not _is_valid_backend_name(BACKEND):
     raise RuntimeError(f"BACKEND not in valid format: '{BACKEND}'")  # pragma: no cover
 
 truthy = ("true", "1", "yes")
 
-# TODO: Both need this; the controller can pass to the agent in the task
-# however, the agent will also need it if adding jobs via CLI
-# When creating a task, controller will need to check this AND backend==expectations
 if os.environ.get("USING_DUMMY_DATA_BACKEND", "false").lower().strip() in truthy:
-    USING_DUMMY_DATA_BACKEND = True  # pragma: no cover
+    USING_DUMMY_DATA_BACKEND = True
 else:
-    USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
+    # this branch is tested in tests/test_config.py but via subprocess so it isn't registered by coverage
+    USING_DUMMY_DATA_BACKEND = False  # pragma: no cover
 
 
-# TODO Agent only; controller should pass database name only in env, agent should construct the DB url
+# Agent only; the controller passes database name only in env, agent constructs the DB url
+# from [NAME]_DATABASE_URL env variables available only inside the backend
 def database_urls_from_env(env):
-    db_names = ["default", "include_t1oo"]
     return {
         db_name: db_url
         for db_name, db_url in [
             (db_name, env.get(f"{db_name.upper()}_DATABASE_URL"))
-            for db_name in db_names
+            for db_name in VALID_DATABASE_NAMES
         ]
         if db_url
     }

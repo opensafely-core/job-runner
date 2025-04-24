@@ -374,7 +374,6 @@ def test_handle_job_finalized_failed_with_error(db):
 
 @pytest.fixture
 def backend_db_config(monkeypatch):
-    monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
     # for test jobs, job.database_name is None, so add a dummy connection
     # string for that db
     monkeypatch.setitem(agent_config.DATABASE_URLS, None, "conn str")

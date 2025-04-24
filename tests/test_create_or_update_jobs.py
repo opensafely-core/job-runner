@@ -25,7 +25,6 @@ from tests.factories import job_request_factory_raw
 @pytest.fixture(autouse=True)
 def disable_github_org_checking(monkeypatch):
     monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
-    monkeypatch.setattr("jobrunner.config.controller.USING_DUMMY_DATA_BACKEND", True)
 
 
 # Basic smoketest to test the full execution path
@@ -41,7 +40,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
         cancelled_actions=[],
         workspace="1",
         codelists_ok=True,
-        database_name="dummy",
+        database_name="default",
         original=dict(
             created_by="user",
             project="project",
@@ -60,8 +59,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
     assert old_job.wait_for_job_ids == []
     assert old_job.requires_outputs_from == []
     assert old_job.run_command == (
-        "cohortextractor:latest generate_cohort --expectations-population=1000"
-        " --output-dir=."
+        "cohortextractor:latest generate_cohort --output-dir=."
     )
     assert old_job.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
     assert old_job.backend == "test"
@@ -85,7 +83,7 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
         cancelled_actions=[],
         workspace="1",
         codelists_ok=True,
-        database_name="dummy",
+        database_name="default",
         original=dict(
             created_by="user",
             project="project",
@@ -124,7 +122,7 @@ def test_create_or_update_jobs_with_unhandled_error(tmp_work_dir, db):
         cancelled_actions=[],
         workspace="1",
         codelists_ok=True,
-        database_name="dummy",
+        database_name="default",
         original=dict(
             created_by="user",
             project="project",
@@ -310,12 +308,6 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
             GithubValidationError,
         ),
         (
-            {"agent": {"DATABASE_URLS": {"default": None}}},
-            {},
-            "not currently defined for backend",
-            JobRequestError,
-        ),
-        (
             {"controller": {"ALLOWED_GITHUB_ORGS": ["test"]}},
             {"repo_url": "https://github.com/test"},
             "Repository URL was not of the expected format",
@@ -324,7 +316,6 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     ],
 )
 def test_validate_job_request(patch_config, params, exc_msg, exc_cls, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.controller.USING_DUMMY_DATA_BACKEND", False)
     for config_type, config_items in patch_config.items():
         for config_key, config_value in config_items.items():
             monkeypatch.setattr(

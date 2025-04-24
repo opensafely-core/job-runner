@@ -164,8 +164,9 @@ def test_sync_empty_response(db, monkeypatch, requests_mock):
     monkeypatch.setattr(
         "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "test")
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=expectations",
+        "http://testserver/api/v2/job-requests/?backend=test",
         json={
             "results": [],
         },

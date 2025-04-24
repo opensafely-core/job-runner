@@ -34,7 +34,7 @@ def test_integration(
 ):
     api = get_executor_api()
 
-    monkeypatch.setattr("jobrunner.config.controller.USING_DUMMY_DATA_BACKEND", True)
+    monkeypatch.setattr("jobrunner.config.agent.USING_DUMMY_DATA_BACKEND", True)
     monkeypatch.setattr(
         "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
@@ -43,6 +43,8 @@ def test_integration(
     # Ensure that we have enough workers to start the jobs we expect in the test
     # (CI may have fewer actual available workers than this)
     monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", 4)
+
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy")
 
     ensure_docker_images_present("ehrql:v1", "python")
 
@@ -62,7 +64,7 @@ def test_integration(
             "branch": "HEAD",
         },
         "codelists_ok": True,
-        "database_name": "dummy",
+        "database_name": "default",
         "sha": test_repo.commit,
         "created_by": "user",
         "project": "project",
@@ -70,7 +72,7 @@ def test_integration(
         "backend": "test",
     }
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=expectations",
+        "http://testserver/api/v2/job-requests/?backend=dummy",
         json={
             "results": [job_request_1],
         },
@@ -158,7 +160,7 @@ def test_integration(
             "branch": "HEAD",
         },
         "codelists_ok": True,
-        "database_name": "dummy",
+        "database_name": "default",
         "sha": test_repo.commit,
         "created_by": "user",
         "project": "project",
@@ -166,7 +168,7 @@ def test_integration(
         "backend": "test",
     }
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=expectations",
+        "http://testserver/api/v2/job-requests/?backend=dummy",
         json={
             "results": [job_request_1, job_request_2],
         },

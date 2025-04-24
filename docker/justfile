@@ -39,6 +39,7 @@ docker-compose-env:
     PYTEST_HOST_TMP=$PYTEST_HOST_TMP
     MEDIUM_PRIVACY_STORAGE_BASE=$(realpath $PWD/medium)
     HIGH_PRIVACY_STORAGE_BASE=$(realpath $PWD/high)
+    USING_DUMMY_DATA_BACKEND=True
     EOF
 
 # run tests in docker container
@@ -53,7 +54,7 @@ functional-test:
     docker compose up -d prod
     docker compose exec prod python3 -m jobrunner.cli.add_job https://github.com/opensafely/research-template generate_dataset
     attempts=""
-    # use docker logs reather than docker compose logs, as those will include previous run's logs 
+    # use docker logs reather than docker compose logs, as those will include previous run's logs
     while ! docker logs -n 10 $container |& grep -q "Completed successfully";
     do
         if test "$attempts" = ".........."; then

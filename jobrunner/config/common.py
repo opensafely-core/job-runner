@@ -25,3 +25,7 @@ GIT_REPO_DIR = WORKDIR / "repos"
 # TODO Controller will not need to proxy once outside backend
 GIT_PROXY_DOMAIN = "github-proxy.opensafely.org"
 PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
+
+# Used by the controller to validate database name passed in a job request
+# Used by the agent to build database URLS
+VALID_DATABASE_NAMES = ["default", "include_t1oo"]
