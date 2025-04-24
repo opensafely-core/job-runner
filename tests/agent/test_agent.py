@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from jobrunner import config
 from jobrunner.agent import main, task_api
+from jobrunner.config import agent as config
 from jobrunner.controller import task_api as controller_task_api
 from jobrunner.job_executor import ExecutorState, JobDefinition
 from tests.agent.stubs import StubExecutorAPI

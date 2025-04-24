@@ -10,7 +10,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 from opentelemetry.trace import propagation
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from jobrunner import config
+from jobrunner.config.common import VERSION
 from jobrunner.lib import database, warn_assertions
 from jobrunner.models import Job, SavedJobRequest, State, StatusCode
 
@@ -24,7 +24,7 @@ def get_provider():
         attributes={
             "service.name": os.environ.get("OTEL_SERVICE_NAME", "jobrunner"),
             "service.namespace": os.environ.get("BACKEND", "unknown"),
-            "service.version": config.VERSION,
+            "service.version": VERSION,
         }
     )
     return TracerProvider(resource=resource)
@@ -297,7 +297,7 @@ def trace_attributes(job, results=None):
             job._job_request = {}
 
     attrs = dict(
-        backend=config.BACKEND,
+        backend=job.backend,
         job=job.id,
         job_request=job.job_request_id,
         workspace=job.workspace,

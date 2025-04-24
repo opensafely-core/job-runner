@@ -4,12 +4,14 @@ import sys
 
 import pytest
 
-from jobrunner.config import _is_valid_backend_name, database_urls_from_env
+from jobrunner.config.agent import _is_valid_backend_name, database_urls_from_env
 
 
 script = """
-from jobrunner import config
-cfg = {k: str(v) for k, v in vars(config).items() if k.isupper()}
+from jobrunner.config import agent, common, controller
+cfg = {}
+for module in [agent, common, controller]:
+    cfg.update({k: str(v) for k, v in vars(module).items() if k.isupper()})
 print(repr(cfg))
 """
 

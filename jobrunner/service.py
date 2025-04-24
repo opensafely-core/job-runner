@@ -6,8 +6,10 @@ import logging
 import threading
 import time
 
-from jobrunner import config, record_stats, sync, tracing
+from jobrunner import record_stats, sync, tracing
 from jobrunner.agent.main import main as agent_main
+from jobrunner.config import agent as agent_config
+from jobrunner.config import controller as config
 from jobrunner.controller.main import main as controller_main
 from jobrunner.lib.database import ensure_valid_db
 from jobrunner.lib.docker import docker
@@ -81,7 +83,7 @@ def record_stats_wrapper():
             return
         except Exception:
             log.exception("Exception in record_stats thread")
-            time.sleep(config.STATS_POLL_INTERVAL)
+            time.sleep(agent_config.STATS_POLL_INTERVAL)
 
 
 def maintenance_wrapper():
@@ -122,7 +124,7 @@ def maintenance_mode():
                 "--current-mode",
                 str(current),
             ],
-            env={"DATABASE_URL": config.DATABASE_URLS["default"]},
+            env={"DATABASE_URL": agent_config.DATABASE_URLS["default"]},
             check=True,
             capture_output=True,
             text=True,

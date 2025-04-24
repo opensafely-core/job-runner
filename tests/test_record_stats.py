@@ -2,7 +2,8 @@ import sqlite3
 import subprocess
 import time
 
-from jobrunner import config, record_stats
+from jobrunner import record_stats
+from jobrunner.config import agent as config
 from jobrunner.models import State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import job_factory, metrics_factory

@@ -11,7 +11,7 @@ import textwrap
 from pathlib import Path
 from urllib.parse import urlparse
 
-from jobrunner import config
+from jobrunner.config import agent as agent_config
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where
 from jobrunner.lib.git import get_sha_from_remote_ref
@@ -40,7 +40,7 @@ def main(
             cancelled_actions=[],
             codelists_ok=True,
             # TODO: pass this in as a cli arg when run from the controller
-            backend=config.BACKEND,
+            backend=agent_config.BACKEND,
         )
     )
     print("Submitting JobRequest:\n")

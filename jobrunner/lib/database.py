@@ -17,7 +17,7 @@ import threading
 from enum import Enum
 from pathlib import Path
 
-from jobrunner import config
+from jobrunner.config import controller as config
 
 
 log = logging.getLogger(__name__)

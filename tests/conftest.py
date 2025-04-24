@@ -10,7 +10,9 @@ import pytest
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from jobrunner import config, record_stats, tracing
+from jobrunner import record_stats, tracing
+from jobrunner.config import agent as agent_config
+from jobrunner.config import controller as controller_config
 from jobrunner.job_executor import Study
 from jobrunner.lib import database
 
@@ -47,23 +49,29 @@ def get_trace(tracer=None):
 
 @pytest.fixture
 def tmp_work_dir(request, monkeypatch, tmp_path):
-    monkeypatch.setattr("jobrunner.config.WORKDIR", tmp_path)
-    monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
-    config_vars = [
-        "TMP_DIR",
-        "GIT_REPO_DIR",
-        "HIGH_PRIVACY_STORAGE_BASE",
-        "MEDIUM_PRIVACY_STORAGE_BASE",
-        "HIGH_PRIVACY_WORKSPACES_DIR",
-        "MEDIUM_PRIVACY_WORKSPACES_DIR",
-        "HIGH_PRIVACY_ARCHIVE_DIR",
-        "HIGH_PRIVACY_VOLUME_DIR",
-        "JOB_LOG_DIR",
-    ]
-    for config_var in config_vars:
-        monkeypatch.setattr(
-            f"jobrunner.config.{config_var}", tmp_path / config_var.lower()
-        )
+    monkeypatch.setattr("jobrunner.config.common.WORKDIR", tmp_path)
+    monkeypatch.setattr(
+        "jobrunner.config.controller.DATABASE_FILE", tmp_path / "db.sqlite"
+    )
+
+    config_vars = {
+        "common": ["GIT_REPO_DIR"],
+        "agent": [
+            "TMP_DIR",
+            "HIGH_PRIVACY_STORAGE_BASE",
+            "MEDIUM_PRIVACY_STORAGE_BASE",
+            "HIGH_PRIVACY_WORKSPACES_DIR",
+            "MEDIUM_PRIVACY_WORKSPACES_DIR",
+            "HIGH_PRIVACY_ARCHIVE_DIR",
+            "HIGH_PRIVACY_VOLUME_DIR",
+            "JOB_LOG_DIR",
+        ],
+    }
+    for config_type, conf_vars in config_vars.items():
+        for var in conf_vars:
+            monkeypatch.setattr(
+                f"jobrunner.config.{config_type}.{var}", tmp_path / var.lower()
+            )
 
     # ensure db initialise
     database.ensure_db()
@@ -105,7 +113,7 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
         )
         host_volume_path = pytest_host_tmp / tmp_path.relative_to(basetemp)
         monkeypatch.setattr(
-            "jobrunner.config.DOCKER_HOST_VOLUME_DIR",
+            "jobrunner.config.agent.DOCKER_HOST_VOLUME_DIR",
             host_volume_path / "high_privacy_volume_dir".lower(),
         )
 
@@ -187,7 +195,7 @@ def test_repo(tmp_work_dir):
 def db(monkeypatch, request):
     """Create a throwaway db."""
     database_file = f"file:db-{request.node.name}?mode=memory&cache=shared"
-    monkeypatch.setattr(config, "DATABASE_FILE", database_file)
+    monkeypatch.setattr(controller_config, "DATABASE_FILE", database_file)
     database.ensure_db(database_file)
     yield
     del database.CONNECTION_CACHE.__dict__[database_file]
@@ -200,7 +208,7 @@ def metrics_db(monkeypatch, tmp_path, request):
     It must be a file, not memory, because we use readonly connections.
     """
     db_path = tmp_path / "metrics.db"
-    monkeypatch.setattr(config, "METRICS_FILE", db_path)
+    monkeypatch.setattr(agent_config, "METRICS_FILE", db_path)
     yield
     record_stats.CONNECTION_CACHE.__dict__.clear()
 

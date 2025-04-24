@@ -10,7 +10,9 @@ import time
 
 import requests
 
-from jobrunner import config, queries, record_stats
+from jobrunner import queries, record_stats
+from jobrunner.config import agent as agent_config
+from jobrunner.config import controller as config
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where, select_values
 from jobrunner.lib.log_utils import configure_logging, set_log_context
@@ -41,7 +43,8 @@ def sync():
         # We're deliberately not paginating here on the assumption that the set
         # of active jobs is always going to be small enough that we can fetch
         # them in a single request and we don't need the extra complexity
-        params={"backend": config.BACKEND},
+        # TODO loop over config.BACKENDS
+        params={"backend": agent_config.BACKEND},
     )
     job_requests = [job_request_from_remote_format(i) for i in response["results"]]
 

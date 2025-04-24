@@ -4,7 +4,7 @@ import textwrap
 
 from pipeline.models import is_database_action
 
-from jobrunner import config
+from jobrunner.config import controller as config
 from jobrunner.lib import git
 from jobrunner.lib.github_validators import (
     GithubValidationError,

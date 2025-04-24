@@ -34,14 +34,15 @@ def test_integration(
 ):
     api = get_executor_api()
 
+    monkeypatch.setattr("jobrunner.config.controller.USING_DUMMY_DATA_BACKEND", True)
     monkeypatch.setattr(
-        "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+        "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
     # Disable repo URL checking so we can run using a local test repo
-    monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
     # Ensure that we have enough workers to start the jobs we expect in the test
     # (CI may have fewer actual available workers than this)
-    monkeypatch.setattr("jobrunner.config.MAX_WORKERS", 4)
+    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", 4)
 
     ensure_docker_images_present("ehrql:v1", "python")
 

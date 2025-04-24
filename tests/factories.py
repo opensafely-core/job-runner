@@ -4,7 +4,8 @@ import subprocess
 import time
 from copy import deepcopy
 
-from jobrunner import config, record_stats, tracing
+from jobrunner import record_stats, tracing
+from jobrunner.config import common as common_config
 from jobrunner.controller import task_api
 from jobrunner.controller.main import job_to_job_definition
 from jobrunner.job_executor import JobResults
@@ -153,6 +154,6 @@ def job_definition_factory(*args, **kwargs):
 
 def ensure_docker_images_present(*images):
     for image in images:
-        full_image = f"{config.DOCKER_REGISTRY}/{image}"
+        full_image = f"{common_config.DOCKER_REGISTRY}/{image}"
         if not docker.image_exists_locally(full_image):
             subprocess.run(["docker", "pull", "--quiet", full_image], check=True)
