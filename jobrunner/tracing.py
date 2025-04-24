@@ -10,7 +10,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 from opentelemetry.trace import propagation
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from jobrunner.config.common import VERSION
+from jobrunner.config import common as common_config
 from jobrunner.lib import database, warn_assertions
 from jobrunner.models import Job, SavedJobRequest, State, StatusCode
 
@@ -25,7 +25,7 @@ def get_provider():
             "service.name": os.environ.get("OTEL_SERVICE_NAME", "jobrunner"),
             # Note this will be set in the agent only
             "service.namespace": os.environ.get("BACKEND", "unknown"),
-            "service.version": VERSION,
+            "service.version": common_config.VERSION,
         }
     )
     return TracerProvider(resource=resource)
