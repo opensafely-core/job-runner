@@ -95,6 +95,21 @@ def test_config_presto_paths_not_exist(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "env_value,expected",
+    [
+        ("Yes", True),
+        ("true", True),
+        ("1", True),
+        ("false", False),
+        ("foo", False),
+    ],
+)
+def test_config_truthy(env_value, expected):
+    cfg = import_cfg({"USING_DUMMY_DATA_BACKEND": env_value})
+    assert cfg["USING_DUMMY_DATA_BACKEND"] == str(expected)
+
+
+@pytest.mark.parametrize(
     "name,is_valid",
     [
         ("foo_BAR-1", True),

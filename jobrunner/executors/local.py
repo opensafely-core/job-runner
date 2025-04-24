@@ -177,7 +177,9 @@ class LocalDockerAPI(ExecutorAPI):
         # We use a custom Docker network configured so that database jobs can access the
         # database and nothing else
         if (
-            job_definition.allow_database_access and config.DATABASE_ACCESS_NETWORK
+            not config.USING_DUMMY_DATA_BACKEND
+            and job_definition.allow_database_access
+            and config.DATABASE_ACCESS_NETWORK
         ):  # pragma: no cover
             extra_args.extend(["--network", config.DATABASE_ACCESS_NETWORK])
             extra_args.extend(

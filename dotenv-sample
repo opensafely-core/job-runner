@@ -1,5 +1,6 @@
 # The name of this backend
-BACKEND=expectations
+BACKEND=local
+USING_DUMMY_DATA_BACKEND=True
 
 # The endpoint to poll for jobs
 JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/

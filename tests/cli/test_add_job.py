@@ -4,7 +4,6 @@ from jobrunner.models import Job
 
 
 def test_add_job(monkeypatch, tmp_work_dir, db, test_repo):
-    monkeypatch.setattr("jobrunner.config.controller.USING_DUMMY_DATA_BACKEND", True)
     job_request, jobs = add_job.run([str(test_repo.path), "generate_dataset"])
 
     assert len(jobs) == 1
@@ -16,7 +15,6 @@ def test_add_job(monkeypatch, tmp_work_dir, db, test_repo):
 
 
 def test_add_job_with_bad_commit(monkeypatch, tmp_work_dir, db, test_repo):
-    monkeypatch.setattr("jobrunner.config.controller.USING_DUMMY_DATA_BACKEND", True)
     _, jobs = add_job.run([str(test_repo.path), "generate_dataset", "--commit", "abc"])
 
     assert len(jobs) == 1

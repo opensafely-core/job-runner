@@ -27,17 +27,6 @@ POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
 # We'll also use the BACKENDS config for looping through BACKENDS in sync
 BACKENDS = []
 
-truthy = ("true", "1", "yes")
-
-# TODO: Both need this; the controller can pass to the agent in the task
-# however, the agent will also need it if adding jobs via CLI
-# When creating a task, controller will need to check this AND backend==expectations
-if os.environ.get("USING_DUMMY_DATA_BACKEND", "false").lower().strip() in truthy:
-    USING_DUMMY_DATA_BACKEND = True  # pragma: no cover
-else:
-    USING_DUMMY_DATA_BACKEND = False
-
-
 ALLOWED_IMAGES = {
     "cohortextractor",
     "databuilder",

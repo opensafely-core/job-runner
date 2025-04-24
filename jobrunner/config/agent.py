@@ -19,19 +19,17 @@ METRICS_FILE = WORKDIR / "metrics.sqlite"
 # valid archive formats
 ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
 
-BACKEND = os.environ.get("BACKEND", "expectations")
+BACKEND = os.environ.get("BACKEND", "dummy")
 if not _is_valid_backend_name(BACKEND):
     raise RuntimeError(f"BACKEND not in valid format: '{BACKEND}'")  # pragma: no cover
 
 truthy = ("true", "1", "yes")
 
-# TODO: Both need this; the controller can pass to the agent in the task
-# however, the agent will also need it if adding jobs via CLI
-# When creating a task, controller will need to check this AND backend==expectations
 if os.environ.get("USING_DUMMY_DATA_BACKEND", "false").lower().strip() in truthy:
-    USING_DUMMY_DATA_BACKEND = True  # pragma: no cover
+    USING_DUMMY_DATA_BACKEND = True
 else:
-    USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
+    # this branch is tested in tests/test_config.py but via subprocess so it isn't registered by coverage
+    USING_DUMMY_DATA_BACKEND = False  # pragma: no cover
 
 
 # TODO Agent only; controller should pass database name only in env, agent should construct the DB url
