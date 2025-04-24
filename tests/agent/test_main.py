@@ -1,12 +1,12 @@
+import pytest
+
 from jobrunner.agent import main
 from jobrunner.config import agent as config
 from tests.factories import job_definition_factory
 
 
 def test_inject_db_secrets_dummy_db(monkeypatch, db):
-    definition = job_definition_factory()
-    definition.allow_database_access = True
-    definition.database_name = "FULL"
+    definition = job_definition_factory(requires_db=True, database_name="FULL")
 
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", True)
     monkeypatch.setattr(config, "DATABASE_URLS", {"FULL": "dburl"})
@@ -17,9 +17,7 @@ def test_inject_db_secrets_dummy_db(monkeypatch, db):
 
 
 def test_inject_db_secrets(monkeypatch, db):
-    definition = job_definition_factory()
-    definition.allow_database_access = True
-    definition.database_name = "FULL"
+    definition = job_definition_factory(requires_db=True, database_name="FULL")
 
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
     monkeypatch.setattr(config, "DATABASE_URLS", {"FULL": "dburl"})
@@ -38,9 +36,7 @@ def test_inject_db_secrets(monkeypatch, db):
 
 
 def test_inject_db_secrets_none_configured(monkeypatch, db):
-    definition = job_definition_factory()
-    definition.allow_database_access = True
-    definition.database_name = "FULL"
+    definition = job_definition_factory(requires_db=True, database_name="FULL")
 
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
     monkeypatch.setattr(config, "DATABASE_URLS", {"FULL": "dburl"})
@@ -56,3 +52,15 @@ def test_inject_db_secrets_none_configured(monkeypatch, db):
     assert "PRESTO_TLS_KEY" not in definition.env
     assert "PRESTO_TLS_CERT" not in definition.env
     assert "EMIS_ORGANISATION_HASH" not in definition.env
+
+
+def test_inject_db_secrets_invalid_db_name(monkeypatch, db):
+    definition = job_definition_factory(database_name="foo", requires_db=True)
+
+    monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
+    monkeypatch.setattr(config, "DATABASE_URLS", {"FULL": "dburl"})
+
+    with pytest.raises(
+        ValueError, match="Database name 'foo' is not currently defined"
+    ):
+        main.inject_db_secrets(definition)

@@ -283,6 +283,13 @@ def inject_db_secrets(job):
     if config.USING_DUMMY_DATA_BACKEND:
         return
 
+    if job.database_name not in config.DATABASE_URLS:
+        backend = job.env["OPENSAFELY_BACKEND"]
+        raise ValueError(
+            f"Database name '{job.database_name}' is not currently defined "
+            f"for backend '{backend}'"
+        )
+
     job.env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
     if config.TEMP_DATABASE_NAME:
         job.env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
