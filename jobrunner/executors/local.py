@@ -132,9 +132,9 @@ class LocalDockerAPI(ExecutorAPI):
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
         if not workspace_dir.exists():
             if workspace_is_archived(job_definition.workspace):
+                log.info(f"Workspace {job_definition.workspace} has been archived.")
                 return JobStatus(
                     ExecutorState.ERROR,
-                    f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve",
                 )
 
         # Check the image exists locally and error if not. Newer versions of
@@ -146,7 +146,6 @@ class LocalDockerAPI(ExecutorAPI):
             )
             return JobStatus(
                 ExecutorState.ERROR,
-                f"Docker image {job_definition.image} is not currently available",
             )
 
         current = self.get_status(job_definition)
@@ -158,7 +157,7 @@ class LocalDockerAPI(ExecutorAPI):
         except docker.DockerDiskSpaceError as e:  # pragma: no cover
             log.exception(str(e))
             return JobStatus(
-                ExecutorState.ERROR, "Out of disk space, please try again later"
+                ExecutorState.ERROR,
             )
 
         # this API is synchronous, so we are PREPARED now
@@ -214,8 +213,9 @@ class LocalDockerAPI(ExecutorAPI):
             )
 
         except Exception as exc:  # pragma: no cover
+            log.exception(f"Failed to start docker container: {exc}")
             return JobStatus(
-                ExecutorState.ERROR, f"Failed to start docker container: {exc}"
+                ExecutorState.ERROR,
             )
 
         return JobStatus(ExecutorState.EXECUTING)
@@ -236,7 +236,10 @@ class LocalDockerAPI(ExecutorAPI):
         try:
             finalize_job(job_definition, cancelled, error=error)
         except LocalDockerError as exc:  # pragma: no cover
-            return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
+            log.exception(f"failed to finalize job: {exc}")
+            return JobStatus(
+                ExecutorState.ERROR,
+            )
 
         # this api is synchronous, so we are now FINALIZED
         return self.get_status(job_definition)
@@ -264,7 +267,9 @@ class LocalDockerAPI(ExecutorAPI):
 
         docker.kill(container_name(job_definition))
 
-        return JobStatus(ExecutorState.EXECUTED, "Job terminated by user")
+        return JobStatus(
+            ExecutorState.EXECUTED,
+        )
 
     def cleanup(self, job_definition):
         if config.CLEAN_UP_DOCKER_OBJECTS:
@@ -318,14 +323,12 @@ class LocalDockerAPI(ExecutorAPI):
                     # to record their cancelled state
                     return JobStatus(
                         ExecutorState.PREPARED,
-                        "Prepared job was cancelled",
                         metrics=metrics,
                         results=job_metadata,
                     )
                 else:  # pragma: no cover
                     return JobStatus(
                         ExecutorState.UNKNOWN,
-                        "Pending job was cancelled",
                         metrics=metrics,
                         results=job_metadata,
                     )

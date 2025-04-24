@@ -251,8 +251,7 @@ def log_state_change(task, status, previous_status):
     if status.state == previous_state:
         return
     log_message = f"State change for job {task.definition['id']}: {previous_state} -> {status.state}"
-    if status.message:
-        log_message += f" ({status.message})"
+
     log.info(log_message)
 
 

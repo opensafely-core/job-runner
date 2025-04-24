@@ -184,13 +184,16 @@ def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition):
 
 
 @pytest.mark.needs_docker
-def test_prepare_no_image(docker_cleanup, job_definition):
+def test_prepare_no_image(docker_cleanup, job_definition, caplog):
     job_definition.image = "invalid-test-image"
+    caplog.set_level(logging.INFO)
     api = local.LocalDockerAPI()
     status = api.prepare(job_definition)
 
     assert status.state == ExecutorState.ERROR
-    assert job_definition.image in status.message.lower()
+
+    # check that the log info contains the expected message when there is no image
+    assert job_definition.image in caplog.records[-1].msg
 
 
 @pytest.mark.needs_docker
