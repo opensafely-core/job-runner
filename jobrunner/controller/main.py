@@ -107,25 +107,23 @@ def handle_single_job(job):
     mode = get_flag_value("mode")
     paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
-        with transaction():
-            trace_handle_job(job, mode, paused)
+        trace_handle_job(job, mode, paused)
     except Exception as exc:
-        with transaction():
-            mark_job_as_failed(
-                job,
-                StatusCode.INTERNAL_ERROR,
-                "Internal error: this usually means a platform issue rather than a problem "
-                "for users to fix.\n"
-                "The tech team are automatically notified of these errors and will be "
-                "investigating.",
-                error=exc,
-            )
-            # Do not clean up, as we may want to debug
-            #
-            # Raising will kill the main loop, by design. The service manager
-            # will restart, and this job will be ignored when it does, as
-            # it has failed. If we have an internal error, a full restart
-            # might recover better.
+        mark_job_as_failed(
+            job,
+            StatusCode.INTERNAL_ERROR,
+            "Internal error: this usually means a platform issue rather than a problem "
+            "for users to fix.\n"
+            "The tech team are automatically notified of these errors and will be "
+            "investigating.",
+            error=exc,
+        )
+        # Do not clean up, as we may want to debug
+        #
+        # Raising will kill the main loop, by design. The service manager
+        # will restart, and this job will be ignored when it does, as
+        # it has failed. If we have an internal error, a full restart
+        # might recover better.
         raise
 
 
@@ -161,8 +159,9 @@ def handle_job(job, mode=None, paused=None):
 
     # Cancellation is driven by user request, so is handled explicitly first
     if job.cancelled:
-        cancel_job(job)
-        mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+        with transaction():
+            cancel_job(job)
+            mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
         return
 
     # Handle special modes. TODO: These need to be made backend-specific
@@ -177,16 +176,17 @@ def handle_job(job, mode=None, paused=None):
             return
 
     if mode == "db-maintenance" and job.requires_db:
-        if job.state == State.RUNNING:
-            log.warning(f"DB maintenance mode active, killing db job {job.id}")
-            cancel_job(job)
+        with transaction():
+            if job.state == State.RUNNING:
+                log.warning(f"DB maintenance mode active, killing db job {job.id}")
+                cancel_job(job)
 
-        # Reset state to pending and exit
-        set_code(
-            job,
-            StatusCode.WAITING_DB_MAINTENANCE,
-            "Waiting for database to finish maintenance",
-        )
+            # Reset state to pending and exit
+            set_code(
+                job,
+                StatusCode.WAITING_DB_MAINTENANCE,
+                "Waiting for database to finish maintenance",
+            )
         return
 
     # A new job, which may or may not be ready to start
@@ -217,8 +217,9 @@ def handle_job(job, mode=None, paused=None):
             return
 
         task = create_task_for_job(job)
-        insert_task(task)
-        set_code(job, StatusCode.EXECUTING, "Executing job on the backend")
+        with transaction():
+            insert_task(task)
+            set_code(job, StatusCode.EXECUTING, "Executing job on the backend")
     else:
         assert job.state == State.RUNNING
         task = get_task_for_job(job)
