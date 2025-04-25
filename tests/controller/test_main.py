@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+import sqlite3
 from unittest.mock import patch
 
 import pytest
@@ -667,9 +668,26 @@ def test_handle_error(patched_handle_job, db, monkeypatch):
     patched_handle_job.side_effect = [None, Exception("foo")]
     job = job_factory()
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="foo"):
         main.main()
 
     job = database.find_one(Job, id=job.id)
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.INTERNAL_ERROR
+
+
+@patch("jobrunner.controller.main.handle_job")
+def test_handle_transient_error(patched_handle_job, db, monkeypatch):
+    monkeypatch.setattr(common_config, "JOB_LOOP_INTERVAL", 0)
+
+    # mock 2 controller loops, successful first pass and an
+    # exception on the second loop
+    patched_handle_job.side_effect = [None, sqlite3.OperationalError("database locked")]
+    job = job_factory()
+
+    with pytest.raises(Exception, match="database locked"):
+        main.main()
+
+    job = database.find_one(Job, id=job.id)
+    # Job should still be pending
+    assert job.state == State.PENDING

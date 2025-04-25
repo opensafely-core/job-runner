@@ -22,7 +22,13 @@ from jobrunner.job_executor import (
     Study,
 )
 from jobrunner.lib import ns_timestamp_to_datetime
-from jobrunner.lib.database import find_where, select_values, transaction, update
+from jobrunner.lib.database import (
+    find_where,
+    is_database_locked_error,
+    select_values,
+    transaction,
+    update,
+)
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import calculate_workspace_state, get_flag_value
@@ -109,15 +115,16 @@ def handle_single_job(job):
     try:
         trace_handle_job(job, mode, paused)
     except Exception as exc:
-        mark_job_as_failed(
-            job,
-            StatusCode.INTERNAL_ERROR,
-            "Internal error: this usually means a platform issue rather than a problem "
-            "for users to fix.\n"
-            "The tech team are automatically notified of these errors and will be "
-            "investigating.",
-            error=exc,
-        )
+        if not is_transient_error(exc):
+            mark_job_as_failed(
+                job,
+                StatusCode.INTERNAL_ERROR,
+                "Internal error: this usually means a platform issue rather than a problem "
+                "for users to fix.\n"
+                "The tech team are automatically notified of these errors and will be "
+                "investigating.",
+                error=exc,
+            )
         # Do not clean up, as we may want to debug
         #
         # Raising will kill the main loop, by design. The service manager
@@ -125,6 +132,12 @@ def handle_single_job(job):
         # it has failed. If we have an internal error, a full restart
         # might recover better.
         raise
+
+
+def is_transient_error(exc):
+    if is_database_locked_error(exc):
+        return True
+    return False
 
 
 def trace_handle_job(job, mode, paused):
