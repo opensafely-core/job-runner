@@ -10,6 +10,7 @@ from jobrunner.config import agent as config
 from jobrunner.config.common import JOB_LOOP_INTERVAL
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
+from jobrunner.lib.database import is_database_locked_error
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.schema import TaskType
 
@@ -70,11 +71,12 @@ def handle_single_task(task, api):
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
-            mark_task_as_error(
-                api,
-                task,
-                sys.exc_info(),
-            )
+            if not is_transient_error(exc):
+                mark_task_as_error(
+                    api,
+                    task,
+                    sys.exc_info(),
+                )
             # Do not clean up, as we may want to debug
             #
             # Raising will kill the main loop, by design. The service manager
@@ -82,6 +84,12 @@ def handle_single_task(task, api):
             # it has failed. If we have an internal error, a full restart
             # might recover better.
             raise
+
+
+def is_transient_error(exc):
+    if is_database_locked_error(exc):
+        return True
+    return False
 
 
 def handle_cancel_job_task(task, api):
