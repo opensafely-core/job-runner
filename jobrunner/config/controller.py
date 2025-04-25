@@ -64,10 +64,9 @@ ALLOWED_GITHUB_ORGS = (
 )
 
 
-# TODO per-backend
-def parse_job_resource_weights(config_file):
+def parse_job_resource_weights(config_file_template):
     """
-    Parse a simple ini file which looks like this:
+    Parse a simple ini file per backend which looks like this:
 
         [some-workspace-name]
         my-ram-hungry-action = 4
@@ -81,20 +80,22 @@ def parse_job_resource_weights(config_file):
     assigned the weight of the first matching pattern. All other jobs are
     assigned a weight of 1.
     """
-    config_file = Path(config_file)
     weights = {}
-    if config_file.exists():
-        config = configparser.ConfigParser()
-        config.read_string(config_file.read_text(), source=str(config_file))
-        for workspace in config.sections():
-            weights[workspace] = {
-                re.compile(pattern): float(weight)
-                for (pattern, weight) in config.items(workspace)
-            }
+    for backend in common.BACKENDS:
+        weights[backend] = {}
+        config_file = Path(config_file_template.format(backend=backend.lower()))
+        if config_file.exists():
+            config = configparser.ConfigParser()
+            config.read_string(config_file.read_text(), source=str(config_file))
+            for workspace in config.sections():
+                weights[backend][workspace] = {
+                    re.compile(pattern): float(weight)
+                    for (pattern, weight) in config.items(workspace)
+                }
     return weights
 
 
-JOB_RESOURCE_WEIGHTS = parse_job_resource_weights("job-resource-weights.ini")
+JOB_RESOURCE_WEIGHTS = parse_job_resource_weights("job-resource-weights_{backend}.ini")
 
 MAINTENANCE_POLL_INTERVAL = float(
     os.environ.get("MAINTENANCE_POLL_INTERVAL", "300")

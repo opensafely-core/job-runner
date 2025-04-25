@@ -174,7 +174,9 @@ def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
 def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
     monkeypatch.setattr(config, "MAX_WORKERS", {"test": 2})
     monkeypatch.setattr(
-        config, "JOB_RESOURCE_WEIGHTS", {"workspace": {re.compile(r"action\d{1}"): 1.5}}
+        config,
+        "JOB_RESOURCE_WEIGHTS",
+        {"test": {"workspace": {re.compile(r"action\d{1}"): 1.5}}},
     )
 
     # Resource-heavy jobs can be configured with a weighting, which is used as a
