@@ -40,6 +40,7 @@ def job_definition(request, test_repo):
         allow_database_access=False,
         level4_max_filesize=16 * 1024 * 1024,
         level4_max_csv_rows=5000,
+        level4_file_types=[".txt", ".csv"],
     )
 
 

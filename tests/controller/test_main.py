@@ -116,7 +116,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
 
 
 def test_handle_job_waiting_on_workers(monkeypatch, db):
-    monkeypatch.setattr(config, "MAX_WORKERS", 0)
+    monkeypatch.setattr(config, "MAX_WORKERS", {"test": 0})
 
     job = job_factory()
     run_controller_loop_once()
@@ -136,7 +136,9 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
 
 def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
     # backends can run at most 1 job
-    monkeypatch.setattr(config, "MAX_WORKERS", 1)
+    monkeypatch.setattr(config, "MAX_WORKERS", {"foo": 1, "bar": 1})
+    monkeypatch.setattr(config, "DEFAULT_JOB_CPU_COUNT", {"foo": 2, "bar": 2})
+    monkeypatch.setattr(config, "DEFAULT_JOB_MEMORY_LIMIT", {"foo": "4G", "bar": "4G"})
 
     # One running job on backend foo
     # No running jobs on backend bar
@@ -170,7 +172,7 @@ def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
 
 
 def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
-    monkeypatch.setattr(config, "MAX_WORKERS", 2)
+    monkeypatch.setattr(config, "MAX_WORKERS", {"test": 2})
     monkeypatch.setattr(
         config, "JOB_RESOURCE_WEIGHTS", {"workspace": {re.compile(r"action\d{1}"): 1.5}}
     )
@@ -217,7 +219,7 @@ def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
 
 
 def test_handle_job_waiting_on_db_workers(monkeypatch, db):
-    monkeypatch.setattr(config, "MAX_DB_WORKERS", 0)
+    monkeypatch.setattr(config, "MAX_DB_WORKERS", {"test": 0})
     job = job_factory(
         run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,

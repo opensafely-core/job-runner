@@ -1,6 +1,23 @@
+import pytest
+
 from jobrunner.agent import task_api
 from jobrunner.controller import task_api as controller_api
 from tests.factories import runjob_db_task_factory
+
+
+@pytest.fixture(autouse=True)
+def setup_config(monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.DEFAULT_JOB_CPU_COUNT",
+        {
+            "dummy": 2,
+            "another": 2,
+        },
+    )
+    monkeypatch.setattr(
+        "jobrunner.config.controller.DEFAULT_JOB_MEMORY_LIMIT",
+        {"dummy": "4G", "another": "4G"},
+    )
 
 
 def test_get_active_jobs(db):
@@ -19,7 +36,7 @@ def test_get_active_jobs(db):
 
 
 def test_update_controller(db):
-    task = runjob_db_task_factory()
+    task = runjob_db_task_factory(backend="dummy")
 
     task_api.update_controller(
         task,
@@ -35,7 +52,7 @@ def test_update_controller(db):
 
 
 def test_full_job_stages(db):
-    task = runjob_db_task_factory()
+    task = runjob_db_task_factory(backend="dummy")
 
     stages = [
         "PREPARING",
