@@ -14,6 +14,7 @@ from jobrunner.lib.database import (
     generate_insert_sql,
     get_connection,
     insert,
+    is_database_locked_error,
     migrate_db,
     query_params_to_sql,
     select_values,
@@ -321,3 +322,32 @@ def test_query_params_to_sql(params, expected_sql_string, expected_sql_values):
     sql_string, sql_values = query_params_to_sql(params)
     assert sql_string == expected_sql_string
     assert sql_values == expected_sql_values
+
+
+def test_is_database_locked_error(tmp_path):
+    conn_1 = sqlite3.connect(tmp_path / "test.sqlite")
+    conn_2 = sqlite3.connect(tmp_path / "test.sqlite")
+    captured = None
+
+    conn_1.execute("CREATE TABLE foo (bar TEXT)")
+    conn_1.execute("BEGIN EXCLUSIVE")
+    conn_1.execute("INSERT INTO foo VALUES ('baz')")
+
+    conn_2.execute("PRAGMA busy_timeout = 10")
+    try:
+        conn_2.execute("SELECT * FROM baz")
+    except Exception as exc:
+        captured = exc
+
+    assert is_database_locked_error(captured)
+
+    conn_1.execute("ROLLBACK")
+
+    # Confirm that we're not matching all OperationalErrors
+    captured = None
+    try:
+        conn_1.execute("SELECT * FROM no_such_table")
+    except Exception as exc:
+        captured = exc
+    assert isinstance(captured, sqlite3.OperationalError)
+    assert not is_database_locked_error(captured)
