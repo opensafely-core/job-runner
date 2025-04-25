@@ -216,7 +216,8 @@ def handle_job(job, mode=None, paused=None):
             set_code(job, code, message)
             return
 
-        start_job(job)
+        task = create_task_for_job(job)
+        insert_task(task)
         set_code(job, StatusCode.EXECUTING, "Executing job on the backend")
     else:
         assert job.state == State.RUNNING
@@ -495,10 +496,6 @@ def update_job(job):
     # The cancelled field is written by the sync thread and we should never update it. The sync thread never updates
     # any other fields after it has created the job, so we're always safe to modify them.
     update(job, exclude_fields=["cancelled"])
-
-
-def start_job(job):
-    insert_task(create_task_for_job(job))
 
 
 def create_task_for_job(job):
