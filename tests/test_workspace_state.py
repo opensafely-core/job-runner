@@ -1,5 +1,6 @@
 from jobrunner.models import State
 from jobrunner.queries import calculate_workspace_state
+from tests.conftest import get_trace
 from tests.factories import job_factory
 
 
@@ -19,6 +20,13 @@ def test_gets_one_job(db):
     job = only(calculate_workspace_state("the-backend", "the-workspace"))
     assert job.action == "the-action"
     assert job.state == State.SUCCEEDED
+
+    spans = get_trace("db")
+    assert len(spans) == 2
+    assert spans[0].name == "calculate_workspace_state_db"
+    assert spans[0].attributes["job_count"] == 1
+    assert spans[1].name == "calculate_workspace_state_python"
+    assert spans[1].attributes["job_count"] == 1
 
 
 def test_gets_a_job_for_each_action(db):
