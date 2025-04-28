@@ -9,6 +9,7 @@ surface area of this module is sufficiently small that swapping it out
 shouldn't be too large a job.
 """
 
+import contextlib
 import dataclasses
 import json
 import logging
@@ -16,6 +17,8 @@ import sqlite3
 import threading
 from enum import Enum
 from pathlib import Path
+
+from opentelemetry import trace
 
 from jobrunner.config import controller as config
 
@@ -25,6 +28,9 @@ log = logging.getLogger(__name__)
 CONNECTION_CACHE = threading.local()
 TABLES = {}
 MIGRATIONS = {}
+
+
+tracer = trace.get_tracer("db")
 
 
 def databaseclass(cls):
@@ -150,14 +156,20 @@ def select_values(itemclass, column, **query_params):
     return [decode_field_values(fields, row)[0] for row in cursor]
 
 
+@contextlib.contextmanager
 def transaction():
     # Connections function as context managers which create transactions.
     # See: https://docs.python.org/3/library/sqlite3.html#using-the-connection-as-a-context-manager
-    # We're relying here on the fact that because of the lru_cache,
-    # `get_connection` actually returns the same connection instance every time
-    conn = get_connection()
-    conn.execute("BEGIN IMMEDIATE")
-    return conn
+    # We want to measure it with otel, so we combine them in an ExitStack
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(tracer.start_as_current_span("TRANSACTION"))
+        # We're relying here on the fact that because of the lru_cache,
+        # `get_connection` actually returns the same connection instance every
+        # time
+        conn = get_connection()
+        conn.execute("BEGIN IMMEDIATE")
+        stack.enter_context(conn)
+        yield conn
 
 
 def filename_or_get_default(filename=None):

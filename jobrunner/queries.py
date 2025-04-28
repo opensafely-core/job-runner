@@ -3,8 +3,13 @@ import time
 from itertools import groupby
 from operator import attrgetter
 
+from opentelemetry import trace
+
 from jobrunner.lib.database import find_all, find_one, find_where, upsert
 from jobrunner.models import Flag, Job
+
+
+tracer = trace.get_tracer("db")
 
 
 def calculate_workspace_state(backend, workspace):
@@ -14,13 +19,21 @@ def calculate_workspace_state(backend, workspace):
     '__error__'; these are dummy jobs created only to help us communicate failure states back to the job-server (see
     create_or_update_jobs.create_failed_job()).
     """
-    all_jobs = find_where(Job, workspace=workspace, cancelled=False, backend=backend)
-    latest_jobs = []
-    for action, jobs in group_by(all_jobs, attrgetter("action")):
-        if action == "__error__":
-            continue
-        ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
-        latest_jobs.append(ordered_jobs[0])
+    with tracer.start_as_current_span("calculate_workspace_state_db") as span:
+        all_jobs = find_where(
+            Job, workspace=workspace, cancelled=False, backend=backend
+        )
+        span.set_attribute("job_count", len(all_jobs))
+
+    with tracer.start_as_current_span("calculate_workspace_state_python") as span:
+        span.set_attribute("job_count", len(all_jobs))
+        latest_jobs = []
+        for action, jobs in group_by(all_jobs, attrgetter("action")):
+            if action == "__error__":
+                continue
+            ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
+            latest_jobs.append(ordered_jobs[0])
+
     return latest_jobs
 
 
