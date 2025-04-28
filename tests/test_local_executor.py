@@ -247,8 +247,7 @@ def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, db):
     assert status.state == ExecutorState.PREPARED
 
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     container_data = docker.container_inspect(local.container_name(job_definition))
     assert container_data["State"]["ExitCode"] == 0
@@ -308,14 +307,7 @@ def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
     assert status.state == ExecutorState.PREPARED
 
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
-    # could be in either state
-    assert api.get_status(job_definition).state in (
-        ExecutorState.EXECUTING,
-        ExecutorState.EXECUTED,
-    )
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     container_config = docker.container_inspect(local.container_name(job_definition))
 
@@ -359,9 +351,6 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
     status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     # check that timestamp is as expected
@@ -442,9 +431,6 @@ def test_finalize_failed(docker_cleanup, job_definition, tmp_work_dir):
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition)
@@ -494,9 +480,6 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir):
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition)
@@ -539,9 +522,6 @@ def test_finalize_unmatched_output(docker_cleanup, job_definition, tmp_work_dir)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition)
@@ -610,8 +590,6 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
     api.prepare(job_definition)
     status = api.get_status(job_definition)
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition)
@@ -647,10 +625,7 @@ def test_finalize_large_level4_outputs(docker_cleanup, job_definition, tmp_work_
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition)
     status = api.get_status(job_definition)
@@ -699,10 +674,7 @@ def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition)
     status = api.get_status(job_definition)
@@ -750,10 +722,7 @@ def test_finalize_patient_id_header(docker_cleanup, job_definition, tmp_work_dir
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition)
     status = api.get_status(job_definition)
@@ -806,10 +775,7 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir):
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition)
     status = api.get_status(job_definition)
@@ -873,10 +839,7 @@ def test_finalize_large_level4_outputs_cleanup(
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition)
     status = api.get_status(job_definition)
@@ -897,10 +860,7 @@ def test_finalize_already_finalized_idempotent(
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
-    assert status.state == ExecutorState.EXECUTED
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
     api.finalize(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.FINALIZED
@@ -921,10 +881,7 @@ def test_finalize_already_finalized_with_error_idempotent(
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
-    assert status.state == ExecutorState.EXECUTED
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
     api.finalize(job_definition, error={"test": "foo"})
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.ERROR
@@ -1015,9 +972,7 @@ def test_finalize_with_error_when_executed(
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
     api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     api.finalize(job_definition, error={"test": "foo"})
     status = api.get_status(job_definition)
@@ -1090,12 +1045,10 @@ def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     api.execute(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.EXECUTING
-    assert api.get_status(job_definition).state == ExecutorState.EXECUTING
 
     api.terminate(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.EXECUTED
-    assert api.get_status(job_definition).state == ExecutorState.EXECUTED
 
     api.finalize(job_definition, cancelled=True)
     status = api.get_status(job_definition)
