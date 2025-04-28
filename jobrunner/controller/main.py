@@ -22,7 +22,13 @@ from jobrunner.job_executor import (
     Study,
 )
 from jobrunner.lib import ns_timestamp_to_datetime
-from jobrunner.lib.database import find_where, select_values, transaction, update
+from jobrunner.lib.database import (
+    find_where,
+    is_database_locked_error,
+    select_values,
+    transaction,
+    update,
+)
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import calculate_workspace_state, get_flag_value
@@ -109,15 +115,21 @@ def handle_single_job(job):
     try:
         trace_handle_job(job, mode, paused)
     except Exception as exc:
-        mark_job_as_failed(
-            job,
-            StatusCode.INTERNAL_ERROR,
-            "Internal error: this usually means a platform issue rather than a problem "
-            "for users to fix.\n"
-            "The tech team are automatically notified of these errors and will be "
-            "investigating.",
-            error=exc,
-        )
+        if error_type := get_transient_error_type(exc):
+            span = trace.get_current_span()
+            span.set_attributes(
+                {"transient_error": True, "transient_error_type": error_type}
+            )
+        else:
+            mark_job_as_failed(
+                job,
+                StatusCode.INTERNAL_ERROR,
+                "Internal error: this usually means a platform issue rather than a problem "
+                "for users to fix.\n"
+                "The tech team are automatically notified of these errors and will be "
+                "investigating.",
+                error=exc,
+            )
         # Do not clean up, as we may want to debug
         #
         # Raising will kill the main loop, by design. The service manager
@@ -125,6 +137,11 @@ def handle_single_job(job):
         # it has failed. If we have an internal error, a full restart
         # might recover better.
         raise
+
+
+def get_transient_error_type(exc):
+    if is_database_locked_error(exc):
+        return "db_locked"
 
 
 def trace_handle_job(job, mode, paused):
