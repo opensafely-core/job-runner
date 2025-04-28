@@ -98,17 +98,21 @@ DB_MAINTENANCE_MODE = "db-maintenance"
 
 def maintenance_mode():
     """Check if the db is currently in maintenance mode, and set flags as appropriate."""
+    # TODO currently we get and set flags using the agent's backend ,
+    # this will change when the db is only accessible to the controller
+    backend = agent_config.BACKEND
+
     # This did not seem big enough to warrant splitting into a separate module.
     log.info("checking if db undergoing maintenance...")
 
     # manually setting this flag bypasses the automaticaly check
-    manual_db_mode = get_flag_value("manual-db-maintenance")
+    manual_db_mode = get_flag_value("manual-db-maintenance", backend)
     if manual_db_mode:
         log.info(f"manually set db mode: {DB_MAINTENANCE_MODE}")
         mode = DB_MAINTENANCE_MODE
     else:
         # detect db mode from TPP.
-        current = get_flag_value("mode")
+        current = get_flag_value("mode", backend)
         ps = docker(
             [
                 "run",
@@ -139,8 +143,8 @@ def maintenance_mode():
                 log.info("DB maintenance mode had ended")
             mode = None
 
-    set_flag("mode", mode)
-    mode = get_flag_value("mode")
+    set_flag("mode", mode, backend)
+    mode = get_flag_value("mode", backend)
     log.info(f"db mode: {mode}")
     return mode
 

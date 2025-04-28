@@ -420,11 +420,11 @@ def backend_db_config(monkeypatch):
 
 
 def test_handle_pending_db_maintenance_mode(db, backend_db_config):
-    set_flag("mode", "db-maintenance")
     job = job_factory(
         run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,
     )
+    set_flag("mode", "db-maintenance", job.backend)
 
     run_controller_loop_once()
     job = database.find_one(Job, id=job.id)
@@ -439,12 +439,12 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
 
 
 def test_handle_pending_cancelled_db_maintenance_mode(db, backend_db_config):
-    set_flag("mode", "db-maintenance")
     job = job_factory(
         run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,
         cancelled=True,
     )
+    set_flag("mode", "db-maintenance", job.backend)
 
     run_controller_loop_once()
     job = database.find_one(Job, id=job.id)
@@ -465,7 +465,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
     job = database.find_one(Job, id=job.id)
     assert job.state == State.RUNNING
 
-    set_flag("mode", "db-maintenance")
+    set_flag("mode", "db-maintenance", job.backend)
     run_controller_loop_once()
     job = database.find_one(Job, id=job.id)
 
@@ -485,11 +485,11 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
 
 
 def test_handle_pending_pause_mode(db, backend_db_config):
-    set_flag("paused", "True")
     job = job_factory(
         run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,
     )
+    set_flag("paused", "True", job.backend)
 
     run_controller_loop_once()
     job = database.find_one(Job, id=job.id)
@@ -510,7 +510,7 @@ def test_handle_running_pause_mode(db, backend_db_config):
 
     # Start it running, then pause, then update its status
     run_controller_loop_once()
-    set_flag("paused", "True")
+    set_flag("paused", "True", job.backend)
     run_controller_loop_once()
 
     job = database.find_one(Job, id=job.id)
