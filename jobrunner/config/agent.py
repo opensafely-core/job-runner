@@ -14,7 +14,6 @@ METRICS_FILE = common.WORKDIR / "metrics.sqlite"
 # valid archive formats
 ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
 
-# This will be None for the controller
 BACKEND = os.environ.get("BACKEND")
 # this is tested in tests/test_config.py but via subprocess so it isn't registered by coverage
 if BACKEND and BACKEND not in common.BACKENDS:  # pragma: no cover
