@@ -83,7 +83,9 @@ def parse_job_resource_weights(config_file_template):
     weights = {}
     for backend in common.BACKENDS:
         weights[backend] = {}
-        config_file = Path(config_file_template.format(backend=backend.lower()))
+        config_file = common.WORKDIR / Path(
+            config_file_template.format(backend=backend.lower())
+        )
         if config_file.exists():
             config = configparser.ConfigParser()
             config.read_string(config_file.read_text(), source=str(config_file))
