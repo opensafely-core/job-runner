@@ -41,7 +41,7 @@ def main(partial_job_id):
 
 
 def get_job(partial_job_id):
-    matches = find_where(Job, id__like=f"%{partial_job_id}%")
+    matches = find_where(Job, id__glob=f"*{partial_job_id}*")
     if len(matches) == 0:
         raise RuntimeError("No matching jobs found")
     elif len(matches) > 1:

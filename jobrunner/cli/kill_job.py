@@ -57,7 +57,7 @@ def get_jobs(partial_job_ids):
     need_confirmation = False
     for partial_job_id in partial_job_ids:
         # look for partial matches
-        partial_matches = database.find_where(Job, id__like=f"%{partial_job_id}%")
+        partial_matches = database.find_where(Job, id__glob=f"*{partial_job_id}*")
         if len(partial_matches) == 0:
             raise RuntimeError(f"No jobs found matching '{partial_job_id}'")
         elif len(partial_matches) > 1:

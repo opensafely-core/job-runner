@@ -318,9 +318,9 @@ def migrate_db(conn, migrations=None, verbose=False):
 
 def query_params_to_sql(params):
     """
-    Turn a dict of query parameters into a pair of (SQL string, SQL values).
-    All parameters are implicitly ANDed together, and there's a bit of magic to
-    handle `field__in=list_of_values` queries, LIKE queries and Enum classes.
+    Turn a dict of query parameters into a pair of (SQL string, SQL values). All
+    parameters are implicitly ANDed together, and there's a bit of magic to handle
+    `field__in=list_of_values` queries, GLOB queries and Enum classes.
     """
     if not params:
         return "1 = 1", []
@@ -334,9 +334,9 @@ def query_params_to_sql(params):
             placeholders = ", ".join(["?"] * len(value))
             parts.append(f"{escape(field)} IN ({placeholders})")
             values.extend(value)
-        elif key.endswith("__like"):
+        elif key.endswith("__glob"):
             field = key[:-6]
-            parts.append(f"{escape(field)} LIKE ?")
+            parts.append(f"{escape(field)} GLOB ?")
             values.append(value)
         elif value is None:
             parts.append(f"{escape(key)} is NULL")

@@ -313,7 +313,7 @@ def test_ensure_valid_db(tmp_path):
     [
         ({}, "1 = 1", []),
         ({"doubutsu": "neko"}, '"doubutsu" = ?', ["neko"]),
-        ({"doubutsu__like": "ne%"}, '"doubutsu" LIKE ?', ["ne%"]),
+        ({"doubutsu__glob": "ne*"}, '"doubutsu" GLOB ?', ["ne*"]),
         (
             {"doubutsu__in": ["neko", "kitsune", "nezumi"]},
             '"doubutsu" IN (?, ?, ?)',
