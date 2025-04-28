@@ -18,10 +18,6 @@ log = logging.getLogger(__name__)
 tracer = trace.get_tracer("agent_loop")
 
 
-class InvalidTransition(Exception):
-    pass
-
-
 def main(exit_callback=lambda _: False):  # pragma: no cover
     log.info("jobrunner.agent.main loop started")
     api = get_executor_api()
@@ -133,8 +129,8 @@ def handle_cancel_job_task(task, api):
                 )
                 # call finalize to write the job logs
                 final_status = api.finalize(job, cancelled=True)
-            case _:  # pragma: no cover
-                raise InvalidTransition(
+            case _:
+                assert False, (
                     f"unexpected state of job {job.id}: {initial_job_status.state}"
                 )
 

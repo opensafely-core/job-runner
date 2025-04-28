@@ -27,6 +27,14 @@ from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.string_utils import tabulate
 
 
+class LocalExecutorError(Exception):
+    pass
+
+
+class LocalDockerError(LocalExecutorError):
+    pass
+
+
 # Directory inside working directory where manifest and logs are created
 METADATA_DIR = "metadata"
 
@@ -103,10 +111,6 @@ def job_metadata_path(job_definition):
     return None
 
 
-class LocalDockerError(Exception):
-    pass
-
-
 def get_job_labels(job_definition: JobDefinition):
     """Useful metadata to label docker objects with."""
     return {
@@ -133,8 +137,8 @@ class LocalDockerAPI(ExecutorAPI):
         if not workspace_dir.exists():
             if workspace_is_archived(job_definition.workspace):
                 log.info(f"Workspace {job_definition.workspace} has been archived.")
-                return JobStatus(
-                    ExecutorState.ERROR,
+                raise LocalExecutorError(
+                    f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve"
                 )
 
         # Check the image exists locally and error if not. Newer versions of
@@ -144,21 +148,15 @@ class LocalDockerAPI(ExecutorAPI):
             log.info(
                 f"Image not found, may need to run: docker pull {job_definition.image}"
             )
-            return JobStatus(
-                ExecutorState.ERROR,
+            raise LocalExecutorError(
+                f"Docker image {job_definition.image} is not currently available"
             )
 
         current = self.get_status(job_definition)
         if current.state != ExecutorState.UNKNOWN:
             return current
 
-        try:
-            prepare_job(job_definition)
-        except docker.DockerDiskSpaceError as e:  # pragma: no cover
-            log.exception(str(e))
-            return JobStatus(
-                ExecutorState.ERROR,
-            )
+        prepare_job(job_definition)
 
         # this API is synchronous, so we are PREPARED now
         return JobStatus(ExecutorState.PREPARED)
@@ -199,24 +197,17 @@ class LocalDockerAPI(ExecutorAPI):
             ]
         )
 
-        try:
-            docker.run(
-                container_name(job_definition),
-                [job_definition.image] + job_definition.args,
-                volume=(volumes.volume_name(job_definition), "/workspace"),
-                env=job_definition.env,
-                allow_network_access=job_definition.allow_database_access,
-                label=LABEL,
-                labels=get_job_labels(job_definition),
-                extra_args=extra_args,
-                volume_type=volumes.volume_type,
-            )
-
-        except Exception as exc:  # pragma: no cover
-            log.exception(f"Failed to start docker container: {exc}")
-            return JobStatus(
-                ExecutorState.ERROR,
-            )
+        docker.run(
+            container_name(job_definition),
+            [job_definition.image] + job_definition.args,
+            volume=(volumes.volume_name(job_definition), "/workspace"),
+            env=job_definition.env,
+            allow_network_access=job_definition.allow_database_access,
+            label=LABEL,
+            labels=get_job_labels(job_definition),
+            extra_args=extra_args,
+            volume_type=volumes.volume_type,
+        )
 
         return JobStatus(ExecutorState.EXECUTING)
 
@@ -233,13 +224,7 @@ class LocalDockerAPI(ExecutorAPI):
                 # job had not started running, so do not finalize
                 return current_status
 
-        try:
-            finalize_job(job_definition, cancelled, error=error)
-        except LocalDockerError as exc:  # pragma: no cover
-            log.exception(f"failed to finalize job: {exc}")
-            return JobStatus(
-                ExecutorState.ERROR,
-            )
+        finalize_job(job_definition, cancelled, error=error)
 
         # this api is synchronous, so we are now FINALIZED
         return self.get_status(job_definition)
@@ -368,7 +353,7 @@ class LocalDockerAPI(ExecutorAPI):
         elif privacy == Privacy.MEDIUM:
             root = get_medium_privacy_workspace(workspace)
         else:
-            raise Exception(f"unknown privacy of {privacy}")
+            raise LocalExecutorError(f"unknown privacy of {privacy}")
 
         return delete_files_from_directory(root, files)
 
