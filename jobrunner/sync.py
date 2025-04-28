@@ -11,6 +11,7 @@ import time
 import requests
 
 from jobrunner import queries, record_stats
+from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where, select_values
@@ -37,12 +38,17 @@ def main():  # pragma: no cover
 
 
 def sync():
+    for backend in common_config.BACKENDS:
+        sync_backend(backend)
+
+
+def sync_backend(backend):
     response = api_get(
         "job-requests",
+        backend=backend,
         # We're deliberately not paginating here on the assumption that the set
         # of active jobs is always going to be small enough that we can fetch
         # them in a single request and we don't need the extra complexity
-        # TODO loop over config.BACKENDS
     )
     job_requests = [job_request_from_remote_format(i) for i in response["results"]]
 
@@ -69,7 +75,7 @@ def sync():
     jobs_data = [job_to_remote_format(i) for i in jobs]
     log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
 
-    api_post("jobs", json=jobs_data)
+    api_post("jobs", backend=backend, json=jobs_data)
 
 
 def api_get(*args, backend=None, **kwargs):
