@@ -565,7 +565,6 @@ def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir):
     api.finalize(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.FINALIZED
-    assert status.state == ExecutorState.FINALIZED
 
     assert status.results["exit_code"] == "137"
     assert (
@@ -588,7 +587,6 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
     api = local.LocalDockerAPI()
 
     api.prepare(job_definition)
-    status = api.get_status(job_definition)
     api.execute(job_definition)
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
@@ -1014,18 +1012,16 @@ def test_prepared_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     api.prepare(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
-    assert api.get_status(job_definition).state == ExecutorState.PREPARED
 
     # Finalizing the job as cancelled sets cancelled metadata
     api.finalize(job_definition, cancelled=True)
     status = api.get_status(job_definition)
     assert status.results["cancelled"]
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
+    assert status.state == ExecutorState.FINALIZED
 
     api.cleanup(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.FINALIZED
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
     assert not log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
@@ -1040,7 +1036,6 @@ def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     api.prepare(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
-    assert api.get_status(job_definition).state == ExecutorState.PREPARED
 
     api.execute(job_definition)
     status = api.get_status(job_definition)
@@ -1065,7 +1060,6 @@ def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     api.cleanup(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.FINALIZED
-    assert api.get_status(job_definition).state == ExecutorState.FINALIZED
 
     assert log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
@@ -1084,9 +1078,6 @@ def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir):
     assert docker.container_exists(container)
 
     api.cleanup(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.UNKNOWN
-
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.UNKNOWN
 
