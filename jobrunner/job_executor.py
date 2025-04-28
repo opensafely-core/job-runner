@@ -157,12 +157,6 @@ class ExecutorAPI:
     This API is called by the job-runner to manage each job it is tracking. It models the running of a job as a state
     machine, and the methods below are the transitions between states.
 
-    They should return either:
-     - the next state if successful
-     - the ERROR state with an appropriate message if something has gone wrong.
-     - the current state if is different from the expected state, with a message
-     - the initial state to indicate back pressure and to retry later.
-
     Given the long running nature of jobs, it is an asynchronous API, and calls should not block for a more than a few
     seconds.
 
@@ -174,7 +168,7 @@ class ExecutorAPI:
 
     """
 
-    def prepare(self, job_definition: JobDefinition) -> JobStatus:
+    def prepare(self, job_definition: JobDefinition) -> None:
         """
         Launch a prepare task for a job, transitioning to the initial PREPARING state.
 
@@ -206,7 +200,7 @@ class ExecutorAPI:
 
         """
 
-    def execute(self, job_definition: JobDefinition) -> JobStatus:
+    def execute(self, job_definition: JobDefinition) -> None:
         """
         Launch the execution of a job that has been prepared, transitioning from PREPARED to EXECUTING.
 
@@ -245,7 +239,7 @@ class ExecutorAPI:
         job_definition: JobDefinition,
         cancelled: bool = False,
         error: dict | None = None,
-    ) -> JobStatus:
+    ) -> None:
         """
         Launch the finalization of a job, transitioning from EXECUTED to FINALIZING.
 
@@ -278,7 +272,7 @@ class ExecutorAPI:
 
         """
 
-    def terminate(self, job_definition: JobDefinition) -> JobStatus:
+    def terminate(self, job_definition: JobDefinition) -> None:
         """
         Terminate a running job, transitioning to the EXECUTED state.
 
@@ -292,7 +286,7 @@ class ExecutorAPI:
 
         """
 
-    def cleanup(self, job_definition: JobDefinition) -> JobStatus:
+    def cleanup(self, job_definition: JobDefinition) -> None:
         """
         Clean up any remaining state for a finished job, transitioning to the UNKNOWN state.
 

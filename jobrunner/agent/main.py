@@ -121,14 +121,17 @@ def handle_cancel_job_task(task, api):
                 # States wehere we need to run finalize()
                 # If the job hasn't started; we run finalize() to record metadata, including
                 # its cancelled state. If it's finished or errored, finalize() will also write the job logs
-                final_status = api.finalize(job, cancelled=True)
+                api.finalize(job, cancelled=True)
+                final_status = api.get_status(job)
             case ExecutorState.EXECUTING:
-                pre_finalized_job_status = api.terminate(job)
+                api.terminate(job)
+                pre_finalized_job_status = api.get_status(job)
                 update_job_task(
                     task, pre_finalized_job_status, previous_status=initial_job_status
                 )
                 # call finalize to write the job logs
-                final_status = api.finalize(job, cancelled=True)
+                api.finalize(job, cancelled=True)
+                final_status = api.get_status(job)
             case _:
                 assert False, (
                     f"unexpected state of job {job.id}: {initial_job_status.state}"
@@ -189,21 +192,24 @@ def handle_run_job_task(task, api):
                 # when finished
                 preparing_status = JobStatus(ExecutorState.PREPARING)
                 update_job_task(task, preparing_status, previous_status=job_status)
-                new_status = api.prepare(job)
+                api.prepare(job)
+                new_status = api.get_status(job)
                 update_job_task(task, new_status, previous_status=preparing_status)
 
             case ExecutorState.PREPARED:
                 if job.allow_database_access:
                     inject_db_secrets(job)
 
-                new_status = api.execute(job)
+                api.execute(job)
+                new_status = api.get_status(job)
                 update_job_task(task, new_status, previous_status=job_status)
 
             case ExecutorState.EXECUTED:
                 # finalize is also synchronous
                 finalizing_status = JobStatus(ExecutorState.FINALIZING)
                 update_job_task(task, finalizing_status, previous_status=job_status)
-                new_status = api.finalize(job)
+                api.finalize(job)
+                new_status = api.get_status(job)
                 api.cleanup(job)
 
                 # We are now finalized, which is our final state - we have finished!
@@ -266,7 +272,8 @@ def mark_task_as_error(api, task, exc_info):
         case TaskType.RUNJOB | TaskType.CANCELJOB:
             job = JobDefinition.from_dict(task.definition)
             # this will persist the exception info to disk
-            status = api.finalize(job, error=error)
+            api.finalize(job, error=error)
+            status = api.get_status(job)
             update_job_task(task, status, complete=True)
         case _:
             assert False
