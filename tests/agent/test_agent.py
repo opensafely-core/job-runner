@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 from unittest.mock import Mock, patch
 
 import pytest
@@ -168,7 +169,7 @@ def test_handle_runjob_with_error(mock_update_controller, db):
         job_id, ExecutorState.EXECUTING, hook=Mock(side_effect=Exception("foo"))
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="foo"):
         main.handle_single_task(task, api)
 
     assert mock_update_controller.call_count == 1
@@ -188,6 +189,29 @@ def test_handle_runjob_with_error(mock_update_controller, db):
     # exception info has been added to the span
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == "Exception: foo"
+
+
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+def test_handle_runjob_with_transient_error(mock_update_controller, db):
+    api = StubExecutorAPI()
+
+    task, job_id = api.add_test_runjob_task(ExecutorState.PREPARED)
+
+    api.set_job_transition(
+        job_id,
+        ExecutorState.EXECUTING,
+        hook=Mock(side_effect=sqlite3.OperationalError("database locked")),
+    )
+
+    with pytest.raises(Exception, match="database locked"):
+        main.handle_single_task(task, api)
+
+    # Controller is not notified of transient error
+    assert mock_update_controller.call_count == 0
+
+    spans = get_trace("agent_loop")
+    assert spans[-1].attributes["transient_error"]
+    assert spans[-1].attributes["transient_error_type"] == "db_locked"
 
 
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
