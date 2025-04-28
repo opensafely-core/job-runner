@@ -115,7 +115,12 @@ def handle_single_job(job):
     try:
         trace_handle_job(job, mode, paused)
     except Exception as exc:
-        if not is_transient_error(exc):
+        if error_type := get_transient_error_type(exc):
+            span = trace.get_current_span()
+            span.set_attributes(
+                {"transient_error": True, "transient_error_type": error_type}
+            )
+        else:
             mark_job_as_failed(
                 job,
                 StatusCode.INTERNAL_ERROR,
@@ -134,10 +139,9 @@ def handle_single_job(job):
         raise
 
 
-def is_transient_error(exc):
+def get_transient_error_type(exc):
     if is_database_locked_error(exc):
-        return True
-    return False
+        return "db_locked"
 
 
 def trace_handle_job(job, mode, paused):

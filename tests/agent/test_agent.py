@@ -209,6 +209,10 @@ def test_handle_runjob_with_transient_error(mock_update_controller, db):
     # Controller is not notified of transient error
     assert mock_update_controller.call_count == 0
 
+    spans = get_trace("agent_loop")
+    assert spans[-1].attributes["transient_error"]
+    assert spans[-1].attributes["transient_error_type"] == "db_locked"
+
 
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_canceljob_with_error(mock_update_controller, db):

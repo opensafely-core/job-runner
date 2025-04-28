@@ -71,7 +71,11 @@ def handle_single_task(task, api):
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
-            if not is_transient_error(exc):
+            if error_type := get_transient_error_type(exc):
+                span.set_attributes(
+                    {"transient_error": True, "transient_error_type": error_type}
+                )
+            else:
                 mark_task_as_error(
                     api,
                     task,
@@ -86,10 +90,9 @@ def handle_single_task(task, api):
             raise
 
 
-def is_transient_error(exc):
+def get_transient_error_type(exc):
     if is_database_locked_error(exc):
-        return True
-    return False
+        return "db_locked"
 
 
 def handle_cancel_job_task(task, api):

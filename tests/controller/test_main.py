@@ -691,3 +691,7 @@ def test_handle_transient_error(patched_handle_job, db, monkeypatch):
     job = database.find_one(Job, id=job.id)
     # Job should still be pending
     assert job.state == State.PENDING
+
+    spans = get_trace("loop")
+    assert spans[-1].attributes["transient_error"]
+    assert spans[-1].attributes["transient_error_type"] == "db_locked"
