@@ -96,7 +96,7 @@ def set_job_results_metadata(span, results, attributes=None):
                 action_created=results["action_created"],
                 base_revision=results["base_revision"],
                 base_created=results["base_created"],
-                cancelled=results["cancelled"],
+                cancelled=results.get("cancelled"),
             )
         )
         if "error" in results:
