@@ -50,10 +50,20 @@ def main():
         start_thread(record_stats_wrapper, "stat")
         if config.ENABLE_MAINTENANCE_MODE_THREAD:
             start_thread(maintenance_wrapper, "mntn")
-        start_thread(temporary_agent_wrapper, "agnt")
+        start_thread(agent_wrapper, "agnt")
         controller_main()
     except KeyboardInterrupt:
         log.info("jobrunner.service stopped")
+
+
+def agent_wrapper():
+    """Wrap the agent_main call with logging context and an exception handler."""
+    while True:
+        try:
+            agent_main()
+        except Exception:
+            log.exception("Exception in agent thread")
+            time.sleep(config.POLL_INTERVAL)
 
 
 def sync_wrapper():
