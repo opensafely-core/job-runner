@@ -518,7 +518,7 @@ def update_job(job):
 
 def create_task_for_job(job):
     previous_tasks = find_where(
-        Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB, backend=job.backend
+        Task, id__glob=f"{job.id}-*", type=TaskType.RUNJOB, backend=job.backend
     )
     assert all(t.active is False for t in previous_tasks)
     task_number = len(previous_tasks) + 1
@@ -536,7 +536,7 @@ def get_task_for_job(job):
     # with. But for now, it works to always get the most recently created task for a
     # given job.
     tasks = find_where(
-        Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB, backend=job.backend
+        Task, id__glob=f"{job.id}-*", type=TaskType.RUNJOB, backend=job.backend
     )
     # Task IDs are constructed such that, for a given job, lexical order matches
     # creation order
