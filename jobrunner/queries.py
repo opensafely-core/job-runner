@@ -7,14 +7,14 @@ from jobrunner.lib.database import find_all, find_one, find_where, upsert
 from jobrunner.models import Flag, Job
 
 
-def calculate_workspace_state(workspace):
+def calculate_workspace_state(backend, workspace):
     """
     Return a list containing the most recent uncancelled job (if any) for each action in the workspace. We always
     ignore cancelled jobs when considering the historical state of the system. We also ignore jobs whose action is
     '__error__'; these are dummy jobs created only to help us communicate failure states back to the job-server (see
     create_or_update_jobs.create_failed_job()).
     """
-    all_jobs = find_where(Job, workspace=workspace, cancelled=False)
+    all_jobs = find_where(Job, workspace=workspace, cancelled=False, backend=backend)
     latest_jobs = []
     for action, jobs in group_by(all_jobs, attrgetter("action")):
         if action == "__error__":

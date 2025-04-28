@@ -13,8 +13,8 @@ import time
 from opentelemetry import trace
 
 from jobrunner import tracing
+from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
-from jobrunner.config.common import DOCKER_REGISTRY, JOB_LOOP_INTERVAL
 from jobrunner.controller.task_api import insert_task, mark_task_inactive
 from jobrunner.job_executor import (
     JobDefinition,
@@ -55,7 +55,7 @@ def main(exit_callback=lambda _: False):
         if exit_callback(active_jobs):
             break
 
-        time.sleep(JOB_LOOP_INTERVAL)
+        time.sleep(common_config.JOB_LOOP_INTERVAL)
 
 
 def handle_jobs():
@@ -75,9 +75,9 @@ def handle_jobs():
                 # counts in `running_for_workspace` will be up-to-date.
                 0 if job.state == State.RUNNING else 1,
                 # Then process PENDING jobs in order of how many are running in the
-                # workspace. This gives a fairer allocation of capacity among
+                # workspace for that backend. This gives a fairer allocation of capacity among
                 # workspaces.
-                running_for_workspace[job.workspace],
+                running_for_workspace[(job.backend, job.workspace)],
                 # DB jobs are more important than cpu jobs
                 0 if job.requires_db else 1,
                 # Finally use job age as a tie-breaker
@@ -91,9 +91,9 @@ def handle_jobs():
         with set_log_context(job=job):
             handle_single_job(job)
 
-        # Add running jobs to the workspace count
+        # Add running jobs to the backend/workspace count
         if job.state == State.RUNNING:
-            running_for_workspace[job.workspace] += 1
+            running_for_workspace[(job.backend, job.workspace)] += 1
 
         handled_jobs.append(job)
 
@@ -298,7 +298,7 @@ def job_to_job_definition(job):
     # Prepend registry name
     action_args = job.action_args
     image = action_args.pop(0)
-    full_image = f"{DOCKER_REGISTRY}/{image}"
+    full_image = f"{common_config.DOCKER_REGISTRY}/{image}"
     if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 
@@ -310,7 +310,7 @@ def job_to_job_definition(job):
 
     input_files = []
     for action in job.requires_outputs_from:
-        for filename in list_outputs_from_action(job.workspace, action):
+        for filename in list_outputs_from_action(job.backend, job.workspace, action):
             input_files.append(filename)
 
     outputs = {}
@@ -463,7 +463,7 @@ def set_code(job, new_status_code, message, error=None, results=None, **attrs):
 
 def get_reason_job_not_started(job):
     log.debug("Querying for running jobs")
-    running_jobs = find_where(Job, state=State.RUNNING)
+    running_jobs = find_where(Job, state=State.RUNNING, backend=job.backend)
     log.debug("Query done")
     used_resources = sum(
         get_job_resource_weight(running_job) for running_job in running_jobs
@@ -487,8 +487,8 @@ def get_reason_job_not_started(job):
             )
 
 
-def list_outputs_from_action(workspace, action):
-    for job in calculate_workspace_state(workspace):
+def list_outputs_from_action(backend, workspace, action):
+    for job in calculate_workspace_state(backend, workspace):
         if job.action == action:
             return job.output_files
 
@@ -517,7 +517,9 @@ def update_job(job):
 
 
 def create_task_for_job(job):
-    previous_tasks = find_where(Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB)
+    previous_tasks = find_where(
+        Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB, backend=job.backend
+    )
     assert all(t.active is False for t in previous_tasks)
     task_number = len(previous_tasks) + 1
     return Task(
@@ -533,7 +535,9 @@ def get_task_for_job(job):
     # TODO: I think jobs need to store the ID of the task they are currently associated
     # with. But for now, it works to always get the most recently created task for a
     # given job.
-    tasks = find_where(Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB)
+    tasks = find_where(
+        Task, id__like=f"{job.id}-%", type=TaskType.RUNJOB, backend=job.backend
+    )
     # Task IDs are constructed such that, for a given job, lexical order matches
     # creation order
     tasks.sort(key=lambda t: t.id)

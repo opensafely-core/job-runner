@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pipeline
 
-from jobrunner.config.common import WORKDIR
+from jobrunner.config import common
 
 
 class ConfigException(Exception):
     pass
 
 
-DATABASE_FILE = WORKDIR / "db.sqlite"
+DATABASE_FILE = common.WORKDIR / "db.sqlite"
 
 JOB_SERVER_ENDPOINT = os.environ.get(
     "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/v2/"

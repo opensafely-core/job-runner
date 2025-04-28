@@ -3,11 +3,12 @@ from jobrunner.models import Task as ControllerTask  # cheating!
 from jobrunner.schema import AgentTask
 
 
-def get_active_tasks() -> list[AgentTask]:
-    """Get a list of active tasks from the controller"""
+def get_active_tasks(backend: str) -> list[AgentTask]:
+    """Get a list of active tasks for this backend from the controller"""
     # cheating for now - should be HTTP API call
     return [
-        AgentTask.from_task(t) for t in database.find_where(ControllerTask, active=True)
+        AgentTask.from_task(t)
+        for t in database.find_where(ControllerTask, active=True, backend=backend)
     ]
 
 

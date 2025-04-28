@@ -4,13 +4,18 @@ from tests.factories import runjob_db_task_factory
 
 
 def test_get_active_jobs(db):
-    task1 = runjob_db_task_factory()
-    task2 = runjob_db_task_factory()
+    task1 = runjob_db_task_factory(backend="dummy")
+    task2 = runjob_db_task_factory(backend="dummy")
+    task3 = runjob_db_task_factory(backend="another")
     controller_api.mark_task_inactive(task2)
 
-    active = task_api.get_active_tasks()
+    active = task_api.get_active_tasks(backend="dummy")
     assert len(active) == 1
     assert active[0].id == task1.id
+
+    active = task_api.get_active_tasks(backend="another")
+    assert len(active) == 1
+    assert active[0].id == task3.id
 
 
 def test_update_controller(db):

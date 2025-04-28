@@ -15,8 +15,8 @@ from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
 from jobrunner import tracing
 from jobrunner.actions import get_action_specification
+from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
-from jobrunner.config.common import VALID_DATABASE_NAMES
 from jobrunner.lib.database import exists_where, insert, transaction, update_where
 from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
 from jobrunner.lib.github_validators import (
@@ -88,7 +88,7 @@ def create_jobs(job_request):
     project_file = get_project_file(job_request)
     pipeline_config = load_pipeline(project_file)
     latest_jobs = get_latest_jobs_for_actions_in_project(
-        job_request.workspace, pipeline_config
+        job_request.backend, job_request.workspace, pipeline_config
     )
     new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
     assert_new_jobs_created(job_request, new_jobs, latest_jobs)
@@ -129,10 +129,10 @@ def validate_job_request(job_request):
             "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
         )
 
-    if job_request.database_name not in VALID_DATABASE_NAMES:
+    if job_request.database_name not in common_config.VALID_DATABASE_NAMES:
         raise JobRequestError(
             f"Invalid database name '{job_request.database_name}', allowed are: "
-            + ", ".join(VALID_DATABASE_NAMES)
+            + ", ".join(common_config.VALID_DATABASE_NAMES)
         )
 
     # If we're not restricting to specific Github organisations then there's no
@@ -154,10 +154,10 @@ def get_project_file(job_request):
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
 
 
-def get_latest_jobs_for_actions_in_project(workspace, pipeline_config):
+def get_latest_jobs_for_actions_in_project(backend, workspace, pipeline_config):
     return [
         job
-        for job in calculate_workspace_state(workspace)
+        for job in calculate_workspace_state(backend, workspace)
         if job.action in pipeline_config.all_actions
     ]
 

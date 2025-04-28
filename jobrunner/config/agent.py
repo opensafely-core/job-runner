@@ -3,7 +3,7 @@ import re
 import sys
 from pathlib import Path
 
-from jobrunner.config.common import VALID_DATABASE_NAMES, WORKDIR
+from jobrunner.config import common
 
 
 class ConfigException(Exception):
@@ -14,7 +14,7 @@ def _is_valid_backend_name(name):
     return bool(re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*[A-Za-z0-9]$", name))
 
 
-METRICS_FILE = WORKDIR / "metrics.sqlite"
+METRICS_FILE = common.WORKDIR / "metrics.sqlite"
 
 # valid archive formats
 ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
@@ -39,7 +39,7 @@ def database_urls_from_env(env):
         db_name: db_url
         for db_name, db_url in [
             (db_name, env.get(f"{db_name.upper()}_DATABASE_URL"))
-            for db_name in VALID_DATABASE_NAMES
+            for db_name in common.VALID_DATABASE_NAMES
         ]
         if db_url
     }
@@ -86,10 +86,10 @@ EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI"
 # Note: the local backend also reuses the main GIT_REPO_DIR config
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("HIGH_PRIVACY_STORAGE_BASE", WORKDIR / "high_privacy")
+    os.environ.get("HIGH_PRIVACY_STORAGE_BASE", common.WORKDIR / "high_privacy")
 )
 MEDIUM_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", WORKDIR / "medium_privacy")
+    os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", common.WORKDIR / "medium_privacy")
 )
 
 HIGH_PRIVACY_WORKSPACES_DIR = HIGH_PRIVACY_STORAGE_BASE / "workspaces"
@@ -103,7 +103,7 @@ HIGH_PRIVACY_ARCHIVE_DIR = Path(
 CLEAN_UP_DOCKER_OBJECTS = True
 
 # use to checkout the repo
-TMP_DIR = WORKDIR / "temp"
+TMP_DIR = common.WORKDIR / "temp"
 
 # docker specific exit codes we understand
 DOCKER_EXIT_CODES = {

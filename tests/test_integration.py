@@ -44,7 +44,11 @@ def test_integration(
     # (CI may have fewer actual available workers than this)
     monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", 4)
 
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy")
+    # Note that as we are running ehrql actions in this test, we need to set
+    # the backend to a value that ehrql will accept
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "test")
+
+    monkeypatch.setattr("jobrunner.config.common.JOB_LOOP_INTERVAL", 0)
 
     ensure_docker_images_present("ehrql:v1", "python")
 
@@ -72,7 +76,7 @@ def test_integration(
         "backend": "test",
     }
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=dummy",
+        "http://testserver/api/v2/job-requests/?backend=test",
         json={
             "results": [job_request_1],
         },
@@ -168,7 +172,7 @@ def test_integration(
         "backend": "test",
     }
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=dummy",
+        "http://testserver/api/v2/job-requests/?backend=test",
         json={
             "results": [job_request_1, job_request_2],
         },
@@ -186,7 +190,7 @@ def test_integration(
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 2
     assert active_tasks[0].agent_stage == "executing"
-    # new task has no stage as it hasb't been picked up by agent yet
+    # new task has no stage as it hasn't been picked up by agent yet
     assert active_tasks[1].agent_stage is None
 
     # sync to confirm updated jobs have been posted back to job-server
@@ -207,7 +211,6 @@ def test_integration(
         "test_reusable_action_ehrql",
     ]:
         assert jobs[action]["status_message"].startswith("Waiting on dependencies")
-
     # Run the agent loop until there are no active tasks left; the generate_dataset jobs should be done
     jobrunner.agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
 
