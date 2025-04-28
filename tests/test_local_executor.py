@@ -184,16 +184,14 @@ def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition):
 
 
 @pytest.mark.needs_docker
-def test_prepare_no_image(docker_cleanup, job_definition, caplog):
+def test_prepare_no_image(docker_cleanup, job_definition):
     job_definition.image = "invalid-test-image"
-    caplog.set_level(logging.INFO)
     api = local.LocalDockerAPI()
-    status = api.prepare(job_definition)
 
-    assert status.state == ExecutorState.ERROR
+    with pytest.raises(local.LocalExecutorError) as exc:
+        api.prepare(job_definition)
 
-    # check that the log info contains the expected message when there is no image
-    assert job_definition.image in caplog.records[-1].msg
+    assert job_definition.image in str(exc)
 
 
 @pytest.mark.needs_docker
@@ -205,10 +203,11 @@ def test_prepare_archived(ext, job_definition):
     )
     archive.parent.mkdir(parents=True, exist_ok=True)
     archive.write_text("I exist")
-    status = api.prepare(job_definition)
 
-    assert status.state == ExecutorState.ERROR
-    assert "has been archived"
+    with pytest.raises(local.LocalExecutorError) as exc:
+        api.prepare(job_definition)
+
+    assert "has been archived" in str(exc)
 
 
 @pytest.mark.needs_docker
