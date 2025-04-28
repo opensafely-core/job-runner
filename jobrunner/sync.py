@@ -72,15 +72,15 @@ def sync():
     api_post("jobs", json=jobs_data)
 
 
-def api_get(*args, **kwargs):
-    return api_request("get", *args, **kwargs)
+def api_get(*args, backend=None, **kwargs):
+    return api_request("get", *args, backend=backend, **kwargs)
 
 
-def api_post(*args, **kwargs):
-    return api_request("post", *args, **kwargs)
+def api_post(*args, backend=None, **kwargs):
+    return api_request("post", *args, backend=backend, **kwargs)
 
 
-def api_request(method, path, *args, headers=None, **kwargs):
+def api_request(method, path, *args, backend=None, headers=None, **kwargs):
     if headers is None:  # pragma: no cover
         headers = {}
 
@@ -91,7 +91,10 @@ def api_request(method, path, *args, headers=None, **kwargs):
         for f in queries.get_current_flags()
     }
 
-    headers["Authorization"] = config.JOB_SERVER_TOKEN
+    if backend not in config.JOB_SERVER_TOKEN:
+        raise SyncAPIError(f"No api token found for backend '{backend}'")
+
+    headers["Authorization"] = config.JOB_SERVER_TOKEN[backend]
     headers["Flags"] = json.dumps(flags, separators=(",", ":"))
 
     response = session.request(method, url, *args, headers=headers, **kwargs)
