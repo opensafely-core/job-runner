@@ -11,7 +11,6 @@ import time
 import requests
 
 from jobrunner import queries, record_stats
-from jobrunner.config import agent as agent_config
 from jobrunner.config import controller as config
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where, select_values
@@ -44,7 +43,6 @@ def sync():
         # of active jobs is always going to be small enough that we can fetch
         # them in a single request and we don't need the extra complexity
         # TODO loop over config.BACKENDS
-        params={"backend": agent_config.BACKEND},
     )
     job_requests = [job_request_from_remote_format(i) for i in response["results"]]
 

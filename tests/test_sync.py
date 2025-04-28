@@ -114,7 +114,7 @@ def test_job_to_remote_format_metrics(db):
 def test_session_request_no_flags(db, responses):
     responses.add(
         method="GET",
-        url=f"{config.JOB_SERVER_ENDPOINT}path/?backend=test",
+        url=f"{config.JOB_SERVER_ENDPOINT}path/",
         status=200,
         json="{}",
         match=[
@@ -128,7 +128,7 @@ def test_session_request_no_flags(db, responses):
     )
 
     # if this works, our expected request was generated
-    sync.api_get("path", params={"backend": "test"})
+    sync.api_get("path")
 
 
 def test_session_request_flags(db, responses):
@@ -143,7 +143,7 @@ def test_session_request_flags(db, responses):
 
     responses.add(
         method="GET",
-        url=f"{config.JOB_SERVER_ENDPOINT}path/?backend=test",
+        url=f"{config.JOB_SERVER_ENDPOINT}path/",
         status=200,
         json="{}",
         match=[
@@ -157,7 +157,7 @@ def test_session_request_flags(db, responses):
     )
 
     # if this works, our expected request was generated
-    sync.api_get("path", params={"backend": "test"})
+    sync.api_get("path")
 
 
 def test_sync_empty_response(db, monkeypatch, requests_mock):
@@ -166,7 +166,7 @@ def test_sync_empty_response(db, monkeypatch, requests_mock):
     )
     monkeypatch.setattr("jobrunner.config.agent.BACKEND", "test")
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=test",
+        "http://testserver/api/v2/job-requests/",
         json={
             "results": [],
         },

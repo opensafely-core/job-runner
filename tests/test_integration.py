@@ -76,7 +76,7 @@ def test_integration(
         "backend": "test",
     }
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=test",
+        "http://testserver/api/v2/job-requests/",
         json={
             "results": [job_request_1],
         },
@@ -172,7 +172,7 @@ def test_integration(
         "backend": "test",
     }
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=test",
+        "http://testserver/api/v2/job-requests/",
         json={
             "results": [job_request_1, job_request_2],
         },
