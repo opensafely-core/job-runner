@@ -372,13 +372,22 @@ class Flag:
         CREATE TABLE flags (
             id TEXT,
             value TEXT,
+            backend TEXT,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
         )
     """
 
+    migration(
+        6,
+        """
+        ALTER TABLE flags ADD COLUMN backend TEXT;
+        """,
+    )
+
     id: str  # noqa: A003
     value: str
+    backend: str = None
     timestamp: int = None
 
     @property
@@ -387,7 +396,7 @@ class Flag:
 
     def __str__(self):
         ts = self.timestamp_isoformat if self.timestamp else "never set"
-        return f"{self.id}={self.value} ({ts})"
+        return f"[{self.backend}] {self.id}={self.value} ({ts})"
 
 
 @databaseclass
