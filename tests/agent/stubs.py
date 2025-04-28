@@ -66,7 +66,9 @@ class StubExecutorAPI:
         # handle the synchronous state meaning the state has completed
         if timestamp_ns is None:
             timestamp_ns = time.time_ns()
-        self.job_statuses[job_id] = JobStatus(executor_state, message, timestamp_ns)
+        status = JobStatus(executor_state, message, timestamp_ns)
+        status.results = self.metadata.get(job_id, {})
+        self.job_statuses[job_id] = status
 
     def set_job_transition(
         self, job_id, next_executor_state, message="executor message", hook=None
@@ -115,19 +117,16 @@ class StubExecutorAPI:
 
         timestamp_ns = time.time_ns()
         self.set_job_status(job.id, executor_state, message, timestamp_ns)
-        return JobStatus(
-            executor_state, message, timestamp_ns, results=self.metadata.get(job.id, {})
-        )
 
     def prepare(self, job):
         self.tracker["prepare"].add(job.id)
-        return self.do_transition(
+        self.do_transition(
             job, ExecutorState.UNKNOWN, ExecutorState.PREPARED, "prepare"
         )
 
     def execute(self, job):
         self.tracker["execute"].add(job.id)
-        return self.do_transition(
+        self.do_transition(
             job, ExecutorState.PREPARED, ExecutorState.EXECUTING, "execute"
         )
 
@@ -145,7 +144,7 @@ class StubExecutorAPI:
             metadata["error"] = error
             self.set_job_metadata(job.id, **metadata)
 
-        return self.do_transition(
+        self.do_transition(
             job,
             executor_state,
             ExecutorState.ERROR if error else ExecutorState.FINALIZED,
@@ -156,7 +155,7 @@ class StubExecutorAPI:
         self.tracker["terminate"].add(job.id)
         if self.get_status(job).state == ExecutorState.UNKNOWN:
             # job was cancelled before it started running
-            return self.do_transition(
+            self.do_transition(
                 job,
                 ExecutorState.UNKNOWN,
                 ExecutorState.UNKNOWN,
@@ -165,7 +164,7 @@ class StubExecutorAPI:
         elif self.get_status(job).state == ExecutorState.PREPARED:
             # job was cancelled after it was prepared, but before it started running
             # We do not need to terminate, so proceed directly to FINALIZED
-            return self.do_transition(
+            self.do_transition(
                 job,
                 ExecutorState.PREPARED,
                 ExecutorState.FINALIZED,
@@ -173,7 +172,7 @@ class StubExecutorAPI:
             )
         else:
             # job was cancelled after it started running
-            return self.do_transition(
+            self.do_transition(
                 job,
                 ExecutorState.EXECUTING,
                 ExecutorState.EXECUTED,
@@ -185,9 +184,7 @@ class StubExecutorAPI:
         self.job_statuses.pop(job.id, None)
         # TODO: this currently does a silent error in some tests, if the initial
         # ExecutorState is not ERROR
-        return self.do_transition(
-            job, ExecutorState.ERROR, ExecutorState.UNKNOWN, "cleanup"
-        )
+        self.do_transition(job, ExecutorState.ERROR, ExecutorState.UNKNOWN, "cleanup")
 
     def get_status(self, job, cancelled=False):
         return self.job_statuses.get(job.id, JobStatus(ExecutorState.UNKNOWN))
