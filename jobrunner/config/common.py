@@ -7,8 +7,7 @@ from pathlib import Path
 # - validate each job is from a known backend
 # - looping through BACKENDS in sync
 # The agent uses it to validate its BACKEND config
-BACKENDS = ["test", "tpp", "emis"]
-
+BACKENDS = os.environ.get("BACKENDS", "test,tpp,emis").strip().split(",")
 
 # Used for tracing in both agent and controller
 VERSION = os.environ.get("VERSION", "")

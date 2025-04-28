@@ -35,15 +35,19 @@ ALLOWED_IMAGES = {
 #  Set workers per-backend. This will be used by the controller to
 # determine if there are enough resources available to start a new
 # job running.
+default_workers = {"test": 2, "tpp": 10, "emis": 10}
 MAX_WORKERS = {
-    "test": int(os.environ.get("TEST_MAX_WORKERS") or 3),
-    "tpp": int(os.environ.get("TPP_MAX_WORKERS") or 10),
-    "emis": int(os.environ.get("EMIS_MAX_WORKERS") or 10),
+    backend: int(
+        os.environ.get(f"{backend.upper()}_MAX_WORKERS")
+        or default_workers.get(backend, 10)
+    )
+    for backend in common.BACKENDS
 }
 MAX_DB_WORKERS = {
-    "test": int(os.environ.get("TEST_MAX_DB_WORKERS") or MAX_WORKERS["test"]),
-    "tpp": int(os.environ.get("TPP_MAX_DB_WORKERS") or MAX_WORKERS["tpp"]),
-    "emis": int(os.environ.get("EMIS_MAX_DB_WORKERS") or MAX_WORKERS["emis"]),
+    backend: int(
+        os.environ.get(f"{backend.upper()}_MAX_DB_WORKERS") or MAX_WORKERS[backend]
+    )
+    for backend in common.BACKENDS
 }
 
 # Currently we assume all backends will have the same
