@@ -158,9 +158,6 @@ class LocalDockerAPI(ExecutorAPI):
 
         prepare_job(job_definition)
 
-        # this API is synchronous, so we are PREPARED now
-        return JobStatus(ExecutorState.PREPARED)
-
     def execute(self, job_definition):
         current = self.get_status(job_definition)
         if current.state != ExecutorState.PREPARED:
@@ -209,8 +206,6 @@ class LocalDockerAPI(ExecutorAPI):
             volume_type=volumes.volume_type,
         )
 
-        return JobStatus(ExecutorState.EXECUTING)
-
     def finalize(self, job_definition, cancelled=False, error=None):
         current_status = self.get_status(job_definition, cancelled=cancelled)
 
@@ -251,10 +246,6 @@ class LocalDockerAPI(ExecutorAPI):
         ], f"unexpected status {current_status}"
 
         docker.kill(container_name(job_definition))
-
-        return JobStatus(
-            ExecutorState.EXECUTED,
-        )
 
     def cleanup(self, job_definition):
         if config.CLEAN_UP_DOCKER_OBJECTS:

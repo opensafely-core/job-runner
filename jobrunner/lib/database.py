@@ -382,3 +382,7 @@ def decode_field_values(fields, row):
             value = field.type(value)
         values.append(value)
     return values
+
+
+def is_database_locked_error(exc):
+    return isinstance(exc, sqlite3.OperationalError) and "locked" in str(exc)
