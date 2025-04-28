@@ -1,29 +1,10 @@
-# The name of this backend
-BACKEND=test
-USING_DUMMY_DATA_BACKEND=True
-
-# The endpoint to poll for jobs
-JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/
-
-# Credentials for logging into the job server
-JOB_SERVER_TOKEN=pass
-
-# A location where cohort CSVs (one row per patient) should be
-# stored. This folder must exist.
-HIGH_PRIVACY_STORAGE_BASE=
-
-# A location where script outputs (some for publication) should be
-# stored
-MEDIUM_PRIVACY_STORAGE_BASE=
+# USED BY BOTH AGENT AND CONTROLLER
+###################################
+# These environment variables are used by both agent and CONTROLLER
+# They may be different on agent/controller
 
 # A Github developer token that has read access to private repos
 PRIVATE_REPO_ACCESS_TOKEN=
-
-# The DSN for accessing the database
-FULL_DATABASE_URL=mssql+pyodbc://xxxx
-
-# Database in which we can create temporary tables
-TEMP_DATABASE_NAME=OPENCoronaTempTables
 
 # How frequently to poll the job-server to pick up new JobRequests and post
 # updates to Jobs
@@ -33,5 +14,34 @@ POLL_INTERVAL=5
 # active jobs
 JOB_LOOP_INTERVAL=1.0
 
-# Default is number of CPUs minus one. Change this to reduce parallelism
-MAX_WORKERS=
+# USED BY AGENT ONLY
+####################
+
+# The name of this backend
+BACKEND=test
+USING_DUMMY_DATA_BACKEND=True
+
+# A location where dataset outputs (one row per patient) should be
+# stored. This folder must exist.
+HIGH_PRIVACY_STORAGE_BASE=
+
+# A location where script outputs (some for publication) should be
+# stored
+MEDIUM_PRIVACY_STORAGE_BASE=
+
+# The DSN for accessing the database
+DEFAULT_DATABASE_URL=mssql+pyodbc://xxxx
+
+# Database in which we can create temporary tables
+TEMP_DATABASE_NAME=OPENCoronaTempTables
+
+# USED BY CONTROLLER ONLY
+#########################
+# The endpoint to poll for jobs
+JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/
+
+# Credentials for logging into the job server
+JOB_SERVER_TOKEN=pass
+
+# Change this to reduce parallelism (per backend)
+TEST_MAX_WORKERS=
