@@ -48,7 +48,7 @@ def main():
         log.info("jobrunner.service started")
 
         sleep_after_error = config.POLL_INTERVAL * 5
-        start_thread(thread_wrapper("sync", sync_wrapper, sleep_after_error), "sync")
+        start_thread(thread_wrapper("sync", sync.main, sleep_after_error), "sync")
         start_thread(record_stats_wrapper, "stat")
         if config.ENABLE_MAINTENANCE_MODE_THREAD:
             start_thread(
@@ -70,21 +70,14 @@ def thread_wrapper(name, func, loop_interval):
         while True:
             try:
                 func()
+            except sync.SyncAPIError as e:
+                log.error(e)
+                time.sleep(loop_interval)
             except Exception:
                 log.exception(f"Exception in {name} thread")
                 time.sleep(loop_interval)
 
     return wrapper
-
-
-def sync_wrapper():
-    sleep_after_error = config.POLL_INTERVAL * 5
-    while True:
-        try:
-            sync.main()
-        except sync.SyncAPIError as e:
-            log.error(e)
-            time.sleep(sleep_after_error)
 
 
 def record_stats_wrapper():
