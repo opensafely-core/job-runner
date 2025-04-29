@@ -5,7 +5,8 @@ automatically re-run after a reboot.
 
 import argparse
 
-from jobrunner.controller.main import set_code
+from jobrunner.controller.main import get_task_for_job, set_code
+from jobrunner.controller.task_api import mark_task_inactive
 from jobrunner.executors import volumes
 from jobrunner.executors.local import container_name, docker
 from jobrunner.lib.database import find_where
@@ -27,12 +28,16 @@ def main(pause=True):
         assert confirm.strip().lower() == "y"
 
     for job in find_where(Job, state=State.RUNNING):
-        print(f"reseting job {job.id} to PENDING")
+        print(f"resetting job {job.id} to PENDING")
         set_code(
             job,
             StatusCode.WAITING_ON_REBOOT,
             "Job restarted - waiting for server to reboot",
         )
+        runjob_task = get_task_for_job(job)
+        if runjob_task and runjob_task.active:
+            print(f"setting task {runjob_task.id} to inactive")
+            mark_task_inactive(runjob_task)
         # these are idempotent
         docker.kill(container_name(job))
         docker.delete_container(container_name(job))
