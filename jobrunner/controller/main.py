@@ -334,8 +334,8 @@ def job_to_job_definition(job):
         database_name=job.database_name if job.requires_db else None,
         # in future, these may come from the JobRequest, but for now, we have
         # config defaults.
-        cpu_count=config.DEFAULT_JOB_CPU_COUNT,
-        memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
+        cpu_count=config.DEFAULT_JOB_CPU_COUNT[job.backend],
+        memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT[job.backend],
         level4_max_filesize=config.LEVEL4_MAX_FILESIZE,
         level4_max_csv_rows=config.LEVEL4_MAX_CSV_ROWS,
         level4_file_types=list(config.LEVEL4_FILE_TYPES),
@@ -469,7 +469,7 @@ def get_reason_job_not_started(job):
         get_job_resource_weight(running_job) for running_job in running_jobs
     )
     required_resources = get_job_resource_weight(job)
-    if used_resources + required_resources > config.MAX_WORKERS:
+    if used_resources + required_resources > config.MAX_WORKERS[job.backend]:
         if required_resources > 1:
             return (
                 StatusCode.WAITING_ON_WORKERS,
@@ -480,7 +480,7 @@ def get_reason_job_not_started(job):
 
     if job.requires_db:
         running_db_jobs = len([j for j in running_jobs if j.requires_db])
-        if running_db_jobs >= config.MAX_DB_WORKERS:
+        if running_db_jobs >= config.MAX_DB_WORKERS[job.backend]:
             return (
                 StatusCode.WAITING_ON_DB_WORKERS,
                 "Waiting on available database workers",
@@ -502,7 +502,7 @@ def get_job_resource_weight(job, weights=None):
     the config file, default to 1 otherwise
     """
     weights = weights or config.JOB_RESOURCE_WEIGHTS
-    action_patterns = weights.get(job.workspace)
+    action_patterns = weights.get(job.backend, {}).get(job.workspace)
     if action_patterns:
         for pattern, weight in action_patterns.items():
             if pattern.fullmatch(job.action):

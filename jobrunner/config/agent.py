@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -10,18 +9,19 @@ class ConfigException(Exception):
     pass
 
 
-def _is_valid_backend_name(name):
-    return bool(re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*[A-Za-z0-9]$", name))
-
-
 METRICS_FILE = common.WORKDIR / "metrics.sqlite"
 
 # valid archive formats
 ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
 
-BACKEND = os.environ.get("BACKEND", "dummy")
-if not _is_valid_backend_name(BACKEND):
-    raise RuntimeError(f"BACKEND not in valid format: '{BACKEND}'")  # pragma: no cover
+# This will be None for the controller
+BACKEND = os.environ.get("BACKEND")
+# this is tested in tests/test_config.py but via subprocess so it isn't registered by coverage
+if BACKEND and BACKEND not in common.BACKENDS:  # pragma: no cover
+    valid_backends = ", ".join(common.BACKENDS)
+    raise RuntimeError(
+        f"BACKEND {BACKEND} is not valid, allowed backends are: {valid_backends}"
+    )
 
 truthy = ("true", "1", "yes")
 

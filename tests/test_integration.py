@@ -42,7 +42,7 @@ def test_integration(
     monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
     # Ensure that we have enough workers to start the jobs we expect in the test
     # (CI may have fewer actual available workers than this)
-    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", 4)
+    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", {"test": 4})
 
     # Note that as we are running ehrql actions in this test, we need to set
     # the backend to a value that ehrql will accept

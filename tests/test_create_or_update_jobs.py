@@ -206,8 +206,9 @@ def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_
 
 
 def test_existing_active_jobs_for_other_backends_are_ignored_when_checking_dependencies(
-    tmp_work_dir,
+    tmp_work_dir, monkeypatch
 ):
+    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["foo", "bar"])
     # Schedule the same job on 2 backends
     create_jobs_with_project_file(
         make_job_request(action="analyse_data", backend="foo"), TEST_PROJECT
@@ -326,6 +327,7 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
         ({}, {"workspace": None}, "Workspace name cannot be blank", JobRequestError),
         ({}, {"workspace": "$%#"}, "Invalid workspace", JobRequestError),
         ({}, {"database_name": "invalid"}, "Invalid database name", JobRequestError),
+        ({}, {"backend": "foo"}, "Invalid backend", JobRequestError),
         (
             {},
             {"requested_actions": []},

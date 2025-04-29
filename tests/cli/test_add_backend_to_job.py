@@ -10,12 +10,13 @@ def test_add_backend_to_job(db, monkeypatch):
     monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy_backend")
     monkeypatch.setattr("builtins.input", lambda _: "y")
     # job with no SavedJobRequest instance
-    job1 = job_factory(job_request=job_request_factory_raw(), backend=None)
+    job1 = job_factory(job_request=job_request_factory_raw(backend=None), backend=None)
     assert not database.find_where(SavedJobRequest, id=job1.job_request_id)
 
     # job with job_request and SavedJobRequest instance
-    job_request = job_request_factory(original={"backend": "the_test_backend"})
-    job2 = job_factory(job_request, backend=None)
+    job2 = job_factory(
+        job_request=job_request_factory(backend="the_test_backend"), backend=None
+    )
     assert database.find_where(SavedJobRequest, id=job2.job_request_id)
 
     # job with no job_request id
@@ -47,7 +48,7 @@ def test_add_backend_to_job_confirmation(db, monkeypatch, response, expected_bac
     monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy_backend")
     # job with a backend already set
     job1 = job_factory(backend="test")
-    job2 = job_factory(backend=None)
+    job2 = job_factory(job_request=job_request_factory_raw(backend=None), backend=None)
 
     monkeypatch.setattr("builtins.input", lambda _: response)
     add_backend_to_job.main()

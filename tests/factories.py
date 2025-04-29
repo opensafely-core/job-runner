@@ -24,10 +24,12 @@ JOB_REQUEST_DEFAULTS = {
     "workspace": "workspace",
     "codelists_ok": True,
     "database_name": "default",
+    "backend": "test",
     "original": {
         "created_by": "testuser",
         "project": "project",
         "orgs": ["org1", "org2"],
+        "backend": "test",
     },
 }
 
@@ -42,6 +44,7 @@ JOB_DEFAULTS = {
     "output_spec": {},
     "created_at": 0,
     "status_code": StatusCode.CREATED,
+    "backend": "test",
 }
 
 
@@ -61,6 +64,8 @@ def job_request_factory_raw(**kwargs):
 
     values = deepcopy(JOB_REQUEST_DEFAULTS)
     values.update(kwargs)
+    if "backend" in kwargs:
+        values["original"]["backend"] = kwargs["backend"]
     return JobRequest(**values)
 
 
@@ -72,7 +77,11 @@ def job_request_factory(**kwargs):
 
 def job_factory(job_request=None, **kwargs):
     if job_request is None:
-        job_request = job_request_factory()
+        # if there's a job backend, make sure the job request is consistent
+        job_request_kwargs = {}
+        if job_backend := kwargs.get("backend"):
+            job_request_kwargs = {"backend": job_backend}
+        job_request = job_request_factory(**job_request_kwargs)
 
     values = deepcopy(JOB_DEFAULTS)
     # default times
