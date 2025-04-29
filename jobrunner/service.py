@@ -9,7 +9,6 @@ import time
 from jobrunner import record_stats, sync, tracing
 from jobrunner.agent.main import main as agent_main
 from jobrunner.config import agent as agent_config
-from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
 from jobrunner.controller.main import main as controller_main
 from jobrunner.lib.database import ensure_valid_db
@@ -46,31 +45,38 @@ def main():
 
     try:
         log.info("jobrunner.service started")
-        start_thread(sync_wrapper, "sync")
+
+        sleep_after_error = config.POLL_INTERVAL * 5
+        start_thread(thread_wrapper("sync", sync.main, sleep_after_error), "sync")
         start_thread(record_stats_wrapper, "stat")
         if config.ENABLE_MAINTENANCE_MODE_THREAD:
-            start_thread(maintenance_wrapper, "mntn")
-        start_thread(temporary_agent_wrapper, "agnt")
+            start_thread(
+                thread_wrapper(
+                    "maintenance_mode",
+                    maintenance_mode,
+                    config.MAINTENANCE_POLL_INTERVAL,
+                ),
+                "mntn",
+            )
+        start_thread(thread_wrapper("agent", agent_main, config.POLL_INTERVAL), "agnt")
         controller_main()
     except KeyboardInterrupt:
         log.info("jobrunner.service stopped")
 
 
-def sync_wrapper():
-    """Wrap the sync call with logging context and an exception handler."""
-    # avoid busy retries on hard failure
-    sleep_after_error = config.POLL_INTERVAL * 5
-    while True:
-        try:
-            sync.main()
-        except sync.SyncAPIError as e:
-            # Handle these separately as we don't want the full traceback here,
-            # just the text of the error response
-            log.error(e)
-            time.sleep(sleep_after_error)
-        except Exception:
-            log.exception("Exception in sync thread")
-            time.sleep(sleep_after_error)
+def thread_wrapper(name, func, loop_interval):
+    def wrapper():
+        while True:
+            try:
+                func()
+            except sync.SyncAPIError as e:
+                log.error(e)
+                time.sleep(loop_interval)
+            except Exception:
+                log.exception(f"Exception in {name} thread")
+                time.sleep(loop_interval)
+
+    return wrapper
 
 
 def record_stats_wrapper():
@@ -85,28 +91,6 @@ def record_stats_wrapper():
         except Exception:
             log.exception("Exception in record_stats thread")
             time.sleep(agent_config.STATS_POLL_INTERVAL)
-
-
-def maintenance_wrapper():
-    """Poll a backend specific way to set the db maintenance flag."""
-    while True:
-        try:
-            maintenance_mode()
-        except Exception:
-            log.exception("Exception in maintenance_mode thread")
-
-        time.sleep(config.MAINTENANCE_POLL_INTERVAL)
-
-
-def temporary_agent_wrapper():
-    """Temporary wrapper to handle agent thread exceptions"""
-    while True:
-        try:
-            agent_main()
-        except Exception:
-            log.exception("Exception in maintenance_mode thread")
-
-        time.sleep(common_config.JOB_LOOP_INTERVAL)
 
 
 DB_MAINTENANCE_MODE = "db-maintenance"
