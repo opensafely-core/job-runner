@@ -26,7 +26,7 @@ def run_controller_loop_once():
 
 def set_job_task_results(job, job_results, error=None):
     runjob_task = database.find_one(
-        Task, type=TaskType.RUNJOB, id__like=f"{job.id}-%", active=True
+        Task, type=TaskType.RUNJOB, id__glob=f"{job.id}-*", active=True
     )
     results = job_results.to_dict()
     if error:

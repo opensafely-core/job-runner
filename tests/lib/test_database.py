@@ -23,6 +23,7 @@ from jobrunner.lib.database import (
     upsert,
 )
 from jobrunner.models import Job, State
+from tests.conftest import get_trace
 
 
 def test_get_connection():
@@ -58,6 +59,10 @@ def test_insert_in_transaction_success(tmp_work_dir):
     assert job.id == j.id
     assert job.output_spec == j.output_spec
 
+    spans = get_trace("db")
+    assert len(spans) == 1
+    assert spans[0].name == "TRANSACTION"
+
 
 def test_insert_in_transaction_fail(tmp_work_dir):
     job = Job(
@@ -74,6 +79,10 @@ def test_insert_in_transaction_fail(tmp_work_dir):
 
     with pytest.raises(ValueError):
         find_one(Job, job_request_id__in=["bar123", "baz123"])
+
+    spans = get_trace("db")
+    assert len(spans) == 1
+    assert spans[0].name == "TRANSACTION"
 
 
 def test_generate_insert_sql(tmp_work_dir):
@@ -304,7 +313,7 @@ def test_ensure_valid_db(tmp_path):
     [
         ({}, "1 = 1", []),
         ({"doubutsu": "neko"}, '"doubutsu" = ?', ["neko"]),
-        ({"doubutsu__like": "ne%"}, '"doubutsu" LIKE ?', ["ne%"]),
+        ({"doubutsu__glob": "ne*"}, '"doubutsu" GLOB ?', ["ne*"]),
         (
             {"doubutsu__in": ["neko", "kitsune", "nezumi"]},
             '"doubutsu" IN (?, ?, ?)',

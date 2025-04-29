@@ -9,6 +9,7 @@ import time
 from jobrunner import record_stats, sync, tracing
 from jobrunner.agent.main import main as agent_main
 from jobrunner.config import agent as agent_config
+from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
 from jobrunner.controller.main import main as controller_main
 from jobrunner.lib.database import ensure_valid_db
@@ -49,7 +50,7 @@ def main():
         start_thread(record_stats_wrapper, "stat")
         if config.ENABLE_MAINTENANCE_MODE_THREAD:
             start_thread(maintenance_wrapper, "mntn")
-        start_thread(agent_main, "agnt")
+        start_thread(temporary_agent_wrapper, "agnt")
         controller_main()
     except KeyboardInterrupt:
         log.info("jobrunner.service stopped")
@@ -95,6 +96,17 @@ def maintenance_wrapper():
             log.exception("Exception in maintenance_mode thread")
 
         time.sleep(config.MAINTENANCE_POLL_INTERVAL)
+
+
+def temporary_agent_wrapper():
+    """Temporary wrapper to handle agent thread exceptions"""
+    while True:
+        try:
+            agent_main()
+        except Exception:
+            log.exception("Exception in maintenance_mode thread")
+
+        time.sleep(common_config.JOB_LOOP_INTERVAL)
 
 
 DB_MAINTENANCE_MODE = "db-maintenance"
