@@ -11,7 +11,7 @@ import time
 import requests
 
 from jobrunner import queries, record_stats
-from jobrunner.config import agent as agent_config
+from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where, select_values
@@ -38,13 +38,17 @@ def main():  # pragma: no cover
 
 
 def sync():
+    for backend in common_config.BACKENDS:
+        sync_backend(backend)
+
+
+def sync_backend(backend):
     response = api_get(
         "job-requests",
+        backend=backend,
         # We're deliberately not paginating here on the assumption that the set
         # of active jobs is always going to be small enough that we can fetch
         # them in a single request and we don't need the extra complexity
-        # TODO loop over config.BACKENDS
-        params={"backend": agent_config.BACKEND},
     )
     job_requests = [job_request_from_remote_format(i) for i in response["results"]]
 
@@ -71,29 +75,32 @@ def sync():
     jobs_data = [job_to_remote_format(i) for i in jobs]
     log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
 
-    api_post("jobs", json=jobs_data)
+    api_post("jobs", backend=backend, json=jobs_data)
 
 
-def api_get(*args, **kwargs):
-    return api_request("get", *args, **kwargs)
+def api_get(*args, backend, **kwargs):
+    return api_request("get", *args, backend=backend, **kwargs)
 
 
-def api_post(*args, **kwargs):
-    return api_request("post", *args, **kwargs)
+def api_post(*args, backend, **kwargs):
+    return api_request("post", *args, backend=backend, **kwargs)
 
 
-def api_request(method, path, *args, headers=None, **kwargs):
+def api_request(method, path, *args, backend, headers=None, **kwargs):
     if headers is None:  # pragma: no cover
         headers = {}
 
     url = "{}/{}/".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.strip("/"))
 
+    if backend not in config.JOB_SERVER_TOKEN:
+        raise SyncAPIError(f"No api token found for backend '{backend}'")
+
     flags = {
         f.id: {"v": f.value, "ts": f.timestamp_isoformat}
-        for f in queries.get_current_flags()
+        for f in queries.get_current_flags(backend=backend)
     }
 
-    headers["Authorization"] = config.JOB_SERVER_TOKEN
+    headers["Authorization"] = config.JOB_SERVER_TOKEN[backend]
     headers["Flags"] = json.dumps(flags, separators=(",", ":"))
 
     response = session.request(method, url, *args, headers=headers, **kwargs)

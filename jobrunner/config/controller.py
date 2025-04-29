@@ -17,7 +17,11 @@ DATABASE_FILE = common.WORKDIR / "db.sqlite"
 JOB_SERVER_ENDPOINT = os.environ.get(
     "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/v2/"
 )
-JOB_SERVER_TOKEN = os.environ.get("JOB_SERVER_TOKEN", "token")
+
+JOB_SERVER_TOKEN = {
+    backend: os.environ.get(f"{backend.upper()}_JOB_SERVER_TOKEN", "token")
+    for backend in common.BACKENDS
+}
 
 POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
 

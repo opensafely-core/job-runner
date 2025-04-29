@@ -3,6 +3,9 @@
 # These environment variables are used by both agent and CONTROLLER
 # They may be different on agent/controller
 
+# Comma separated list of known backends; default if unset: test,tpp,emis
+# BACKENDS=test
+
 # A Github developer token that has read access to private repos
 PRIVATE_REPO_ACCESS_TOKEN=
 
@@ -41,7 +44,9 @@ TEMP_DATABASE_NAME=OPENCoronaTempTables
 JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/
 
 # Credentials for logging into the job server
-JOB_SERVER_TOKEN=pass
+# Note this variable is per-backend i.e. <BACKEND>_JOB_SERVER_TOKEN for each backend
+TEST_JOB_SERVER_TOKEN=pass
 
 # Change this to reduce parallelism (per backend)
+# Note this variable is per-backend i.e. <BACKEND>_MAX_WORKERS for each backend
 TEST_MAX_WORKERS=

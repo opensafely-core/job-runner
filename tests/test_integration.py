@@ -16,11 +16,68 @@ from jobrunner.executors import get_executor_api
 from jobrunner.lib.database import find_where
 from jobrunner.models import Task
 from jobrunner.schema import TaskType
-from tests.conftest import get_trace
+from tests.conftest import get_trace, set_tmp_workdir_config
 from tests.factories import ensure_docker_images_present
 
 
 log = logging.getLogger(__name__)
+
+
+def set_agent_config(monkeypatch, tmp_work_dir):
+    # set agent config
+    monkeypatch.setattr("jobrunner.config.agent.USING_DUMMY_DATA_BACKEND", True)
+    # Note that as we are running ehrql actions in this test, we need to set
+    # the backend to a value that ehrql will accept
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "test")
+    # set all the tmp workdir config as we remove it for the controller phase
+    set_tmp_workdir_config(monkeypatch, tmp_work_dir)
+
+    # disable controller config
+    # (note some of these will be set in prod because they are based on shared config
+    # e.g. JOB_SERVER_TOKEN is based on BACKENDS so will always be populated for each
+    # backend, with the default value. We set it explicitly here to confirm that it
+    # doesn't trigger any errors if it is invalid for the agent i.e. it's not used)
+    monkeypatch.setattr("jobrunner.config.controller.JOB_SERVER_ENDPOINT", None)
+    monkeypatch.setattr("jobrunner.config.controller.JOB_SERVER_TOKEN", None)
+    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", None)
+
+
+def set_controller_config(monkeypatch):
+    # set controller config
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+    )
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKEN", {"test": "token"}
+    )
+    # Disable repo URL checking so we can run using a local test repo
+    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
+    # Ensure that we have enough workers to start the jobs we expect in the test
+    # (CI may have fewer actual available workers than this)
+    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", {"test": 4})
+
+    # disable agent config
+    # (note some of these will be set in prod because they are based on shared config
+    # e.g. HIGH_PRIVACY_STORAGE_BASE is based on WORKDIR which is a common config. We
+    # set it explicitly here to confirm that it doesn't trigger any errors if it is
+    # invalid for the controller i.e. it's not used.)
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", None)
+    monkeypatch.setattr("jobrunner.config.agent.USING_DUMMY_DATA_BACKEND", False)
+
+    config_vars = [
+        "TMP_DIR",
+        "HIGH_PRIVACY_STORAGE_BASE",
+        "MEDIUM_PRIVACY_STORAGE_BASE",
+        "HIGH_PRIVACY_WORKSPACES_DIR",
+        "MEDIUM_PRIVACY_WORKSPACES_DIR",
+        "HIGH_PRIVACY_ARCHIVE_DIR",
+        "HIGH_PRIVACY_VOLUME_DIR",
+        "JOB_LOG_DIR",
+    ]
+
+    for config_var in config_vars:
+        monkeypatch.setattr(f"jobrunner.config.agent.{config_var}", None)
 
 
 @pytest.mark.slow_test
@@ -33,21 +90,7 @@ def test_integration(
     test_repo,
 ):
     api = get_executor_api()
-
-    monkeypatch.setattr("jobrunner.config.agent.USING_DUMMY_DATA_BACKEND", True)
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
-    )
-    # Disable repo URL checking so we can run using a local test repo
-    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
-    # Ensure that we have enough workers to start the jobs we expect in the test
-    # (CI may have fewer actual available workers than this)
-    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", {"test": 4})
-
-    # Note that as we are running ehrql actions in this test, we need to set
-    # the backend to a value that ehrql will accept
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "test")
-
+    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test"])
     monkeypatch.setattr("jobrunner.config.common.JOB_LOOP_INTERVAL", 0)
 
     ensure_docker_images_present("ehrql:v1", "python")
@@ -76,13 +119,15 @@ def test_integration(
         "backend": "test",
     }
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=test",
+        "http://testserver/api/v2/job-requests/",
         json={
             "results": [job_request_1],
         },
     )
     requests_mock.post("http://testserver/api/v2/jobs/", json={})
 
+    # START ON CONTROLLER; set up the expected controller config (and remove agent config)
+    set_controller_config(monkeypatch)
     # Run sync to grab the JobRequest from the mocked job-server
     jobrunner.sync.sync()
     # Check that expected number of pending jobs are created
@@ -123,6 +168,8 @@ def test_integration(
     jobs = get_posted_jobs(requests_mock)
     assert_generate_dataset_dependency_running(jobs)
 
+    # MOVE TO AGENT; set up the expected agent config (and remove controller config)
+    set_agent_config(monkeypatch, tmp_work_dir)
     # Execute one tick of the agent run loop to pick up the runjob task
     # After one tick, the task should have moved to the PREPARED stage
     jobrunner.agent.main.handle_tasks(api)
@@ -130,18 +177,24 @@ def test_integration(
     assert len(active_tasks) == 1
     assert active_tasks[0].agent_stage == "prepared"
 
+    # CONTROLLER
+    set_controller_config(monkeypatch)
     # sync again; no change to status of jobs
     jobrunner.sync.sync()
     # still one running job and all others waiting on dependencies
     jobs = get_posted_jobs(requests_mock)
     assert_generate_dataset_dependency_running(jobs)
 
+    # AGENT
+    set_agent_config(monkeypatch, tmp_work_dir)
     # After one tick of the agent loop, the task should have moved to EXECUTING status
     jobrunner.agent.main.handle_tasks(api)
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 1
     assert active_tasks[0].agent_stage == "executing"
 
+    # CONTROLLER
+    set_controller_config(monkeypatch)
     # sync again; no change to status of jobs
     jobrunner.sync.sync()
     # still one running job and all others waiting on dependencies
@@ -172,7 +225,7 @@ def test_integration(
         "backend": "test",
     }
     requests_mock.get(
-        "http://testserver/api/v2/job-requests/?backend=test",
+        "http://testserver/api/v2/job-requests/",
         json={
             "results": [job_request_1, job_request_2],
         },
@@ -211,9 +264,14 @@ def test_integration(
         "test_reusable_action_ehrql",
     ]:
         assert jobs[action]["status_message"].startswith("Waiting on dependencies")
+
+    # AGENT
+    set_agent_config(monkeypatch, tmp_work_dir)
     # Run the agent loop until there are no active tasks left; the generate_dataset jobs should be done
     jobrunner.agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
 
+    # CONTROLLER
+    set_controller_config(monkeypatch)
     # Run the controller again, this should:
     # - pick up the completed task and mark generate_dataset as succeeded
     # - add RUNJOB tasks for the 4 jobs that depend on generate_dataset and set the Job state to running
@@ -249,9 +307,14 @@ def test_integration(
     assert jobs["test_cancellation_ehrql"]["status"] == "failed"
     assert jobs["analyse_data_ehrql"]["status"] == "pending"
 
+    # AGENT
+    set_agent_config(monkeypatch, tmp_work_dir)
     # Run the agent loop until there are no active tasks left; the 4 running jobs
     # are now done
     jobrunner.agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
+
+    # CONTROLLER
+    set_controller_config(monkeypatch)
     # Run the controller again, this should find the 4 jobs it thinks are still running,
     # identify that their tasks are completed, and mark them as succeeded
     # And it will start a new task for the analyse_data action now that its
@@ -274,7 +337,11 @@ def test_integration(
 
     # Run the agent and controller again to complete the last job and mark it as
     # succeeded
+    # AGENT
+    set_agent_config(monkeypatch, tmp_work_dir)
     jobrunner.agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
+    # CONTROLLER
+    set_controller_config(monkeypatch)
     jobrunner.controller.main.handle_jobs()
 
     # no tasks left to do

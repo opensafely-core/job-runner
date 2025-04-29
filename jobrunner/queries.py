@@ -5,7 +5,7 @@ from operator import attrgetter
 
 from opentelemetry import trace
 
-from jobrunner.lib.database import find_all, find_one, find_where, upsert
+from jobrunner.lib.database import find_one, find_where, upsert
 from jobrunner.models import Flag, Job
 
 
@@ -41,16 +41,16 @@ def group_by(iterable, key):
     return groupby(sorted(iterable, key=key), key=key)
 
 
-def get_flag(name):
-    """Get a flag from the db"""
-    return find_one(Flag, id=name)
+def get_flag(name, backend):
+    """Get a flag for a backend from the db"""
+    return find_one(Flag, id=name, backend=backend)
 
 
-def get_flag_value(name, default=None):
-    """Get the current value of a flag, with a default"""
+def get_flag_value(name, backend, *, default=None):
+    """Get the current value of a flag for a backend, with a default"""
     # Note: fail gracefully if the flags table does not exist
     try:
-        return get_flag(name).value
+        return get_flag(name, backend).value
     except ValueError:
         return default
     except sqlite3.OperationalError as e:
@@ -59,14 +59,14 @@ def get_flag_value(name, default=None):
         raise  # pragma: no cover
 
 
-def set_flag(name, value, timestamp=None):
-    """Set a flag to a value in the db."""
+def set_flag(name, value, backend, timestamp=None):
+    """Set a flag for a backend to a value in the db."""
     # Note: table must exist to set flags
 
     # If it's already in the desired state, do nothing to avoid updating the
     # timestamp
     try:
-        current = get_flag(name)
+        current = get_flag(name, backend)
     except ValueError:
         pass
     else:
@@ -75,11 +75,11 @@ def set_flag(name, value, timestamp=None):
 
     if timestamp is None:
         timestamp = time.time()
-    flag = Flag(name, value, timestamp)
+    flag = Flag(name, value, backend, timestamp)
     upsert(flag)
     return flag
 
 
-def get_current_flags():
-    """Get all currently set flags"""
-    return find_all(Flag)
+def get_current_flags(backend):
+    """Get all currently set flags for a backend"""
+    return find_where(Flag, backend=backend)

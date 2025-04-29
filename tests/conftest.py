@@ -47,8 +47,7 @@ def get_trace(tracer=None):
         return [s for s in spans if s.instrumentation_scope.name == tracer]
 
 
-@pytest.fixture
-def tmp_work_dir(request, monkeypatch, tmp_path):
+def set_tmp_workdir_config(monkeypatch, tmp_path):
     monkeypatch.setattr("jobrunner.config.common.WORKDIR", tmp_path)
     monkeypatch.setattr(
         "jobrunner.config.controller.DATABASE_FILE", tmp_path / "db.sqlite"
@@ -72,6 +71,11 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
             monkeypatch.setattr(
                 f"jobrunner.config.{config_type}.{var}", tmp_path / var.lower()
             )
+
+
+@pytest.fixture
+def tmp_work_dir(request, monkeypatch, tmp_path):
+    set_tmp_workdir_config(monkeypatch, tmp_path)
 
     # ensure db initialise
     database.ensure_db()

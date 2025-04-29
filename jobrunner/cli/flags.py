@@ -6,6 +6,7 @@ import argparse
 import sqlite3
 import sys
 
+from jobrunner.config import common as common_config
 from jobrunner.lib.database import create_table, get_connection
 from jobrunner.models import Flag
 from jobrunner.queries import get_current_flags, get_flag, set_flag
@@ -21,14 +22,14 @@ def parse_cli_flag(raw):
     return name, value
 
 
-def main(action, flags, create=False):
+def main(backend, action, flags, create=False):
     try:
-        get_current_flags()
+        get_current_flags(backend)
     except sqlite3.OperationalError as e:  # pragma: no cover
         if "no such table" in str(e):
             if create:
                 create_table(get_connection(), Flag)
-                get_current_flags()
+                get_current_flags(backend)
             else:
                 sys.exit(
                     "The flags table does not exists. Run command again with --create to create it."
@@ -38,19 +39,19 @@ def main(action, flags, create=False):
 
     if action == "set":
         for name, value in flags:
-            flag = set_flag(name, value)
+            flag = set_flag(name, value, backend)
             flags_to_show.append(flag)
 
     else:  # action == "get"
         if flags:
             for f in flags:
                 try:
-                    flag = get_flag(f)
+                    flag = get_flag(f, backend)
                 except ValueError:
-                    flag = Flag(f, None, None)
+                    flag = Flag(f, None, backend, None)
                 flags_to_show.append(flag)
         else:
-            flags_to_show = get_current_flags()
+            flags_to_show = get_current_flags(backend)
 
     for flag in flags_to_show:
         print(flag)
@@ -58,6 +59,13 @@ def main(action, flags, create=False):
 
 def run(argv):
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
+    parser.add_argument(
+        "--backend",
+        type=str.lower,
+        required=True,
+        choices=common_config.BACKENDS,
+        help="backend this flag/flags relates to",
+    )
 
     subparsers = parser.add_subparsers(dest="action")
     subparsers.required = True

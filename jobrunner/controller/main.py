@@ -110,8 +110,10 @@ def handle_single_job(job):
     # TODO: These flags are going to need to be set per-backend so we'll need to figure
     # out how to do that and then retrive the values for the backend associated with
     # each job
-    mode = get_flag_value("mode")
-    paused = str(get_flag_value("paused", "False")).lower() == "true"
+    mode = get_flag_value("mode", job.backend)
+    paused = (
+        str(get_flag_value("paused", job.backend, default="False")).lower() == "true"
+    )
     try:
         trace_handle_job(job, mode, paused)
     except Exception as exc:
