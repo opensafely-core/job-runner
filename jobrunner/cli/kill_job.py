@@ -4,6 +4,7 @@ Ops utility for killing jobs and cleaning up containers and volumes
 
 import argparse
 
+from jobrunner.config import agent as agent_config
 from jobrunner.controller.main import job_to_job_definition, mark_job_as_failed
 from jobrunner.executors import local
 from jobrunner.job_executor import JobResults
@@ -12,7 +13,9 @@ from jobrunner.models import Job, State, StatusCode
 
 
 def main(partial_job_ids, cleanup=False):
-    jobs = get_jobs(partial_job_ids)
+    # TODO: pass this in as a cli arg when run from the controller
+    backend = agent_config.BACKEND
+    jobs = get_jobs(partial_job_ids, backend)
     #
     #
     for job in jobs:
@@ -52,12 +55,14 @@ def main(partial_job_ids, cleanup=False):
             local.volumes.delete_volume(job)
 
 
-def get_jobs(partial_job_ids):
+def get_jobs(partial_job_ids, backend):
     jobs = []
     need_confirmation = False
     for partial_job_id in partial_job_ids:
         # look for partial matches
-        partial_matches = database.find_where(Job, id__glob=f"*{partial_job_id}*")
+        partial_matches = database.find_where(
+            Job, id__glob=f"*{partial_job_id}*", backend=backend
+        )
         if len(partial_matches) == 0:
             raise RuntimeError(f"No jobs found matching '{partial_job_id}'")
         elif len(partial_matches) > 1:

@@ -11,7 +11,7 @@ def test_get_jobs_no_jobs(db):
     # set a string to use as a partial id
     partial_job_id = "1234"
     with pytest.raises(RuntimeError):
-        retry_job.get_job(partial_job_id)
+        retry_job.get_job(partial_job_id, backend="test")
 
 
 def test_get_job_no_match(db):
@@ -21,7 +21,7 @@ def test_get_job_no_match(db):
     )
     partial_job_id = "1234"
     with pytest.raises(RuntimeError):
-        retry_job.get_job(partial_job_id)
+        retry_job.get_job(partial_job_id, backend="test")
 
 
 def test_get_job_multiple_matches(db, monkeypatch):
@@ -38,7 +38,7 @@ def test_get_job_multiple_matches(db, monkeypatch):
 
     monkeypatch.setattr("builtins.input", lambda _: "1")
 
-    output_job = retry_job.get_job(partial_job_id)
+    output_job = retry_job.get_job(partial_job_id, backend="test")
 
     assert output_job.id == job.id
 
@@ -62,7 +62,7 @@ def test_main(mock_api_post, mock_container_exists, db, monkeypatch):
     partial_job_id = "l6tk"
     monkeypatch.setattr("builtins.input", lambda _: "")
     retry_job.main(partial_job_id)
-    job = retry_job.get_job(partial_job_id)
+    job = retry_job.get_job(partial_job_id, backend="test")
     assert job.status_code == StatusCode.EXECUTING
     assert job.state == State.RUNNING
     mock_api_post.assert_called_once()
