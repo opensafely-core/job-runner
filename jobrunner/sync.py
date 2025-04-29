@@ -92,13 +92,13 @@ def api_request(method, path, *args, backend, headers=None, **kwargs):
 
     url = "{}/{}/".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.strip("/"))
 
-    flags = {
-        f.id: {"v": f.value, "ts": f.timestamp_isoformat}
-        for f in queries.get_current_flags()
-    }
-
     if backend not in config.JOB_SERVER_TOKEN:
         raise SyncAPIError(f"No api token found for backend '{backend}'")
+
+    flags = {
+        f.id: {"v": f.value, "ts": f.timestamp_isoformat}
+        for f in queries.get_current_flags(backend=backend)
+    }
 
     headers["Authorization"] = config.JOB_SERVER_TOKEN[backend]
     headers["Flags"] = json.dumps(flags, separators=(",", ":"))

@@ -133,8 +133,8 @@ def test_session_request_no_flags(db, responses):
 
 
 def test_session_request_flags(db, responses):
-    f1 = queries.set_flag("mode", "db-maintenance")
-    f2 = queries.set_flag("pause", "true")
+    f1 = queries.set_flag("mode", "db-maintenance", backend="test")
+    f2 = queries.set_flag("pause", "true", backend="test")
 
     flags_dict = {
         "mode": {"v": "db-maintenance", "ts": f1.timestamp_isoformat},
