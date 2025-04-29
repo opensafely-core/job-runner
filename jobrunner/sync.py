@@ -78,15 +78,15 @@ def sync_backend(backend):
     api_post("jobs", backend=backend, json=jobs_data)
 
 
-def api_get(*args, backend=None, **kwargs):
+def api_get(*args, backend, **kwargs):
     return api_request("get", *args, backend=backend, **kwargs)
 
 
-def api_post(*args, backend=None, **kwargs):
+def api_post(*args, backend, **kwargs):
     return api_request("post", *args, backend=backend, **kwargs)
 
 
-def api_request(method, path, *args, backend=None, headers=None, **kwargs):
+def api_request(method, path, *args, backend, headers=None, **kwargs):
     if headers is None:  # pragma: no cover
         headers = {}
 
