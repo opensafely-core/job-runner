@@ -9,7 +9,6 @@ import time
 from jobrunner import record_stats, sync, tracing
 from jobrunner.agent.main import main as agent_main
 from jobrunner.config import agent as agent_config
-from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
 from jobrunner.controller.main import main as controller_main
 from jobrunner.lib.database import ensure_valid_db
