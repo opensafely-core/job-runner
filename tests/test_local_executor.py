@@ -118,12 +118,16 @@ def test_read_metadata_path(job_definition):
     )
     globbed_path.parent.mkdir(parents=True)
     globbed_path.write_text(json.dumps({"test": "globbed"}))
-    assert local.read_job_metadata(job_definition) == {"test": "globbed"}
+    assert local.read_job_metadata(job_definition) == local.METADATA_DEFAULTS | {
+        "test": "globbed"
+    }
 
     actual_path = local.get_log_dir(job_definition) / local.METADATA_FILE
     actual_path.parent.mkdir(parents=True)
     actual_path.write_text(json.dumps({"test": "actual"}))
-    assert local.read_job_metadata(job_definition) == {"test": "actual"}
+    assert local.read_job_metadata(job_definition) == local.METADATA_DEFAULTS | {
+        "test": "actual"
+    }
 
 
 @pytest.mark.needs_docker

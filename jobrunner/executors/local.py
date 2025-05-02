@@ -77,7 +77,10 @@ def get_log_dir(job_definition):
 def read_job_metadata(job_definition):
     path = job_metadata_path(job_definition)
     if path:
-        return json.loads(path.read_text())
+        metadata = json.loads(path.read_text())
+        # ensure all metadata has default values, as older json files might be
+        # missing some
+        return METADATA_DEFAULTS | metadata
 
     return {}
 
@@ -518,6 +521,7 @@ def get_job_metadata(
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job_definition.study.commit
     job_metadata["database_name"] = job_definition.database_name
+    # new metadata added later, ensure default value is in METADATA_DEFAULTS
     job_metadata["hint"] = results.unmatched_hint
     # all calculated results
     job_metadata["unmatched_patterns"] = results.unmatched_patterns
@@ -531,6 +535,23 @@ def get_job_metadata(
     job_metadata["level4_excluded_files"] = {}
     job_metadata["cancelled"] = cancelled
     return job_metadata
+
+
+# keys that may be missing in older metadata files, and their default empty values
+# Note: we use tuples to provide immutable empty iterables
+METADATA_DEFAULTS = {
+    "hint": None,
+    "unmatched_patterns": tuple(),
+    "unmatched_outputs": tuple(),
+    "timestamp_ns": None,
+    "action_version": None,
+    "action_revision": None,
+    "action_created": None,
+    "base_revision": None,
+    "base_created": None,
+    "level4_excluded_files": tuple(),
+    "cancelled": False,
+}
 
 
 def write_job_logs(
