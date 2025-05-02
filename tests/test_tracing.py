@@ -80,7 +80,7 @@ def test_trace_attributes(db):
         action_repo_url="action_repo",
         action_commit="commit",
         status_message="message",
-        backend="expectations",
+        backend="test",
     )
 
     results = job_results_factory(
@@ -95,7 +95,7 @@ def test_trace_attributes(db):
     attrs = tracing.trace_attributes(job, results)
 
     assert attrs == dict(
-        backend="expectations",
+        backend="test",
         job=job.id,
         job_request=job.job_request_id,
         workspace="workspace",
@@ -140,14 +140,14 @@ def test_trace_attributes_missing(db):
         action="action",
         status_message="message",
         commit="abc123def",
-        backend="expectations",
+        backend="test",
         # no reusable action
     )
 
     attrs = tracing.trace_attributes(job)
 
     assert attrs == dict(
-        backend="expectations",
+        backend="test",
         job=job.id,
         job_request=job.job_request_id,
         workspace="workspace",
