@@ -166,10 +166,12 @@ def test_handle_runjob_with_error(mock_update_controller, db):
     task, job_id = api.add_test_runjob_task(ExecutorState.PREPARED)
 
     api.set_job_transition(
-        job_id, ExecutorState.EXECUTING, hook=Mock(side_effect=Exception("foo"))
+        job_id,
+        ExecutorState.EXECUTING,
+        hook=Mock(side_effect=Exception("test_hard_failure")),
     )
 
-    with pytest.raises(Exception, match="foo"):
+    with pytest.raises(Exception, match="test_hard_failure"):
         main.handle_single_task(task, api)
 
     assert mock_update_controller.call_count == 1
@@ -177,7 +179,7 @@ def test_handle_runjob_with_error(mock_update_controller, db):
     assert task2 == task
     assert stage == ExecutorState.ERROR.value
     assert results["error"]["exception"] == "Exception"
-    assert results["error"]["message"] == "foo"
+    assert results["error"]["message"] == "test_hard_failure"
     assert "traceback" in results["error"]
     assert complete is True
 
@@ -188,11 +190,20 @@ def test_handle_runjob_with_error(mock_update_controller, db):
     assert span.attributes["final_job_status"] == "ERROR"
     # exception info has been added to the span
     assert span.status.status_code.name == "ERROR"
-    assert span.status.description == "Exception: foo"
+    assert span.status.description == "Exception: test_hard_failure"
 
 
+@pytest.mark.parametrize(
+    "exc,error_type",
+    [
+        (sqlite3.OperationalError("database locked"), "db_locked"),
+        (AssertionError("a bad thing"), "AssertionError"),
+    ],
+)
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_runjob_with_transient_error(mock_update_controller, db):
+def test_handle_runjob_with_transient_error(
+    mock_update_controller, db, exc, error_type
+):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.PREPARED)
@@ -200,10 +211,10 @@ def test_handle_runjob_with_transient_error(mock_update_controller, db):
     api.set_job_transition(
         job_id,
         ExecutorState.EXECUTING,
-        hook=Mock(side_effect=sqlite3.OperationalError("database locked")),
+        hook=Mock(side_effect=exc),
     )
 
-    with pytest.raises(Exception, match="database locked"):
+    with pytest.raises(Exception, match=str(exc)):
         main.handle_single_task(task, api)
 
     # Controller is not notified of transient error
@@ -211,7 +222,7 @@ def test_handle_runjob_with_transient_error(mock_update_controller, db):
 
     spans = get_trace("agent_loop")
     assert spans[-1].attributes["transient_error"]
-    assert spans[-1].attributes["transient_error_type"] == "db_locked"
+    assert spans[-1].attributes["transient_error_type"] == error_type
 
 
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
@@ -221,7 +232,9 @@ def test_handle_canceljob_with_error(mock_update_controller, db):
     task, job_id = api.add_test_canceljob_task(ExecutorState.EXECUTED)
 
     api.set_job_transition(
-        job_id, ExecutorState.FINALIZED, hook=Mock(side_effect=Exception("foo"))
+        job_id,
+        ExecutorState.FINALIZED,
+        hook=Mock(side_effect=Exception("test_hard_failure")),
     )
 
     with pytest.raises(Exception):
@@ -233,7 +246,7 @@ def test_handle_canceljob_with_error(mock_update_controller, db):
     assert task2 == task
     assert stage == ExecutorState.ERROR.value
     assert results["error"]["exception"] == "Exception"
-    assert results["error"]["message"] == "foo"
+    assert results["error"]["message"] == "test_hard_failure"
     assert "traceback" in results["error"]
     assert complete is True
 
@@ -244,7 +257,7 @@ def test_handle_canceljob_with_error(mock_update_controller, db):
     assert span.attributes["final_job_status"] == "ERROR"
     # exception info has been added to the span
     assert span.status.status_code.name == "ERROR"
-    assert span.status.description == "Exception: foo"
+    assert span.status.description == "Exception: test_hard_failure"
 
 
 @pytest.mark.parametrize(
