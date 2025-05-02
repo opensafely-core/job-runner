@@ -479,10 +479,13 @@ def finalize_job(job_definition, cancelled, error=None):
         base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
     job_metadata = get_job_metadata(
-        job_definition, outputs, container_metadata, results, cancelled=cancelled
+        job_definition,
+        outputs,
+        container_metadata,
+        results,
+        cancelled=cancelled,
+        error=error,
     )
-    if error:
-        job_metadata["error"] = error
 
     if cancelled or error:
         if container_metadata:
@@ -503,7 +506,7 @@ def finalize_job(job_definition, cancelled, error=None):
 
 
 def get_job_metadata(
-    job_definition, outputs, container_metadata, results, cancelled=False
+    job_definition, outputs, container_metadata, results, cancelled=False, error=False
 ):
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
@@ -534,6 +537,7 @@ def get_job_metadata(
     job_metadata["base_created"] = results.base_created
     job_metadata["level4_excluded_files"] = {}
     job_metadata["cancelled"] = cancelled
+    job_metadata["error"] = error
     return job_metadata
 
 
@@ -551,6 +555,7 @@ METADATA_DEFAULTS = {
     "base_created": None,
     "level4_excluded_files": tuple(),
     "cancelled": False,
+    "error": False,
 }
 
 
