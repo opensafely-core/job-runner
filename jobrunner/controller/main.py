@@ -251,7 +251,7 @@ def handle_job(job, mode=None, paused=None):
         task = get_task_for_job(job)
         assert task is not None
         if task.agent_complete:
-            if job_error := task.agent_results.get("error"):
+            if job_error := task.agent_results["error"]:
                 # Handled elsewhere
                 raise PlatformError(job_error)
             else:
