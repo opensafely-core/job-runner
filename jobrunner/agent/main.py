@@ -90,9 +90,16 @@ def handle_single_task(task, api):
             raise
 
 
-def get_transient_error_type(exc):
+def get_transient_error_type(exc: Exception) -> str | None:
+    # To faciliate the migration to the split agent/controller world we don't currently
+    # consider _any_ errors as hard failures. But we will do so later and we want to
+    # ensure that these code paths are adequately tested so we provide a simple
+    # mechanism to trigger these in tests.
+    if "test_hard_failure" in str(exc):
+        return None
     if is_database_locked_error(exc):
         return "db_locked"
+    return exc.__class__.__name__
 
 
 def handle_cancel_job_task(task, api):
