@@ -392,6 +392,10 @@ def decode_field_values(fields, row):
         # Enums get transformed back from their string/int values
         elif issubclass(field.type, Enum) and value is not None:
             value = field.type(value)
+        # Bools get converted from int to True/False
+        # None values are not converted to False, as None may be semantically different to False
+        elif field.type is bool and value is not None:
+            value = field.type(value)
         values.append(value)
     return values
 

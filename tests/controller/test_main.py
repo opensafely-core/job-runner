@@ -11,13 +11,13 @@ from jobrunner.agent import task_api as agent_task_api
 from jobrunner.config import agent as agent_config
 from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
-from jobrunner.controller import main
+from jobrunner.controller import main, task_api
 from jobrunner.controller.main import PlatformError
 from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import set_flag
 from tests.conftest import get_trace
-from tests.factories import job_factory, job_results_factory
+from tests.factories import job_factory, job_results_factory, runjob_db_task_factory
 
 
 def run_controller_loop_once():
@@ -37,6 +37,30 @@ def set_job_task_results(job, job_results, error=None):
         results=results,
         complete=True,
     )
+
+
+def test_handle_pending_job_with_previous_tasks(db):
+    # Make a runjob task for a pending job
+    # (This is an error; if a job is pending, it should have
+    # no active runjob tasks)
+    task = runjob_db_task_factory(state=State.PENDING)
+    job = database.find_all(Job)[0]
+    with pytest.raises(AssertionError):
+        run_controller_loop_once()
+
+    # Make task inactive and run the controller loop again
+    task_api.mark_task_inactive(task)
+    run_controller_loop_once()
+
+    # Controller has created a new runjob task
+    tasks = database.find_all(Task)
+    assert len(tasks) == 2
+    assert tasks[0].type == TaskType.RUNJOB
+    assert not tasks[0].active
+    assert tasks[1].type == TaskType.RUNJOB
+    assert tasks[1].active
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.RUNNING
 
 
 def test_handle_pending_job_cancelled(db):
