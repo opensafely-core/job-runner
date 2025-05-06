@@ -20,13 +20,34 @@ from jobrunner.queries import get_flag_value, set_flag
 log = logging.getLogger(__name__)
 
 
-def start_thread(target, name):
+def start_thread(func, name, loop_interval):
+    """Start a thread running the given function.
+
+    It is wrapped in function that will handle and log any exceptions.  This
+    ensures any uncaught exceptions do not leave a zombie thread. We add
+    a delay prevents busy retry loops.
+    """
+
+    def thread_wrapper():
+        while True:
+            try:
+                func()
+            except sync.SyncAPIError as e:
+                log.error(e)
+                time.sleep(loop_interval)
+            except Exception:
+                log.exception(f"Exception in {name} thread")
+                time.sleep(loop_interval)
+
     log.info(f"Starting {name} thread")
+
     # daemon=True means this thread will be automatically join()ed when the
     # process exits
-    thread = threading.Thread(target=target, daemon=True)
+    thread = threading.Thread(target=thread_wrapper, daemon=True)
     thread.name = name
     thread.start()
+
+    return thread
 
 
 def main():
@@ -46,40 +67,14 @@ def main():
     try:
         log.info("jobrunner.service started")
 
-        sleep_after_error = config.POLL_INTERVAL * 5
-        start_thread(thread_wrapper("sync", sync.main, sleep_after_error), "sync")
-        start_thread(
-            thread_wrapper("stat", record_stats.main, agent_config.STATS_POLL_INTERVAL),
-            "stat",
-        )
+        start_thread(sync.main, "sync", config.POLL_INTERVAL * 5)
+        start_thread(record_stats.main, "stat", agent_config.STATS_POLL_INTERVAL)
         if config.ENABLE_MAINTENANCE_MODE_THREAD:
-            start_thread(
-                thread_wrapper(
-                    "maintenance_mode",
-                    maintenance_mode,
-                    config.MAINTENANCE_POLL_INTERVAL,
-                ),
-                "mntn",
-            )
-        start_thread(thread_wrapper("agent", agent_main, config.POLL_INTERVAL), "agnt")
+            start_thread(maintenance_mode, "mntn", config.MAINTENANCE_POLL_INTERVAL)
+        start_thread(agent_main, "agnt", config.POLL_INTERVAL)
         controller_main()
     except KeyboardInterrupt:
         log.info("jobrunner.service stopped")
-
-
-def thread_wrapper(name, func, loop_interval):
-    def wrapper():
-        while True:
-            try:
-                func()
-            except sync.SyncAPIError as e:
-                log.error(e)
-                time.sleep(loop_interval)
-            except Exception:
-                log.exception(f"Exception in {name} thread")
-                time.sleep(loop_interval)
-
-    return wrapper
 
 
 DB_MAINTENANCE_MODE = "db-maintenance"
@@ -135,6 +130,8 @@ def maintenance_mode():
     set_flag("mode", mode, backend)
     mode = get_flag_value("mode", backend)
     log.info(f"db mode: {mode}")
+
+    # return is only for testing utility
     return mode
 
 
