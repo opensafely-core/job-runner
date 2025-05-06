@@ -15,7 +15,7 @@ def test_get_jobs_no_jobs(db):
     partial_job_ids = [partial_job_id]
 
     with pytest.raises(RuntimeError):
-        kill_job.get_jobs(partial_job_ids)
+        kill_job.get_jobs(partial_job_ids, backend="test")
 
 
 def test_get_jobs_no_match(db):
@@ -23,12 +23,19 @@ def test_get_jobs_no_match(db):
     job_factory(
         state=State.RUNNING, status_code=StatusCode.EXECUTING, id="z6tkp3mjato63dkm"
     )
+    # job that matches, but different backend
+    job_factory(
+        state=State.RUNNING,
+        status_code=StatusCode.EXECUTING,
+        id="12345678",
+        backend="foo",
+    )
 
     partial_job_id = "1234"
     partial_job_ids = [partial_job_id]
 
     with pytest.raises(RuntimeError):
-        kill_job.get_jobs(partial_job_ids)
+        kill_job.get_jobs(partial_job_ids, backend="test")
 
 
 def test_get_jobs_multiple_matches(db, monkeypatch):
@@ -46,7 +53,7 @@ def test_get_jobs_multiple_matches(db, monkeypatch):
 
     monkeypatch.setattr("builtins.input", lambda _: "1")
 
-    output_job_ids = kill_job.get_jobs(partial_job_ids)
+    output_job_ids = kill_job.get_jobs(partial_job_ids, backend="test")
 
     assert output_job_ids[0].id == job.id
 
@@ -65,7 +72,7 @@ def test_get_jobs_multiple_params_partial(db, monkeypatch):
     monkeypatch.setattr("builtins.input", lambda _: "")
 
     # search for jobs with our partial id
-    output_job_ids = kill_job.get_jobs(partial_job_ids)
+    output_job_ids = kill_job.get_jobs(partial_job_ids, backend="test")
 
     assert output_job_ids[0].id == job1.id
     assert output_job_ids[1].id == job2.id
@@ -82,7 +89,7 @@ def test_get_jobs_partial_id(db, monkeypatch):
     monkeypatch.setattr("builtins.input", lambda _: "")
 
     # search for jobs with our partial id
-    output_job_ids = kill_job.get_jobs(partial_job_ids)
+    output_job_ids = kill_job.get_jobs(partial_job_ids, backend="test")
 
     assert output_job_ids[0].id == job.id
 
@@ -102,7 +109,7 @@ def test_get_jobs_partial_id_quit(db, monkeypatch):
 
     # make sure the program is quit
     with pytest.raises(KeyboardInterrupt):
-        kill_job.get_jobs(partial_job_ids)
+        kill_job.get_jobs(partial_job_ids, backend="test")
 
 
 def test_get_jobs_full_id(db):
@@ -114,7 +121,7 @@ def test_get_jobs_full_id(db):
     full_job_ids = [full_job_id]
 
     # search for jobs with our partial id
-    output_job_ids = kill_job.get_jobs(full_job_ids)
+    output_job_ids = kill_job.get_jobs(full_job_ids, backend="test")
 
     assert output_job_ids[0].id == job.id
 
@@ -137,7 +144,7 @@ def test_kill_job(
     mocker = mock.MagicMock(spec=local.docker)
     mockumes = mock.MagicMock(spec=local.volumes)
 
-    def mock_get_jobs(partial_job_ids):
+    def mock_get_jobs(partial_job_ids, backend):
         return [job]
 
     # persist_outputs needs this
@@ -191,7 +198,7 @@ def test_kill_job_no_container_metadata(tmp_work_dir, db, monkeypatch):
     mocker = mock.MagicMock(spec=local.docker)
     mockumes = mock.MagicMock(spec=local.volumes)
 
-    def mock_get_jobs(partial_job_ids):
+    def mock_get_jobs(partial_job_ids, backend):
         return [job]
 
     # no container metadata
