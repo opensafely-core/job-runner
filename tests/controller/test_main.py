@@ -29,8 +29,7 @@ def set_job_task_results(job, job_results, error=None):
         Task, type=TaskType.RUNJOB, id__glob=f"{job.id}-*", active=True
     )
     results = job_results.to_dict()
-    if error:
-        results["error"] = error
+    results["error"] = error or False
 
     agent_task_api.update_controller(
         runjob_task,

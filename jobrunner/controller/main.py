@@ -251,7 +251,7 @@ def handle_job(job, mode=None, paused=None):
         task = get_task_for_job(job)
         assert task is not None
         if task.agent_complete:
-            if job_error := task.agent_results.get("error"):
+            if job_error := task.agent_results["error"]:
                 # Handled elsewhere
                 raise PlatformError(job_error)
             else:
@@ -529,7 +529,7 @@ def create_task_for_job(job):
     previous_tasks = find_where(
         Task, id__glob=f"{job.id}-*", type=TaskType.RUNJOB, backend=job.backend
     )
-    assert all(t.active is False for t in previous_tasks)
+    assert all(not t.active for t in previous_tasks)
     task_number = len(previous_tasks) + 1
     return Task(
         # Zero-pad the task number so tasks sort lexically
