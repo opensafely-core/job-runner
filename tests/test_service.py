@@ -43,6 +43,30 @@ def test_service_main(tmp_path):
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+def test_start_thread_returns(request, caplog):
+    t = []
+
+    def test_main():
+        t.append(time.time())
+        if len(t) < 3:
+            return
+        else:
+            raise SystemExit  # bypass our exception handling and actually exit the thread
+
+    interval = 0.1
+    thread = service.start_thread(test_main, request.node.name, interval)
+    thread.join()
+
+    assert len(t) == 3
+    for delta in (j - i for i, j in itertools.pairwise(t)):
+        assert delta >= interval, (
+            f"thread wrapper did not sleep between errors, expected more than {delta}"
+        )
+
+    assert len(caplog.records) == 0
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
 def test_start_thread_error(request, caplog):
     t = []
 

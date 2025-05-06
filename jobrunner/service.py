@@ -34,10 +34,10 @@ def start_thread(func, name, loop_interval):
                 func()
             except sync.SyncAPIError as e:
                 log.error(e)
-                time.sleep(loop_interval)
             except Exception:
                 log.exception(f"Exception in {name} thread")
-                time.sleep(loop_interval)
+
+            time.sleep(loop_interval)
 
     log.info(f"Starting {name} thread")
 
