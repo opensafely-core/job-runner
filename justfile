@@ -17,10 +17,10 @@ virtualenv:
     # allow users to specify python version in .env
     PYTHON_VERSION=${PYTHON_VERSION:-python3.10}
 
-    # create venv and upgrade pip
+    # create venv and install latest pip that's compatible with pip-tools
     if [[ ! -d $VIRTUAL_ENV ]]; then
       $PYTHON_VERSION -m venv $VIRTUAL_ENV
-      $PIP install --upgrade pip
+      $PIP install pip==25.0.1
     fi
 
 # Run pip-compile with our standard settings

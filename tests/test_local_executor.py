@@ -10,7 +10,11 @@ from jobrunner.config import agent as config
 from jobrunner.executors import local, volumes
 from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import datestr_to_ns_timestamp, docker
-from tests.factories import ensure_docker_images_present, job_factory
+from tests.factories import (
+    ensure_docker_images_present,
+    job_factory,
+    job_results_factory,
+)
 
 
 @pytest.fixture
@@ -118,12 +122,16 @@ def test_read_metadata_path(job_definition):
     )
     globbed_path.parent.mkdir(parents=True)
     globbed_path.write_text(json.dumps({"test": "globbed"}))
-    assert local.read_job_metadata(job_definition) == {"test": "globbed"}
+    assert local.read_job_metadata(job_definition) == local.METADATA_DEFAULTS | {
+        "test": "globbed"
+    }
 
     actual_path = local.get_log_dir(job_definition) / local.METADATA_FILE
     actual_path.parent.mkdir(parents=True)
     actual_path.write_text(json.dumps({"test": "actual"}))
-    assert local.read_job_metadata(job_definition) == {"test": "actual"}
+    assert local.read_job_metadata(job_definition) == local.METADATA_DEFAULTS | {
+        "test": "actual"
+    }
 
 
 @pytest.mark.needs_docker
@@ -1202,3 +1210,17 @@ def test_finalize_job_with_error(job_definition):
     metadata = local.read_job_metadata(job_definition)
     assert metadata["error"] == {"test": "foo"}
     assert metadata["status_message"] == "Job errored"
+
+
+def test_get_job_metadata_has_expected_keys(job_definition):
+    job_results = job_results_factory()
+
+    metadata = local.get_job_metadata(
+        job_definition=job_definition,
+        outputs=["outputs"],
+        container_metadata={"State": {"ExitCode": 0, "OOMKilled": False}},
+        results=job_results,
+    )
+
+    for key in local.METADATA_DEFAULTS:
+        assert key in metadata

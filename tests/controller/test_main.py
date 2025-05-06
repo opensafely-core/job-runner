@@ -29,8 +29,7 @@ def set_job_task_results(job, job_results, error=None):
         Task, type=TaskType.RUNJOB, id__glob=f"{job.id}-*", active=True
     )
     results = job_results.to_dict()
-    if error:
-        results["error"] = error
+    results["error"] = error or False
 
     agent_task_api.update_controller(
         runjob_task,
@@ -399,7 +398,9 @@ def test_handle_job_finalized_failed_with_error(db):
     job = database.find_one(Job, id=job.id)
     assert job.state == State.RUNNING
 
-    set_job_task_results(job, job_results_factory(), error=str(Exception("foo")))
+    set_job_task_results(
+        job, job_results_factory(), error=str(Exception("test_hard_failure"))
+    )
 
     with pytest.raises(PlatformError):
         run_controller_loop_once()
@@ -704,10 +705,10 @@ def test_handle_error(patched_handle_job, db, monkeypatch):
 
     # mock 2 controller loops, successful first pass and an
     # exception on the second loop
-    patched_handle_job.side_effect = [None, Exception("foo")]
+    patched_handle_job.side_effect = [None, Exception("test_hard_failure")]
     job = job_factory()
 
-    with pytest.raises(Exception, match="foo"):
+    with pytest.raises(Exception, match="test_hard_failure"):
         main.main()
 
     job = database.find_one(Job, id=job.id)
@@ -715,16 +716,23 @@ def test_handle_error(patched_handle_job, db, monkeypatch):
     assert job.status_code == StatusCode.INTERNAL_ERROR
 
 
+@pytest.mark.parametrize(
+    "exc,error_type",
+    [
+        (sqlite3.OperationalError("database locked"), "db_locked"),
+        (AssertionError("a bad thing"), "AssertionError"),
+    ],
+)
 @patch("jobrunner.controller.main.handle_job")
-def test_handle_transient_error(patched_handle_job, db, monkeypatch):
+def test_handle_transient_error(patched_handle_job, db, monkeypatch, exc, error_type):
     monkeypatch.setattr(common_config, "JOB_LOOP_INTERVAL", 0)
 
     # mock 2 controller loops, successful first pass and an
     # exception on the second loop
-    patched_handle_job.side_effect = [None, sqlite3.OperationalError("database locked")]
+    patched_handle_job.side_effect = [None, exc]
     job = job_factory()
 
-    with pytest.raises(Exception, match="database locked"):
+    with pytest.raises(Exception, match=str(exc)):
         main.main()
 
     job = database.find_one(Job, id=job.id)
@@ -733,4 +741,4 @@ def test_handle_transient_error(patched_handle_job, db, monkeypatch):
 
     spans = get_trace("loop")
     assert spans[-1].attributes["transient_error"]
-    assert spans[-1].attributes["transient_error_type"] == "db_locked"
+    assert spans[-1].attributes["transient_error_type"] == error_type
