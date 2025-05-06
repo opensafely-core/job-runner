@@ -17,6 +17,7 @@ updates on it.
 import argparse
 import time
 
+from jobrunner.config import agent as agent_config
 from jobrunner.executors.local import container_name, docker
 from jobrunner.lib.database import find_where, update
 from jobrunner.models import Job, State, StatusCode
@@ -24,7 +25,9 @@ from jobrunner.sync import api_post, job_to_remote_format
 
 
 def main(partial_job_id):
-    job = get_job(partial_job_id)
+    # TODO: pass this in as a cli arg when run from the controller
+    backend = agent_config.BACKEND
+    job = get_job(partial_job_id, backend)
     if not docker.container_exists(container_name(job)):
         raise RuntimeError("Cannot reset job, associated container does not exist")
     job.state = State.RUNNING
@@ -40,8 +43,8 @@ def main(partial_job_id):
     print("\nDone")
 
 
-def get_job(partial_job_id):
-    matches = find_where(Job, id__glob=f"*{partial_job_id}*")
+def get_job(partial_job_id, backend):
+    matches = find_where(Job, id__glob=f"*{partial_job_id}*", backend=backend)
     if len(matches) == 0:
         raise RuntimeError("No matching jobs found")
     elif len(matches) > 1:
