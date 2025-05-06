@@ -141,9 +141,16 @@ def handle_single_job(job):
         raise
 
 
-def get_transient_error_type(exc):
+def get_transient_error_type(exc: Exception) -> str | None:
+    # To faciliate the migration to the split agent/controller world we don't currently
+    # consider _any_ errors as hard failures. But we will do so later and we want to
+    # ensure that these code paths are adequately tested so we provide a simple
+    # mechanism to trigger these in tests.
+    if "test_hard_failure" in str(exc):
+        return None
     if is_database_locked_error(exc):
         return "db_locked"
+    return exc.__class__.__name__
 
 
 def trace_handle_job(job, mode, paused):
@@ -244,7 +251,7 @@ def handle_job(job, mode=None, paused=None):
         task = get_task_for_job(job)
         assert task is not None
         if task.agent_complete:
-            if job_error := task.agent_results.get("error"):
+            if job_error := task.agent_results["error"]:
                 # Handled elsewhere
                 raise PlatformError(job_error)
             else:
@@ -522,7 +529,7 @@ def create_task_for_job(job):
     previous_tasks = find_where(
         Task, id__glob=f"{job.id}-*", type=TaskType.RUNJOB, backend=job.backend
     )
-    assert all(t.active is False for t in previous_tasks)
+    assert all(not t.active for t in previous_tasks)
     task_number = len(previous_tasks) + 1
     return Task(
         # Zero-pad the task number so tasks sort lexically

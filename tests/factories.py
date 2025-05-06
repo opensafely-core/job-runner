@@ -134,7 +134,7 @@ def runjob_db_task_factory(*args, state=State.RUNNING, **kwargs):
     """Set up a job and corresponding task"""
     job = job_factory(*args, state=state, **kwargs)
     task = Task(
-        id=job.id,
+        id=f"{job.id}-001",
         backend=kwargs.pop("backend", "test"),
         type=TaskType.RUNJOB,
         definition=job_to_job_definition(job).to_dict(),
@@ -147,7 +147,7 @@ def canceljob_db_task_factory(*args, state=State.RUNNING, **kwargs):
     """Set up a job and corresponding task"""
     job = job_factory(*args, state=state, cancelled=True, **kwargs)
     task = Task(
-        id=job.id,
+        id=f"{job.id}-001",
         backend="test",
         type=TaskType.CANCELJOB,
         definition=job_to_job_definition(job).to_dict(),
