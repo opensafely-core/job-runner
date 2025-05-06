@@ -48,7 +48,10 @@ def main():
 
         sleep_after_error = config.POLL_INTERVAL * 5
         start_thread(thread_wrapper("sync", sync.main, sleep_after_error), "sync")
-        start_thread(record_stats_wrapper, "stat")
+        start_thread(
+            thread_wrapper("stat", record_stats.main, agent_config.STATS_POLL_INTERVAL),
+            "stat",
+        )
         if config.ENABLE_MAINTENANCE_MODE_THREAD:
             start_thread(
                 thread_wrapper(
@@ -77,20 +80,6 @@ def thread_wrapper(name, func, loop_interval):
                 time.sleep(loop_interval)
 
     return wrapper
-
-
-def record_stats_wrapper():
-    """Wrap the record_stats call with logging context and an exception handler."""
-    while True:
-        try:
-            record_stats.main()
-            # `main()` should loop forever, if it exits cleanly that means it
-            # wasn't configured to run so we should exit the thread rather than
-            # looping
-            return
-        except Exception:
-            log.exception("Exception in record_stats thread")
-            time.sleep(agent_config.STATS_POLL_INTERVAL)
 
 
 DB_MAINTENANCE_MODE = "db-maintenance"
