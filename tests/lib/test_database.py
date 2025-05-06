@@ -38,11 +38,17 @@ def test_basic_roundtrip(tmp_work_dir):
         job_request_id="bar123",
         state=State.RUNNING,
         output_spec={"hello": [1, 2, 3]},
+        requires_db=False,
+        cancelled=None,
     )
     insert(job)
     j = find_one(Job, job_request_id__in=["bar123", "baz123"])
     assert job.id == j.id
     assert job.output_spec == j.output_spec
+    # bool values are encoded in db as 0/1
+    assert j.requires_db is False
+    # None values for boolean fields remain as None
+    assert j.cancelled is None
 
 
 def test_insert_in_transaction_success(tmp_work_dir):
