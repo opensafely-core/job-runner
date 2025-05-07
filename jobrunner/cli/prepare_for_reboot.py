@@ -31,7 +31,7 @@ def main(pause=True):
         assert confirm.strip().lower() == "y"
 
     for job in find_where(Job, state=State.RUNNING, backend=backend):
-        print(f"resetting job {job.id} to PENDING")
+        print(f"resetting job {job.slug} to PENDING")
         set_code(
             job,
             StatusCode.WAITING_ON_REBOOT,
