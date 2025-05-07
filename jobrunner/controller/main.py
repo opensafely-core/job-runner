@@ -255,6 +255,10 @@ def handle_job(job, mode=None, paused=None):
                 job_results = JobResults.from_dict(task.agent_results)
                 save_results(job, job_results)
                 # TODO: Delete obsolete files
+        else:
+            # Record the fact that we've visited the job (and not forgotten about it)
+            # even though nothing has changed
+            refresh_job_timestamps(job)
 
 
 def save_results(job, results):
@@ -465,6 +469,13 @@ def set_code(job, new_status_code, message, error=None, results=None, **attrs):
         # log approximately once every 10 minutes.
         if datetime.datetime.fromtimestamp(timestamp_s).minute % 10 == 0:
             log.info(job.status_message, extra={"status_code": job.status_code})
+
+
+def refresh_job_timestamps(job):
+    # `set_code()` already contains logic to handle updating timestamps at an
+    # appropriate frequency even if nothing about the job has changed, so we re-use that
+    # logic here
+    set_code(job, job.status_code, job.status_message)
 
 
 def get_reason_job_not_started(job):
