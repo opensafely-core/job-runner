@@ -318,7 +318,7 @@ def test_handle_db_status_job(mock_update_controller, mock_docker, monkeypatch):
     monkeypatch.setattr(
         config, "DATABASE_URLS", {"default": "database://localhost:1234"}
     )
-    mock_docker.return_value = Mock(stdout="line 1\nline 2\nexpected_result")
+    mock_docker.return_value = Mock(stdout="line 1\nline 2\ndb-maintenance ")
 
     task = Task(
         id="test_id",
@@ -354,7 +354,7 @@ def test_handle_db_status_job(mock_update_controller, mock_docker, monkeypatch):
     mock_update_controller.assert_called_with(
         task,
         stage="",
-        results={"results": {"status": "expected_result"}, "error": None},
+        results={"results": {"status": "db-maintenance"}, "error": None},
         complete=True,
     )
 
@@ -380,3 +380,14 @@ def test_handle_db_status_job_with_error(mock_update_controller):
         },
         complete=True,
     )
+
+
+@patch("jobrunner.agent.main.docker", autospec=True)
+def test_db_status_task_rejects_unexpected_status(mock_docker, monkeypatch):
+    monkeypatch.setattr(
+        config, "DATABASE_URLS", {"default": "database://localhost:1234"}
+    )
+    mock_docker.return_value = Mock(stdout="unexpected value")
+    with pytest.raises(ValueError, match="Invalid status") as exc:
+        main.db_status_task(database_name="default")
+    assert "unexpected value" not in str(exc.value)

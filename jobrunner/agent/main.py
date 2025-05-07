@@ -373,7 +373,15 @@ def db_status_task(*, database_name):
         capture_output=True,
         text=True,
     )
-    last_line = ps.stdout.strip().split("\n")[-1]
+    last_line = ps.stdout.strip().split("\n")[-1].strip()
+    # Restrict the status messages that can be returned so that even in the case of a
+    # compromised status check container it's not possible to extract significant
+    # quantities of data
+    status_allowlist = {"", "db-maintenance"}
+    if last_line not in status_allowlist:
+        raise ValueError(
+            f"Invalid status, expected one of: {','.join(status_allowlist)}"
+        )
     return {"status": last_line}
 
 
