@@ -13,13 +13,17 @@ OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 def set_task_span_metadata(span, task: AgentTask, **attrs):
     """Set span metadata with everything we know about a task."""
-    attributes = {}
+    try:
+        attributes = {}
 
-    if attrs:
-        attributes.update(attrs)
-    attributes.update(trace_task_attributes(task))
+        if attrs:
+            attributes.update(attrs)
+        attributes.update(trace_task_attributes(task))
 
-    set_span_attributes(span, attributes)
+        set_span_attributes(span, attributes)
+    except Exception:
+        # make sure trace failures do not error the task
+        logger.exception(f"failed to trace task {task.id}")
 
 
 def trace_task_attributes(task: AgentTask):
@@ -42,14 +46,18 @@ def trace_task_attributes(task: AgentTask):
 
 def set_job_span_metadata(span, job: JobDefinition, **attrs):
     """Set span metadata with everything we know about a job."""
-    attributes = {}
+    try:
+        attributes = {}
 
-    if attrs:
-        attributes.update(attrs)
+        if attrs:
+            attributes.update(attrs)
 
-    attributes.update(trace_job_attributes(job))
+        attributes.update(trace_job_attributes(job))
 
-    set_span_attributes(span, attributes)
+        set_span_attributes(span, attributes)
+    except Exception:
+        # make sure trace failures do not error the job
+        logger.exception(f"failed to trace job {job.id}")
 
 
 def trace_job_attributes(job: JobDefinition):
@@ -80,26 +88,32 @@ def trace_job_attributes(job: JobDefinition):
 
 
 def set_job_results_metadata(span, results, attributes=None):
-    attributes = attributes or {}
+    try:
+        attributes = attributes or {}
 
-    if results:
-        attributes.update(
-            dict(
-                exit_code=results["exit_code"],
-                image_id=results["docker_image_id"],
-                outputs=len(results["outputs"]),
-                unmatched_patterns=len(results["unmatched_patterns"]),
-                unmatched_outputs=len(results["unmatched_outputs"]),
-                executor_message=results["status_message"],
-                action_version=results["action_version"],
-                action_revision=results["action_revision"],
-                action_created=results["action_created"],
-                base_revision=results["base_revision"],
-                base_created=results["base_created"],
-                cancelled=results["cancelled"],
+        if results:
+            attributes.update(
+                dict(
+                    exit_code=results["exit_code"],
+                    image_id=results["docker_image_id"],
+                    outputs=len(results["outputs"]),
+                    unmatched_patterns=len(results["unmatched_patterns"]),
+                    unmatched_outputs=len(results["unmatched_outputs"]),
+                    executor_message=results["status_message"],
+                    action_version=results["action_version"],
+                    action_revision=results["action_revision"],
+                    action_created=results["action_created"],
+                    base_revision=results["base_revision"],
+                    base_created=results["base_created"],
+                    cancelled=results["cancelled"],
+                )
             )
-        )
-        if "error" in results:
-            attributes.update(error=results["error"])
+            if "error" in results:
+                attributes.update(error=results["error"])
 
-    set_span_attributes(span, attributes)
+        set_span_attributes(span, attributes)
+    except Exception:
+        # make sure trace failures do not error the job
+        logger.exception(
+            f"failed to trace job results for job {span.attributes.get('id')}"
+        )
