@@ -2,7 +2,7 @@ from unittest import mock
 
 import pytest
 
-from jobrunner.cli import prepare_for_reboot
+from jobrunner.cli.controller import prepare_for_reboot
 from jobrunner.executors import local, volumes
 from jobrunner.lib import database, docker
 from jobrunner.models import Job, State, StatusCode, Task

@@ -1,4 +1,4 @@
-from jobrunner.cli import add_job
+from jobrunner.cli.controller import add_job
 from jobrunner.lib import database
 from jobrunner.models import Job
 
