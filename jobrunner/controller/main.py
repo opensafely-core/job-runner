@@ -7,6 +7,7 @@ updates its state as appropriate.
 import collections
 import datetime
 import logging
+import secrets
 import sys
 import time
 
@@ -23,11 +24,13 @@ from jobrunner.job_executor import (
 )
 from jobrunner.lib import ns_timestamp_to_datetime
 from jobrunner.lib.database import (
+    exists_where,
     find_where,
     is_database_locked_error,
     select_values,
     transaction,
     update,
+    update_where,
 )
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
@@ -51,6 +54,8 @@ def main(exit_callback=lambda _: False):
     while True:
         with tracer.start_as_current_span("LOOP", attributes={"loop": True}):
             active_jobs = handle_jobs()
+
+        update_scheduled_tasks()
 
         if exit_callback(active_jobs):
             break
@@ -577,6 +582,63 @@ def cancel_job(job):
         backend=job.backend,
     )
     insert_task(canceljob_task)
+
+
+def update_scheduled_tasks():
+    # This is the only scheduled task we currently have
+    update_scheduled_task_for_db_maintenance()
+
+
+def update_scheduled_task_for_db_maintenance():
+    for backend in config.MAINTENANCE_ENABLED_BACKENDS:
+        update_scheduled_task_for_db_maintenance_for_backend(backend)
+
+
+def update_scheduled_task_for_db_maintenance_for_backend(backend):
+    # If we're in manual maintenance mode then deactivate any running status check tasks
+    # and exit
+    if get_flag_value("manual-db-maintenance", backend):
+        update_where(
+            Task,
+            {"active": False},
+            type=TaskType.DBSTATUS,
+            active=True,
+            backend=backend,
+        )
+        return
+
+    # If there's already an active task then there's nothing to do
+    if exists_where(
+        Task,
+        type=TaskType.DBSTATUS,
+        backend=backend,
+        active=True,
+    ):
+        return
+
+    # If there's a task that was completed within POLL_INTERVAL seconds of now then
+    # there's nothing to do
+    cutoff_time = int(time.time() - config.MAINTENANCE_POLL_INTERVAL)
+    if exists_where(
+        Task,
+        type=TaskType.DBSTATUS,
+        backend=backend,
+        active=False,
+        finished_at__gt=cutoff_time,
+    ):
+        return
+
+    # Otherwise, create a new task
+    insert_task(
+        Task(
+            # Add a bit of structure to the ID: this isn't strictly necessary – truly
+            # random IDs should work just fine – but it may help with future debugging
+            id=f"dbstatus-{datetime.date.today()}-{secrets.token_hex(10)}",
+            type=TaskType.DBSTATUS,
+            backend=backend,
+            definition={"database_name": "default"},
+        )
+    )
 
 
 if __name__ == "__main__":

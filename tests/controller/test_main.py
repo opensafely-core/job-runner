@@ -763,3 +763,53 @@ def test_handle_transient_error(patched_handle_job, db, monkeypatch, exc, error_
     spans = get_trace("loop")
     assert spans[-1].attributes["transient_error"]
     assert spans[-1].attributes["transient_error_type"] == error_type
+
+
+def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
+    monkeypatch.setattr(config, "MAINTENANCE_ENABLED_BACKENDS", ["test"])
+    # We start with no DBSTATUS tasks
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 0
+
+    # Running the controller loop should automatically schedule a DBSTATUS task
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 1
+
+    # It should have the attributes we expect
+    assert tasks[0].backend == "test"
+    assert tasks[0].definition == {"database_name": "default"}
+
+    # Running it again should not create another
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 1
+
+    # Mark the task as complete
+    agent_task_api.update_controller(tasks[0], stage="", results={}, complete=True)
+
+    # Tick time forward a small amount and run the loop again which should _still_ not
+    # create a new task because the previous one ran too recently
+    freezer.tick(delta=1)
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 1
+
+    # After ticking time forward a significant amount, running the loop should now
+    # create a new active task
+    freezer.tick(delta=10000)
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 2
+    assert tasks[0].active is False
+    assert tasks[1].active is True
+
+    # Enable manual database maintenance mode
+    set_flag("manual-db-maintenance", "true", backend="test")
+
+    # Now running the loop should deactivate any active tasks
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 2
+    assert tasks[0].active is False
+    assert tasks[1].active is False

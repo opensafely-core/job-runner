@@ -110,6 +110,9 @@ JOB_RESOURCE_WEIGHTS = parse_job_resource_weights("job-resource-weights_{backend
 MAINTENANCE_POLL_INTERVAL = float(
     os.environ.get("MAINTENANCE_POLL_INTERVAL", "300")
 )  # 5 min
+MAINTENANCE_ENABLED_BACKENDS = (
+    os.environ.get("MAINTENANCE_ENABLED_BACKENDS", "tpp").strip().split(",")
+)
 # TODO: will be replaced by Task
 ENABLE_MAINTENANCE_MODE_THREAD = os.environ.get(
     "ENABLE_MAINTENANCE_MODE_THREAD", ""
