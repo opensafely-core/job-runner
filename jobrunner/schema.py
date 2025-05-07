@@ -6,6 +6,7 @@ class TaskType(Enum):
     RUNJOB = "runjob"
     CANCELJOB = "canceljob"
     # TODO: delete job
+    DBSTATUS = "dbstatus"
 
 
 @dataclass(frozen=True)

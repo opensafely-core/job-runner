@@ -109,3 +109,39 @@ def test_copy_from_volume_error(tmp_path, docker_cleanup, monkeypatch):
 
     assert not dst.exists()
     assert len(list(tmp_path.glob("dst.txt*.tmp"))) == 0
+
+
+def test_get_network_config_args():
+    args = docker.get_network_config_args(
+        "jobrunner-db", target_url="http://localhost/foo"
+    )
+    assert args == [
+        "--network",
+        "jobrunner-db",
+        "--dns",
+        "192.0.2.0",
+        "--add-host",
+        "localhost:127.0.0.1",
+    ]
+
+
+def test_get_network_config_args_no_target_url():
+    args = docker.get_network_config_args("jobrunner-db")
+    assert args == [
+        "--network",
+        "jobrunner-db",
+        "--dns",
+        "192.0.2.0",
+    ]
+
+
+def test_get_network_config_args_target_url_has_ip():
+    args = docker.get_network_config_args(
+        "jobrunner-db", target_url="http://127.0.0.1/foo"
+    )
+    assert args == [
+        "--network",
+        "jobrunner-db",
+        "--dns",
+        "192.0.2.0",
+    ]
