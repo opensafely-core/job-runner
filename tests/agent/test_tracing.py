@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from opentelemetry import trace
 
 from jobrunner.agent import main
@@ -189,3 +191,52 @@ def test_set_job_span_metadata_attrs(db):
     assert span.attributes["workspace"] == job.workspace
     assert span.attributes["action"] == job.action  # not "should be ignored"
     assert span.attributes["custom_attr"] == "I am the custom class"
+
+
+def test_set_job_span_metadata_tracing_errors_do_not_raise(db, caplog):
+    job = job_definition_factory()
+    tracer = trace.get_tracer("the-tracer")
+
+    span = tracer.start_span("the-span")
+    # mock Exception raised in function called by set_job_span_metadata
+    with patch(
+        "jobrunner.agent.tracing.trace_job_attributes", side_effect=Exception("foo")
+    ):
+        set_job_span_metadata(span, job)
+
+    assert f"failed to trace job {job.id}" in caplog.text
+
+
+def test_set_task_span_metadata_tracing_errors_do_not_raise(db, caplog):
+    task = runjob_db_task_factory()
+    tracer = trace.get_tracer("the-tracer")
+    span = tracer.start_span("the-span")
+
+    # mock Exception raised in function called by set_task_span_metadata
+    with patch(
+        "jobrunner.agent.tracing.trace_task_attributes", side_effect=Exception("foo")
+    ):
+        set_task_span_metadata(span, task)
+
+    assert f"failed to trace task {task.id}" in caplog.text
+
+
+def test_tracing_final_state_attributes_tracing_errors(db, caplog):
+    api = StubExecutorAPI()
+
+    task, job_id = api.add_test_runjob_task(ExecutorState.EXECUTED)
+    api.set_job_transition(
+        job_id, ExecutorState.FINALIZED, hook=lambda job: api.set_job_metadata(job.id)
+    )
+    with patch(
+        "jobrunner.agent.tracing.set_span_attributes", side_effect=Exception("foo")
+    ):
+        main.handle_single_task(task, api)
+
+    spans = get_trace("agent_loop")
+    assert len(spans) == 1
+    span = spans[0]
+    # Exception encountered in set_span_attributes(), so no attributes were set, but
+    # exception logged, not raised
+    assert span.attributes == {}
+    assert "failed to trace job results" in caplog.text

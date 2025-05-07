@@ -126,7 +126,7 @@ def finish_current_state(job, timestamp_ns, error=None, results=None, **attrs):
         name = job.status_code.name
         start_time = job.status_code_updated_at
         record_job_span(job, name, start_time, timestamp_ns, error, results, **attrs)
-    except Exception:  # pragma: no cover
+    except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
 
@@ -149,7 +149,7 @@ def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
         )
 
         complete_job(job, timestamp_ns, error, results, **attrs)
-    except Exception:  # pragma: no cover
+    except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
 
@@ -248,18 +248,22 @@ OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 def set_span_metadata(span, job, error=None, results=None, **attrs):
     """Set span metadata with everything we know about a job."""
-    attributes = {}
+    try:
+        attributes = {}
 
-    if attrs:
-        attributes.update(attrs)
-    attributes.update(trace_attributes(job, results))
+        if attrs:
+            attributes.update(attrs)
+        attributes.update(trace_attributes(job, results))
 
-    set_span_attributes(span, attributes)
+        set_span_attributes(span, attributes)
 
-    if error:
-        span.set_status(trace.Status(trace.StatusCode.ERROR, str(error)))
-    if isinstance(error, Exception):
-        span.record_exception(error)
+        if error:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(error)))
+        if isinstance(error, Exception):
+            span.record_exception(error)
+    except Exception:
+        # make sure trace failures do not error the job
+        logger.exception(f"failed to trace job {job.id}")
 
 
 def set_span_attributes(span, attributes):

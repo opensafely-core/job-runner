@@ -1,5 +1,6 @@
 import os
 import time
+from unittest.mock import patch
 
 import opentelemetry.exporter.otlp.proto.http.trace_exporter
 from opentelemetry import trace
@@ -361,3 +362,37 @@ def test_set_span_metadata_invalid_attribute_type(db, caplog):
     assert span.attributes["foo"] == "None"
     assert span.attributes["bar"] == "{}"
     assert span.attributes["foobar"] == "set()"
+
+
+def test_set_span_metadata_tracing_errors_do_not_raise(db, caplog):
+    job = job_factory()
+    tracer = trace.get_tracer("test")
+
+    span = tracer.start_span("test")
+    # mock Exception raised in function called by set_span_metadata
+    with patch("jobrunner.tracing.trace_attributes", side_effect=Exception("foo")):
+        tracing.set_span_metadata(span, job, error=Exception("test"))
+
+    assert f"failed to trace job {job.id}" in caplog.text
+
+
+def test_record_final_state_tracing_errors_do_not_raise(db, caplog):
+    job = job_factory()
+    ts = int(time.time() * 1e9)
+    results = job_results_factory()
+    # mock Exception raised in function called by set_span_metadata
+    with patch("jobrunner.tracing.complete_job", side_effect=Exception("foo")):
+        tracing.record_final_state(job, ts, error=Exception("error"), results=results)
+
+    assert f"failed to trace state for {job.id}" in caplog.text
+
+
+def test_finish_current_state_tracing_errors_do_not_raise(db, caplog):
+    job = job_factory()
+    ts = int(time.time() * 1e9)
+    results = job_results_factory()
+    # mock Exception raised in function called by set_span_metadata
+    with patch("jobrunner.tracing.record_job_span", side_effect=Exception("foo")):
+        tracing.finish_current_state(job, ts, results=results)
+
+    assert f"failed to trace state for {job.id}" in caplog.text
