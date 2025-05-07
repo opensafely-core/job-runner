@@ -11,7 +11,7 @@ from jobrunner.config import common as common_config
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.database import is_database_locked_error
-from jobrunner.lib.docker import docker
+from jobrunner.lib.docker import docker, get_network_config_args
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.schema import TaskType
 
@@ -354,12 +354,17 @@ def handle_simple_task(task_function, task):
 
 def db_status_task(*, database_name):
     database_url = config.DATABASE_URLS[database_name]
+    # Restrict network access to just the database
+    network_config_args = get_network_config_args(
+        config.DATABASE_ACCESS_NETWORK, target_url=database_url
+    )
     ps = docker(
         [
             "run",
             "--rm",
             "-e",
             "DATABASE_URL",
+            *network_config_args,
             "ghcr.io/opensafely-core/cohortextractor",
             "maintenance",
         ],

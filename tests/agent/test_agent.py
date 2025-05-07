@@ -315,7 +315,9 @@ def test_handle_cancel_job(
 @patch("jobrunner.agent.main.docker", autospec=True)
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_db_status_job(mock_update_controller, mock_docker, monkeypatch):
-    monkeypatch.setattr(config, "DATABASE_URLS", {"default": "database://url:1234"})
+    monkeypatch.setattr(
+        config, "DATABASE_URLS", {"default": "database://localhost:1234"}
+    )
     mock_docker.return_value = Mock(stdout="line 1\nline 2\nexpected_result")
 
     task = Task(
@@ -334,10 +336,16 @@ def test_handle_db_status_job(mock_update_controller, mock_docker, monkeypatch):
             "--rm",
             "-e",
             "DATABASE_URL",
+            "--network",
+            "jobrunner-db",
+            "--dns",
+            "192.0.2.0",
+            "--add-host",
+            "localhost:127.0.0.1",
             "ghcr.io/opensafely-core/cohortextractor",
             "maintenance",
         ],
-        env={"DATABASE_URL": "database://url:1234"},
+        env={"DATABASE_URL": "database://localhost:1234"},
         check=True,
         capture_output=True,
         text=True,
