@@ -53,11 +53,9 @@ def test_handle_pending_job_with_previous_tasks(db):
     run_controller_loop_once()
 
     # Controller has created a new runjob task
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     assert len(tasks) == 2
-    assert tasks[0].type == TaskType.RUNJOB
     assert not tasks[0].active
-    assert tasks[1].type == TaskType.RUNJOB
     assert tasks[1].active
     job = database.find_one(Job, id=job.id)
     assert job.state == State.RUNNING
@@ -67,9 +65,8 @@ def test_handle_pending_job_cancelled(db):
     job = job_factory()
     run_controller_loop_once()
 
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     assert len(tasks) == 1
-    assert tasks[0].type == TaskType.RUNJOB
     assert tasks[0].active
 
     database.update_where(Job, dict(cancelled=True), id=job.id)
@@ -145,7 +142,7 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
     job = job_factory()
     run_controller_loop_once()
 
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     job = database.find_one(Job, id=job.id)
 
     assert len(tasks) == 0
@@ -169,7 +166,7 @@ def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
     running_job = job_factory(backend="foo")
     # run loop once to set it running
     run_controller_loop_once()
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     assert len(tasks) == 1
     running_job = database.find_one(Job, id=running_job.id)
     assert running_job.state == State.RUNNING
@@ -178,7 +175,7 @@ def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
     pending_job2 = job_factory(backend="bar")
     run_controller_loop_once()
 
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     # Only one task could be created, for the pending job on backend bar
     assert len(tasks) == 2
     assert tasks[-1].id.startswith(pending_job2.id)
@@ -252,7 +249,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     )
     run_controller_loop_once()
 
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     job = database.find_one(Job, id=job.id)
 
     assert len(tasks) == 0
@@ -501,7 +498,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
     assert job.started_at is None
 
     # the RUNJOB task is no longer active and a new CANCELJOB task has been created
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type__in=[TaskType.RUNJOB, TaskType.CANCELJOB])
     assert len(tasks) == 2
     assert tasks[0].type == TaskType.RUNJOB
     assert not tasks[0].active
@@ -576,7 +573,7 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     )
     run_controller_loop_once()
 
-    task = database.find_one(Task)
+    task = database.find_one(Task, type=TaskType.RUNJOB)
     assert task.definition["inputs"] == ["output-from-completed-run"]
 
 
