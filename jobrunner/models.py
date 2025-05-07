@@ -15,7 +15,7 @@ import hashlib
 import secrets
 import shlex
 from enum import Enum
-from functools import total_ordering
+from functools import cached_property, total_ordering
 
 from jobrunner.lib.database import databaseclass, migration
 from jobrunner.lib.string_utils import slugify
@@ -325,9 +325,7 @@ class Job:
     def completed_at_isoformat(self):
         return timestamp_to_isoformat(self.completed_at)
 
-    # On Python 3.8 we could use `functools.cached_property` here and avoid
-    # recomputing this every time
-    @property
+    @cached_property
     def slug(self):
         """
         Use a human-readable slug rather than just an opaque ID to identify jobs in
