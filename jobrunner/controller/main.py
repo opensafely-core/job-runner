@@ -107,9 +107,6 @@ def handle_single_job(job):
     """
     # we re-read the flags before considering each job, so make sure they apply
     # as soon as possible when set.
-    # TODO: These flags are going to need to be set per-backend so we'll need to figure
-    # out how to do that and then retrive the values for the backend associated with
-    # each job
     mode = get_flag_value("mode", job.backend)
     paused = (
         str(get_flag_value("paused", job.backend, default="False")).lower() == "true"
@@ -190,7 +187,7 @@ def handle_job(job, mode=None, paused=None):
             mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
         return
 
-    # Handle special modes. TODO: These need to be made backend-specific
+    # Handle special modes
     if paused:
         if job.state == State.PENDING:
             # Do not start the job, keep it pending
