@@ -11,6 +11,7 @@ from jobrunner.config import common as common_config
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.database import is_database_locked_error
+from jobrunner.lib.docker import docker
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.schema import TaskType
 
@@ -66,6 +67,8 @@ def handle_single_task(task, api):
                     handle_run_job_task(task, api)
                 case TaskType.CANCELJOB:
                     handle_cancel_job_task(task, api)
+                case TaskType.DBSTATUS:
+                    handle_simple_task(db_status_task, task)
                 case _:
                     assert False, f"Unknown task type {task.type}"
         except Exception as exc:
@@ -318,6 +321,55 @@ def inject_db_secrets(job):
         job.env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
     if config.EMIS_ORGANISATION_HASH:
         job.env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
+
+
+def handle_simple_task(task_function, task):
+    """
+    A "simple" task function is one which takes keyword arguments as supplied in the
+    Task definition and returns a dictionary which will be reported under the `results`
+    key of the Task results. Any exceptions are caught and reported under the `error`
+    key of the Task results.
+    """
+    try:
+        results = task_function(**task.definition)
+    except Exception as exc:
+        log.exception(f"Exception handling: {task}")
+        task_results = {
+            "results": None,
+            "error": {"type": type(exc).__name__, "message": str(exc)},
+        }
+    else:
+        task_results = {
+            "results": results,
+            "error": None,
+        }
+    task_api.update_controller(
+        task,
+        # `stage` is not relevant for simple tasks so we leave it blank
+        stage="",
+        results=task_results,
+        complete=True,
+    )
+
+
+def db_status_task(*, database_name):
+    database_url = config.DATABASE_URLS[database_name]
+    ps = docker(
+        [
+            "run",
+            "--rm",
+            "-e",
+            "DATABASE_URL",
+            "ghcr.io/opensafely-core/cohortextractor",
+            "maintenance",
+        ],
+        env={"DATABASE_URL": database_url},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    last_line = ps.stdout.strip().split("\n")[-1]
+    return {"status": last_line}
 
 
 if __name__ == "__main__":

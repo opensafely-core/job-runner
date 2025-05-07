@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+import time
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,6 +9,7 @@ from jobrunner.agent import main, task_api
 from jobrunner.config import agent as config
 from jobrunner.controller import task_api as controller_task_api
 from jobrunner.job_executor import ExecutorState, JobDefinition
+from jobrunner.models import Task, TaskType
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
 
@@ -308,3 +310,65 @@ def test_handle_cancel_job(
     span = spans[0]
     assert span.attributes["initial_job_status"] == initial_state.name
     assert span.attributes["final_job_status"] == ExecutorState.FINALIZED.name
+
+
+@patch("jobrunner.agent.main.docker", autospec=True)
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+def test_handle_db_status_job(mock_update_controller, mock_docker, monkeypatch):
+    monkeypatch.setattr(config, "DATABASE_URLS", {"default": "database://url:1234"})
+    mock_docker.return_value = Mock(stdout="line 1\nline 2\nexpected_result")
+
+    task = Task(
+        id="test_id",
+        backend="test",
+        type=TaskType.DBSTATUS,
+        definition={"database_name": "default"},
+        created_at=time.time(),
+    )
+
+    main.handle_single_task(task, api=None)
+
+    mock_docker.assert_called_with(
+        [
+            "run",
+            "--rm",
+            "-e",
+            "DATABASE_URL",
+            "ghcr.io/opensafely-core/cohortextractor",
+            "maintenance",
+        ],
+        env={"DATABASE_URL": "database://url:1234"},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    mock_update_controller.assert_called_with(
+        task,
+        stage="",
+        results={"results": {"status": "expected_result"}, "error": None},
+        complete=True,
+    )
+
+
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+def test_handle_db_status_job_with_error(mock_update_controller):
+    task = Task(
+        id="test_id",
+        backend="test",
+        type=TaskType.DBSTATUS,
+        definition={"database_name": "no_such_database"},
+        created_at=time.time(),
+    )
+
+    main.handle_single_task(task, api=None)
+
+    mock_update_controller.assert_called_with(
+        task,
+        stage="",
+        results={
+            "results": None,
+            "error": {"type": "KeyError", "message": "'no_such_database'"},
+        },
+        complete=True,
+    )
