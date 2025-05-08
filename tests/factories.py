@@ -7,7 +7,7 @@ from copy import deepcopy
 from jobrunner import record_stats, tracing
 from jobrunner.config import common as common_config
 from jobrunner.controller import task_api
-from jobrunner.controller.main import job_to_job_definition
+from jobrunner.controller.main import create_task_for_job, job_to_job_definition
 from jobrunner.job_executor import JobResults
 from jobrunner.lib import docker
 from jobrunner.lib.database import insert, update
@@ -135,15 +135,14 @@ def runjob_db_task_factory(job=None, *, backend="test", **kwargs):
     if job is None:
         # default to RUNNING, as no task is created for PENDING by default
         job = job_factory(state=State.RUNNING, backend=backend)
-    task = Task(
-        id=f"{job.id}-001",
-        backend=job.backend,
-        type=TaskType.RUNJOB,
-        definition=job_to_job_definition(job).to_dict(),
-    )
+
+    task = create_task_for_job(job)
+    for k, v in kwargs.items():
+        setattr(task, k, v)
+
     task_api.insert_task(task)
 
-    # insert_api always sets active=true. If we want to create an inactive
+    # insert_task always sets active=true. If we want to create an inactive
     # task, we need to modify it post insertion.
     if kwargs.get("active") is False:
         task.active = False
