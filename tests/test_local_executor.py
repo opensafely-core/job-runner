@@ -14,6 +14,7 @@ from tests.factories import (
     ensure_docker_images_present,
     job_factory,
     job_results_factory,
+    metrics_factory,
 )
 
 
@@ -353,6 +354,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
         "output/summary.*": "moderately_sensitive",
     }
     populate_workspace(job_definition.workspace, "output/input.csv")
+    metrics_factory(job_definition, {"test": 1.0})
 
     api = local.LocalDockerAPI()
 
@@ -382,6 +384,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     }
     assert status.results["unmatched_patterns"] == []
     assert status.results["status_message"] == "Completed successfully"
+    assert status.results["job_metrics"] == {"test": 1.0}
 
     log_dir = local.get_log_dir(job_definition)
     log_file = log_dir / "logs.txt"
