@@ -511,19 +511,46 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
     assert tasks[1].active
 
 
-def test_handle_pending_pause_mode(db, backend_db_config):
+def test_handle_pending_pause_mode(db, backend_db_config, freezer):
+    mock_now = datetime.datetime(2025, 3, 1, 10, 5)
+    freezer.move_to(mock_now)
+    mock_now_s = int(mock_now.timestamp())
+
     job = job_factory(
         run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
         requires_db=True,
+        status_code=StatusCode.CREATED,
     )
+    reset_job = job_factory(
+        run_command="ehrql:v1 generate-dataset dataset.py --output data.csv",
+        requires_db=True,
+        status_code=StatusCode.WAITING_ON_REBOOT,
+    )
+
+    assert job.updated_at == mock_now_s
+    assert reset_job.updated_at == mock_now_s
+
+    mock_later = datetime.datetime(2025, 3, 1, 10, 10)
+    freezer.move_to(mock_later)
+    mock_later_s = int(mock_later.timestamp())
+
     set_flag("paused", "True", job.backend)
 
     run_controller_loop_once()
-    job = database.find_one(Job, id=job.id)
 
+    job = database.find_one(Job, id=job.id)
     assert job.state == State.PENDING
+    assert job.status_code == StatusCode.WAITING_PAUSED
     assert job.started_at is None
     assert "paused" in job.status_message
+    assert job.updated_at == mock_later_s
+
+    # a reset job keeps its existing status code
+    reset_job = database.find_one(Job, id=reset_job.id)
+    assert reset_job.state == State.PENDING
+    assert reset_job.status_code == StatusCode.WAITING_ON_REBOOT
+    assert reset_job.started_at is None
+    assert reset_job.updated_at == mock_later_s
 
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"

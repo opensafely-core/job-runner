@@ -195,12 +195,17 @@ def handle_job(job, mode=None, paused=None):
     # Handle special modes
     if paused:
         if job.state == State.PENDING:
-            # Do not start the job, keep it pending
-            set_code(
-                job,
-                StatusCode.WAITING_PAUSED,
-                "Backend is currently paused for maintenance, job will start once this is completed",
-            )
+            if job.status_code == StatusCode.WAITING_ON_REBOOT:
+                # This job was already reset in prepration for reboot, just
+                # update that we've seen it
+                refresh_job_timestamps(job)
+            else:
+                # Do not start the job, keep it pending
+                set_code(
+                    job,
+                    StatusCode.WAITING_PAUSED,
+                    "Backend is currently paused for maintenance, job will start once this is completed",
+                )
             return
 
     if mode == "db-maintenance" and job.requires_db:
