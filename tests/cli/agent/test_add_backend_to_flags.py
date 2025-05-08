@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner.cli import add_backend_to_flags
+from jobrunner.cli.agent import add_backend_to_flags
 from jobrunner.lib import database
 from jobrunner.models import Flag
 

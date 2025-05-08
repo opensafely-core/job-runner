@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner.cli import add_backend_to_job
+from jobrunner.cli.agent import add_backend_to_job
 from jobrunner.lib import database
 from jobrunner.models import Job, SavedJobRequest
 from tests.factories import job_factory, job_request_factory, job_request_factory_raw

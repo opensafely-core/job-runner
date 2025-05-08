@@ -115,7 +115,7 @@ cli command *ARGS: devenv
 
 # Run db migrations locally
 migrate:
-    just cli migrate
+    just cli controller.migrate
 
 # Lint and check formatting but don't modify anything
 check: devenv
@@ -157,7 +157,7 @@ fix: devenv
 
 # Run the dev project
 add-job *args:
-    just cli add_job {{ args }}
+    just cli controller.add_job {{ args }}
 
 run-agent: devenv
     $BIN/python -m jobrunner.agent.main

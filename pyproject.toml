@@ -27,7 +27,17 @@ Source = "https://github.com/opensafely-core/job-runner"
 branch = true
 dynamic_context = "test_function"
 source = ["jobrunner"]
-omit = ["jobrunner/cli/migrate.py", 'jobrunner/service.py']
+omit = [
+    "jobrunner/service.py",
+    "jobrunner/cli/controller/migrate.py",
+    # these are temporary wrappers for backwards compatibility and will be removed soon
+    "jobrunner/cli/add_backend_to_flags.py",
+    "jobrunner/cli/add_backend_to_job.py",
+    "jobrunner/cli/add_job.py",
+    "jobrunner/cli/flags.py",
+    "jobrunner/cli/migrate.py",
+    "jobrunner/cli/prepare_for_reboot.py",
+]
 
 [tool.coverage.report]
 fail_under = 100
