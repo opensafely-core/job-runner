@@ -6,12 +6,18 @@ from jobrunner.cli.controller import prepare_for_reboot
 from jobrunner.executors import local, volumes
 from jobrunner.lib import database, docker
 from jobrunner.models import Job, State, StatusCode, Task
+from jobrunner.queries import set_flag
 from tests.conftest import get_trace
 from tests.factories import job_factory, runjob_db_task_factory
 
 
+def pause_backend(paused=True):
+    set_flag("paused", str(paused), backend="test")
+
+
 @pytest.mark.needs_docker
 def test_prepare_for_reboot(db, monkeypatch):
+    pause_backend()
     t1 = runjob_db_task_factory(
         state=State.RUNNING, status_code=StatusCode.EXECUTING, backend="test"
     )
@@ -81,6 +87,7 @@ def test_prepare_for_reboot(db, monkeypatch):
 @pytest.mark.needs_docker
 @pytest.mark.parametrize("input_response", ["y", "n"])
 def test_prepare_for_reboot_require_confirmation(input_response, db, monkeypatch):
+    pause_backend()
     t1 = runjob_db_task_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
     j1 = database.find_one(Job, id=t1.id.split("-")[0])
 
@@ -109,3 +116,33 @@ def test_prepare_for_reboot_require_confirmation(input_response, db, monkeypatch
         assert job.status_code == StatusCode.EXECUTING
         assert task.active
         assert task.finished_at is None
+
+
+@pytest.mark.needs_docker
+def test_prepare_for_reboot_backend_not_paused(db, monkeypatch):
+    t1 = runjob_db_task_factory(
+        state=State.RUNNING, status_code=StatusCode.EXECUTING, backend="test"
+    )
+    j1 = database.find_one(Job, id=t1.id.split("-")[0])
+
+    mocker = mock.MagicMock(spec=docker)
+    mockumes = mock.MagicMock(spec=volumes)
+    monkeypatch.setattr(prepare_for_reboot, "docker", mocker)
+    monkeypatch.setattr(prepare_for_reboot, "volumes", mockumes)
+
+    # Run prepare_for_reboot without pausing the backend; nothing is changed
+    prepare_for_reboot.main("test", require_confirmation=False)
+    job = database.find_one(Job, id=j1.id)
+    task = database.find_one(Task, id=t1.id)
+    assert job.state == State.RUNNING
+    assert task.active
+
+    # Pause backend and try again
+    pause_backend()
+    prepare_for_reboot.main(require_confirmation=False)
+    job = database.find_one(Job, id=j1.id)
+    task = database.find_one(Task, id=t1.id)
+    assert job.state == State.PENDING
+    assert job.status_code == StatusCode.WAITING_ON_REBOOT
+    assert not task.active
+    assert task.finished_at is not None

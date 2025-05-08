@@ -12,6 +12,7 @@ from jobrunner.executors import volumes
 from jobrunner.executors.local import container_name, docker
 from jobrunner.lib.database import find_where
 from jobrunner.models import Job, State, StatusCode
+from jobrunner.queries import get_flag_value
 
 
 def main(backend, require_confirmation=True):
