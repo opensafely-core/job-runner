@@ -2,11 +2,12 @@ import datetime
 import logging
 import re
 import sqlite3
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from opentelemetry import trace
 
+from jobrunner.agent import main as agent_main
 from jobrunner.agent import task_api as agent_task_api
 from jobrunner.config import agent as agent_config
 from jobrunner.config import common as common_config
@@ -15,13 +16,17 @@ from jobrunner.controller import main, task_api
 from jobrunner.controller.main import PlatformError
 from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
-from jobrunner.queries import set_flag
+from jobrunner.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
 from tests.factories import job_factory, job_results_factory, runjob_db_task_factory
 
 
 def run_controller_loop_once():
     main.main(exit_callback=lambda _: True)
+
+
+def run_agent_loop_once():
+    agent_main.main(exit_callback=lambda _: True)
 
 
 def set_job_task_results(job, job_results, error=None):
@@ -53,11 +58,9 @@ def test_handle_pending_job_with_previous_tasks(db):
     run_controller_loop_once()
 
     # Controller has created a new runjob task
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     assert len(tasks) == 2
-    assert tasks[0].type == TaskType.RUNJOB
     assert not tasks[0].active
-    assert tasks[1].type == TaskType.RUNJOB
     assert tasks[1].active
     job = database.find_one(Job, id=job.id)
     assert job.state == State.RUNNING
@@ -67,9 +70,8 @@ def test_handle_pending_job_cancelled(db):
     job = job_factory()
     run_controller_loop_once()
 
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     assert len(tasks) == 1
-    assert tasks[0].type == TaskType.RUNJOB
     assert tasks[0].active
 
     database.update_where(Job, dict(cancelled=True), id=job.id)
@@ -145,7 +147,7 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
     job = job_factory()
     run_controller_loop_once()
 
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     job = database.find_one(Job, id=job.id)
 
     assert len(tasks) == 0
@@ -169,7 +171,7 @@ def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
     running_job = job_factory(backend="foo")
     # run loop once to set it running
     run_controller_loop_once()
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     assert len(tasks) == 1
     running_job = database.find_one(Job, id=running_job.id)
     assert running_job.state == State.RUNNING
@@ -178,7 +180,7 @@ def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
     pending_job2 = job_factory(backend="bar")
     run_controller_loop_once()
 
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     # Only one task could be created, for the pending job on backend bar
     assert len(tasks) == 2
     assert tasks[-1].id.startswith(pending_job2.id)
@@ -252,7 +254,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     )
     run_controller_loop_once()
 
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
     job = database.find_one(Job, id=job.id)
 
     assert len(tasks) == 0
@@ -501,7 +503,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
     assert job.started_at is None
 
     # the RUNJOB task is no longer active and a new CANCELJOB task has been created
-    tasks = database.find_all(Task)
+    tasks = database.find_where(Task, type__in=[TaskType.RUNJOB, TaskType.CANCELJOB])
     assert len(tasks) == 2
     assert tasks[0].type == TaskType.RUNJOB
     assert not tasks[0].active
@@ -576,7 +578,7 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     )
     run_controller_loop_once()
 
-    task = database.find_one(Task)
+    task = database.find_one(Task, type=TaskType.RUNJOB)
     assert task.definition["inputs"] == ["output-from-completed-run"]
 
 
@@ -766,3 +768,91 @@ def test_handle_transient_error(patched_handle_job, db, monkeypatch, exc, error_
     spans = get_trace("loop")
     assert spans[-1].attributes["transient_error"]
     assert spans[-1].attributes["transient_error_type"] == error_type
+
+
+def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
+    monkeypatch.setattr(config, "MAINTENANCE_ENABLED_BACKENDS", ["test"])
+    # We start with no DBSTATUS tasks
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 0
+
+    # Running the controller loop should automatically schedule a DBSTATUS task
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 1
+
+    # It should have the attributes we expect
+    assert tasks[0].backend == "test"
+    assert tasks[0].definition == {"database_name": "default"}
+
+    # Running it again should not create another
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 1
+
+    # Mark the task as complete
+    agent_task_api.update_controller(tasks[0], stage="", results={}, complete=True)
+
+    # Tick time forward a small amount and run the loop again which should _still_ not
+    # create a new task because the previous one ran too recently
+    freezer.tick(delta=1)
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 1
+
+    # After ticking time forward a significant amount, running the loop should now
+    # create a new active task
+    freezer.tick(delta=10000)
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 2
+    assert tasks[0].active is False
+    assert tasks[1].active is True
+
+    # Enable manual database maintenance mode
+    set_flag("manual-db-maintenance", "true", backend="test")
+
+    # Now running the loop should deactivate any active tasks
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 2
+    assert tasks[0].active is False
+    assert tasks[1].active is False
+
+
+# This is more of an integration test of both the controller and agent working together,
+# rather than just a test of `handle_task_update_dbstatus()`. But I feel more confident
+# in the code by exercising both elements, and there didn't feel like an obvious
+# alternative place to put this test.
+@patch("jobrunner.agent.main.docker", autospec=True)
+def test_handle_task_update_dbstatus(mock_docker, monkeypatch, db, freezer):
+    backend = "test"
+    monkeypatch.setattr(config, "MAINTENANCE_ENABLED_BACKENDS", [backend])
+    monkeypatch.setattr(agent_config, "BACKEND", backend)
+    monkeypatch.setattr(agent_config, "DATABASE_URLS", {"default": "mssql://localhost"})
+
+    # We start not in maintenance mode
+    assert not get_flag_value("mode", backend=backend)
+
+    # Run controller loop to schedule a DBSTATUS task
+    run_controller_loop_once()
+
+    # Run agent loop to execute it with a mocked docker response
+    mock_docker.return_value = Mock(stdout="db-maintenance")
+    run_agent_loop_once()
+
+    # We should now be in maintenance mode
+    assert get_flag_value("mode", backend=backend) == "db-maintenance"
+
+    # Jump forward in time
+    freezer.tick(delta=1000)
+
+    # Run controller loop to schedule another DBSTATUS task
+    run_controller_loop_once()
+
+    # Run agent loop to execute it with a mocked docker response
+    mock_docker.return_value = Mock(stdout="")
+    run_agent_loop_once()
+
+    # We should now be out of maintenance mode
+    assert not get_flag_value("mode", backend=backend)

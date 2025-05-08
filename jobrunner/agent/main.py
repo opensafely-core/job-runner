@@ -353,6 +353,7 @@ def handle_simple_task(task_function, task):
 
 
 def db_status_task(*, database_name):
+    log.info(f"Running DBSTATUS task on database {database_name!r}")
     database_url = config.DATABASE_URLS[database_name]
     # Restrict network access to just the database
     network_config_args = get_network_config_args(

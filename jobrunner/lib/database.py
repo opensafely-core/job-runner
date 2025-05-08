@@ -338,6 +338,14 @@ def query_params_to_sql(params):
             field = key[:-6]
             parts.append(f"{escape(field)} GLOB ?")
             values.append(value)
+        elif key.endswith("__lt"):
+            field = key[:-4]
+            parts.append(f"{escape(field)} < ?")
+            values.append(value)
+        elif key.endswith("__gt"):
+            field = key[:-4]
+            parts.append(f"{escape(field)} > ?")
+            values.append(value)
         elif value is None:
             parts.append(f"{escape(key)} is NULL")
         else:

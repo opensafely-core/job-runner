@@ -331,6 +331,8 @@ def test_ensure_valid_db(tmp_path):
             ["rosa", "neko"],
         ),
         ({"state": State.RUNNING}, '"state" = ?', ["running"]),
+        ({"foo__gt": 0}, '"foo" > ?', [0]),
+        ({"foo__lt": 0}, '"foo" < ?', [0]),
     ],
 )
 def test_query_params_to_sql(params, expected_sql_string, expected_sql_values):
