@@ -18,23 +18,22 @@ def pause_backend(paused=True):
 
 def test_prepare_for_reboot(db):
     pause_backend()
-    t1 = runjob_db_task_factory(
+    j1 = job_factory(
         state=State.RUNNING, status_code=StatusCode.EXECUTING, backend="test"
     )
-    j1 = database.find_one(Job, id=t1.id.split("-")[0])
+    t1 = runjob_db_task_factory(j1)
+
     j2 = job_factory(
         state=State.PENDING,
         status_code=StatusCode.WAITING_ON_DEPENDENCIES,
         backend="test",
     )
+
     # running job with an inactive task
-    t2 = runjob_db_task_factory(
+    j3 = job_factory(
         state=State.RUNNING, status_code=StatusCode.EXECUTING, backend="test"
     )
-    t2.active = False
-    database.update(t2)
-    assert t2.finished_at is None
-    j3 = database.find_one(Job, id=t2.id.split("-")[0])
+    t2 = runjob_db_task_factory(j3, active=False)
 
     assert t1.active
     assert not t2.active
@@ -78,8 +77,8 @@ def test_prepare_for_reboot_require_confirmation(input_response, db, monkeypatch
     monkeypatch.setattr("builtins.input", lambda _: input_response)
     pause_backend()
 
-    t1 = runjob_db_task_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
-    j1 = database.find_one(Job, id=t1.id.split("-")[0])
+    j1 = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
+    t1 = runjob_db_task_factory(j1)
 
     if input_response != "y":
         with pytest.raises(AssertionError):

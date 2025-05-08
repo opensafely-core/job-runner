@@ -48,8 +48,8 @@ def test_handle_pending_job_with_previous_tasks(db):
     # Make a runjob task for a pending job
     # (This is an error; if a job is pending, it should have
     # no active runjob tasks)
-    task = runjob_db_task_factory(state=State.PENDING)
-    job = database.find_all(Job)[0]
+    job = job_factory(state=State.PENDING)
+    task = runjob_db_task_factory(job)
     with pytest.raises(AssertionError):
         run_controller_loop_once()
 
