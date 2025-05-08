@@ -1,3 +1,5 @@
+import time
+
 from jobrunner.lib import database  # cheating!
 from jobrunner.models import Task as ControllerTask  # cheating!
 from jobrunner.schema import AgentTask
@@ -45,4 +47,5 @@ def update_controller(
     # controller can mark tasks inactive even when they're not complete.
     if complete:
         db_task.active = False
+        db_task.finished_at = int(time.time())
     database.update(db_task)
