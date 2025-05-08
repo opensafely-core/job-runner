@@ -7,10 +7,6 @@ DEFAULT_TIMEOUT = 10
 
 def get_job_stats(timeout=DEFAULT_TIMEOUT):
     # TODO: add volume sizes
-    return get_container_stats(DEFAULT_TIMEOUT)
-
-
-def get_container_stats(timeout=DEFAULT_TIMEOUT):
     response = subprocess.run(
         ["docker", "stats", "--no-stream", "--no-trunc", "--format", "{{json .}}"],
         capture_output=True,
