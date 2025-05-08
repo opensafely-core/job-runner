@@ -14,8 +14,8 @@ from jobrunner.lib.database import find_where
 from jobrunner.models import Job, State, StatusCode
 
 
-def main(backend, pause=True):
-    if pause:
+def main(backend, require_confirmation=True):
+    if require_confirmation:
         print(
             "== DANGER ZONE ==\n"
             "\n"

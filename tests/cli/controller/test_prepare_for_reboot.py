@@ -39,7 +39,7 @@ def test_prepare_for_reboot(db, monkeypatch):
     monkeypatch.setattr(prepare_for_reboot, "docker", mocker)
     monkeypatch.setattr(prepare_for_reboot, "volumes", mockumes)
 
-    prepare_for_reboot.main("test", pause=False)
+    prepare_for_reboot.main("test", require_confirmation=False)
 
     job1 = database.find_one(Job, id=j1.id)
     assert job1.state == State.PENDING
@@ -80,7 +80,7 @@ def test_prepare_for_reboot(db, monkeypatch):
 
 @pytest.mark.needs_docker
 @pytest.mark.parametrize("input_response", ["y", "n"])
-def test_prepare_for_reboot_pause(input_response, db, monkeypatch):
+def test_prepare_for_reboot_require_confirmation(input_response, db, monkeypatch):
     t1 = runjob_db_task_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
     j1 = database.find_one(Job, id=t1.id.split("-")[0])
 
@@ -93,9 +93,9 @@ def test_prepare_for_reboot_pause(input_response, db, monkeypatch):
 
     if input_response != "y":
         with pytest.raises(AssertionError):
-            prepare_for_reboot.main("test", pause=True)
+            prepare_for_reboot.main("test", require_confirmation=True)
     else:
-        prepare_for_reboot.main("test", pause=True)
+        prepare_for_reboot.main("test", require_confirmation=True)
 
     job = database.find_one(Job, id=j1.id)
     task = database.find_one(Task, id=t1.id)
