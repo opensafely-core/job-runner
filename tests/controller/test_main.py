@@ -2,11 +2,12 @@ import datetime
 import logging
 import re
 import sqlite3
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from opentelemetry import trace
 
+from jobrunner.agent import main as agent_main
 from jobrunner.agent import task_api as agent_task_api
 from jobrunner.config import agent as agent_config
 from jobrunner.config import common as common_config
@@ -15,13 +16,17 @@ from jobrunner.controller import main, task_api
 from jobrunner.controller.main import PlatformError
 from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
-from jobrunner.queries import set_flag
+from jobrunner.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
 from tests.factories import job_factory, job_results_factory, runjob_db_task_factory
 
 
 def run_controller_loop_once():
     main.main(exit_callback=lambda _: True)
+
+
+def run_agent_loop_once():
+    agent_main.main(exit_callback=lambda _: True)
 
 
 def set_job_task_results(job, job_results, error=None):
@@ -813,3 +818,41 @@ def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
     assert len(tasks) == 2
     assert tasks[0].active is False
     assert tasks[1].active is False
+
+
+# This is more of an integration test of both the controller and agent working together,
+# rather than just a test of `handle_task_update_dbstatus()`. But I feel more confident
+# in the code by exercising both elements, and there didn't feel like an obvious
+# alternative place to put this test.
+@patch("jobrunner.agent.main.docker", autospec=True)
+def test_handle_task_update_dbstatus(mock_docker, monkeypatch, db, freezer):
+    backend = "test"
+    monkeypatch.setattr(config, "MAINTENANCE_ENABLED_BACKENDS", [backend])
+    monkeypatch.setattr(agent_config, "BACKEND", backend)
+    monkeypatch.setattr(agent_config, "DATABASE_URLS", {"default": "mssql://localhost"})
+
+    # We start not in maintenance mode
+    assert not get_flag_value("mode", backend=backend)
+
+    # Run controller loop to schedule a DBSTATUS task
+    run_controller_loop_once()
+
+    # Run agent loop to execute it with a mocked docker response
+    mock_docker.return_value = Mock(stdout="db-maintenance")
+    run_agent_loop_once()
+
+    # We should now be in maintenance mode
+    assert get_flag_value("mode", backend=backend) == "db-maintenance"
+
+    # Jump forward in time
+    freezer.tick(delta=1000)
+
+    # Run controller loop to schedule another DBSTATUS task
+    run_controller_loop_once()
+
+    # Run agent loop to execute it with a mocked docker response
+    mock_docker.return_value = Mock(stdout="")
+    run_agent_loop_once()
+
+    # We should now be out of maintenance mode
+    assert not get_flag_value("mode", backend=backend)

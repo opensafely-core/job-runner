@@ -1,7 +1,8 @@
 import time
 
 from jobrunner.lib import database
-from jobrunner.models import Task
+from jobrunner.models import Task, TaskType
+from jobrunner.queries import set_flag
 
 
 def insert_task(task):
@@ -44,4 +45,19 @@ def handle_task_update(*, task_id, stage, results, complete):
     if complete:
         task.active = False
         task.finished_at = int(time.time())
-    database.update(task)
+
+    match task.type:
+        case TaskType.RUNJOB | TaskType.CANCELJOB:
+            database.update(task)
+        case TaskType.DBSTATUS:
+            handle_task_update_dbstatus(task)
+        case _:
+            assert False, f"Unknown task type {task.type}"
+
+
+def handle_task_update_dbstatus(task):
+    with database.transaction():
+        if results := task.agent_results.get("results"):
+            mode = results["status"]
+            set_flag("mode", mode, backend=task.backend)
+        database.update(task)

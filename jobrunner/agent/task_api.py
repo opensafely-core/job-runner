@@ -1,4 +1,3 @@
-
 from jobrunner.controller.task_api import handle_task_update
 from jobrunner.lib import database  # cheating!
 from jobrunner.models import Task as ControllerTask  # cheating!
