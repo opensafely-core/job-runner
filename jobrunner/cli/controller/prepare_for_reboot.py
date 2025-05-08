@@ -6,13 +6,9 @@ automatically re-run after a reboot.
 import argparse
 
 from jobrunner.cli.controller.utils import add_backend_argument
-from jobrunner.controller.main import get_task_for_job, set_code
-from jobrunner.controller.task_api import mark_task_inactive
-from jobrunner.executors import volumes
-from jobrunner.executors.local import container_name, docker
-from jobrunner.lib.database import find_where
+from jobrunner.controller.main import cancel_job, set_code
+from jobrunner.lib.database import find_where, transaction
 from jobrunner.models import Job, State, StatusCode
-from jobrunner.queries import get_flag_value
 
 
 def main(backend, require_confirmation=True):
@@ -23,7 +19,7 @@ def main(backend, require_confirmation=True):
             f"This will kill all running jobs on backend '{backend}' and reset them to the PENDING state, ready\n"
             "to be restarted following a reboot.\n"
             "\n"
-            "It should only be run when the job-runner service has been stopped."
+            "It should only be run when the job-runner service has been paused on the backend."
             "\n"
         )
         confirm = input("Are you sure you want to continue? (y/N)")
@@ -31,19 +27,15 @@ def main(backend, require_confirmation=True):
 
     for job in find_where(Job, state=State.RUNNING, backend=backend):
         print(f"resetting job {job.slug} to PENDING")
-        set_code(
-            job,
-            StatusCode.WAITING_ON_REBOOT,
-            "Job restarted - waiting for server to reboot",
-        )
-        runjob_task = get_task_for_job(job)
-        if runjob_task and runjob_task.active:
-            print(f"setting task {runjob_task.id} to inactive")
-            mark_task_inactive(runjob_task)
-        # these are idempotent
-        docker.kill(container_name(job))
-        docker.delete_container(container_name(job))
-        volumes.delete_volume(job)
+        with transaction():
+            set_code(
+                job,
+                StatusCode.WAITING_ON_REBOOT,
+                "Job restarted - waiting for server to reboot",
+            )
+
+            print(f"Killing job {job.slug}")
+            cancel_job(job)
 
 
 def run():  # pragma: no cover
