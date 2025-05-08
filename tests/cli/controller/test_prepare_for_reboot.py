@@ -5,7 +5,11 @@ from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import set_flag
 from tests.conftest import get_trace
-from tests.factories import job_factory, runjob_db_task_factory
+from tests.factories import (
+    canceljob_db_task_factory,
+    job_factory,
+    runjob_db_task_factory,
+)
 
 
 def pause_backend(paused=True):
@@ -118,7 +122,7 @@ def test_prepare_for_reboot_backend_not_paused(db):
 
     # Pause backend and try again
     pause_backend()
-    prepare_for_reboot.main(require_confirmation=False)
+    prepare_for_reboot.main("test", require_confirmation=False)
     job = database.find_one(Job, id=j1.id)
     task = database.find_one(Task, id=t1.id)
     assert job.state == State.PENDING
@@ -126,3 +130,72 @@ def test_prepare_for_reboot_backend_not_paused(db):
     assert not task.active
     assert task.finished_at is not None
     assert database.exists_where(Task, type=TaskType.CANCELJOB)
+
+
+@pytest.mark.parametrize("paused", [True, False])
+def test_prepare_for_reboot_status_with_running_job(db, paused, capsys):
+    pause_backend(paused)
+    # running job
+    t1 = runjob_db_task_factory(
+        state=State.RUNNING, status_code=StatusCode.EXECUTING, backend="test"
+    )
+    j1 = database.find_one(Job, id=t1.id.split("-")[0])
+
+    prepare_for_reboot.main("test", status=True, require_confirmation=False)
+    job = database.find_one(Job, id=j1.id)
+    task = database.find_one(Task, id=t1.id)
+    assert job.state == State.RUNNING
+    assert task.active
+    assert not database.exists_where(Task, type=TaskType.CANCELJOB)
+
+    out, _ = capsys.readouterr()
+    assert f"1) backend 'test' is {'not ' if not paused else ''}paused" in out
+    assert "2) 1 job(s) are running" in out
+
+
+@pytest.mark.parametrize("paused", [True, False])
+def test_prepare_for_reboot_status_with_cancelled_job(db, paused, capsys):
+    pause_backend(paused)
+    # reset job
+    t1 = canceljob_db_task_factory(
+        state=State.PENDING, status_code=StatusCode.WAITING_ON_REBOOT, backend="test"
+    )
+    j1 = database.find_one(Job, id=t1.id.split("-")[0])
+
+    prepare_for_reboot.main("test", status=True, require_confirmation=False)
+    job = database.find_one(Job, id=j1.id)
+    task = database.find_one(Task, id=t1.id)
+    assert job.state == State.PENDING
+    assert task.active
+
+    out, _ = capsys.readouterr()
+    assert f"1) backend 'test' is {'not ' if not paused else ''}paused" in out
+    assert "2) 0 job(s) are running" in out
+    assert "3) 1 job(s) are being cancelled" in out
+
+
+@pytest.mark.parametrize("paused", [True, False])
+def test_prepare_for_reboot_status_ready_to_reboot(db, paused, capsys):
+    pause_backend(paused)
+    # reset job, inactive task
+    t1 = canceljob_db_task_factory(
+        state=State.PENDING, status_code=StatusCode.WAITING_ON_REBOOT, backend="test"
+    )
+    t1.active = False
+    database.update(t1)
+    j1 = database.find_one(Job, id=t1.id.split("-")[0])
+
+    prepare_for_reboot.main("test", status=True, require_confirmation=False)
+    job = database.find_one(Job, id=j1.id)
+    task = database.find_one(Task, id=t1.id)
+    assert job.state == State.PENDING
+    assert not task.active
+
+    out, _ = capsys.readouterr()
+    assert f"1) backend 'test' is {'not ' if not paused else ''}paused" in out
+    assert "2) 0 job(s) are running" in out
+    assert "READY TO REBOOT" in out
+    if paused:
+        assert "Safe to reboot now"
+    else:
+        assert "Pause backend 'test' before rebooting"
