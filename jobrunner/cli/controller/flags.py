@@ -6,7 +6,7 @@ import argparse
 import sqlite3
 import sys
 
-from jobrunner.config import common as common_config
+from jobrunner.cli.controller.utils import add_backend_argument
 from jobrunner.lib.database import create_table, get_connection
 from jobrunner.models import Flag
 from jobrunner.queries import get_current_flags, get_flag, set_flag
@@ -59,13 +59,6 @@ def main(backend, action, flags, create=False):
 
 def run(argv):
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
-    parser.add_argument(
-        "--backend",
-        type=str.lower,
-        required=True,
-        choices=common_config.BACKENDS,
-        help="backend this flag/flags relates to",
-    )
 
     subparsers = parser.add_subparsers(dest="action")
     subparsers.required = True
@@ -79,6 +72,7 @@ def run(argv):
         action="store_true",
         help="Create the flags DB schema if missing",
     )
+    add_backend_argument(parser_get, helptext="backend this flag/flags relates to")
     parser_get.set_defaults(action="get")
 
     # for set, at least one flag argument is requires, and it must contain =
@@ -95,6 +89,7 @@ def run(argv):
         action="store_true",
         help="Create the flags DB schema if missing",
     )
+    add_backend_argument(parser_set, helptext="backend this flag/flags relates to")
     parser_set.set_defaults(action="set")
 
     args = parser.parse_args(argv)

@@ -11,7 +11,7 @@ import textwrap
 from pathlib import Path
 from urllib.parse import urlparse
 
-from jobrunner.config import agent as agent_config
+from jobrunner.cli.controller.utils import add_backend_argument
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where
 from jobrunner.lib.git import get_sha_from_remote_ref
@@ -21,7 +21,14 @@ from jobrunner.sync import job_request_from_remote_format
 
 
 def main(
-    repo_url, actions, commit, branch, workspace, database, force_run_dependencies
+    repo_url,
+    actions,
+    backend,
+    commit,
+    branch,
+    workspace,
+    database,
+    force_run_dependencies,
 ):
     # Make paths to local repos absolute
     parsed = urlparse(repo_url)
@@ -39,8 +46,7 @@ def main(
             force_run_dependencies=force_run_dependencies,
             cancelled_actions=[],
             codelists_ok=True,
-            # TODO: pass this in as a cli arg when run from the controller
-            backend=agent_config.BACKEND,
+            backend=backend,
         )
     )
     print("Submitting JobRequest:\n")
@@ -72,6 +78,7 @@ def run(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument("repo_url", help="URL (or local path) of git repository")
     parser.add_argument("actions", nargs="+", help="Name of project action to run")
+    add_backend_argument(parser)
     parser.add_argument(
         "--commit",
         help=(

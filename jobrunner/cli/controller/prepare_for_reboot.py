@@ -5,7 +5,7 @@ automatically re-run after a reboot.
 
 import argparse
 
-from jobrunner.config import agent as agent_config
+from jobrunner.cli.controller.utils import add_backend_argument
 from jobrunner.controller.main import get_task_for_job, set_code
 from jobrunner.controller.task_api import mark_task_inactive
 from jobrunner.executors import volumes
@@ -14,9 +14,7 @@ from jobrunner.lib.database import find_where
 from jobrunner.models import Job, State, StatusCode
 
 
-def main(pause=True):
-    # TODO: pass this in as a cli arg when run from the controller
-    backend = agent_config.BACKEND
+def main(backend, pause=True):
     if pause:
         print(
             "== DANGER ZONE ==\n"
@@ -49,6 +47,7 @@ def main(pause=True):
 
 def run():  # pragma: no cover
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
+    add_backend_argument(parser)
     args = parser.parse_args()
     main(**vars(args))
 
