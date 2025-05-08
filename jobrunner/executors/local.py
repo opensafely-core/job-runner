@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from types import MappingProxyType
 
 from jobrunner import record_stats
 from jobrunner.config import agent as config
@@ -22,6 +23,7 @@ from jobrunner.job_executor import (
 from jobrunner.lib import datestr_to_ns_timestamp, docker, file_digest
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.string_utils import tabulate
+from jobrunner.record_stats import read_job_metrics
 
 
 class LocalExecutorError(Exception):
@@ -538,11 +540,13 @@ def get_job_metadata(
     job_metadata["level4_excluded_files"] = {}
     job_metadata["cancelled"] = cancelled
     job_metadata["error"] = error
+    # load metrics from metrics db
+    job_metadata["job_metrics"] = read_job_metrics(job_definition.id)
     return job_metadata
 
 
 # keys that may be missing in older metadata files, and their default empty values
-# Note: we use tuples to provide immutable empty iterables
+# Note: we use tuples to provide immutable empty iterables, and MappingProxyType to provide and empty immutable dict
 METADATA_DEFAULTS = {
     "hint": None,
     "unmatched_patterns": tuple(),
@@ -556,6 +560,7 @@ METADATA_DEFAULTS = {
     "level4_excluded_files": tuple(),
     "cancelled": False,
     "error": False,
+    "job_metrics": MappingProxyType({}),
 }
 
 

@@ -6,8 +6,8 @@ from responses import matchers
 from jobrunner import queries, sync
 from jobrunner.config import controller as config
 from jobrunner.lib.database import find_where
-from jobrunner.models import Job, JobRequest
-from tests.factories import job_factory, metrics_factory
+from jobrunner.models import Job, JobRequest, State
+from tests.factories import job_factory, runjob_db_task_factory
 
 
 def test_job_request_from_remote_format():
@@ -104,9 +104,13 @@ def test_job_to_remote_format_null_status_message(db):
 
 
 def test_job_to_remote_format_metrics(db):
-    job = job_factory()
-    metrics_factory(job, metrics={"test": 0.0})
-
+    job = job_factory(state=State.RUNNING)
+    runjob_db_task_factory(
+        job=job,
+        agent_results={
+            "job_metrics": {"test": 0.0},
+        },
+    )
     json = sync.job_to_remote_format(job)
 
     assert json["metrics"] == {"test": 0.0}
