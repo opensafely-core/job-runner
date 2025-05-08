@@ -1,5 +1,5 @@
-import time
 
+from jobrunner.controller.task_api import handle_task_update
 from jobrunner.lib import database  # cheating!
 from jobrunner.models import Task as ControllerTask  # cheating!
 from jobrunner.schema import AgentTask
@@ -26,26 +26,6 @@ def update_controller(
     results: optional dictionary of completed results of this task, expected to be immutable
     complete: if the agent considers this task complete
     """
-    # cheating for now - should be HTTP API call, which ends up updating the
-    # controller db, but we just update the db directly
-    #
-    # this currently just updates the task table, and lets the main controller
-    # loop update the jobs table as needed, and handle a completed task. In the
-    # future, we may want the HTTP handler to do both, so that the main loop
-    # does not need to handle agent updates and completed jobs at all.  But all
-    # we have currently is the loop, so we'll do that logic there for step 1
-    db_task = database.find_one(ControllerTask, id=task.id)
-    db_task.agent_stage = stage
-    db_task.agent_results = results
-    db_task.agent_complete = complete
-    # This looks like the agent overstepping itself but I think this is the
-    # behaviour we need to simulate how the HTTP handler will work. The
-    # controller endpoint which receives task updates will always mark
-    # tasks as inactive if the agent says they're complete: there's no
-    # point continuing to ask for updates on completed tasks. Note that
-    # these are still semantically different things though because the
-    # controller can mark tasks inactive even when they're not complete.
-    if complete:
-        db_task.active = False
-        db_task.finished_at = int(time.time())
-    database.update(db_task)
+    # Cheating! This will eventaully be an HTTP API call to the controller but we just
+    # do a direct function call for now
+    handle_task_update(task_id=task.id, stage=stage, results=results, complete=complete)

@@ -28,3 +28,20 @@ def mark_task_inactive(task):
 def get_task(task_id):
     """Lookup a single task by id."""
     return database.find_one(Task, id=task_id)
+
+
+def handle_task_update(*, task_id, stage, results, complete):
+    # This is the function we expect to eventually be invoked via an HTTP API call.
+    # This currently just updates the task table, and lets the main controller loop
+    # update the jobs table as needed, and handle a completed task. In the future, we
+    # may want the HTTP handler to do both, so that the main loop does not need to
+    # handle agent updates and completed jobs at all. But all we have currently is the
+    # loop, so we'll do that logic there for step 1.
+    task = database.find_one(Task, id=task_id)
+    task.agent_stage = stage
+    task.agent_results = results
+    task.agent_complete = complete
+    if complete:
+        task.active = False
+        task.finished_at = int(time.time())
+    database.update(task)
