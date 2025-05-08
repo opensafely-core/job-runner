@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from jobrunner import queries, service, sync
+from jobrunner import service, sync
 from jobrunner.config import agent as config
 from jobrunner.lib import database
 
@@ -122,73 +122,3 @@ def test_start_thread_error_syncapi(request, caplog):
         assert r.message == f"sync error {i + 1}"
         assert r.threadName == request.node.name
         assert r.exc_info is None
-
-
-def add_maintenance_command(mock_subprocess_run, current):
-    return mock_subprocess_run.add_call(
-        [
-            "docker",
-            "run",
-            "--rm",
-            "-e",
-            "DATABASE_URL",
-            "ghcr.io/opensafely-core/cohortextractor",
-            "maintenance",
-            "--current-mode",
-            str(current),
-        ],
-        env={"DATABASE_URL": config.DATABASE_URLS["default"]},
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=300,
-    )
-
-
-def test_maintenance_mode_off(mock_subprocess_run, db, db_config):
-    ps = add_maintenance_command(mock_subprocess_run, current=None)
-    ps.stdout = ""
-    assert service.maintenance_mode() is None
-    assert queries.get_flag("mode", backend="foo").value is None
-
-    queries.set_flag("mode", "db-maintenance", backend="foo")
-    ps = add_maintenance_command(mock_subprocess_run, current="db-maintenance")
-    ps.stdout = ""
-    assert service.maintenance_mode() is None
-    assert queries.get_flag("mode", backend="foo").value is None
-
-
-def test_maintenance_mode_on(mock_subprocess_run, db, db_config):
-    ps = add_maintenance_command(mock_subprocess_run, current=None)
-    ps.stdout = "db-maintenance"
-    ps.stderr = "other stuff"
-    assert service.maintenance_mode() == "db-maintenance"
-    assert queries.get_flag("mode", backend="foo").value == "db-maintenance"
-
-    queries.set_flag("mode", "db-maintenance", backend="foo")
-    ps = add_maintenance_command(mock_subprocess_run, current="db-maintenance")
-    ps.stdout = "db-maintenance"
-    ps.stderr = "other stuff"
-    assert service.maintenance_mode() == "db-maintenance"
-    assert queries.get_flag("mode", backend="foo").value == "db-maintenance"
-
-
-def test_maintenance_mode_error(mock_subprocess_run, db, db_config):
-    ps = add_maintenance_command(mock_subprocess_run, current=None)
-    ps.returncode = 1
-    ps.stdout = ""
-    ps.stderr = "error"
-
-    with pytest.raises(subprocess.CalledProcessError):
-        service.maintenance_mode()
-
-
-def test_maintenance_mode_manual(db, db_config):
-    queries.set_flag("manual-db-maintenance", "on", backend="foo")
-    assert service.maintenance_mode() == "db-maintenance"
-    assert queries.get_flag("mode", backend="foo").value == "db-maintenance"
-
-
-@pytest.fixture
-def db_config(monkeypatch):
-    monkeypatch.setitem(config.DATABASE_URLS, "default", "mssql://localhost")

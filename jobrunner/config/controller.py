@@ -113,14 +113,6 @@ MAINTENANCE_POLL_INTERVAL = float(
 MAINTENANCE_ENABLED_BACKENDS = (
     os.environ.get("MAINTENANCE_ENABLED_BACKENDS", "tpp").strip().split(",")
 )
-# TODO: will be replaced by Task
-ENABLE_MAINTENANCE_MODE_THREAD = os.environ.get(
-    "ENABLE_MAINTENANCE_MODE_THREAD", ""
-).lower() in (
-    "true",
-    "yes",
-    "on",
-)
 
 # Map known exit codes to user-friendly messages
 DATABASE_EXIT_CODES = {
