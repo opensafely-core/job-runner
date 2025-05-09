@@ -31,6 +31,11 @@ def get_task(task_id):
     return database.find_one(Task, id=task_id)
 
 
+def get_active_tasks(backend: str) -> list[Task]:
+    """Return list of active tasks to be sent to the agent for the supplied backend"""
+    return database.find_where(Task, active=True, backend=backend)
+
+
 def handle_task_update(*, task_id, stage, results, complete):
     # This is the function we expect to eventually be invoked via an HTTP API call.
     # This currently just updates the task table, and lets the main controller loop

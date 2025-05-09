@@ -1,6 +1,4 @@
-from jobrunner.controller.task_api import handle_task_update
-from jobrunner.lib import database  # cheating!
-from jobrunner.models import Task as ControllerTask  # cheating!
+from jobrunner.controller import task_api as controller_task_api  # cheating!
 from jobrunner.schema import AgentTask
 
 
@@ -8,8 +6,7 @@ def get_active_tasks(backend: str) -> list[AgentTask]:
     """Get a list of active tasks for this backend from the controller"""
     # cheating for now - should be HTTP API call
     return [
-        AgentTask.from_task(t)
-        for t in database.find_where(ControllerTask, active=True, backend=backend)
+        AgentTask.from_task(t) for t in controller_task_api.get_active_tasks(backend)
     ]
 
 
@@ -27,4 +24,6 @@ def update_controller(
     """
     # Cheating! This will eventaully be an HTTP API call to the controller but we just
     # do a direct function call for now
-    handle_task_update(task_id=task.id, stage=stage, results=results, complete=complete)
+    controller_task_api.handle_task_update(
+        task_id=task.id, stage=stage, results=results, complete=complete
+    )
