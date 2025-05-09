@@ -76,7 +76,7 @@ service: build
     docker compose up dev
 
 # run command in dev container
-run env="dev" *args="": build
+run env="dev" *args="": (build env)
     docker compose run --rm {{ env }} {{ args }}
 
 # exec command in existing dev container
