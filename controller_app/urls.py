@@ -5,4 +5,5 @@ from controller_app import views
 
 urlpatterns = [
     path("", views.index),
+    path("<str:backend>/tasks/", views.active_tasks, name="active_tasks"),
 ]
