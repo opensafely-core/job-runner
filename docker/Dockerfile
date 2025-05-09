@@ -114,6 +114,8 @@ ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.created=$BUILD_DATE
 ARG GITREF=unknown
 LABEL org.opencontainers.image.revision=$GITREF
+RUN mkdir -p /app/metadata \
+    && echo "${GITREF}" > /app/metadata/version.txt
 
 
 
