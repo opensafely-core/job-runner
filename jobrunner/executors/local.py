@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from types import MappingProxyType
 
+from jobrunner.agent.metrics import read_job_metrics
 from jobrunner.config import agent as config
 from jobrunner.executors import volumes
 from jobrunner.job_executor import (
@@ -22,7 +23,6 @@ from jobrunner.job_executor import (
 from jobrunner.lib import datestr_to_ns_timestamp, docker, file_digest
 from jobrunner.lib.git import checkout_commit
 from jobrunner.lib.string_utils import tabulate
-from jobrunner.record_stats import read_job_metrics
 
 
 class LocalExecutorError(Exception):
