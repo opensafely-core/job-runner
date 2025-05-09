@@ -164,3 +164,9 @@ run-agent: devenv
 
 run-controller: devenv
     $BIN/python -m jobrunner.controller.main
+
+manage *args: devenv
+    $BIN/python manage.py {{ args }}
+
+run-app: devenv
+    just manage runserver
