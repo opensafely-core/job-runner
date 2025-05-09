@@ -8,6 +8,7 @@ import time
 
 from jobrunner import sync, tracing
 from jobrunner.agent.main import main as agent_main
+from jobrunner.agent.metrics import main as metrics_main
 from jobrunner.config import agent as agent_config
 from jobrunner.config import controller as config
 from jobrunner.controller.main import main as controller_main
@@ -67,6 +68,7 @@ def main():
         log.info("jobrunner.service started")
 
         start_thread(sync.main, "sync", config.POLL_INTERVAL * 5)
+        start_thread(metrics_main, "mtrc", agent_config.STATS_POLL_INTERVAL)
         start_thread(ticks_main, "tick", agent_config.STATS_POLL_INTERVAL)
         start_thread(agent_main, "agnt", config.POLL_INTERVAL)
         controller_main()

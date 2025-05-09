@@ -23,7 +23,11 @@ JOB_SERVER_TOKEN = {
     for backend in common.BACKENDS
 }
 
+# API poll
 POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
+
+# TICK trace interval
+TICK_POLL_INTERVAL = float(os.environ.get("TICK_POLL_INTERVAL", "30"))
 
 ALLOWED_IMAGES = {
     "cohortextractor",
