@@ -2,7 +2,11 @@ from django.http import JsonResponse
 from django.urls import reverse
 
 from jobrunner.lib import database
-from tests.factories import canceljob_db_task_factory, runjob_db_task_factory
+from jobrunner.models import Task
+from tests.factories import (
+    canceljob_db_task_factory,
+    runjob_db_task_factory,
+)
 
 
 def test_controller_returns_get_request_method(client):
@@ -45,3 +49,24 @@ def test_active_tasks_view(db, client, monkeypatch):
     response = response.json()
 
     assert {task["id"] for task in response["tasks"]} == {runtask1.id, canceltask1.id}
+
+
+def test_update_task(db, client):
+    make_task = runjob_db_task_factory(backend="test")
+
+    assert make_task.agent_stage is None
+
+    post_data = {
+        "task_id": make_task.id,
+        "stage": "prepared",
+        "results": "",
+        "complete": False,
+    }
+
+    response = client.post(reverse("update_task", args=("test",)), data=post_data)
+
+    assert response.status_code == 200
+
+    task = database.find_one(Task, id=make_task.id)
+
+    assert task.agent_stage == "prepared"
