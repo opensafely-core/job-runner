@@ -22,7 +22,8 @@ def update_task(request, backend):
 
     task_id = update_task_info["task_id"]
     stage = update_task_info["stage"]
-    results = update_task_info["results"]
+    # If the agent posts an empty results dict, it won't be present in the POST data
+    results = update_task_info.get("results", {})
     complete = update_task_info["complete"]
 
     handle_task_update(task_id=task_id, stage=stage, results=results, complete=complete)
