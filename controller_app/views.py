@@ -1,4 +1,4 @@
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -27,6 +27,4 @@ def update_task(request, backend):
 
     handle_task_update(task_id=task_id, stage=stage, results=results, complete=complete)
 
-    response = JsonResponse({"status": "Task updated successfully"})
-
-    return response
+    return HttpResponse(status=204)

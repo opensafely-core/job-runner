@@ -65,7 +65,7 @@ def test_update_task(db, client):
 
     response = client.post(reverse("update_task", args=("test",)), data=post_data)
 
-    assert response.status_code == 200
+    assert response.status_code == 204
 
     task = database.find_one(Task, id=make_task.id)
 
