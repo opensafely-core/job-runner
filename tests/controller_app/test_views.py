@@ -59,7 +59,7 @@ def test_update_task(db, client):
     post_data = {
         "task_id": make_task.id,
         "stage": "prepared",
-        "results": "",
+        "results": {},
         "complete": False,
     }
 
