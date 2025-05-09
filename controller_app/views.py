@@ -1,8 +1,13 @@
+import logging
+
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from jobrunner.controller.task_api import get_active_tasks, handle_task_update
+
+
+log = logging.getLogger(__name__)
 
 
 @csrf_exempt
@@ -26,6 +31,12 @@ def update_task(request, backend):
     results = update_task_info.get("results", {})
     complete = update_task_info["complete"]
 
-    handle_task_update(task_id=task_id, stage=stage, results=results, complete=complete)
+    try:
+        handle_task_update(
+            task_id=task_id, stage=stage, results=results, complete=complete
+        )
+    except Exception:
+        log.exception("Error updating task")
+        return JsonResponse({"error": "Error updating task"}, status=500)
 
     return HttpResponse(status=204)
