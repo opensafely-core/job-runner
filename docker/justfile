@@ -2,6 +2,10 @@ set dotenv-load := true
 
 export PYTEST_HOST_TMP := "/tmp/jobrunner-docker"
 
+# List available commands
+default:
+    @{{ just_executable() }} --list --unsorted
+
 build env="dev": tmpdir docker-compose-env
     #!/usr/bin/env bash
     set -eu
