@@ -354,7 +354,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
         "output/summary.*": "moderately_sensitive",
     }
     populate_workspace(job_definition.workspace, "output/input.csv")
-    metrics_factory(job_definition, {"test": 1.0})
+    metrics_factory(job_definition.id, {"test": 1.0})
 
     api = local.LocalDockerAPI()
 

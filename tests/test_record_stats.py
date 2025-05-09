@@ -182,7 +182,7 @@ def test_record_tick_trace_stats_error(db, freezer, monkeypatch):
 
 def test_update_job_metrics(db):
     job = job_factory(status_code=StatusCode.EXECUTING)
-    metrics_factory(job)
+    metrics_factory(job.id)
 
     metrics = record_stats.read_job_metrics(job.id)
 
