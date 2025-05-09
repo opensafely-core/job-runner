@@ -10,7 +10,8 @@ import pytest
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from jobrunner import record_stats, tracing
+from jobrunner import tracing
+from jobrunner.agent import metrics
 from jobrunner.config import agent as agent_config
 from jobrunner.config import controller as controller_config
 from jobrunner.job_executor import Study
@@ -214,7 +215,7 @@ def metrics_db(monkeypatch, tmp_path, request):
     db_path = tmp_path / "metrics.db"
     monkeypatch.setattr(agent_config, "METRICS_FILE", db_path)
     yield
-    record_stats.CONNECTION_CACHE.__dict__.clear()
+    metrics.CONNECTION_CACHE.__dict__.clear()
 
 
 @dataclass
