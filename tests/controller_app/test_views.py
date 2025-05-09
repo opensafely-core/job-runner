@@ -70,3 +70,17 @@ def test_update_task(db, client):
     task = database.find_one(Task, id=make_task.id)
 
     assert task.agent_stage == "prepared"
+
+
+def test_update_task_no_matching_task(db, client):
+    post_data = {
+        "task_id": "unknown-task-id",
+        "stage": "prepared",
+        "results": {},
+        "complete": False,
+    }
+
+    response = client.post(reverse("update_task", args=("test",)), data=post_data)
+
+    assert response.status_code == 500
+    assert response.json()["error"] == "Error updating task"
