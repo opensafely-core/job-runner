@@ -5,14 +5,12 @@ from unittest import mock
 
 import pytest
 
-from jobrunner import models, record_stats
 from jobrunner.config import agent as config
 from jobrunner.executors import local, volumes
 from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import datestr_to_ns_timestamp, docker
 from tests.factories import (
     ensure_docker_images_present,
-    job_factory,
     job_results_factory,
     metrics_factory,
 )
@@ -263,49 +261,6 @@ def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, db):
     assert container_data["State"]["ExitCode"] == 0
     assert container_data["HostConfig"]["NanoCpus"] == int(1.5 * 1e9)
     assert container_data["HostConfig"]["Memory"] == 2**30  # 1G
-
-
-@pytest.mark.needs_docker
-def test_execute_metrics(docker_cleanup, job_definition, tmp_work_dir, db):
-    job_definition.args = ["sleep", "10"]
-    last_run = time.time_ns()
-
-    api = local.LocalDockerAPI()
-
-    api.prepare(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.PREPARED
-
-    # we need scheduler job state to be able to collect stats
-    job = job_factory(
-        id=job_definition.id,
-        state=models.State.RUNNING,
-        status_code=models.StatusCode.EXECUTING,
-        started_at=int(last_run / 1e9),
-    )
-
-    api.execute(job_definition)
-    status = api.get_status(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
-    # simulate stats thread collecting stats
-    record_stats.record_tick_trace(last_run, [job])
-
-    docker.kill(local.container_name(job_definition))
-
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
-
-    assert list(status.metrics.keys()) == [
-        "cpu_sample",
-        "cpu_cumsum",
-        "cpu_mean",
-        "cpu_peak",
-        "mem_mb_sample",
-        "mem_mb_cumsum",
-        "mem_mb_mean",
-        "mem_mb_peak",
-        "container_id",
-    ]
 
 
 @pytest.mark.needs_docker

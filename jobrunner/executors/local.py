@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 from types import MappingProxyType
 
-from jobrunner import record_stats
 from jobrunner.config import agent as config
 from jobrunner.executors import volumes
 from jobrunner.job_executor import (
@@ -276,20 +275,16 @@ class LocalDockerAPI(ExecutorAPI):
 
         job_metadata = read_job_metadata(job_definition)
 
-        metrics = record_stats.read_job_metrics(job_definition.id)
-
         if job_metadata.get("error"):
             return JobStatus(
                 ExecutorState.ERROR,
                 timestamp_ns=job_metadata["timestamp_ns"],
-                metrics=metrics,
                 results=job_metadata,
             )
         elif job_metadata:
             return JobStatus(
                 ExecutorState.FINALIZED,
                 timestamp_ns=job_metadata["timestamp_ns"],
-                metrics=metrics,
                 results=job_metadata,
             )
 
@@ -303,13 +298,11 @@ class LocalDockerAPI(ExecutorAPI):
                     # to record their cancelled state
                     return JobStatus(
                         ExecutorState.PREPARED,
-                        metrics=metrics,
                         results=job_metadata,
                     )
                 else:  # pragma: no cover
                     return JobStatus(
                         ExecutorState.UNKNOWN,
-                        metrics=metrics,
                         results=job_metadata,
                     )
 
@@ -322,24 +315,27 @@ class LocalDockerAPI(ExecutorAPI):
             # re-prepare it anyway.
             if timestamp_ns is None:
                 # we are Jon Snow
-                return JobStatus(ExecutorState.UNKNOWN, metrics={})
+                return JobStatus(ExecutorState.UNKNOWN)
             else:
                 # we've finish preparing
                 return JobStatus(
-                    ExecutorState.PREPARED, timestamp_ns=timestamp_ns, metrics=metrics
+                    ExecutorState.PREPARED,
+                    timestamp_ns=timestamp_ns,
                 )
 
         if container["State"]["Running"]:
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["StartedAt"])
             return JobStatus(
-                ExecutorState.EXECUTING, timestamp_ns=timestamp_ns, metrics=metrics
+                ExecutorState.EXECUTING,
+                timestamp_ns=timestamp_ns,
             )
         else:
             # container present but not running, i.e. finished
             # Nb. this does not include prepared jobs, as they have a volume but not a container
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
             return JobStatus(
-                ExecutorState.EXECUTED, timestamp_ns=timestamp_ns, metrics=metrics
+                ExecutorState.EXECUTED,
+                timestamp_ns=timestamp_ns,
             )
 
     def delete_files(self, workspace, privacy, files):
