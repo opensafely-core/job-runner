@@ -33,7 +33,15 @@ def get_task(task_id):
 
 def get_active_tasks(backend: str) -> list[Task]:
     """Return list of active tasks to be sent to the agent for the supplied backend"""
-    return database.find_where(Task, active=True, backend=backend)
+    active_tasks = database.find_where(Task, active=True, backend=backend)
+    # This is a small hack to ensure that the controller always receives the results of
+    # DBSTATUS tasks before the results of RUNJOB tasks so that if the jobs have failed
+    # because we've just entered database maintenance then the controller will handle
+    # the failures correctly. This not the proper fix, but it's cheap to do, has little
+    # downside and may help. See:
+    # https://github.com/opensafely-core/job-runner/issues/893
+    active_tasks.sort(key=lambda task: 0 if task.type == TaskType.DBSTATUS else 1)
+    return active_tasks
 
 
 def handle_task_update(*, task_id, stage, results, complete):
