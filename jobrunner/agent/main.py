@@ -52,7 +52,6 @@ def handle_tasks(api: ExecutorAPI | None):
     return handled_tasks
 
 
-# we do not control the transition from these states, the executor does
 def handle_single_task(task, api):
     """The top level handler for a task.
 
