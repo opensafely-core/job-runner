@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 
@@ -21,12 +22,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-7x$$d9^(-rb2uj57*d%u#z68fh*@y8s)8zu(*_t-ck%5jmk)ef"
+# TODO add environment variables to dokku app
+# TODO Note: these env vars are labelled with the additional "JOBRUNNER" prefix
+# so as not to conlict with Airlock in production (where the env variables are
+# shared). They can be renamed once the app is running outside of the backends
+SECRET_KEY = os.environ["DJANGO_JOBRUNNER_SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.environ.get("DJANGO_JOBRUNNER_DEBUG", False) == "True"
 
-ALLOWED_HOSTS = ["controller.opensafely.org"]
+ALLOWED_HOSTS = os.environ["DJANGO_JOBRUNNER_ALLOWED_HOSTS"].split(",")
 
 
 # Application definition
@@ -74,11 +79,12 @@ WSGI_APPLICATION = "controller_app.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
+# TODO: Currently the django app is using a separate database (for
+# the default included apps that need it - auth/sessions etc).
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": BASE_DIR / "django_db.sqlite3",
     }
 }
 
