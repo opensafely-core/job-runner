@@ -185,7 +185,7 @@ def record_tick_trace(last_run, active_jobs):
 
             # this means the job is running
             if metrics:
-                runtime_s = int(now / 1e9) - job.started_at
+                runtime_s = int(now / 1e9) - metrics["started_at"]
                 # protect against unexpected runtimes
                 if runtime_s > 0:
                     job_metrics = update_job_metrics(

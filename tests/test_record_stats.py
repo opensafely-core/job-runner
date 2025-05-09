@@ -68,6 +68,7 @@ def test_record_tick_trace(db, freezer, monkeypatch):
             "cpu_percentage": 50.0,
             "memory_used": 1000 * mb,
             "container_id": "a0b1c2d3",
+            "started_at": int(time.time()),  # frozen
         }
     }
 
