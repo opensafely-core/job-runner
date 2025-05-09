@@ -51,6 +51,12 @@ def test_active_tasks_view(db, client, monkeypatch):
     assert {task["id"] for task in response["tasks"]} == {runtask1.id, canceltask1.id}
 
 
+def test_active_tasks_unknown_backend(db, client):
+    response = client.get(reverse("active_tasks", args=("foo",)))
+    response = response.json()
+    assert response["tasks"] == []
+
+
 def test_update_task(db, client):
     make_task = runjob_db_task_factory(backend="test")
 
