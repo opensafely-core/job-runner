@@ -6,11 +6,12 @@ import logging
 import threading
 import time
 
-from jobrunner import record_stats, sync, tracing
+from jobrunner import sync, tracing
 from jobrunner.agent.main import main as agent_main
 from jobrunner.config import agent as agent_config
 from jobrunner.config import controller as config
 from jobrunner.controller.main import main as controller_main
+from jobrunner.controller.ticks import main as ticks_main
 from jobrunner.lib.database import ensure_valid_db
 from jobrunner.lib.log_utils import configure_logging
 
@@ -66,7 +67,7 @@ def main():
         log.info("jobrunner.service started")
 
         start_thread(sync.main, "sync", config.POLL_INTERVAL * 5)
-        start_thread(record_stats.main, "stat", agent_config.STATS_POLL_INTERVAL)
+        start_thread(ticks_main, "tick", agent_config.STATS_POLL_INTERVAL)
         start_thread(agent_main, "agnt", config.POLL_INTERVAL)
         controller_main()
     except KeyboardInterrupt:
