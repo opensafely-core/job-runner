@@ -50,3 +50,10 @@ TEST_JOB_SERVER_TOKEN=pass
 # Change this to reduce parallelism (per backend)
 # Note this variable is per-backend i.e. <BACKEND>_MAX_WORKERS for each backend
 TEST_MAX_WORKERS=
+
+
+# USED BY CONTROLLER DJANGO APP
+###############################
+DJANGO_CONTROLLER_SECRET_KEY=secret
+DJANGO_CONTROLLER_ALLOWED_HOSTS=*
+DJANGO_DEBUG=True

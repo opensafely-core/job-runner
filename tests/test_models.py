@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from tests.factories import job_factory
+from tests.factories import (
+    job_factory,
+)
 
 
 def test_job_asdict_timestamps(db):

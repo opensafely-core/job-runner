@@ -157,10 +157,16 @@ fix: devenv
 
 # Run the dev project
 add-job *args:
-    just cli controller.add_job {{ args }}
+    just cli controller.add_job {{ args }} --backend test
 
 run-agent: devenv
     $BIN/python -m jobrunner.agent.main
 
 run-controller: devenv
     $BIN/python -m jobrunner.controller.main
+
+manage *args: devenv
+    $BIN/python manage.py {{ args }}
+
+run-app: devenv
+    just manage runserver
