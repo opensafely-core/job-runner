@@ -140,3 +140,5 @@ else:  # pragma: no cover
 # externally. See:
 # https://github.com/opensafely-core/backend-server/pull/105
 DATABASE_ACCESS_NETWORK = os.environ.get("DATABASE_ACCESS_NETWORK", "jobrunner-db")
+
+TASK_API_ENDPOINT = os.environ.get("CONTROLLER_TASK_API_ENDPOINT")
