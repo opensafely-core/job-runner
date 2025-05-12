@@ -126,11 +126,15 @@ class JobResults:
 
     @classmethod
     def from_dict(cls, metadata: dict):
+        try:
+            exit_code = int(metadata["exit_code"])
+        except (TypeError, ValueError):
+            exit_code = None
         return cls(
             outputs=metadata["outputs"],
             unmatched_patterns=metadata["unmatched_patterns"],
             unmatched_outputs=metadata["unmatched_outputs"],
-            exit_code=int(metadata["exit_code"]),
+            exit_code=exit_code,
             image_id=metadata["docker_image_id"],
             message=metadata["status_message"],
             unmatched_hint=metadata["hint"],
