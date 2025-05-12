@@ -888,11 +888,16 @@ def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
 # in the code by exercising both elements, and there didn't feel like an obvious
 # alternative place to put this test.
 @patch("jobrunner.agent.main.docker", autospec=True)
-def test_handle_task_update_dbstatus(mock_docker, monkeypatch, db, freezer):
+def test_handle_task_update_dbstatus(
+    mock_docker, monkeypatch, db, freezer, responses, live_server
+):
+    responses.add_passthru(live_server.url)
     backend = "test"
     monkeypatch.setattr(config, "MAINTENANCE_ENABLED_BACKENDS", [backend])
     monkeypatch.setattr(agent_config, "BACKEND", backend)
     monkeypatch.setattr(agent_config, "DATABASE_URLS", {"default": "mssql://localhost"})
+    # Use the live_server url for our task api endpoint, for the agent to call in`run_agent_loop_once`
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
 
     # We start not in maintenance mode
     assert not get_flag_value("mode", backend=backend)
