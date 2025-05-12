@@ -1,7 +1,10 @@
 import pytest
+import requests
 
 from jobrunner.agent import task_api
+from jobrunner.config import agent as config
 from jobrunner.controller import task_api as controller_api
+from jobrunner.schema import AgentTask
 from tests.factories import runjob_db_task_factory
 
 
@@ -20,19 +23,51 @@ def setup_config(monkeypatch):
     )
 
 
-def test_get_active_jobs(db):
+def test_get_active_tasks(db, monkeypatch, responses):
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy")
+
     task1 = runjob_db_task_factory(backend="dummy")
     task2 = runjob_db_task_factory(backend="dummy")
     task3 = runjob_db_task_factory(backend="another")
     controller_api.mark_task_inactive(task2)
 
-    active = task_api.get_active_tasks(backend="dummy")
+    responses.add(
+        method="GET",
+        url=f"{config.TASK_API_ENDPOINT}dummy/tasks",
+        status=200,
+        json={"tasks": [AgentTask.from_task(task1).asdict()]},
+    )
+    responses.add(
+        method="GET",
+        url=f"{config.TASK_API_ENDPOINT}another/tasks",
+        status=200,
+        json={"tasks": [AgentTask.from_task(task3).asdict()]},
+    )
+
+    active = task_api.get_active_tasks()
     assert len(active) == 1
     assert active[0].id == task1.id
 
-    active = task_api.get_active_tasks(backend="another")
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "another")
+
+    active = task_api.get_active_tasks()
     assert len(active) == 1
     assert active[0].id == task3.id
+
+
+def test_get_active_tasks_api_error(db, monkeypatch, responses):
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy")
+
+    runjob_db_task_factory(backend="dummy")
+
+    responses.add(
+        method="GET",
+        url=f"{config.TASK_API_ENDPOINT}dummy/tasks",
+        status=500,
+    )
+
+    with pytest.raises(requests.HTTPError):
+        task_api.get_active_tasks()
 
 
 def test_update_controller(db):

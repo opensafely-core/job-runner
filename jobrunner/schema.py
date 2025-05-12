@@ -9,6 +9,11 @@ class TaskType(Enum):
     # TODO: delete job
     DBSTATUS = "dbstatus"
 
+    @classmethod
+    def from_value(cls, value):
+        value_map = {item.value: item for item in cls}
+        return value_map[value]
+
 
 @dataclass(frozen=True)
 class AgentTask:
@@ -44,3 +49,9 @@ class AgentTask:
             if isinstance(value, Enum):
                 data[key] = value.value
         return data
+
+    @classmethod
+    def from_dict(cls, task_dict):
+        task_type = TaskType.from_value(task_dict["type"])
+        task_dict["type"] = task_type
+        return cls(**task_dict)
