@@ -31,12 +31,11 @@ class TaskApi:
         return response.json()
 
 
-def get_active_tasks(backend: str) -> list[AgentTask]:
+def get_active_tasks() -> list[AgentTask]:
     """Get a list of active tasks for this backend from the controller"""
-    # cheating for now - should be HTTP API call
-    return [
-        AgentTask.from_task(t) for t in controller_task_api.get_active_tasks(backend)
-    ]
+    api = TaskApi()
+    agent_tasks = api.get_json("tasks")["tasks"]
+    return [AgentTask.from_dict(t) for t in agent_tasks]
 
 
 def update_controller(
