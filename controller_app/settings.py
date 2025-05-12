@@ -14,6 +14,32 @@ import os
 from pathlib import Path
 
 
+_missing_env_var_hint = """\
+If you are running commands locally outside of `just` then you should
+make sure that your `.env` file is being loaded into the environment,
+which you can do in Bash using:
+
+    set -a; source .env; set +a
+
+If you are seeing this error when running via `just` (which should
+automatically load variables from `.env`) then you should check that
+`.env` contains all the variables listed in `dotenv-sample` (which may
+have been updated since `.env` was first created).
+
+If you are seeing this error in production then you haven't configured
+things properly.
+"""
+
+
+def get_env_var(name):
+    try:
+        return os.environ[name]
+    except KeyError:
+        raise RuntimeError(
+            f"Missing environment variable: {name}\n\n{_missing_env_var_hint}"
+        )
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,15 +49,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # TODO add environment variables to dokku app
-# TODO Note: these env vars are labelled with the additional "JOBRUNNER" prefix
+# TODO Note: these env vars are labelled with the additional "CONTROLLER" prefix
 # so as not to conlict with Airlock in production (where the env variables are
 # shared). They can be renamed once the app is running outside of the backends
-SECRET_KEY = os.environ["DJANGO_JOBRUNNER_SECRET_KEY"]
+SECRET_KEY = get_env_var("DJANGO_CONTROLLER_SECRET_KEY")
+ALLOWED_HOSTS = get_env_var("DJANGO_CONTROLLER_ALLOWED_HOSTS").split(",")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_JOBRUNNER_DEBUG", False) == "True"
-
-ALLOWED_HOSTS = os.environ["DJANGO_JOBRUNNER_ALLOWED_HOSTS"].split(",")
+DEBUG = get_env_var("DJANGO_DEBUG") == "True"
 
 
 # Application definition
