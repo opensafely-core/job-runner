@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from jobrunner.controller.task_api import get_active_tasks, handle_task_update
+from jobrunner.schema import AgentTask
 
 
 log = logging.getLogger(__name__)
@@ -17,7 +18,9 @@ def index(request):
 
 
 def active_tasks(request, backend):
-    active_tasks = [task.asdict() for task in get_active_tasks(backend)]
+    active_tasks = [
+        AgentTask.from_task(task).asdict() for task in get_active_tasks(backend)
+    ]
     return JsonResponse({"tasks": active_tasks})
 
 

@@ -24,6 +24,21 @@ def test_controller_returns_post_request_method(client):
 
 
 def test_active_tasks_view(db, client, monkeypatch):
+    runtask = runjob_db_task_factory(backend="test")
+    response = client.get(reverse("active_tasks", args=("test",)))
+    response = response.json()
+    assert response["tasks"] == [
+        {
+            "id": runtask.id,
+            "backend": "test",
+            "type": "runjob",
+            "definition": runtask.definition,
+            "created_at": runtask.created_at,
+        }
+    ]
+
+
+def test_active_tasks_view_multiple_backends(db, client, monkeypatch):
     monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test", "foo"])
     monkeypatch.setattr(
         "jobrunner.config.controller.DEFAULT_JOB_CPU_COUNT", {"test": 1.0, "foo": 1.0}

@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 from enum import Enum
 
@@ -35,3 +36,11 @@ class AgentTask:
             definition=task.definition,
             created_at=task.created_at,
         )
+
+    def asdict(self):
+        data = dataclasses.asdict(self)
+        for key, value in data.items():
+            # Convert Enums to strings for straightforward JSON serialization
+            if isinstance(value, Enum):
+                data[key] = value.value
+        return data
