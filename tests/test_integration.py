@@ -82,10 +82,17 @@ def set_controller_config(monkeypatch):
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, responses):
+def test_integration(
+    live_server, tmp_work_dir, docker_cleanup, monkeypatch, test_repo, responses
+):
     api = get_executor_api()
     monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test"])
     monkeypatch.setattr("jobrunner.config.common.JOB_LOOP_INTERVAL", 0)
+
+    # Use the live_server url for our task api endpoint, so we can test the
+    # agent calls to the django app endpoints
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
 
     ensure_docker_images_present("ehrql:v1", "python")
 
