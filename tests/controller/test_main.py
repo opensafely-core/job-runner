@@ -8,7 +8,6 @@ import pytest
 from opentelemetry import trace
 
 from jobrunner.agent import main as agent_main
-from jobrunner.agent import task_api as agent_task_api
 from jobrunner.config import agent as agent_config
 from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
@@ -36,8 +35,8 @@ def set_job_task_results(job, job_results, error=None):
     results = job_results.to_dict()
     results["error"] = error or False
 
-    agent_task_api.update_controller(
-        runjob_task,
+    task_api.handle_task_update(
+        task_id=runjob_task.id,
         stage="",
         results=results,
         complete=True,
@@ -818,7 +817,9 @@ def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
     assert len(tasks) == 1
 
     # Mark the task as complete
-    agent_task_api.update_controller(tasks[0], stage="", results={}, complete=True)
+    task_api.handle_task_update(
+        task_id=tasks[0].id, stage="", results={}, complete=True
+    )
 
     # Tick time forward a small amount and run the loop again which should _still_ not
     # create a new task because the previous one ran too recently

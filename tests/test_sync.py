@@ -161,12 +161,14 @@ def test_session_request_flags(db, responses):
     sync.api_get("path", backend="test")
 
 
-def test_sync_empty_response(db, monkeypatch, requests_mock):
+def test_sync_empty_response(db, monkeypatch, responses):
     monkeypatch.setattr(
         "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
-    requests_mock.get(
-        "http://testserver/api/v2/job-requests/",
+    responses.add(
+        method="GET",
+        status=200,
+        url="http://testserver/api/v2/job-requests/",
         json={
             "results": [],
         },
@@ -174,8 +176,9 @@ def test_sync_empty_response(db, monkeypatch, requests_mock):
     sync.sync()
 
     # verify we did not post back to job-server
-    assert requests_mock.last_request.text is None
-    assert requests_mock.last_request.method == "GET"
+    last_request = responses.calls[-1].request
+    assert last_request.body is None
+    assert last_request.method == "GET"
 
     # also that we did not create any jobs
     jobs = find_where(Job)
@@ -227,16 +230,10 @@ def test_session_request_multiple_backends(db, monkeypatch, responses):
     assert jobs == []
 
 
-def test_sync_no_token(db, monkeypatch, requests_mock):
+def test_sync_no_token(db, monkeypatch):
     monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["foo"])
     monkeypatch.setattr(
         "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
-    )
-    requests_mock.get(
-        "http://testserver/api/v2/job-requests/",
-        json={
-            "results": [],
-        },
     )
     with pytest.raises(sync.SyncAPIError, match="No api token found"):
         sync.sync()
