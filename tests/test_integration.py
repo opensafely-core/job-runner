@@ -82,13 +82,7 @@ def set_controller_config(monkeypatch):
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_integration(
-    tmp_work_dir,
-    docker_cleanup,
-    requests_mock,
-    monkeypatch,
-    test_repo,
-):
+def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, responses):
     api = get_executor_api()
     monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test"])
     monkeypatch.setattr("jobrunner.config.common.JOB_LOOP_INTERVAL", 0)
@@ -118,20 +112,24 @@ def test_integration(
         "orgs": ["org"],
         "backend": "test",
     }
-    requests_mock.get(
-        "http://testserver/api/v2/job-requests/",
-        json={
-            "results": [job_request_1],
-        },
+
+    responses.add(
+        method="GET",
+        url="http://testserver/api/v2/job-requests/",
+        status=200,
+        json={"results": [job_request_1]},
     )
-    requests_mock.post("http://testserver/api/v2/jobs/", json={})
+
+    responses.add(
+        method="POST", url="http://testserver/api/v2/jobs/", status=200, json={}
+    )
 
     # START ON CONTROLLER; set up the expected controller config (and remove agent config)
     set_controller_config(monkeypatch)
     # Run sync to grab the JobRequest from the mocked job-server
     jobrunner.sync.sync()
     # Check that expected number of pending jobs are created
-    jobs = get_posted_jobs(requests_mock)
+    jobs = get_posted_jobs(responses)
     assert [job["status"] for job in jobs.values()] == ["pending"] * 7, list(
         jobs.values()
     )[0]["status_message"]
@@ -165,7 +163,7 @@ def test_integration(
             assert jobs[action]["status_message"].startswith("Waiting on dependencies")
 
     # We should now have one running job and all others waiting on dependencies
-    jobs = get_posted_jobs(requests_mock)
+    jobs = get_posted_jobs(responses)
     assert_generate_dataset_dependency_running(jobs)
 
     # MOVE TO AGENT; set up the expected agent config (and remove controller config)
@@ -182,7 +180,7 @@ def test_integration(
     # sync again; no change to status of jobs
     jobrunner.sync.sync()
     # still one running job and all others waiting on dependencies
-    jobs = get_posted_jobs(requests_mock)
+    jobs = get_posted_jobs(responses)
     assert_generate_dataset_dependency_running(jobs)
 
     # AGENT
@@ -198,7 +196,7 @@ def test_integration(
     # sync again; no change to status of jobs
     jobrunner.sync.sync()
     # still one running job and all others waiting on dependencies
-    jobs = get_posted_jobs(requests_mock)
+    jobs = get_posted_jobs(responses)
     assert_generate_dataset_dependency_running(jobs)
 
     # Update the existing job request to mark a (not-started) job as cancelled, add a new job
@@ -224,12 +222,13 @@ def test_integration(
         "orgs": ["org"],
         "backend": "test",
     }
-    requests_mock.get(
-        "http://testserver/api/v2/job-requests/",
-        json={
-            "results": [job_request_1, job_request_2],
-        },
+    responses.add(
+        method="GET",
+        url="http://testserver/api/v2/job-requests/",
+        status=200,
+        json={"results": [job_request_1, job_request_2]},
     )
+
     jobrunner.sync.sync()
 
     # Execute one tick of the controller run loop again to pick up the
@@ -248,7 +247,7 @@ def test_integration(
 
     # sync to confirm updated jobs have been posted back to job-server
     jobrunner.sync.sync()
-    jobs = get_posted_jobs(requests_mock)
+    jobs = get_posted_jobs(responses)
     assert jobs["generate_dataset"]["status"] == "running"
     # The new action does not depend on generate_dataset
     assert jobs["generate_dataset_with_dummy_data"]["status"] == "running"
@@ -293,7 +292,7 @@ def test_integration(
         assert task_id.startswith(job_id)
 
     jobrunner.sync.sync()
-    jobs = get_posted_jobs(requests_mock)
+    jobs = get_posted_jobs(responses)
     for action in ["generate_dataset", "generate_dataset_with_dummy_data"]:
         assert jobs[action]["status"] == "succeeded"
     for action in [
@@ -325,7 +324,7 @@ def test_integration(
     assert len(active_tasks) == 1
 
     jobrunner.sync.sync()
-    jobs = get_posted_jobs(requests_mock)
+    jobs = get_posted_jobs(responses)
     assert jobs["analyse_data_ehrql"]["status"] == "running"
     for action in [
         "prepare_data_m_ehrql",
@@ -349,7 +348,7 @@ def test_integration(
     assert not len(active_tasks)
 
     jobrunner.sync.sync()
-    jobs = get_posted_jobs(requests_mock)
+    jobs = get_posted_jobs(responses)
     cancellation_job = jobs.pop("test_cancellation_ehrql")
     for job in jobs.values():
         assert job["status"] == "succeeded", job
@@ -402,8 +401,8 @@ def test_integration(
     assert len(loop_spans) > 1
 
 
-def get_posted_jobs(requests_mock):
-    data = requests_mock.last_request.json()
+def get_posted_jobs(responses):
+    data = json.loads(responses.calls[-1].request.body)
     return {job["action"]: job for job in data}
 
 
