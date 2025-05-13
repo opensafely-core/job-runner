@@ -24,14 +24,6 @@ JOB_LOOP_INTERVAL=1.0
 BACKEND=test
 USING_DUMMY_DATA_BACKEND=True
 
-# A location where dataset outputs (one row per patient) should be
-# stored. This folder must exist.
-HIGH_PRIVACY_STORAGE_BASE=
-
-# A location where script outputs (some for publication) should be
-# stored
-MEDIUM_PRIVACY_STORAGE_BASE=
-
 # The DSN for accessing the database
 DEFAULT_DATABASE_URL=mssql+pyodbc://xxxx
 

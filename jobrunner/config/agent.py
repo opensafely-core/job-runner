@@ -87,9 +87,12 @@ EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI"
 HIGH_PRIVACY_STORAGE_BASE = Path(
     os.environ.get("HIGH_PRIVACY_STORAGE_BASE", common.WORKDIR / "high_privacy")
 )
+assert HIGH_PRIVACY_STORAGE_BASE.is_absolute()
+
 MEDIUM_PRIVACY_STORAGE_BASE = Path(
     os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", common.WORKDIR / "medium_privacy")
 )
+assert MEDIUM_PRIVACY_STORAGE_BASE.is_absolute()
 
 HIGH_PRIVACY_WORKSPACES_DIR = HIGH_PRIVACY_STORAGE_BASE / "workspaces"
 MEDIUM_PRIVACY_WORKSPACES_DIR = MEDIUM_PRIVACY_STORAGE_BASE / "workspaces"
