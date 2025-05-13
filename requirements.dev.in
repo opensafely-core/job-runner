@@ -11,7 +11,6 @@ pytest-cov
 pytest-django
 pytest-freezer
 pytest-responses
-requests_mock
 ruff
 # The following is a work-around for a bug in pip-compile. For more information, see:
 # https://github.com/jazzband/pip-tools/issues/2176
