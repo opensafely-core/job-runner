@@ -328,10 +328,10 @@ def job_to_job_definition(job):
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
-    input_files = []
+    input_job_ids = []
     for action in job.requires_outputs_from:
-        for filename in list_outputs_from_action(job.backend, job.workspace, action):
-            input_files.append(filename)
+        if previous_job_id := job_id_from_action(job.backend, job.workspace, action):
+            input_job_ids.append(previous_job_id)
 
     outputs = {}
     for privacy_level, named_patterns in job.output_spec.items():
@@ -348,7 +348,7 @@ def job_to_job_definition(job):
         image=full_image,
         args=action_args,
         env=env,
-        inputs=input_files,
+        input_job_ids=input_job_ids,
         output_spec=outputs,
         allow_database_access=job.requires_db,
         database_name=job.database_name if job.requires_db else None,
@@ -514,13 +514,13 @@ def get_reason_job_not_started(job):
             )
 
 
-def list_outputs_from_action(backend, workspace, action):
+def job_id_from_action(backend, workspace, action):
     for job in calculate_workspace_state(backend, workspace):
         if job.action == action:
-            return job.output_files
+            return job.id
 
     # The action has never been run before
-    return []
+    return None
 
 
 def get_job_resource_weight(job, weights=None):

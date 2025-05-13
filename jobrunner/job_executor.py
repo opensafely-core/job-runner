@@ -26,7 +26,7 @@ class JobDefinition:
     image: str  # the Docker image to run
     args: list[str]  # the arguments to pass to the Docker container
     env: Mapping[str, str]  # the environment variables to set for the Docker container
-    inputs: list[str]  # the files that the job requires
+    input_job_ids: list[str]  # the ids of jobs that this job requires
     output_spec: Mapping[
         str, str
     ]  # the files that the job should produce (globs mapped to privacy levels)

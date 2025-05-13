@@ -605,7 +605,13 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     run_controller_loop_once()
 
     task = database.find_one(Task, type=TaskType.RUNJOB)
-    assert task.definition["inputs"] == ["output-from-completed-run"]
+    # The task definition's inputs contains only the ids of the latest
+    # uncancelled jobs that ran the action dependencies ("other-action",
+    # "action-with-no-outputs")
+    # Note that since we expect to not hold output filenames on the
+    # controller, we still send the agent the id of the job with no
+    # outputs
+    assert task.definition["input_job_ids"] == ["1", "3"]
 
 
 def test_job_definition_limits(db):
