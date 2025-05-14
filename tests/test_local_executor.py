@@ -62,7 +62,7 @@ def populate_workspace(workspace, filename, content=None, privacy="high"):
 # used for tests and debugging
 def get_docker_log(job_definition):
     result = docker.docker(
-        ["container", "logs", local.container_name(job_definition)],
+        ["container", "logs", local.container_name(job_definition.id)],
         check=True,
         text=True,
         capture_output=True,
@@ -94,7 +94,7 @@ def list_repo_files(path):
 
 
 def log_dir_log_file_exists(job_definition):
-    log_dir = local.get_log_dir(job_definition)
+    log_dir = local.get_log_dir(job_definition.id)
     if not log_dir.exists():
         return False
     log_file = log_dir / "logs.txt"
@@ -111,24 +111,24 @@ def workspace_log_file_exists(job_definition):
 
 
 def test_read_metadata_path(job_definition):
-    assert local.read_job_metadata(job_definition) == {}
+    assert local.read_job_metadata(job_definition.id) == {}
 
     globbed_path = (
         config.JOB_LOG_DIR
         / "last-month"
-        / local.container_name(job_definition)
+        / local.container_name(job_definition.id)
         / local.METADATA_FILE
     )
     globbed_path.parent.mkdir(parents=True)
     globbed_path.write_text(json.dumps({"test": "globbed"}))
-    assert local.read_job_metadata(job_definition) == local.METADATA_DEFAULTS | {
+    assert local.read_job_metadata(job_definition.id) == local.METADATA_DEFAULTS | {
         "test": "globbed"
     }
 
-    actual_path = local.get_log_dir(job_definition) / local.METADATA_FILE
+    actual_path = local.get_log_dir(job_definition.id) / local.METADATA_FILE
     actual_path.parent.mkdir(parents=True)
     actual_path.write_text(json.dumps({"test": "actual"}))
-    assert local.read_job_metadata(job_definition) == local.METADATA_DEFAULTS | {
+    assert local.read_job_metadata(job_definition.id) == local.METADATA_DEFAULTS | {
         "test": "actual"
     }
 
@@ -257,7 +257,7 @@ def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, db):
     api.execute(job_definition)
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
-    container_data = docker.container_inspect(local.container_name(job_definition))
+    container_data = docker.container_inspect(local.container_name(job_definition.id))
     assert container_data["State"]["ExitCode"] == 0
     assert container_data["HostConfig"]["NanoCpus"] == int(1.5 * 1e9)
     assert container_data["HostConfig"]["Memory"] == 2**30  # 1G
@@ -274,7 +274,7 @@ def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
     api.execute(job_definition)
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
-    container_config = docker.container_inspect(local.container_name(job_definition))
+    container_config = docker.container_inspect(local.container_name(job_definition.id))
 
     # do not test that this config is set on platforms that do not require this config
     if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:
@@ -320,7 +320,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     # check that timestamp is as expected
-    container = docker.container_inspect(local.container_name(job_definition))
+    container = docker.container_inspect(local.container_name(job_definition.id))
     assert status.timestamp_ns == datestr_to_ns_timestamp(
         container["State"]["FinishedAt"]
     )
@@ -341,7 +341,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     assert status.results["status_message"] == "Completed successfully"
     assert status.results["job_metrics"] == {"test": 1.0}
 
-    log_dir = local.get_log_dir(job_definition)
+    log_dir = local.get_log_dir(job_definition.id)
     log_file = log_dir / "logs.txt"
     assert log_dir.exists()
     assert log_file.exists()
@@ -369,7 +369,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     assert txt_metadata["row_count"] is None
     assert txt_metadata["col_count"] is None
 
-    job_metadata = local.read_job_metadata(job_definition)
+    job_metadata = local.read_job_metadata(job_definition.id)
     for key in {
         "exit_code",
         "completed_at",
@@ -525,7 +525,7 @@ def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir):
     assert status.state == ExecutorState.EXECUTING
 
     # impersonate an admin
-    docker.kill(local.container_name(job_definition))
+    docker.kill(local.container_name(job_definition.id))
 
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
@@ -601,7 +601,7 @@ def test_finalize_large_level4_outputs(docker_cleanup, job_definition, tmp_work_
         "output/output.txt": "File size of 1.0Mb is larger that limit of 0.5Mb.",
     }
 
-    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log_file = local.get_log_dir(job_definition.id) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert (
@@ -655,7 +655,7 @@ def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir
     txt = message_file.read_text()
     assert "output/output.rds" in txt
 
-    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log_file = local.get_log_dir(job_definition.id) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert "output/output.rds  - File type of .rds is not valid level 4 file" in log
@@ -698,7 +698,7 @@ def test_finalize_patient_id_header(docker_cleanup, job_definition, tmp_work_dir
         "output/output.csv": "File has patient_id column",
     }
 
-    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log_file = local.get_log_dir(job_definition.id) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert "output/output.csv  - File has patient_id column" in log
@@ -751,7 +751,7 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir):
         "output/output.csv": "File row count (11) exceeds maximum allowed rows (10)",
     }
 
-    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log_file = local.get_log_dir(job_definition.id) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert (
@@ -1040,7 +1040,7 @@ def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir):
     api.prepare(job_definition)
     api.execute(job_definition)
 
-    container = local.container_name(job_definition)
+    container = local.container_name(job_definition.id)
     assert volumes.volume_exists(job_definition)
     assert docker.container_exists(container)
 
@@ -1165,7 +1165,7 @@ def test_delete_volume_error_file_bindmount_skips_and_logs(job_definition, caplo
 @pytest.mark.needs_docker
 def test_finalize_job_with_error(job_definition):
     local.finalize_job(job_definition, error={"test": "foo"}, cancelled=False)
-    metadata = local.read_job_metadata(job_definition)
+    metadata = local.read_job_metadata(job_definition.id)
     assert metadata["error"] == {"test": "foo"}
     assert metadata["status_message"] == "Job errored"
 

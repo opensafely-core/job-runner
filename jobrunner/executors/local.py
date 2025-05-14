@@ -52,8 +52,8 @@ LABEL = "jobrunner-local"
 log = logging.getLogger(__name__)
 
 
-def container_name(job_definition):
-    return f"os-job-{job_definition.id}"
+def container_name(job_id):
+    return f"os-job-{job_id}"
 
 
 def get_high_privacy_workspace(workspace):
@@ -67,14 +67,14 @@ def get_medium_privacy_workspace(workspace):
         return None
 
 
-def get_log_dir(job_definition):
+def get_log_dir(job_id):
     # Split log directory up by month to make things slightly more manageable
     month_dir = datetime.date.today().strftime("%Y-%m")
-    return config.JOB_LOG_DIR / month_dir / container_name(job_definition)
+    return config.JOB_LOG_DIR / month_dir / container_name(job_id)
 
 
-def read_job_metadata(job_definition):
-    path = job_metadata_path(job_definition)
+def read_job_metadata(job_id):
+    path = job_metadata_path(job_id)
     if path:
         metadata = json.loads(path.read_text())
         # ensure all metadata has default values, as older json files might be
@@ -85,12 +85,12 @@ def read_job_metadata(job_definition):
 
 
 def write_job_metadata(job_definition, job_metadata):
-    metadata_path = get_log_dir(job_definition) / METADATA_FILE
+    metadata_path = get_log_dir(job_definition.id) / METADATA_FILE
     metadata_path.parent.mkdir(exist_ok=True, parents=True)
     metadata_path.write_text(json.dumps(job_metadata, indent=2))
 
 
-def job_metadata_path(job_definition):
+def job_metadata_path(job_id):
     """Return the expected path for the metadata for a job.
 
     Due to writing to a directory path that includes the month at the time the
@@ -99,12 +99,10 @@ def job_metadata_path(job_definition):
 
     This is hopefully a temporary hack (2025-04)
     """
-    metadata_path = get_log_dir(job_definition) / METADATA_FILE
+    metadata_path = get_log_dir(job_id) / METADATA_FILE
     if metadata_path.exists():
         return metadata_path
-    paths = list(
-        config.JOB_LOG_DIR.glob(f"*/{container_name(job_definition)}/{METADATA_FILE}")
-    )
+    paths = list(config.JOB_LOG_DIR.glob(f"*/{container_name(job_id)}/{METADATA_FILE}"))
     assert len(paths) <= 1  # There can be only one. Or zero.
     if paths:
         return paths[0]
@@ -198,7 +196,7 @@ class LocalDockerAPI(ExecutorAPI):
         )
 
         docker.run(
-            container_name(job_definition),
+            container_name(job_definition.id),
             [job_definition.image] + job_definition.args,
             volume=(volumes.volume_name(job_definition), "/workspace"),
             env=job_definition.env,
@@ -248,12 +246,12 @@ class LocalDockerAPI(ExecutorAPI):
             ExecutorState.PREPARED,
         ], f"unexpected status {current_status}"
 
-        docker.kill(container_name(job_definition))
+        docker.kill(container_name(job_definition.id))
 
     def cleanup(self, job_definition):
         if config.CLEAN_UP_DOCKER_OBJECTS:
             log.info("Cleaning up container and volume")
-            docker.delete_container(container_name(job_definition))
+            docker.delete_container(container_name(job_definition.id))
             volumes.delete_volume(job_definition)
         else:  # pragma: no cover
             log.info("Leaving container and volume in place for debugging")
@@ -261,7 +259,7 @@ class LocalDockerAPI(ExecutorAPI):
         return self.get_status(job_definition)
 
     def get_status(self, job_definition, timeout=15, cancelled=False):
-        name = container_name(job_definition)
+        name = container_name(job_definition.id)
         try:
             container = docker.container_inspect(
                 name,
@@ -273,7 +271,7 @@ class LocalDockerAPI(ExecutorAPI):
                 f"docker timed out after {timeout}s inspecting container {name}"
             )
 
-        job_metadata = read_job_metadata(job_definition)
+        job_metadata = read_job_metadata(job_definition.id)
 
         if job_metadata.get("error"):
             return JobStatus(
@@ -397,12 +395,12 @@ def prepare_job(job_definition):
 
 
 def finalize_job(job_definition, cancelled, error=None):
-    assert not read_job_metadata(job_definition), (
+    assert not read_job_metadata(job_definition.id), (
         f"job {job_definition.id}has already been finalized"
     )
 
     container_metadata = docker.container_inspect(
-        container_name(job_definition), none_if_not_exists=True
+        container_name(job_definition.id), none_if_not_exists=True
     )
     exit_code = None
     labels = {}
@@ -565,7 +563,7 @@ def write_job_logs(
 ):
     """Copy logs to log dir and workspace."""
     # Dump useful info in log directory
-    log_dir = get_log_dir(job_definition)
+    log_dir = get_log_dir(job_definition.id)
     write_log_file(job_definition, job_metadata, log_dir / "logs.txt", excluded)
     write_job_metadata(job_definition, job_metadata)
     if copy_log_to_workspace:
@@ -858,7 +856,7 @@ def write_log_file(job_definition, job_metadata, filename, excluded):
     some useful metadata about the job and its outputs
     """
     filename.parent.mkdir(parents=True, exist_ok=True)
-    docker.write_logs_to_file(container_name(job_definition), filename)
+    docker.write_logs_to_file(container_name(job_definition.id), filename)
     outputs = sorted(job_metadata["outputs"].items())
     with open(filename, "a") as f:
         f.write("\n\n")
