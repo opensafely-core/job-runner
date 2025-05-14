@@ -13,13 +13,14 @@ def setup_config(monkeypatch):
     monkeypatch.setattr(
         "jobrunner.config.controller.DEFAULT_JOB_CPU_COUNT",
         {
+            "test": 2,
             "dummy": 2,
             "another": 2,
         },
     )
     monkeypatch.setattr(
         "jobrunner.config.controller.DEFAULT_JOB_MEMORY_LIMIT",
-        {"dummy": "4G", "another": "4G"},
+        {"test": "4G", "dummy": "4G", "another": "4G"},
     )
 
 
@@ -70,8 +71,11 @@ def test_get_active_tasks_api_error(db, monkeypatch, responses):
         task_api.get_active_tasks()
 
 
-def test_update_controller(db):
-    task = runjob_db_task_factory(backend="dummy")
+def test_update_controller(db, monkeypatch, responses, live_server):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
+    task = runjob_db_task_factory(backend="test")
 
     task_api.update_controller(
         task,
@@ -86,7 +90,9 @@ def test_update_controller(db):
     assert bool(db_task.agent_complete) is True
 
 
-def test_full_job_stages(db):
+def test_full_job_stages(db, responses, monkeypatch, live_server):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
     task = runjob_db_task_factory(backend="dummy")
 
     stages = [

@@ -27,7 +27,12 @@ def assert_state_change_logs(caplog, state_changes):
         ]
 
 
-def test_handle_job_full_execution(db, freezer, caplog):
+def test_handle_job_full_execution(
+    db, freezer, caplog, responses, live_server, monkeypatch
+):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
     caplog.set_level(logging.INFO)
     # move to a whole second boundary for easier timestamp maths
     freezer.move_to("2022-01-01T12:34:56")
@@ -42,6 +47,7 @@ def test_handle_job_full_execution(db, freezer, caplog):
     api.set_job_transition(
         job_id, ExecutorState.PREPARED, hook=lambda j: freezer.tick(1)
     )
+
     main.handle_single_task(task, api)
 
     task = controller_task_api.get_task(task.id)
@@ -282,8 +288,20 @@ def test_handle_canceljob_with_fatal_error(mock_update_controller, db):
     ],
 )
 def test_handle_cancel_job(
-    db, caplog, initial_state, interim_state, terminate, finalize, cleanup
+    db,
+    caplog,
+    initial_state,
+    interim_state,
+    terminate,
+    finalize,
+    cleanup,
+    monkeypatch,
+    responses,
+    live_server,
 ):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
     caplog.set_level(logging.INFO)
 
     api = StubExecutorAPI()
