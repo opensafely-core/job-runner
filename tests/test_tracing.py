@@ -10,7 +10,7 @@ from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 from jobrunner import models, tracing
 from jobrunner.config import common as common_config
 from tests.conftest import get_trace
-from tests.factories import job_factory, job_request_factory, job_results_factory
+from tests.factories import job_factory, job_request_factory, task_results_factory
 
 
 def test_setup_default_tracing_empty_env(monkeypatch):
@@ -84,10 +84,7 @@ def test_trace_attributes(db):
         backend="test",
     )
 
-    results = job_results_factory(
-        outputs=["foo", "bar"],
-        unmatched_patterns=["unmatched_patterns"],
-        unmatched_outputs=["unmatched_outputs"],
+    results = task_results_factory(
         exit_code=1,
         image_id="image_id",
         message="message",
@@ -211,7 +208,7 @@ def test_initialise_trace_does_not_use_current_span(db):
 def test_finish_current_state(db):
     job = job_factory()
     start_time = job.status_code_updated_at
-    results = job_results_factory()
+    results = task_results_factory()
 
     ts = int(time.time() * 1e9)
 
@@ -229,7 +226,7 @@ def test_finish_current_state(db):
 
 def test_record_final_state(db):
     job = job_factory(status_code=models.StatusCode.SUCCEEDED)
-    results = job_results_factory()
+    results = task_results_factory()
     ts = int(time.time() * 1e9)
     tracing.record_final_state(job, ts, results=results)
 
@@ -243,7 +240,7 @@ def test_record_final_state(db):
 def test_record_final_state_error(db):
     job = job_factory(status_code=models.StatusCode.INTERNAL_ERROR)
     ts = int(time.time() * 1e9)
-    results = job_results_factory(exit_code=1)
+    results = task_results_factory(exit_code=1)
     tracing.record_final_state(job, ts, error=Exception("error"), results=results)
 
     spans = get_trace("jobs")
@@ -274,7 +271,7 @@ def test_record_job_span_skips_uninitialized_job(db):
 
 def test_complete_job(db):
     job = job_factory()
-    results = job_results_factory(exit_code=1)
+    results = task_results_factory(exit_code=1)
     ts = int(time.time() * 1e9)
 
     # send span with no current span
@@ -376,7 +373,7 @@ def test_set_span_metadata_tracing_errors_do_not_raise(db, caplog):
 def test_record_final_state_tracing_errors_do_not_raise(db, caplog):
     job = job_factory()
     ts = int(time.time() * 1e9)
-    results = job_results_factory()
+    results = task_results_factory()
     # mock Exception raised in function called by set_span_metadata
     with patch("jobrunner.tracing.complete_job", side_effect=Exception("foo")):
         tracing.record_final_state(job, ts, error=Exception("error"), results=results)
@@ -387,7 +384,7 @@ def test_record_final_state_tracing_errors_do_not_raise(db, caplog):
 def test_finish_current_state_tracing_errors_do_not_raise(db, caplog):
     job = job_factory()
     ts = int(time.time() * 1e9)
-    results = job_results_factory()
+    results = task_results_factory()
     # mock Exception raised in function called by set_span_metadata
     with patch("jobrunner.tracing.record_job_span", side_effect=Exception("foo")):
         tracing.finish_current_state(job, ts, results=results)
