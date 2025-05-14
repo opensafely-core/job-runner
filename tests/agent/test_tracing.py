@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from opentelemetry import trace
 
-from jobrunner.agent import main
+from jobrunner.agent import main, task_api
 from jobrunner.agent.tracing import set_job_span_metadata, set_task_span_metadata
 from jobrunner.job_executor import ExecutorState
 from tests.agent.stubs import StubExecutorAPI
@@ -10,7 +10,8 @@ from tests.conftest import get_trace
 from tests.factories import job_definition_factory, runjob_db_task_factory
 
 
-def test_tracing_state_change_attributes(db):
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+def test_tracing_state_change_attributes(mock_update_controller, db):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.UNKNOWN)
@@ -58,7 +59,8 @@ def test_tracing_state_change_attributes(db):
     assert not spans[0].attributes["complete"]
 
 
-def test_tracing_final_state_attributes(db):
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+def test_tracing_final_state_attributes(mock_update_controller, db):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.EXECUTED)
@@ -221,7 +223,10 @@ def test_set_task_span_metadata_tracing_errors_do_not_raise(db, caplog):
     assert f"failed to trace task {task.id}" in caplog.text
 
 
-def test_tracing_final_state_attributes_tracing_errors(db, caplog):
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+def test_tracing_final_state_attributes_tracing_errors(
+    mock_update_controller, db, caplog
+):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.EXECUTED)
