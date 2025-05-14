@@ -96,9 +96,6 @@ def set_job_results_metadata(span, results, attributes=None):
                 dict(
                     exit_code=results["exit_code"],
                     image_id=results["docker_image_id"],
-                    outputs=len(results["outputs"]),
-                    unmatched_patterns=len(results["unmatched_patterns"]),
-                    unmatched_outputs=len(results["unmatched_outputs"]),
                     executor_message=results["status_message"],
                     action_version=results["action_version"],
                     action_revision=results["action_revision"],
