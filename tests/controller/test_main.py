@@ -376,10 +376,10 @@ def test_handle_job_finalized_failed_exit_code(
     completed_span = spans[-2]
     assert completed_span.name == "NONZERO_EXIT"
     assert completed_span.attributes["exit_code"] == exit_code
-    assert completed_span.attributes["outputs"] == 1
-    assert completed_span.attributes["unmatched_patterns"] == 0
-    assert completed_span.attributes["unmatched_outputs"] == 0
     assert completed_span.attributes["image_id"] == "image_id"
+    # data about outputs or filename patterns is excluded
+    for key in ["outputs", "unmatched_patterns", "unmatched_outputs"]:
+        assert key not in completed_span.attributes
     assert completed_span.status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
 
@@ -408,9 +408,9 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     spans = get_trace("jobs")
     completed_span = spans[-2]
     assert completed_span.name == "UNMATCHED_PATTERNS"
-    assert completed_span.attributes["outputs"] == 1
-    assert completed_span.attributes["unmatched_patterns"] == 1
-    assert completed_span.attributes["unmatched_outputs"] == 1
+    # data about outputs or filename patterns is excluded
+    for key in ["outputs", "unmatched_patterns", "unmatched_outputs"]:
+        assert key not in completed_span.attributes
     assert spans[-1].name == "JOB"
 
 
