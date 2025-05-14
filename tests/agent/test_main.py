@@ -1,8 +1,11 @@
+from unittest.mock import ANY, patch
+
 import pytest
 
 from jobrunner.agent import main
 from jobrunner.config import agent as config
-from tests.factories import job_definition_factory
+from jobrunner.job_executor import ExecutorState, JobStatus
+from tests.factories import job_definition_factory, runjob_db_task_factory
 
 
 def test_inject_db_secrets_dummy_db(monkeypatch, db):
@@ -64,3 +67,62 @@ def test_inject_db_secrets_invalid_db_name(monkeypatch, db):
         ValueError, match="Database name 'foo' is not currently defined"
     ):
         main.inject_db_secrets(definition)
+
+
+@patch("jobrunner.agent.tracing.set_job_results_metadata")
+@patch("jobrunner.agent.task_api.update_controller")
+@pytest.mark.parametrize(
+    "output_results,expected_redacted_results",
+    [
+        (
+            dict(
+                unmatched_outputs=["output/foo.txt"],
+                unmatched_patterns=["outputs/foo_*.txt"],
+                status_message="An unmatched output",
+                hint="An unmatched pattern",
+            ),
+            dict(exit_code=0, status_message="", hint=""),
+        ),
+        (
+            dict(
+                unmatched_outputs=[],
+                unmatched_patterns=[],
+                status_message="Complete",
+                hint="nothing to see here",
+            ),
+            dict(exit_code=0, status_message="Complete", hint="nothing to see here"),
+        ),
+    ],
+)
+def test_update_job_task_results_redacted(
+    mock_update_controller,
+    mock_set_job_results_metadata,
+    db,
+    output_results,
+    expected_redacted_results,
+):
+    task = runjob_db_task_factory()
+    job_results = dict(
+        exit_code=0,
+        outputs={"output/foo.txt": "moderately_sensitive"},
+    )
+    job_results.update(output_results)
+
+    job_status = JobStatus(ExecutorState.FINALIZED, results=job_results)
+    previous_job_status = JobStatus(ExecutorState.EXECUTED, results={})
+    main.update_job_task(task, job_status, previous_job_status, complete=True)
+
+    mock_update_controller.assert_called_with(
+        task,
+        job_status.state.value,
+        expected_redacted_results,
+        True,
+    )
+    mock_set_job_results_metadata.assert_called_with(
+        ANY,
+        expected_redacted_results,
+        {
+            "final_job_status": job_status.state.name,
+            "complete": True,
+        },
+    )

@@ -260,9 +260,31 @@ def update_job_task(
         "final_job_status": status.state.name,
         "complete": complete,
     }
-    tracing.set_job_results_metadata(span, status.results, attributes)
+    redacted_results = redact_results(status.results)
+
+    tracing.set_job_results_metadata(span, redacted_results, attributes)
     log_state_change(task, status, previous_status)
-    task_api.update_controller(task, status.state.value, status.results, complete)
+    task_api.update_controller(task, status.state.value, redacted_results, complete)
+
+
+def redact_results(results):
+    """
+    Redact output filenames and patterns from the results before
+    they are sent to the controller.
+    If there are unmatched outputs or patterns, we also redact the
+    status_message and hint which may contain messages referring to
+    the unmatched filenames or patterns.
+    """
+    if not results:
+        return results
+    results = {**results}
+    unmatched_outputs = results.pop("unmatched_outputs", None)
+    unmatched_patterns = results.pop("unmatched_patterns", None)
+    if unmatched_outputs or unmatched_patterns:
+        results["status_message"] = ""
+        results["hint"] = ""
+    results.pop("outputs", None)
+    return results
 
 
 def log_state_change(task, status, previous_status):
