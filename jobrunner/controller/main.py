@@ -25,7 +25,6 @@ from jobrunner.lib import ns_timestamp_to_datetime
 from jobrunner.lib.database import (
     exists_where,
     find_where,
-    is_database_locked_error,
     select_values,
     transaction,
     update,
@@ -116,47 +115,6 @@ def handle_single_job(job):
     paused = (
         str(get_flag_value("paused", job.backend, default="False")).lower() == "true"
     )
-    try:
-        trace_handle_job(job, mode, paused)
-    except Exception as exc:
-        if error_type := get_transient_error_type(exc):
-            span = trace.get_current_span()
-            span.set_attributes(
-                {"transient_error": True, "transient_error_type": error_type}
-            )
-        else:
-            mark_job_as_failed(
-                job,
-                StatusCode.INTERNAL_ERROR,
-                "Internal error: this usually means a platform issue rather than a problem "
-                "for users to fix.\n"
-                "The tech team are automatically notified of these errors and will be "
-                "investigating.",
-                error=exc,
-            )
-        # Do not clean up, as we may want to debug
-        #
-        # Raising will kill the main loop, by design. The service manager
-        # will restart, and this job will be ignored when it does, as
-        # it has failed. If we have an internal error, a full restart
-        # might recover better.
-        raise
-
-
-def get_transient_error_type(exc: Exception) -> str | None:
-    # To faciliate the migration to the split agent/controller world we don't currently
-    # consider _any_ errors as hard failures. But we will do so later and we want to
-    # ensure that these code paths are adequately tested so we provide a simple
-    # mechanism to trigger these in tests.
-    if "test_hard_failure" in str(exc):
-        return None
-    if is_database_locked_error(exc):
-        return "db_locked"
-    return exc.__class__.__name__
-
-
-def trace_handle_job(job, mode, paused):
-    """Call handle job with tracing."""
     attrs = {
         "initial_state": job.state.name,
         "initial_code": job.status_code.name,
@@ -169,10 +127,37 @@ def trace_handle_job(job, mode, paused):
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
+            if is_fatal_job_error(exc):
+                span.set_attribute("fatal_job_error", True)
+                mark_job_as_failed(
+                    job,
+                    StatusCode.INTERNAL_ERROR,
+                    "Internal error: this usually means a platform issue rather than a problem "
+                    "for users to fix.\n"
+                    "The tech team are automatically notified of these errors and will be "
+                    "investigating.",
+                    error=exc,
+                )
+            else:
+                span.set_attribute("fatal_job_error", False)
+            # Do not clean up, as we may want to debug
+            #
+            # Raising will kill the main loop, by design. The service manager
+            # will restart, and this job will be ignored when it does, as
+            # it has failed. If we have an internal error, a full restart
+            # might recover better.
             raise
         else:
             span.set_attribute("final_state", job.state.name)
             span.set_attribute("final_code", job.status_code.name)
+
+
+def is_fatal_job_error(exc: Exception) -> bool:
+    # To faciliate the migration to the split agent/controller world we don't currently
+    # consider _any_ errors as hard failures. But we will do so later and we want to
+    # ensure that these code paths are adequately tested so we provide a simple
+    # mechanism to trigger these in tests.
+    return "test_hard_failure" in str(exc)
 
 
 def handle_job(job, mode=None, paused=None):

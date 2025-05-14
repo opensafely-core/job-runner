@@ -417,7 +417,7 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     assert spans[-1].name == "JOB"
 
 
-def test_handle_job_finalized_failed_with_error(db):
+def test_handle_job_finalized_failed_with_fatal_error(db):
     # insert previous outputs
     # create new job
     job = job_factory()
@@ -439,6 +439,13 @@ def test_handle_job_finalized_failed_with_error(db):
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.INTERNAL_ERROR
     assert "Internal error" in job.status_message
+
+    spans = get_trace("loop")
+    span = spans[-2]  # final span is loop job
+    assert span.name == "LOOP_JOB"
+    assert span.status.status_code.name == "ERROR"
+    assert span.status.description == "PlatformError: test_hard_failure"
+    assert span.attributes["fatal_job_error"] is True
 
 
 @pytest.fixture
@@ -776,16 +783,23 @@ def test_handle_error(patched_handle_job, db, monkeypatch):
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.INTERNAL_ERROR
 
+    spans = get_trace("loop")
+    span = spans[-2]  # final span is LOOP, we want last LOOP_JOB
+    assert span.name == "LOOP_JOB"
+    assert span.status.status_code.name == "ERROR"
+    assert span.status.description == "Exception: test_hard_failure"
+    assert span.attributes["fatal_job_error"] is True
+
 
 @pytest.mark.parametrize(
-    "exc,error_type",
+    "exc",
     [
-        (sqlite3.OperationalError("database locked"), "db_locked"),
-        (AssertionError("a bad thing"), "AssertionError"),
+        sqlite3.OperationalError("database locked"),
+        AssertionError("a bad thing"),
     ],
 )
 @patch("jobrunner.controller.main.handle_job")
-def test_handle_transient_error(patched_handle_job, db, monkeypatch, exc, error_type):
+def test_handle_non_fatal_error(patched_handle_job, db, monkeypatch, exc):
     monkeypatch.setattr(common_config, "JOB_LOOP_INTERVAL", 0)
 
     # mock 2 controller loops, successful first pass and an
@@ -801,8 +815,11 @@ def test_handle_transient_error(patched_handle_job, db, monkeypatch, exc, error_
     assert job.state == State.PENDING
 
     spans = get_trace("loop")
-    assert spans[-1].attributes["transient_error"]
-    assert spans[-1].attributes["transient_error_type"] == error_type
+    span = spans[-2]  # final span is LOOP, we want last LOOP_JOB
+    assert span.name == "LOOP_JOB"
+    assert span.status.status_code.name == "ERROR"
+    assert span.status.description == f"{exc.__class__.__name__}: {str(exc)}"
+    assert span.attributes["fatal_job_error"] is False
 
 
 def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
