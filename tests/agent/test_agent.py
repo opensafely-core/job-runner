@@ -155,7 +155,8 @@ def test_handle_job_stable_states(db, executor_state):
     assert spans[0].attributes["final_job_status"] == executor_state.name
 
 
-def test_handle_job_requires_db_has_secrets(db, monkeypatch):
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+def test_handle_job_requires_db_has_secrets(mock_update_controller, db, monkeypatch):
     api = StubExecutorAPI()
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
     monkeypatch.setattr(config, "DATABASE_URLS", {None: "dburl"})
@@ -168,6 +169,8 @@ def test_handle_job_requires_db_has_secrets(db, monkeypatch):
     api.set_job_transition(job_id, ExecutorState.EXECUTING, hook=check_env)
 
     main.handle_run_job_task(task, api)
+
+    assert mock_update_controller.call_count == 1
 
 
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
