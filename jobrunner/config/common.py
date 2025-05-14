@@ -11,13 +11,13 @@ BACKENDS = os.environ.get("BACKENDS", "test,tpp,emis").strip().split(",")
 
 # Used for tracing in both agent and controller
 # This refers to a file created in the docker image by Dockerfile
-JOBRUNNER_VERSION_FILE_PATH = os.environ.get(
-    "JOBRUNNER_VERSION_FILE_PATH", "/app/metadata/version.txt"
+JOBRUNNER_VERSION_FILE_PATH = Path(
+    os.environ.get("JOBRUNNER_VERSION_FILE_PATH", "/app/metadata/version.txt")
 )
-if os.path.exists(JOBRUNNER_VERSION_FILE_PATH):
+if JOBRUNNER_VERSION_FILE_PATH.exists():
     # this is tested in tests/test_config.py but via subprocess so it isn't registered by coverage
     jobrunner_version = (
-        Path(JOBRUNNER_VERSION_FILE_PATH).read_text().rstrip()
+        JOBRUNNER_VERSION_FILE_PATH.read_text().rstrip()
     )  # pragma: no cover
 else:
     jobrunner_version = "unknown"
