@@ -122,7 +122,7 @@ def main():  # pragma: no cover
 
 
 def record_metrics_tick_trace(last_run):
-    """Record a period metrics ick trace of current docker containers"""
+    """Record a periodic metrics tick trace of current docker containers"""
 
     # first run since restart, do nothing.
     if last_run is None:
@@ -184,7 +184,7 @@ def record_metrics_tick_trace(last_run):
                 span_attrs["bad_tick_runtime"] = runtime_s  # pragma: no cover
 
             # record span
-            span = tracer.start_span("METRIC", start_time=start_time)
+            span = tracer.start_span("METRICS", start_time=start_time)
             tracing.set_span_attributes(span, span_attrs)
             span.end(end_time)
 

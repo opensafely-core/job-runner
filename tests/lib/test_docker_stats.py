@@ -6,6 +6,7 @@ from jobrunner.lib import docker, docker_stats
 @pytest.mark.needs_docker
 def test_get_job_stats(docker_cleanup):
     docker.run("os-job-test", [docker.MANAGEMENT_CONTAINER_IMAGE, "sleep", "1000"])
+    docker.run("not-job", [docker.MANAGEMENT_CONTAINER_IMAGE, "sleep", "1000"])
     containers = docker_stats.get_job_stats()
     assert isinstance(containers["test"]["cpu_percentage"], float)
     assert isinstance(containers["test"]["memory_used"], int)

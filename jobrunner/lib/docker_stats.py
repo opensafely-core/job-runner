@@ -7,7 +7,7 @@ from datetime import datetime
 DEFAULT_TIMEOUT = 10
 
 
-def run_and_read_json_lines(cmd, timeout, env=None):
+def run_and_read_json_lines(cmd, timeout):
     env = os.environ.copy()
     env["DOCKER_TZ"] = "UTC"
     ps = subprocess.run(cmd, capture_output=True, check=True, timeout=timeout, env=env)
@@ -31,7 +31,10 @@ def get_job_stats(timeout=DEFAULT_TIMEOUT):
     }
 
     stats = {}
-    for row in [r for r in stats_raw if r["Name"].startswith("os-job-")]:
+    for row in stats_raw:
+        if not row["Name"].startswith("os-job-"):
+            continue
+
         job_id = _parse_job_id(row["Name"])
         metadata = metadata_dict[job_id]
 

@@ -86,7 +86,7 @@ def test_record_metrics_tick_trace(db, freezer, monkeypatch):
 
     span = spans[-2]
 
-    assert span.name == "METRIC"
+    assert span.name == "METRICS"
     assert span.start_time == last_run1
     assert span.end_time == last_run2
     assert span.attributes["job"] == "j1"
