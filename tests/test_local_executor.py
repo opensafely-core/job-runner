@@ -47,15 +47,34 @@ def job_definition(request, test_repo):
     )
 
 
-def populate_workspace(workspace, filename, content=None, privacy="high"):
+def populate_job_metadata(job_id, output_metadata):
+    past_job_log_path = (
+        config.JOB_LOG_DIR
+        / "last-month"
+        / local.container_name(job_id)
+        / local.METADATA_FILE
+    )
+    past_job_log_path.parent.mkdir(parents=True, exist_ok=True)
+    past_job_log_path.write_text(json.dumps({"outputs": output_metadata}))
+
+
+def populate_workspace(
+    workspace, filename, job_id="past-job-id", content=None, privacy="high"
+):
     assert privacy in ("high", "medium")
     if privacy == "high":
         path = local.get_high_privacy_workspace(workspace) / filename
+        output_metadata = {filename: "highly_sensitive"}
     else:
         path = local.get_medium_privacy_workspace(workspace) / filename
+        output_metadata = {filename: "moderately_sensitive"}
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content or filename)
+
+    # create the metadata on file for the past job that created this file
+    populate_job_metadata(job_id, output_metadata)
+
     return path
 
 
@@ -137,21 +156,9 @@ def test_read_metadata_path(job_definition):
 def test_prepare_success(
     docker_cleanup, job_definition, test_repo, tmp_work_dir, freezer
 ):
-    populate_workspace(job_definition.workspace, "output/input.csv")
+    populate_workspace(job_definition.workspace, "output/input.csv", "past-job-id")
     # this job requires input files from a previous job
     job_definition.input_job_ids = ["past-job-id"]
-
-    # create the metadata on file for the past job
-    past_job_log_path = (
-        config.JOB_LOG_DIR
-        / "last-month"
-        / local.container_name("past-job-id")
-        / local.METADATA_FILE
-    )
-    past_job_log_path.parent.mkdir(parents=True)
-    past_job_log_path.write_text(
-        json.dumps({"outputs": {"output/input.csv": "highly_sensitive"}})
-    )
 
     expected_timestamp = time.time_ns()
 
@@ -248,19 +255,11 @@ def test_prepare_job_bad_commit(docker_cleanup, job_definition, test_repo):
 def test_prepare_job_no_input_file(docker_cleanup, job_definition):
     # this job requires input files from a previous job
     job_definition.input_job_ids = ["past-job-id"]
-
+    # populate workspace with a file, but one written by a different job
+    populate_workspace(job_definition.workspace, "output/input1.csv", "other-past-job")
     # create the metadata on file for the past job, with an output file
     # which doesn't exist in the job workspace
-    past_job_log_path = (
-        config.JOB_LOG_DIR
-        / "last-month"
-        / local.container_name("past-job-id")
-        / local.METADATA_FILE
-    )
-    past_job_log_path.parent.mkdir(parents=True)
-    past_job_log_path.write_text(
-        json.dumps({"outputs": {"output/input.csv": "highly_sensitive"}})
-    )
+    populate_job_metadata("past-job-id", {"output/input.csv": "highly_sensitive"})
 
     with pytest.raises(local.LocalDockerError) as exc_info:
         local.prepare_job(job_definition)
