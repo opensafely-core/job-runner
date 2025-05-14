@@ -1,10 +1,10 @@
+import json
 import logging
 from urllib.parse import urljoin
 
 import requests
 
 from jobrunner.config import agent as config
-from jobrunner.controller import task_api as controller_task_api  # cheating!
 from jobrunner.schema import AgentTask
 
 
@@ -18,6 +18,9 @@ class TaskApi:
 
     def get_json(self, path):
         return self.request_json("GET", path)
+
+    def post_json(self, path, data=None):
+        return self.request_json("POST", path, data)
 
     def request_json(self, method, path, data=None):
         data = data or {}
@@ -50,8 +53,13 @@ def update_controller(
     results: optional dictionary of completed results of this task, expected to be immutable
     complete: if the agent considers this task complete
     """
-    # Cheating! This will eventaully be an HTTP API call to the controller but we just
-    # do a direct function call for now
-    controller_task_api.handle_task_update(
-        task_id=task.id, stage=stage, results=results, complete=complete
-    )
+
+    post_data = {
+        "task_id": task.id,
+        "stage": stage,
+        "results": results,
+        "complete": complete,
+    }
+
+    api = TaskApi()
+    api.post_json("task/update/", {"payload": json.dumps(post_data)})
