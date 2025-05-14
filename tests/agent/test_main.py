@@ -78,19 +78,49 @@ def test_inject_db_secrets_invalid_db_name(monkeypatch, db):
             dict(
                 unmatched_outputs=["output/foo.txt"],
                 unmatched_patterns=["outputs/foo_*.txt"],
+                level4_excluded_files=[],
                 status_message="An unmatched output",
                 hint="An unmatched pattern",
             ),
-            dict(exit_code=0, status_message="", hint=""),
+            dict(
+                exit_code=0,
+                has_unmatched_patterns=True,
+                has_level4_excluded_files=False,
+                status_message="",
+                hint="",
+            ),
         ),
         (
             dict(
                 unmatched_outputs=[],
                 unmatched_patterns=[],
+                level4_excluded_files=[],
                 status_message="Complete",
                 hint="nothing to see here",
             ),
-            dict(exit_code=0, status_message="Complete", hint="nothing to see here"),
+            dict(
+                exit_code=0,
+                has_unmatched_patterns=False,
+                has_level4_excluded_files=False,
+                status_message="Complete",
+                hint="nothing to see here",
+            ),
+        ),
+        (
+            dict(
+                unmatched_outputs=[],
+                unmatched_patterns=[],
+                level4_excluded_files=["output/foo.txt"],
+                status_message="Complete",
+                hint="nothing to see here",
+            ),
+            dict(
+                exit_code=0,
+                has_unmatched_patterns=False,
+                has_level4_excluded_files=True,
+                status_message="Complete",
+                hint="nothing to see here",
+            ),
         ),
     ],
 )
@@ -110,6 +140,7 @@ def test_update_job_task_results_redacted(
 
     job_status = JobStatus(ExecutorState.FINALIZED, results=job_results)
     previous_job_status = JobStatus(ExecutorState.EXECUTED, results={})
+
     main.update_job_task(task, job_status, previous_job_status, complete=True)
 
     mock_update_controller.assert_called_with(

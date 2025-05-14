@@ -278,12 +278,21 @@ def redact_results(results):
     if not results:
         return results
     results = {**results}
-    unmatched_outputs = results.pop("unmatched_outputs", None)
-    unmatched_patterns = results.pop("unmatched_patterns", None)
-    if unmatched_outputs or unmatched_patterns:
+    results.pop("outputs", None)
+    has_unmatched_outputs = bool(results.pop("unmatched_outputs", None))
+    has_unmatched_patterns = bool(results.pop("unmatched_patterns", None))
+    if has_unmatched_outputs or has_unmatched_patterns:
         results["status_message"] = ""
         results["hint"] = ""
-    results.pop("outputs", None)
+
+    results.update(
+        {
+            "has_unmatched_patterns": has_unmatched_patterns,
+            "has_level4_excluded_files": bool(
+                results.pop("level4_excluded_files", None)
+            ),
+        }
+    )
     return results
 
 
