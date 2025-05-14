@@ -10,7 +10,18 @@ from pathlib import Path
 BACKENDS = os.environ.get("BACKENDS", "test,tpp,emis").strip().split(",")
 
 # Used for tracing in both agent and controller
-VERSION = os.environ.get("VERSION", "")
+# This refers to a file created in the docker image by Dockerfile
+JOBRUNNER_VERSION_FILE_PATH = Path(
+    os.environ.get("JOBRUNNER_VERSION_FILE_PATH", "/app/metadata/version.txt")
+)
+if JOBRUNNER_VERSION_FILE_PATH.exists():
+    # this is tested in tests/test_config.py but via subprocess so it isn't registered by coverage
+    jobrunner_version = (
+        JOBRUNNER_VERSION_FILE_PATH.read_text().rstrip()
+    )  # pragma: no cover
+else:
+    jobrunner_version = "unknown"
+VERSION = os.environ.get("VERSION", jobrunner_version)
 
 # Used by controller to build full image
 # Used by agent for interacting with volumes in docker.py (outside of a job/task)

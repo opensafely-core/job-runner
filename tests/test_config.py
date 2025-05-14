@@ -1,6 +1,7 @@
 import ast
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -127,3 +128,19 @@ def test_database_urls_from_env():
         "default": "mssql://localhost/db1",
         "include_t1oo": "mssql://localhost/db2",
     }
+
+
+def test_version_missing():
+    cfg = import_cfg({})
+    assert cfg["VERSION"] == "unknown"
+
+
+def test_version_file():
+    cfg = import_cfg(
+        {
+            "JOBRUNNER_VERSION_FILE_PATH": str(
+                Path(__file__).parent / "fixtures/version.txt"
+            )
+        }
+    )
+    assert cfg["VERSION"] == "abc1234"
