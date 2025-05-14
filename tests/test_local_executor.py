@@ -137,8 +137,21 @@ def test_read_metadata_path(job_definition):
 def test_prepare_success(
     docker_cleanup, job_definition, test_repo, tmp_work_dir, freezer
 ):
-    job_definition.inputs = ["output/input.csv"]
     populate_workspace(job_definition.workspace, "output/input.csv")
+    # this job requires input files from a previous job
+    job_definition.input_job_ids = ["past-job-id"]
+
+    # create the metadata on file for the past job
+    past_job_log_path = (
+        config.JOB_LOG_DIR
+        / "last-month"
+        / local.container_name("past-job-id")
+        / local.METADATA_FILE
+    )
+    past_job_log_path.parent.mkdir(parents=True)
+    past_job_log_path.write_text(
+        json.dumps({"outputs": {"output/input.csv": "highly_sensitive"}})
+    )
 
     expected_timestamp = time.time_ns()
 
@@ -157,7 +170,7 @@ def test_prepare_success(
     assert volumes.volume_exists(job_definition)
 
     # check files have been copied
-    expected = set(list_repo_files(test_repo.source) + job_definition.inputs)
+    expected = set(list_repo_files(test_repo.source) + ["output/input.csv"])
     expected.add(local.TIMESTAMP_REFERENCE_FILE)
 
     # glob_volume_files uses find, and its '**/*' regex doesn't find files in
@@ -233,7 +246,21 @@ def test_prepare_job_bad_commit(docker_cleanup, job_definition, test_repo):
 
 @pytest.mark.needs_docker
 def test_prepare_job_no_input_file(docker_cleanup, job_definition):
-    job_definition.inputs = ["output/input.csv"]
+    # this job requires input files from a previous job
+    job_definition.input_job_ids = ["past-job-id"]
+
+    # create the metadata on file for the past job, with an output file
+    # which doesn't exist in the job workspace
+    past_job_log_path = (
+        config.JOB_LOG_DIR
+        / "last-month"
+        / local.container_name("past-job-id")
+        / local.METADATA_FILE
+    )
+    past_job_log_path.parent.mkdir(parents=True)
+    past_job_log_path.write_text(
+        json.dumps({"outputs": {"output/input.csv": "highly_sensitive"}})
+    )
 
     with pytest.raises(local.LocalDockerError) as exc_info:
         local.prepare_job(job_definition)
@@ -303,7 +330,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
         "/workspace/output/summary.csv",
         "/workspace/output/summary.txt",
     ]
-    job_definition.inputs = ["output/input.csv"]
+    job_definition.input_job_ids = ["output/input.csv"]
     job_definition.output_spec = {
         "output/output.*": "highly_sensitive",
         "output/summary.*": "moderately_sensitive",

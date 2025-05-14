@@ -366,9 +366,16 @@ def prepare_job(job_definition):
 
     volumes.create_volume(job_definition, get_job_labels(job_definition))
 
+    # read the job metadata for the jobs listed in job_definition.input_job_ids and
+    # build a list of required input_files for this job
+    job_input_files = []
+    for job_id in job_definition.input_job_ids:
+        metadata = read_job_metadata(job_id)
+        job_input_files.extend(list(metadata.get("outputs", {}).keys()))
+
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
-    extra_dirs = set(Path(filename).parent for filename in job_definition.inputs)
+    extra_dirs = set(Path(filename).parent for filename in job_input_files)
 
     try:
         copy_git_commit_to_volume(
@@ -382,7 +389,7 @@ def prepare_job(job_definition):
             f"Could not checkout commit {job_definition.study.commit} from {job_definition.study.git_repo_url}"
         )
 
-    for filename in job_definition.inputs:
+    for filename in job_input_files:
         log.info(f"Copying input file: {filename}")
         if not (workspace_dir / filename).exists():
             raise LocalDockerError(
