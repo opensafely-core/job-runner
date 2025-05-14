@@ -1,3 +1,5 @@
+import json
+
 from django.http import JsonResponse
 from django.urls import reverse
 
@@ -87,17 +89,21 @@ def test_update_task(db, client):
     post_data = {
         "task_id": make_task.id,
         "stage": "prepared",
-        "results": {},
+        "results": {"foo": "bar"},
         "complete": False,
     }
 
-    response = client.post(reverse("update_task", args=("test",)), data=post_data)
+    response = client.post(
+        reverse("update_task", args=("test",)), data={"payload": json.dumps(post_data)}
+    )
 
-    assert response.status_code == 204
+    assert response.status_code == 200
 
     task = database.find_one(Task, id=make_task.id)
 
     assert task.agent_stage == "prepared"
+    assert task.agent_results == {"foo": "bar"}
+    assert not task.agent_complete
 
 
 def test_update_task_no_matching_task(db, client):
@@ -108,7 +114,9 @@ def test_update_task_no_matching_task(db, client):
         "complete": False,
     }
 
-    response = client.post(reverse("update_task", args=("test",)), data=post_data)
+    response = client.post(
+        reverse("update_task", args=("test",)), data={"payload": json.dumps(post_data)}
+    )
 
     assert response.status_code == 500
     assert response.json()["error"] == "Error updating task"

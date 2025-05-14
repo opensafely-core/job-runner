@@ -1,6 +1,7 @@
+import json
 import logging
 
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from opentelemetry import trace
@@ -33,11 +34,14 @@ def active_tasks(request, backend):
 
 
 @require_POST
+@csrf_exempt
 def update_task(request, backend):
-    update_task_info = request.POST
+    update_task_info = json.loads(request.POST.get("payload"))
+
     task_id = update_task_info["task_id"]
     stage = update_task_info["stage"]
     # If the agent posts an empty results dict, it won't be present in the POST data
+
     results = update_task_info.get("results", {})
     complete = update_task_info["complete"]
 
@@ -51,4 +55,4 @@ def update_task(request, backend):
         log.exception("Error updating task")
         return JsonResponse({"error": "Error updating task"}, status=500)
 
-    return HttpResponse(status=204)
+    return JsonResponse({"response": "Update successful"}, status=200)
