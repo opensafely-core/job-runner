@@ -53,16 +53,19 @@ test *args: build
 
 functional-test:
     #!/bin/bash
-    container=job-runner-prod-1
-    trap 'docker compose kill prod' EXIT
-    docker compose up -d prod
-    docker compose exec prod python3 -m jobrunner.cli.add_job https://github.com/opensafely/research-template generate_dataset
+    container=job-runner-test-controller-1
+    trap 'docker compose kill test-controller test-agent' EXIT
+    docker compose up -d test-controller
+    docker compose exec test-controller python3 -m jobrunner.cli.controller.migrate
+    docker compose exec test-controller python3 -m jobrunner.cli.controller.add_job https://github.com/opensafely/research-template generate_dataset --backend test
+    docker compose up -d test-agent
     attempts=""
-    # use docker logs reather than docker compose logs, as those will include previous run's logs
+    # use docker logs rather than docker compose logs, as those will include previous run's logs
     while ! docker logs -n 10 $container |& grep -q "Completed successfully";
     do
         if test "$attempts" = ".........."; then
-            docker compose logs prod
+            docker compose logs test-agent
+            docker compose logs test-controller
             exit 1;
         fi
         attempts="${attempts}."
