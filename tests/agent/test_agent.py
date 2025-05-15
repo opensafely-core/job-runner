@@ -27,7 +27,12 @@ def assert_state_change_logs(caplog, state_changes):
         ]
 
 
-def test_handle_job_full_execution(db, freezer, caplog):
+def test_handle_job_full_execution(
+    db, freezer, caplog, responses, live_server, monkeypatch
+):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
     caplog.set_level(logging.INFO)
     # move to a whole second boundary for easier timestamp maths
     freezer.move_to("2022-01-01T12:34:56")
@@ -42,6 +47,7 @@ def test_handle_job_full_execution(db, freezer, caplog):
     api.set_job_transition(
         job_id, ExecutorState.PREPARED, hook=lambda j: freezer.tick(1)
     )
+
     main.handle_single_task(task, api)
 
     task = controller_task_api.get_task(task.id)
@@ -146,7 +152,8 @@ def test_handle_job_stable_states(db, executor_state):
     assert spans[0].attributes["final_job_status"] == executor_state.name
 
 
-def test_handle_job_requires_db_has_secrets(db, monkeypatch):
+@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+def test_handle_job_requires_db_has_secrets(mock_update_controller, db, monkeypatch):
     api = StubExecutorAPI()
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
     monkeypatch.setattr(config, "DATABASE_URLS", {None: "dburl"})
@@ -159,6 +166,8 @@ def test_handle_job_requires_db_has_secrets(db, monkeypatch):
     api.set_job_transition(job_id, ExecutorState.EXECUTING, hook=check_env)
 
     main.handle_run_job_task(task, api)
+
+    assert mock_update_controller.call_count == 1
 
 
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
@@ -274,8 +283,20 @@ def test_handle_canceljob_with_error(mock_update_controller, db):
     ],
 )
 def test_handle_cancel_job(
-    db, caplog, initial_state, interim_state, terminate, finalize, cleanup
+    db,
+    caplog,
+    initial_state,
+    interim_state,
+    terminate,
+    finalize,
+    cleanup,
+    monkeypatch,
+    responses,
+    live_server,
 ):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
     caplog.set_level(logging.INFO)
 
     api = StubExecutorAPI()
