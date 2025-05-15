@@ -1,4 +1,4 @@
-name: Tag repo; build and publish assets for dev branch
+name: Build and publish assets for dev branch
 on:
   push:
     branches:
