@@ -18,7 +18,7 @@ JOB_SERVER_ENDPOINT = os.environ.get(
     "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/v2/"
 )
 
-JOB_SERVER_TOKEN = {
+JOB_SERVER_TOKENS = {
     backend: os.environ.get(f"{backend.upper()}_JOB_SERVER_TOKEN", "token")
     for backend in common.BACKENDS
 }

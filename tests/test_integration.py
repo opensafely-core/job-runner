@@ -34,11 +34,11 @@ def set_agent_config(monkeypatch, tmp_work_dir):
 
     # disable controller config
     # (note some of these will be set in prod because they are based on shared config
-    # e.g. JOB_SERVER_TOKEN is based on BACKENDS so will always be populated for each
+    # e.g. JOB_SERVER_TOKENS is based on BACKENDS so will always be populated for each
     # backend, with the default value. We set it explicitly here to confirm that it
     # doesn't trigger any errors if it is invalid for the agent i.e. it's not used)
     monkeypatch.setattr("jobrunner.config.controller.JOB_SERVER_ENDPOINT", None)
-    monkeypatch.setattr("jobrunner.config.controller.JOB_SERVER_TOKEN", None)
+    monkeypatch.setattr("jobrunner.config.controller.JOB_SERVER_TOKENS", None)
     monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
     monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", None)
 
@@ -49,7 +49,7 @@ def set_controller_config(monkeypatch):
         "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
     monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKEN", {"test": "token"}
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "token"}
     )
     # Disable repo URL checking so we can run using a local test repo
     monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
