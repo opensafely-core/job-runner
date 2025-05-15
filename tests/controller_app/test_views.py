@@ -26,8 +26,13 @@ def test_controller_returns_post_request_method(client):
 
 
 def test_active_tasks_view(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+    headers = {"Authorization": "test_token"}
+
     runtask = runjob_db_task_factory(backend="test")
-    response = client.get(reverse("active_tasks", args=("test",)))
+    response = client.get(reverse("active_tasks", args=("test",)), headers=headers)
     response = response.json()
     assert response["tasks"] == [
         {
@@ -49,6 +54,10 @@ def test_active_tasks_view_multiple_backends(db, client, monkeypatch):
         "jobrunner.config.controller.DEFAULT_JOB_MEMORY_LIMIT",
         {"test": "1G", "foo": "1G"},
     )
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS",
+        {"test": "test_token", "foo": "foo_token"},
+    )
 
     # active tasks on test backend
     runtask1 = runjob_db_task_factory(backend="test")
@@ -59,22 +68,54 @@ def test_active_tasks_view_multiple_backends(db, client, monkeypatch):
     canceltask2.active = False
     database.update(canceltask2)
     # active tasks on other backend
-    runjob_db_task_factory(backend="foo")
-    canceljob_db_task_factory(backend="foo")
+    runtask2 = runjob_db_task_factory(backend="foo")
+    canceltask3 = canceljob_db_task_factory(backend="foo")
 
-    response = client.get(reverse("active_tasks", args=("test",)))
+    response = client.get(
+        reverse("active_tasks", args=("test",)), headers={"Authorization": "test_token"}
+    )
     response = response.json()
 
     assert {task["id"] for task in response["tasks"]} == {runtask1.id, canceltask1.id}
 
+    response = client.get(
+        reverse("active_tasks", args=("foo",)), headers={"Authorization": "foo_token"}
+    )
+    response = response.json()
+
+    assert {task["id"] for task in response["tasks"]} == {runtask2.id, canceltask3.id}
+
 
 def test_active_tasks_unknown_backend(db, client):
     response = client.get(reverse("active_tasks", args=("foo",)))
-    response = response.json()
-    assert response["tasks"] == []
+    assert response.status_code == 404
+    assert response.json()["details"] == "Backend 'foo' not found"
 
 
-def test_update_task(db, client):
+def test_no_auth_token(db, client):
+    response = client.get(reverse("active_tasks", args=("test",)))
+    assert response.status_code == 401
+    assert response.json()["details"] == "No token provided"
+
+
+def test_auth_token_invalid(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS",
+        {"test": "test_token", "foo": "foo_token"},
+    )
+    # headers with valid token, but for wrong backend
+    response = client.get(
+        reverse("active_tasks", args=("test",)), headers={"Authorization": "foo_token"}
+    )
+    assert response.status_code == 401
+    assert response.json()["details"] == "Invalid token for backend 'test'"
+
+
+def test_update_task(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+
     make_task = runjob_db_task_factory(backend="test")
 
     assert make_task.agent_stage is None
@@ -87,7 +128,9 @@ def test_update_task(db, client):
     }
 
     response = client.post(
-        reverse("update_task", args=("test",)), data={"payload": json.dumps(post_data)}
+        reverse("update_task", args=("test",)),
+        data={"payload": json.dumps(post_data)},
+        headers={"Authorization": "test_token"},
     )
 
     assert response.status_code == 200
@@ -99,7 +142,11 @@ def test_update_task(db, client):
     assert not task.agent_complete
 
 
-def test_update_task_no_matching_task(db, client):
+def test_update_task_no_matching_task(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+
     post_data = {
         "task_id": "unknown-task-id",
         "stage": "prepared",
@@ -108,7 +155,9 @@ def test_update_task_no_matching_task(db, client):
     }
 
     response = client.post(
-        reverse("update_task", args=("test",)), data={"payload": json.dumps(post_data)}
+        reverse("update_task", args=("test",)),
+        data={"payload": json.dumps(post_data)},
+        headers={"Authorization": "test_token"},
     )
 
     assert response.status_code == 500
