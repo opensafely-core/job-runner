@@ -14,15 +14,14 @@ from pathlib import Path
 
 from opentelemetry import trace
 
-from jobrunner import models, tracing
+from jobrunner import tracing
 from jobrunner.config import agent as config
-from jobrunner.lib import database
 from jobrunner.lib.docker_stats import get_job_stats
 from jobrunner.lib.log_utils import configure_logging
 
 
 log = logging.getLogger(__name__)
-tracer = trace.get_tracer("ticks")
+tracer = trace.get_tracer("metrics")
 
 # Simplest possible table. We're only storing aggregate data
 DDL = """
@@ -113,10 +112,7 @@ def main():  # pragma: no cover
     last_run = None
     while True:
         before = time.time()
-        active_jobs = database.find_where(
-            models.Job, state__in=[models.State.PENDING, models.State.RUNNING]
-        )
-        last_run = record_tick_trace(last_run, active_jobs)
+        last_run = record_metrics_tick_trace(last_run)
 
         # record_tick_trace might have take a while, so sleep the remainding interval
         # enforce a minimum time of 3s to ensure we don't hammer honeycomb or
@@ -125,18 +121,10 @@ def main():  # pragma: no cover
         time.sleep(max(2, config.STATS_POLL_INTERVAL - elapsed))
 
 
-def record_tick_trace(last_run, active_jobs):
-    """Record a period tick trace of current jobs.
+def record_metrics_tick_trace(last_run):
+    """Record a periodic metrics tick trace of current docker containers"""
 
-    This will give us more realtime information than the job traces, which only
-    send spans data when *leaving* a state.
-
-    The easiest way to filter these in honeycomb is on tick==true attribute
-
-    Not that this will emit number of active jobs + 1 events every call, so we
-    don't want to call it on too tight a loop.
-    """
-
+    # first run since restart, do nothing.
     if last_run is None:
         return time.time_ns()
 
@@ -166,52 +154,47 @@ def record_tick_trace(last_run, active_jobs):
     duration_s = int((end_time - start_time) / 1e9)
 
     with tracer.start_as_current_span(
-        "TICK", start_time=start_time, attributes=trace_attrs
+        "METRICS_TICK", start_time=start_time, attributes=trace_attrs
     ) as root:
         # add error event so we can see the error from the docker command
         if error_attrs:
             root.add_event("stats_error", attributes=error_attrs, timestamp=start_time)
 
-        for job in active_jobs:
-            # we are using seconds for our metric calculations
-
-            metrics = stats.get(job.id, {})
-
+        for job_id, metrics in stats.items():
             # set up attributes
-            job_span_attrs = {}
-            job_span_attrs.update(trace_attrs)
-            job_span_attrs["has_metrics"] = metrics != {}
-            job_span_attrs.update(metrics)
+            span_attrs = {
+                "job": job_id,
+            }
+            span_attrs.update(trace_attrs)
+            span_attrs.update(metrics)
 
-            # this means the job is running
-            if metrics:
-                runtime_s = int(now / 1e9) - job.started_at
-                # protect against unexpected runtimes
-                if runtime_s > 0:
-                    job_metrics = update_job_metrics(
-                        job,
-                        metrics,
-                        duration_s,
-                        runtime_s,
-                    )
-                    job_span_attrs.update(job_metrics)
-                else:
-                    job_span_attrs.set(
-                        "bad_tick_runtime", runtime_s
-                    )  # pragma: no cover
+            # we are using seconds for our metrics calculations
+            runtime_s = int(now / 1e9) - metrics["started_at"]
+
+            # protect against unexpected runtimes
+            if runtime_s > 0:
+                new_job_metrics = update_job_metrics(
+                    job_id,
+                    metrics,
+                    duration_s,
+                    runtime_s,
+                )
+                span_attrs.update(new_job_metrics)
+            else:
+                span_attrs["bad_tick_runtime"] = runtime_s  # pragma: no cover
 
             # record span
-            span = tracer.start_span(job.status_code.name, start_time=start_time)
-            tracing.set_span_metadata(span, job, **job_span_attrs)
+            span = tracer.start_span("METRICS", start_time=start_time)
+            tracing.set_span_attributes(span, span_attrs)
             span.end(end_time)
 
     return end_time
 
 
-def update_job_metrics(job, raw_metrics, duration_s, runtime_s):
+def update_job_metrics(job_id, raw_metrics, duration_s, runtime_s):
     """Update and persist per-job aggregate stats in the metrics db"""
 
-    job_metrics = read_job_metrics(job.id)
+    job_metrics = read_job_metrics(job_id)
 
     # If the job has been restarted so it's now running in a new container then we need
     # to zero out all the previous stats.
@@ -236,7 +219,7 @@ def update_job_metrics(job, raw_metrics, duration_s, runtime_s):
     job_metrics["mem_mb_peak"] = max(job_metrics["mem_mb_peak"], mem_mb)
     job_metrics["container_id"] = raw_metrics["container_id"]
 
-    write_job_metrics(job.id, job_metrics)
+    write_job_metrics(job_id, job_metrics)
 
     return job_metrics
 

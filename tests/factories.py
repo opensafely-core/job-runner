@@ -4,7 +4,8 @@ import subprocess
 import time
 from copy import deepcopy
 
-from jobrunner import record_stats, tracing
+from jobrunner import tracing
+from jobrunner.agent import metrics
 from jobrunner.config import common as common_config
 from jobrunner.controller import task_api
 from jobrunner.controller.main import create_task_for_job, job_to_job_definition
@@ -121,13 +122,14 @@ def job_results_factory(timestamp_ns=None, **kwargs):
     return JobResults(timestamp_ns=timestamp_ns, **values)
 
 
-def metrics_factory(job=None, metrics=None):
-    if job is None:
+def metrics_factory(job_id, m=None):
+    if job_id is None:
         job = job_factory()
-    if metrics is None:
-        metrics = {}
+        job_id = job.id
+    if m is None:
+        m = {}
 
-    record_stats.write_job_metrics(job.id, metrics)
+    metrics.write_job_metrics(job_id, m)
 
 
 def runjob_db_task_factory(job=None, *, backend="test", **kwargs):

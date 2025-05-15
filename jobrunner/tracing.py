@@ -108,7 +108,7 @@ def _traceable(job):
     Helper function to handle switching to tracing code when there are jobs
     running that pre-existed it.
     """
-    if job.trace_context is None or job.status_code is None:
+    if not job.trace_context or job.status_code is None:
         logger.info(f"not tracing job {job.id} as not initialised for tracing")
         return False
 

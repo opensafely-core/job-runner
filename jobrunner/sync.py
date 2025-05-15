@@ -10,9 +10,10 @@ import time
 
 import requests
 
-from jobrunner import queries, record_stats
+from jobrunner import queries
 from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
+from jobrunner.controller.main import get_task_for_job
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where, select_values
 from jobrunner.lib.log_utils import configure_logging, set_log_context
@@ -155,6 +156,11 @@ def job_to_remote_format(job):
     job-server expects
     """
 
+    metrics = {}
+    if task := get_task_for_job(job):
+        if task.agent_results:
+            metrics = task.agent_results.get("job_metrics", {})
+
     return {
         "identifier": job.id,
         "job_request_id": job.job_request_id,
@@ -168,7 +174,7 @@ def job_to_remote_format(job):
         "started_at": job.started_at_isoformat,
         "completed_at": job.completed_at_isoformat,
         "trace_context": job.trace_context,
-        "metrics": record_stats.read_job_metrics(job.id),
+        "metrics": metrics,
         "requires_db": job.requires_db,
     }
 

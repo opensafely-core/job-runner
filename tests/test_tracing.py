@@ -396,3 +396,16 @@ def test_finish_current_state_tracing_errors_do_not_raise(db, caplog):
         tracing.finish_current_state(job, ts, results=results)
 
     assert f"failed to trace state for {job.id}" in caplog.text
+
+
+def test_traceable(db):
+    job = job_factory()
+    job.status_code = None
+    job.trace_context = None
+    assert tracing._traceable(job) is False
+    job.trace_context = {}
+    assert tracing._traceable(job) is False
+    job.trace_context = {"foo": "bar"}
+    assert tracing._traceable(job) is False
+    job.status_code = models.StatusCode.EXECUTING
+    assert tracing._traceable(job)

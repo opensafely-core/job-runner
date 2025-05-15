@@ -11,6 +11,7 @@ import textwrap
 from pathlib import Path
 from urllib.parse import urlparse
 
+from jobrunner import tracing
 from jobrunner.cli.controller.utils import add_backend_argument
 from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where
@@ -30,6 +31,7 @@ def main(
     database,
     force_run_dependencies,
 ):
+    tracing.setup_default_tracing()
     # Make paths to local repos absolute
     parsed = urlparse(repo_url)
     if not parsed.scheme and not parsed.netloc:  # pragma: no cover

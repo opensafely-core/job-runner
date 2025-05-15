@@ -80,7 +80,6 @@ class JobStatus:
 
     # timestamp this JobStatus occurred, in integer nanoseconds
     timestamp_ns: int = field(default_factory=time.time_ns)
-    metrics: dict = field(default_factory=dict)
     results: dict = field(default_factory=dict)
 
 
