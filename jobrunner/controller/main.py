@@ -19,7 +19,6 @@ from jobrunner.config import controller as config
 from jobrunner.controller.task_api import insert_task, mark_task_inactive
 from jobrunner.job_executor import (
     JobDefinition,
-    JobResults,
     Study,
 )
 from jobrunner.lib import ns_timestamp_to_datetime
@@ -35,6 +34,7 @@ from jobrunner.lib.database import (
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import calculate_workspace_state, get_flag_value
+from jobrunner.schema import JobTaskResults
 
 
 log = logging.getLogger(__name__)
@@ -262,8 +262,8 @@ def handle_job(job, mode=None, paused=None):
                 # Handled elsewhere
                 raise PlatformError(job_error)
             else:
-                job_results = JobResults.from_dict(task.agent_results)
-                save_results(job, job_results)
+                results = JobTaskResults.from_dict(task.agent_results)
+                save_results(job, results)
                 # TODO: Delete obsolete files
         else:
             # Record the fact that we've visited the job (and not forgotten about it)
@@ -273,10 +273,6 @@ def handle_job(job, mode=None, paused=None):
 
 def save_results(job, results):
     """Extract the results of the execution and update the job accordingly."""
-    # save job outputs
-    job.outputs = results.outputs
-    job.level4_excluded_files = results.level4_excluded_files
-
     message = None
     error = False
 
@@ -291,23 +287,19 @@ def save_results(job, results):
             if error_msg:
                 message += f": {error_msg}"
 
-    elif results.unmatched_patterns:
-        job.unmatched_outputs = results.unmatched_outputs
+    elif results.has_unmatched_patterns:
         code = StatusCode.UNMATCHED_PATTERNS
         error = True
         # If the job fails because an output was missing its very useful to
-        # show the user what files were created as often the issue is just a
-        # typo
-        message = "No outputs found matching patterns:\n - {}".format(
-            "\n - ".join(results.unmatched_patterns)
-        )
+        # inform the user as often the issue is just a typo
+        message = "Outputs matching expected patterns were not found. See job log for details."
 
     else:
         code = StatusCode.SUCCEEDED
         message = "Completed successfully"
 
-        if results.level4_excluded_files:
-            message += f", but {len(results.level4_excluded_files)} file(s) marked as moderately_sensitive were excluded. See job log for details."
+        if results.has_level4_excluded_files:
+            message += ", but some file marked as moderately_sensitive were excluded. See job log for details."
 
     set_code(job, code, message, error=error, results=results)
 
@@ -328,10 +320,10 @@ def job_to_job_definition(job):
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
-    input_files = []
+    input_job_ids = []
     for action in job.requires_outputs_from:
-        for filename in list_outputs_from_action(job.backend, job.workspace, action):
-            input_files.append(filename)
+        if previous_job_id := job_id_from_action(job.backend, job.workspace, action):
+            input_job_ids.append(previous_job_id)
 
     outputs = {}
     for privacy_level, named_patterns in job.output_spec.items():
@@ -348,7 +340,7 @@ def job_to_job_definition(job):
         image=full_image,
         args=action_args,
         env=env,
-        inputs=input_files,
+        input_job_ids=input_job_ids,
         output_spec=outputs,
         allow_database_access=job.requires_db,
         database_name=job.database_name if job.requires_db else None,
@@ -514,13 +506,13 @@ def get_reason_job_not_started(job):
             )
 
 
-def list_outputs_from_action(backend, workspace, action):
+def job_id_from_action(backend, workspace, action):
     for job in calculate_workspace_state(backend, workspace):
         if job.action == action:
-            return job.output_files
+            return job.id
 
     # The action has never been run before
-    return []
+    return None
 
 
 def get_job_resource_weight(job, weights=None):

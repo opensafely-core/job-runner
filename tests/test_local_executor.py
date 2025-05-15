@@ -33,7 +33,7 @@ def job_definition(request, test_repo):
         created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["true"],
-        inputs=[],
+        input_job_ids=[],
         env={},
         # all files are outputs by default, for simplicity in tests
         output_spec={
@@ -47,22 +47,41 @@ def job_definition(request, test_repo):
     )
 
 
-def populate_workspace(workspace, filename, content=None, privacy="high"):
+def populate_job_metadata(job_id, output_metadata):
+    past_job_log_path = (
+        config.JOB_LOG_DIR
+        / "last-month"
+        / local.container_name(job_id)
+        / local.METADATA_FILE
+    )
+    past_job_log_path.parent.mkdir(parents=True, exist_ok=True)
+    past_job_log_path.write_text(json.dumps({"outputs": output_metadata}))
+
+
+def populate_workspace(
+    workspace, filename, job_id="past-job-id", content=None, privacy="high"
+):
     assert privacy in ("high", "medium")
     if privacy == "high":
         path = local.get_high_privacy_workspace(workspace) / filename
+        output_metadata = {filename: "highly_sensitive"}
     else:
         path = local.get_medium_privacy_workspace(workspace) / filename
+        output_metadata = {filename: "moderately_sensitive"}
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content or filename)
+
+    # create the metadata on file for the past job that created this file
+    populate_job_metadata(job_id, output_metadata)
+
     return path
 
 
 # used for tests and debugging
 def get_docker_log(job_definition):
     result = docker.docker(
-        ["container", "logs", local.container_name(job_definition)],
+        ["container", "logs", local.container_name(job_definition.id)],
         check=True,
         text=True,
         capture_output=True,
@@ -94,7 +113,7 @@ def list_repo_files(path):
 
 
 def log_dir_log_file_exists(job_definition):
-    log_dir = local.get_log_dir(job_definition)
+    log_dir = local.get_log_dir(job_definition.id)
     if not log_dir.exists():
         return False
     log_file = log_dir / "logs.txt"
@@ -111,24 +130,24 @@ def workspace_log_file_exists(job_definition):
 
 
 def test_read_metadata_path(job_definition):
-    assert local.read_job_metadata(job_definition) == {}
+    assert local.read_job_metadata(job_definition.id) == {}
 
     globbed_path = (
         config.JOB_LOG_DIR
         / "last-month"
-        / local.container_name(job_definition)
+        / local.container_name(job_definition.id)
         / local.METADATA_FILE
     )
     globbed_path.parent.mkdir(parents=True)
     globbed_path.write_text(json.dumps({"test": "globbed"}))
-    assert local.read_job_metadata(job_definition) == local.METADATA_DEFAULTS | {
+    assert local.read_job_metadata(job_definition.id) == local.METADATA_DEFAULTS | {
         "test": "globbed"
     }
 
-    actual_path = local.get_log_dir(job_definition) / local.METADATA_FILE
+    actual_path = local.get_log_dir(job_definition.id) / local.METADATA_FILE
     actual_path.parent.mkdir(parents=True)
     actual_path.write_text(json.dumps({"test": "actual"}))
-    assert local.read_job_metadata(job_definition) == local.METADATA_DEFAULTS | {
+    assert local.read_job_metadata(job_definition.id) == local.METADATA_DEFAULTS | {
         "test": "actual"
     }
 
@@ -137,8 +156,9 @@ def test_read_metadata_path(job_definition):
 def test_prepare_success(
     docker_cleanup, job_definition, test_repo, tmp_work_dir, freezer
 ):
-    job_definition.inputs = ["output/input.csv"]
-    populate_workspace(job_definition.workspace, "output/input.csv")
+    populate_workspace(job_definition.workspace, "output/input.csv", "past-job-id")
+    # this job requires input files from a previous job
+    job_definition.input_job_ids = ["past-job-id"]
 
     expected_timestamp = time.time_ns()
 
@@ -157,7 +177,7 @@ def test_prepare_success(
     assert volumes.volume_exists(job_definition)
 
     # check files have been copied
-    expected = set(list_repo_files(test_repo.source) + job_definition.inputs)
+    expected = set(list_repo_files(test_repo.source) + ["output/input.csv"])
     expected.add(local.TIMESTAMP_REFERENCE_FILE)
 
     # glob_volume_files uses find, and its '**/*' regex doesn't find files in
@@ -233,7 +253,13 @@ def test_prepare_job_bad_commit(docker_cleanup, job_definition, test_repo):
 
 @pytest.mark.needs_docker
 def test_prepare_job_no_input_file(docker_cleanup, job_definition):
-    job_definition.inputs = ["output/input.csv"]
+    # this job requires input files from a previous job
+    job_definition.input_job_ids = ["past-job-id"]
+    # populate workspace with a file, but one written by a different job
+    populate_workspace(job_definition.workspace, "output/input1.csv", "other-past-job")
+    # create the metadata on file for the past job, with an output file
+    # which doesn't exist in the job workspace
+    populate_job_metadata("past-job-id", {"output/input.csv": "highly_sensitive"})
 
     with pytest.raises(local.LocalDockerError) as exc_info:
         local.prepare_job(job_definition)
@@ -257,7 +283,7 @@ def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, db):
     api.execute(job_definition)
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
-    container_data = docker.container_inspect(local.container_name(job_definition))
+    container_data = docker.container_inspect(local.container_name(job_definition.id))
     assert container_data["State"]["ExitCode"] == 0
     assert container_data["HostConfig"]["NanoCpus"] == int(1.5 * 1e9)
     assert container_data["HostConfig"]["Memory"] == 2**30  # 1G
@@ -274,7 +300,7 @@ def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
     api.execute(job_definition)
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
-    container_config = docker.container_inspect(local.container_name(job_definition))
+    container_config = docker.container_inspect(local.container_name(job_definition.id))
 
     # do not test that this config is set on platforms that do not require this config
     if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:
@@ -303,7 +329,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
         "/workspace/output/summary.csv",
         "/workspace/output/summary.txt",
     ]
-    job_definition.inputs = ["output/input.csv"]
+    job_definition.input_job_ids = ["output/input.csv"]
     job_definition.output_spec = {
         "output/output.*": "highly_sensitive",
         "output/summary.*": "moderately_sensitive",
@@ -320,7 +346,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
     # check that timestamp is as expected
-    container = docker.container_inspect(local.container_name(job_definition))
+    container = docker.container_inspect(local.container_name(job_definition.id))
     assert status.timestamp_ns == datestr_to_ns_timestamp(
         container["State"]["FinishedAt"]
     )
@@ -341,7 +367,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     assert status.results["status_message"] == "Completed successfully"
     assert status.results["job_metrics"] == {"test": 1.0}
 
-    log_dir = local.get_log_dir(job_definition)
+    log_dir = local.get_log_dir(job_definition.id)
     log_file = log_dir / "logs.txt"
     assert log_dir.exists()
     assert log_file.exists()
@@ -369,7 +395,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     assert txt_metadata["row_count"] is None
     assert txt_metadata["col_count"] is None
 
-    job_metadata = local.read_job_metadata(job_definition)
+    job_metadata = local.read_job_metadata(job_definition.id)
     for key in {
         "exit_code",
         "completed_at",
@@ -525,7 +551,7 @@ def test_finalize_failed_137(docker_cleanup, job_definition, tmp_work_dir):
     assert status.state == ExecutorState.EXECUTING
 
     # impersonate an admin
-    docker.kill(local.container_name(job_definition))
+    docker.kill(local.container_name(job_definition.id))
 
     wait_for_state(api, job_definition, ExecutorState.EXECUTED)
 
@@ -601,7 +627,7 @@ def test_finalize_large_level4_outputs(docker_cleanup, job_definition, tmp_work_
         "output/output.txt": "File size of 1.0Mb is larger that limit of 0.5Mb.",
     }
 
-    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log_file = local.get_log_dir(job_definition.id) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert (
@@ -655,7 +681,7 @@ def test_finalize_invalid_file_type(docker_cleanup, job_definition, tmp_work_dir
     txt = message_file.read_text()
     assert "output/output.rds" in txt
 
-    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log_file = local.get_log_dir(job_definition.id) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert "output/output.rds  - File type of .rds is not valid level 4 file" in log
@@ -698,7 +724,7 @@ def test_finalize_patient_id_header(docker_cleanup, job_definition, tmp_work_dir
         "output/output.csv": "File has patient_id column",
     }
 
-    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log_file = local.get_log_dir(job_definition.id) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert "output/output.csv  - File has patient_id column" in log
@@ -751,7 +777,7 @@ def test_finalize_csv_max_rows(docker_cleanup, job_definition, tmp_work_dir):
         "output/output.csv": "File row count (11) exceeds maximum allowed rows (10)",
     }
 
-    log_file = local.get_log_dir(job_definition) / "logs.txt"
+    log_file = local.get_log_dir(job_definition.id) / "logs.txt"
     log = log_file.read_text()
     assert "Invalid moderately_sensitive outputs:" in log
     assert (
@@ -1040,7 +1066,7 @@ def test_cleanup_success(docker_cleanup, job_definition, tmp_work_dir):
     api.prepare(job_definition)
     api.execute(job_definition)
 
-    container = local.container_name(job_definition)
+    container = local.container_name(job_definition.id)
     assert volumes.volume_exists(job_definition)
     assert docker.container_exists(container)
 
@@ -1165,7 +1191,7 @@ def test_delete_volume_error_file_bindmount_skips_and_logs(job_definition, caplo
 @pytest.mark.needs_docker
 def test_finalize_job_with_error(job_definition):
     local.finalize_job(job_definition, error={"test": "foo"}, cancelled=False)
-    metadata = local.read_job_metadata(job_definition)
+    metadata = local.read_job_metadata(job_definition.id)
     assert metadata["error"] == {"test": "foo"}
     assert metadata["status_message"] == "Job errored"
 

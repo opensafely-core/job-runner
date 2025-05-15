@@ -17,7 +17,11 @@ from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
-from tests.factories import job_factory, job_results_factory, runjob_db_task_factory
+from tests.factories import (
+    job_factory,
+    job_task_results_factory,
+    runjob_db_task_factory,
+)
 
 
 def run_controller_loop_once():
@@ -28,11 +32,11 @@ def run_agent_loop_once():
     agent_main.main(exit_callback=lambda _: True)
 
 
-def set_job_task_results(job, job_results, error=None):
+def set_job_task_results(job, task_results, error=None):
     runjob_task = database.find_one(
         Task, type=TaskType.RUNJOB, id__glob=f"{job.id}-*", active=True
     )
-    results = job_results.to_dict()
+    results = task_results.to_dict()
     results["error"] = error or False
 
     task_api.handle_task_update(
@@ -279,9 +283,8 @@ def test_handle_job_finalized_success_with_large_file(db):
     run_controller_loop_once()
     set_job_task_results(
         job,
-        job_results_factory(
-            outputs={"output/output.csv": "moderately_sensitive"},
-            level4_excluded_files={"output/output.csv": "too big"},
+        job_task_results_factory(
+            has_level4_excluded_files=True,
         ),
     )
     run_controller_loop_once()
@@ -348,8 +351,7 @@ def test_handle_job_finalized_failed_exit_code(
     run_controller_loop_once()
     set_job_task_results(
         job,
-        job_results_factory(
-            outputs={"output/file.csv": "highly_sensitive"},
+        job_task_results_factory(
             exit_code=exit_code,
             message=results_message,
         ),
@@ -370,16 +372,18 @@ def test_handle_job_finalized_failed_exit_code(
     elif extra_message:
         expected += f": {extra_message}"
     assert job.status_message == expected
-    assert job.outputs == {"output/file.csv": "highly_sensitive"}
+    assert job.outputs is None
+    assert job.unmatched_outputs is None
+    assert job.level4_excluded_files is None
 
     spans = get_trace("jobs")
     completed_span = spans[-2]
     assert completed_span.name == "NONZERO_EXIT"
     assert completed_span.attributes["exit_code"] == exit_code
-    assert completed_span.attributes["outputs"] == 1
-    assert completed_span.attributes["unmatched_patterns"] == 0
-    assert completed_span.attributes["unmatched_outputs"] == 0
     assert completed_span.attributes["image_id"] == "image_id"
+    # data about outputs or filename patterns is excluded
+    for key in ["outputs", "unmatched_patterns", "unmatched_outputs"]:
+        assert key not in completed_span.attributes
     assert completed_span.status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
 
@@ -389,11 +393,7 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     run_controller_loop_once()
     set_job_task_results(
         job,
-        job_results_factory(
-            outputs={"output/file.csv": "highly_sensitive"},
-            unmatched_patterns=["badfile.csv"],
-            unmatched_outputs=["otherbadfile.csv"],
-        ),
+        job_task_results_factory(has_unmatched_patterns=True),
     )
     run_controller_loop_once()
 
@@ -401,16 +401,19 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
 
     # our state
     assert job.state == State.FAILED
-    assert job.status_message == "No outputs found matching patterns:\n - badfile.csv"
-    assert job.outputs == {"output/file.csv": "highly_sensitive"}
-    assert job.unmatched_outputs == ["otherbadfile.csv"]
+    assert (
+        job.status_message
+        == "Outputs matching expected patterns were not found. See job log for details."
+    )
+    assert job.outputs is None
+    assert job.unmatched_outputs is None
 
     spans = get_trace("jobs")
     completed_span = spans[-2]
     assert completed_span.name == "UNMATCHED_PATTERNS"
-    assert completed_span.attributes["outputs"] == 1
-    assert completed_span.attributes["unmatched_patterns"] == 1
-    assert completed_span.attributes["unmatched_outputs"] == 1
+    # data about outputs or filename patterns is excluded
+    for key in ["outputs", "unmatched_patterns", "unmatched_outputs"]:
+        assert key not in completed_span.attributes
     assert spans[-1].name == "JOB"
 
 
@@ -424,7 +427,7 @@ def test_handle_job_finalized_failed_with_error(db):
     assert job.state == State.RUNNING
 
     set_job_task_results(
-        job, job_results_factory(), error=str(Exception("test_hard_failure"))
+        job, job_task_results_factory(), error=str(Exception("test_hard_failure"))
     )
 
     with pytest.raises(PlatformError):
@@ -605,7 +608,13 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
     run_controller_loop_once()
 
     task = database.find_one(Task, type=TaskType.RUNJOB)
-    assert task.definition["inputs"] == ["output-from-completed-run"]
+    # The task definition's inputs contains only the ids of the latest
+    # uncancelled jobs that ran the action dependencies ("other-action",
+    # "action-with-no-outputs")
+    # Note that since we expect to not hold output filenames on the
+    # controller, we still send the agent the id of the job with no
+    # outputs
+    assert task.definition["input_job_ids"] == ["1", "3"]
 
 
 def test_job_definition_limits(db):

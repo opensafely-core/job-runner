@@ -39,7 +39,7 @@ def test_tracing_state_change_attributes(db):
         "job_created_at",
         "image",
         "args",
-        "inputs",
+        "input_job_ids",
         "allow_database_access",
         "cpu_count",
         "memory_limit",
@@ -88,19 +88,16 @@ def test_tracing_final_state_attributes(db):
         "job_created_at",
         "image",
         "args",
-        "inputs",
+        "input_job_ids",
         "allow_database_access",
         "cpu_count",
         "memory_limit",
         "final_job_status",
         "complete",
         # results included on the final span
-        "unmatched_patterns",
         "image_id",
-        "unmatched_outputs",
         "executor_message",
         "exit_code",
-        "outputs",
         "action_version",
         "action_revision",
         "action_created",
@@ -118,6 +115,9 @@ def test_tracing_final_state_attributes(db):
     assert spans[0].attributes["initial_job_status"] == "EXECUTED"
     assert spans[0].attributes["final_job_status"] == "FINALIZED"
     assert spans[0].attributes["complete"]
+    # data about outputs or filename patterns is excluded
+    for key in ["outputs", "unmatched_patterns", "unmatched_outputs"]:
+        assert key not in spans[0].attributes
 
 
 def test_set_task_span_metadata_no_attrs(db):

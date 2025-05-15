@@ -334,13 +334,6 @@ class Job:
         return slugify(f"{self.workspace}-{self.action}-{self.id}")
 
     @property
-    def output_files(self):
-        if self.outputs:
-            return self.outputs.keys()
-        else:
-            return []
-
-    @property
     def action_args(self):
         if self.run_command:
             return shlex.split(self.run_command)

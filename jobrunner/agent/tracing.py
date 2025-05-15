@@ -78,7 +78,7 @@ def trace_job_attributes(job: JobDefinition):
         job_created_at=int(job.created_at * 1e9),
         image=job.image,
         args=",".join(job.args or []),
-        inputs=",".join(job.inputs or []),
+        input_job_ids=",".join(job.input_job_ids or []),
         allow_database_access=job.allow_database_access,
         cpu_count=job.cpu_count,
         memory_limit=job.memory_limit,
@@ -96,9 +96,6 @@ def set_job_results_metadata(span, results, attributes=None):
                 dict(
                     exit_code=results["exit_code"],
                     image_id=results["docker_image_id"],
-                    outputs=len(results["outputs"]),
-                    unmatched_patterns=len(results["unmatched_patterns"]),
-                    unmatched_outputs=len(results["unmatched_outputs"]),
                     executor_message=results["status_message"],
                     action_version=results["action_version"],
                     action_revision=results["action_revision"],

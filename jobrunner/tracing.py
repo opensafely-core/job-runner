@@ -330,9 +330,6 @@ def trace_attributes(job, results=None):
     if results:
         attrs["exit_code"] = results.exit_code
         attrs["image_id"] = results.image_id
-        attrs["outputs"] = len(results.outputs)
-        attrs["unmatched_patterns"] = len(results.unmatched_patterns)
-        attrs["unmatched_outputs"] = len(results.unmatched_outputs)
         attrs["executor_message"] = results.message
         attrs["action_version"] = results.action_version
         attrs["action_revision"] = results.action_revision

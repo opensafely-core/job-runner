@@ -44,3 +44,70 @@ class AgentTask:
             if isinstance(value, Enum):
                 data[key] = value.value
         return data
+
+
+@dataclass
+class JobTaskResults:
+    """Results of a RUNJOB or CANCELJOB task
+
+    This represents the redacted version of the job metadata that is sent to the controller
+    by the agent.
+    """
+
+    exit_code: int
+    image_id: str
+    message: str = None
+    unmatched_hint: str = None
+    # timestamp these results were finalized, in integer nanoseconds
+    timestamp_ns: int = None
+
+    # to be extracted from the image labels
+    action_version: str = "unknown"
+    action_revision: str = "unknown"
+    action_created: str = "unknown"
+    base_revision: str = "unknown"
+    base_created: str = "unknown"
+
+    has_unmatched_patterns: bool = (
+        False  # this job was missing outputs that matched expected patterns
+    )
+    has_level4_excluded_files: bool = (
+        False  # had files that were not copied to level 4 (too big or similar reason)
+    )
+
+    def to_dict(self):
+        return dict(
+            exit_code=self.exit_code,
+            docker_image_id=self.image_id,
+            status_message=self.message,
+            hint=self.unmatched_hint,
+            timestamp_ns=self.timestamp_ns,
+            action_version=self.action_version,
+            action_revision=self.action_revision,
+            action_created=self.action_created,
+            base_revision=self.base_revision,
+            base_created=self.base_created,
+            has_unmatched_patterns=self.has_unmatched_patterns,
+            has_level4_excluded_files=self.has_level4_excluded_files,
+        )
+
+    @classmethod
+    def from_dict(cls, metadata: dict):
+        try:
+            exit_code = int(metadata["exit_code"])
+        except (TypeError, ValueError):
+            exit_code = None
+        return cls(
+            exit_code=exit_code,
+            image_id=metadata["docker_image_id"],
+            message=metadata["status_message"],
+            unmatched_hint=metadata["hint"],
+            timestamp_ns=metadata["timestamp_ns"],
+            action_version=metadata["action_version"],
+            action_revision=metadata["action_revision"],
+            action_created=metadata["action_created"],
+            base_revision=metadata["base_revision"],
+            base_created=metadata["base_created"],
+            has_unmatched_patterns=metadata["has_unmatched_patterns"],
+            has_level4_excluded_files=metadata["has_level4_excluded_files"],
+        )

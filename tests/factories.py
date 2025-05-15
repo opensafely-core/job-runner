@@ -13,7 +13,7 @@ from jobrunner.job_executor import JobResults
 from jobrunner.lib import docker
 from jobrunner.lib.database import insert, update
 from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
-from jobrunner.schema import TaskType
+from jobrunner.schema import JobTaskResults, TaskType
 from tests.conftest import test_exporter
 
 
@@ -53,6 +53,15 @@ JOB_RESULTS_DEFAULTS = {
     "outputs": ["output1", "output2"],
     "unmatched_patterns": [],
     "unmatched_outputs": [],
+    "exit_code": 0,
+    "image_id": "image_id",
+    "message": "message",
+}
+
+
+JOB_TASK_RESULTS_DEFAULTS = {
+    "has_unmatched_patterns": False,
+    "has_level4_excluded_files": False,
     "exit_code": 0,
     "image_id": "image_id",
     "message": "message",
@@ -120,6 +129,14 @@ def job_results_factory(timestamp_ns=None, **kwargs):
     values = deepcopy(JOB_RESULTS_DEFAULTS)
     values.update(kwargs)
     return JobResults(timestamp_ns=timestamp_ns, **values)
+
+
+def job_task_results_factory(timestamp_ns=None, **kwargs):
+    if timestamp_ns is None:
+        timestamp_ns = time.time_ns()
+    values = deepcopy(JOB_TASK_RESULTS_DEFAULTS)
+    values.update(kwargs)
+    return JobTaskResults(timestamp_ns=timestamp_ns, **values)
 
 
 def metrics_factory(job_id, m=None):
