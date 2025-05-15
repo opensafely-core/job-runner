@@ -17,7 +17,11 @@ from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
-from tests.factories import job_factory, runjob_db_task_factory, task_results_factory
+from tests.factories import (
+    job_factory,
+    job_task_results_factory,
+    runjob_db_task_factory,
+)
 
 
 def run_controller_loop_once():
@@ -279,7 +283,7 @@ def test_handle_job_finalized_success_with_large_file(db):
     run_controller_loop_once()
     set_job_task_results(
         job,
-        task_results_factory(
+        job_task_results_factory(
             has_level4_excluded_files=True,
         ),
     )
@@ -347,7 +351,7 @@ def test_handle_job_finalized_failed_exit_code(
     run_controller_loop_once()
     set_job_task_results(
         job,
-        task_results_factory(
+        job_task_results_factory(
             exit_code=exit_code,
             message=results_message,
         ),
@@ -389,7 +393,7 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     run_controller_loop_once()
     set_job_task_results(
         job,
-        task_results_factory(has_unmatched_patterns=True),
+        job_task_results_factory(has_unmatched_patterns=True),
     )
     run_controller_loop_once()
 
@@ -423,7 +427,7 @@ def test_handle_job_finalized_failed_with_error(db):
     assert job.state == State.RUNNING
 
     set_job_task_results(
-        job, task_results_factory(), error=str(Exception("test_hard_failure"))
+        job, job_task_results_factory(), error=str(Exception("test_hard_failure"))
     )
 
     with pytest.raises(PlatformError):

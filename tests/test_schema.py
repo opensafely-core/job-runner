@@ -3,13 +3,13 @@ import time
 
 import pytest
 
-from jobrunner.schema import TaskResults
-from tests.factories import task_results_factory
+from jobrunner.schema import JobTaskResults
+from tests.factories import job_task_results_factory
 
 
 @pytest.mark.parametrize("exit_code", [None, "None"])
 def test_empty_job_results_json_roundtrip(db, exit_code):
-    task_results = task_results_factory(
+    task_results = job_task_results_factory(
         unmatched_hint=None,
         exit_code=exit_code,
         image_id=None,
@@ -25,7 +25,7 @@ def test_empty_job_results_json_roundtrip(db, exit_code):
     )
 
     serialized = json.dumps(task_results.to_dict())
-    deserialized = TaskResults.from_dict(json.loads(serialized))
+    deserialized = JobTaskResults.from_dict(json.loads(serialized))
 
     # if exit code is a string, it is deserialized to None
     task_results.exit_code = None

@@ -47,8 +47,8 @@ class AgentTask:
 
 
 @dataclass
-class TaskResults:
-    """Task Results
+class JobTaskResults:
+    """Results of a RUNJOB or CANCELJOB task
 
     This represents the redacted version of the job metadata that is sent to the controller
     by the agent.

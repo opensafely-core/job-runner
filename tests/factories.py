@@ -13,7 +13,7 @@ from jobrunner.job_executor import JobResults
 from jobrunner.lib import docker
 from jobrunner.lib.database import insert, update
 from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
-from jobrunner.schema import TaskResults, TaskType
+from jobrunner.schema import JobTaskResults, TaskType
 from tests.conftest import test_exporter
 
 
@@ -59,7 +59,7 @@ JOB_RESULTS_DEFAULTS = {
 }
 
 
-TASK_RESULTS_DEFAULTS = {
+JOB_TASK_RESULTS_DEFAULTS = {
     "has_unmatched_patterns": False,
     "has_level4_excluded_files": False,
     "exit_code": 0,
@@ -131,12 +131,12 @@ def job_results_factory(timestamp_ns=None, **kwargs):
     return JobResults(timestamp_ns=timestamp_ns, **values)
 
 
-def task_results_factory(timestamp_ns=None, **kwargs):
+def job_task_results_factory(timestamp_ns=None, **kwargs):
     if timestamp_ns is None:
         timestamp_ns = time.time_ns()
-    values = deepcopy(TASK_RESULTS_DEFAULTS)
+    values = deepcopy(JOB_TASK_RESULTS_DEFAULTS)
     values.update(kwargs)
-    return TaskResults(timestamp_ns=timestamp_ns, **values)
+    return JobTaskResults(timestamp_ns=timestamp_ns, **values)
 
 
 def metrics_factory(job_id, m=None):
@@ -147,7 +147,6 @@ def metrics_factory(job_id, m=None):
         m = {}
 
     metrics.write_job_metrics(job_id, m)
-
 
 
 def runjob_db_task_factory(job=None, *, backend="test", **kwargs):

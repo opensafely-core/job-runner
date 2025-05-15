@@ -34,7 +34,7 @@ from jobrunner.lib.database import (
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import calculate_workspace_state, get_flag_value
-from jobrunner.schema import TaskResults
+from jobrunner.schema import JobTaskResults
 
 
 log = logging.getLogger(__name__)
@@ -262,7 +262,7 @@ def handle_job(job, mode=None, paused=None):
                 # Handled elsewhere
                 raise PlatformError(job_error)
             else:
-                results = TaskResults.from_dict(task.agent_results)
+                results = JobTaskResults.from_dict(task.agent_results)
                 save_results(job, results)
                 # TODO: Delete obsolete files
         else:
