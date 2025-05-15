@@ -104,12 +104,14 @@ WSGI_APPLICATION = "controller_app.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-# TODO: Currently the django app is using a separate database (for
-# the default included apps that need it - auth/sessions etc).
+# TODO: The Django app doesn't actually use the database at all at the moment but if we
+# don't define one it gets upset and if we point it to a real path we get permissions
+# issues when running inside a container. Using a in-memory database is a quick solution
+# for now.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "django_db.sqlite3",
+        "NAME": ":memory:",
     }
 }
 
