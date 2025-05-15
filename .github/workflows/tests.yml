@@ -79,6 +79,9 @@ jobs:
       - name: Run tests in docker-image
         run: just docker/test
 
+      - name: Run basic multi-container integration test
+        run: just docker/functional-test
+
   required-checks:
     if: always()
 
