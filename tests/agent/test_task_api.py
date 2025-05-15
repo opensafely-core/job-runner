@@ -1,5 +1,6 @@
 import pytest
 import requests
+from responses import matchers
 
 from jobrunner.agent import task_api
 from jobrunner.config import agent as config
@@ -37,12 +38,14 @@ def test_get_active_tasks(db, monkeypatch, responses):
         url=f"{config.TASK_API_ENDPOINT}dummy/tasks",
         status=200,
         json={"tasks": [AgentTask.from_task(task1).asdict()]},
+        match=[matchers.header_matcher({"Authorization": config.JOB_SERVER_TOKEN})],
     )
     responses.add(
         method="GET",
         url=f"{config.TASK_API_ENDPOINT}another/tasks",
         status=200,
         json={"tasks": [AgentTask.from_task(task3).asdict()]},
+        match=[matchers.header_matcher({"Authorization": config.JOB_SERVER_TOKEN})],
     )
 
     active = task_api.get_active_tasks()
@@ -65,6 +68,7 @@ def test_get_active_tasks_api_error(db, monkeypatch, responses):
         method="GET",
         url=f"{config.TASK_API_ENDPOINT}dummy/tasks",
         status=500,
+        match=[matchers.header_matcher({"Authorization": config.JOB_SERVER_TOKEN})],
     )
 
     with pytest.raises(requests.HTTPError):
