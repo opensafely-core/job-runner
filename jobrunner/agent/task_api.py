@@ -37,7 +37,7 @@ def request_json(method, path, data=None):
 
 def get_active_tasks() -> list[AgentTask]:
     """Get a list of active tasks for this backend from the controller"""
-    agent_tasks = get_json("tasks")["tasks"]
+    agent_tasks = get_json("tasks/")["tasks"]
     return [AgentTask.from_dict(t) for t in agent_tasks]
 
 
