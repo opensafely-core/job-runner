@@ -4,7 +4,6 @@ Script runs both jobrunner flows in a single process.
 
 import logging
 import threading
-import time
 
 from jobrunner import sync, tracing
 from jobrunner.agent.main import main as agent_main
@@ -15,39 +14,13 @@ from jobrunner.controller.main import main as controller_main
 from jobrunner.controller.ticks import main as ticks_main
 from jobrunner.lib.database import ensure_valid_db
 from jobrunner.lib.log_utils import configure_logging
+from jobrunner.lib.service_utils import ThreadWrapper
 
 
 log = logging.getLogger(__name__)
 
 
-def start_thread(func, name, loop_interval):
-    """Start a thread running the given function.
-
-    It is wrapped in function that will handle and log any exceptions.  This
-    ensures any uncaught exceptions do not leave a zombie thread. We add
-    a delay prevents busy retry loops.
-    """
-
-    def thread_wrapper():
-        while True:
-            try:
-                func()
-            except sync.SyncAPIError as e:
-                log.error(e)
-            except Exception:
-                log.exception(f"Exception in {name} thread")
-
-            time.sleep(loop_interval)
-
-    log.info(f"Starting {name} thread")
-
-    # daemon=True means this thread will be automatically join()ed when the
-    # process exits
-    thread = threading.Thread(target=thread_wrapper, daemon=True)
-    thread.name = name
-    thread.start()
-
-    return thread
+start_thread = ThreadWrapper(log, quiet_exception_class=sync.SyncAPIError)
 
 
 def main():
