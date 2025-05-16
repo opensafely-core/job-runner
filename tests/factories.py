@@ -9,7 +9,6 @@ from jobrunner.agent import metrics
 from jobrunner.config import common as common_config
 from jobrunner.controller import task_api
 from jobrunner.controller.main import create_task_for_job, job_to_job_definition
-from jobrunner.job_executor import JobResults
 from jobrunner.lib import docker
 from jobrunner.lib.database import insert, update
 from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
@@ -46,16 +45,6 @@ JOB_DEFAULTS = {
     "created_at": 0,
     "status_code": StatusCode.CREATED,
     "backend": "test",
-}
-
-
-JOB_RESULTS_DEFAULTS = {
-    "outputs": ["output1", "output2"],
-    "unmatched_patterns": [],
-    "unmatched_outputs": [],
-    "exit_code": 0,
-    "image_id": "image_id",
-    "message": "message",
 }
 
 
@@ -121,14 +110,6 @@ def job_factory(job_request=None, **kwargs):
     # ensure tests just have the span they generate
     test_exporter.clear()
     return job
-
-
-def job_results_factory(timestamp_ns=None, **kwargs):
-    if timestamp_ns is None:
-        timestamp_ns = time.time_ns()
-    values = deepcopy(JOB_RESULTS_DEFAULTS)
-    values.update(kwargs)
-    return JobResults(timestamp_ns=timestamp_ns, **values)
 
 
 def job_task_results_factory(timestamp_ns=None, **kwargs):

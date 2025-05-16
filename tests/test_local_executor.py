@@ -9,11 +9,7 @@ from jobrunner.config import agent as config
 from jobrunner.executors import local, volumes
 from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import datestr_to_ns_timestamp, docker
-from tests.factories import (
-    ensure_docker_images_present,
-    job_results_factory,
-    metrics_factory,
-)
+from tests.factories import ensure_docker_images_present, metrics_factory
 
 
 @pytest.fixture
@@ -1197,13 +1193,19 @@ def test_finalize_job_with_error(job_definition):
 
 
 def test_get_job_metadata_has_expected_keys(job_definition):
-    job_results = job_results_factory()
+    results_metadata = {
+        "outputs": ["outputs"],
+        "unmatched_patterns": [],
+        "unmatched_outputs": [],
+        "timestamp_ns": time.time_ns(),
+        "status_message": "message",
+        "hint": "hint",
+    }
 
     metadata = local.get_job_metadata(
         job_definition=job_definition,
-        outputs=["outputs"],
         container_metadata={"State": {"ExitCode": 0, "OOMKilled": False}},
-        results=job_results,
+        results_metadata=results_metadata,
     )
 
     for key in local.METADATA_DEFAULTS:
