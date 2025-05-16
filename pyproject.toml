@@ -29,7 +29,6 @@ dynamic_context = "test_function"
 source = ["jobrunner"]
 omit = [
     # These are covered by subprocess tests which aren't tracked properly
-    "jobrunner/service.py",
     "jobrunner/agent/service.py",
     "jobrunner/controller/service.py",
     # This is covered in the functional test set up
