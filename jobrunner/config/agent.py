@@ -145,3 +145,7 @@ else:  # pragma: no cover
 DATABASE_ACCESS_NETWORK = os.environ.get("DATABASE_ACCESS_NETWORK", "jobrunner-db")
 
 TASK_API_ENDPOINT = os.environ.get("CONTROLLER_TASK_API_ENDPOINT")
+
+# Token for authenticating with the controller task api
+# For now this will reuse the job-server token for this backend
+JOB_SERVER_TOKEN = os.environ.get("JOB_SERVER_TOKEN", "token")
