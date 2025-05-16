@@ -424,7 +424,7 @@ class Task:
     agent_stage: str = None
     # the task is complete from the agent's POV once this is set
     agent_complete: bool = False
-    # results of the task, inlcuding any error information
+    # results of the task, including any error information
     agent_results: dict = None
 
     # ensure this table exists
