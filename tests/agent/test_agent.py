@@ -162,7 +162,7 @@ def test_handle_job_requires_db_has_secrets(db, monkeypatch):
 
 
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_runjob_with_error(mock_update_controller, db):
+def test_handle_runjob_with_fatal_error(mock_update_controller, db):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.PREPARED)
@@ -193,19 +193,18 @@ def test_handle_runjob_with_error(mock_update_controller, db):
     # exception info has been added to the span
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == "Exception: test_hard_failure"
+    assert spans[0].attributes["fatal_task_error"] is True
 
 
 @pytest.mark.parametrize(
-    "exc,error_type",
+    "exc",
     [
-        (sqlite3.OperationalError("database locked"), "db_locked"),
-        (AssertionError("a bad thing"), "AssertionError"),
+        sqlite3.OperationalError("database locked"),
+        AssertionError("a bad thing"),
     ],
 )
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_runjob_with_transient_error(
-    mock_update_controller, db, exc, error_type
-):
+def test_handle_runjob_with_not_fatal_error(mock_update_controller, db, exc):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.PREPARED)
@@ -223,12 +222,13 @@ def test_handle_runjob_with_transient_error(
     assert mock_update_controller.call_count == 0
 
     spans = get_trace("agent_loop")
-    assert spans[-1].attributes["transient_error"]
-    assert spans[-1].attributes["transient_error_type"] == error_type
+    assert spans[0].status.status_code.name == "ERROR"
+    assert spans[0].status.description == f"{exc.__class__.__name__}: {str(exc)}"
+    assert spans[0].attributes["fatal_task_error"] is False
 
 
 @patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_canceljob_with_error(mock_update_controller, db):
+def test_handle_canceljob_with_fatal_error(mock_update_controller, db):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_canceljob_task(ExecutorState.EXECUTED)
@@ -260,6 +260,7 @@ def test_handle_canceljob_with_error(mock_update_controller, db):
     # exception info has been added to the span
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == "Exception: test_hard_failure"
+    assert spans[0].attributes["fatal_task_error"] is True
 
 
 @pytest.mark.parametrize(
