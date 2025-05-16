@@ -16,7 +16,6 @@ from jobrunner.job_executor import (
     ExecutorRetry,
     ExecutorState,
     JobDefinition,
-    JobResults,
     JobStatus,
     Privacy,
 )
@@ -409,8 +408,6 @@ def finalize_job(job_definition, cancelled, error=None):
     container_metadata = docker.container_inspect(
         container_name(job_definition.id), none_if_not_exists=True
     )
-    exit_code = None
-    labels = {}
     unmatched_hint = None
 
     if cancelled or error:
@@ -425,8 +422,6 @@ def finalize_job(job_definition, cancelled, error=None):
     if container_metadata:
         redact_environment_variables(container_metadata)
         exit_code = container_metadata["State"]["ExitCode"]
-        labels = container_metadata.get("Config", {}).get("Labels", {})
-
         # First get the user-friendly message for known database exit codes, for jobs
         # that have db access
 
@@ -466,26 +461,18 @@ def finalize_job(job_definition, cancelled, error=None):
     else:
         assert False
 
-    results = JobResults(
+    results_metadata = dict(
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,
         unmatched_outputs=unmatched_outputs,
-        exit_code=exit_code,
-        image_id=container_metadata.get("Image"),
-        message=message,
-        unmatched_hint=unmatched_hint,
+        status_message=message,
+        hint=unmatched_hint,
         timestamp_ns=time.time_ns(),
-        action_version=labels.get("org.opencontainers.image.version", "unknown"),
-        action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
-        action_created=labels.get("org.opencontainers.image.created", "unknown"),
-        base_revision=labels.get("org.opensafely.base.vcs-ref", "unknown"),
-        base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
     job_metadata = get_job_metadata(
         job_definition,
-        outputs,
         container_metadata,
-        results,
+        results_metadata,
         cancelled=cancelled,
         error=error,
     )
@@ -498,22 +485,24 @@ def finalize_job(job_definition, cancelled, error=None):
             # Cancelled before job started, just write the metadata
             write_job_metadata(job_definition, job_metadata)
     else:
-        excluded = persist_outputs(job_definition, results.outputs, job_metadata)
+        excluded = persist_outputs(job_definition, outputs, job_metadata)
         job_metadata["level4_excluded_files"] = excluded
         write_job_logs(
             job_definition, job_metadata, copy_log_to_workspace=True, excluded=excluded
         )
 
-    # for ease of testing
-    return results
-
 
 def get_job_metadata(
-    job_definition, outputs, container_metadata, results, cancelled=False, error=False
+    job_definition,
+    container_metadata,
+    results_metadata,
+    cancelled=False,
+    error=False,
 ):
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
-    job_metadata = dict()
+    # start with calculated results
+    job_metadata = {**results_metadata}
     job_metadata["job_definition_id"] = job_definition.id
     job_metadata["job_definition_request_id"] = job_definition.job_request_id
     job_metadata["created_at"] = job_definition.created_at
@@ -522,23 +511,27 @@ def get_job_metadata(
     # convert exit code to str so 0 exit codes get logged
     job_metadata["exit_code"] = str(container_metadata.get("State", {}).get("ExitCode"))
     job_metadata["oom_killed"] = container_metadata.get("State", {}).get("OOMKilled")
-    job_metadata["status_message"] = results.message
     job_metadata["container_metadata"] = container_metadata
-    job_metadata["outputs"] = outputs
     job_metadata["commit"] = job_definition.study.commit
     job_metadata["database_name"] = job_definition.database_name
     # new metadata added later, ensure default value is in METADATA_DEFAULTS
-    job_metadata["hint"] = results.unmatched_hint
-    # all calculated results
-    job_metadata["unmatched_patterns"] = results.unmatched_patterns
-    job_metadata["unmatched_outputs"] = results.unmatched_outputs
-    job_metadata["timestamp_ns"] = results.timestamp_ns
-    job_metadata["action_version"] = results.action_version
-    job_metadata["action_revision"] = results.action_revision
-    job_metadata["action_created"] = results.action_created
-    job_metadata["base_revision"] = results.base_revision
-    job_metadata["base_created"] = results.base_created
-    job_metadata["level4_excluded_files"] = {}
+    labels = container_metadata.get("Config", {}).get("Labels", {})
+    job_metadata["action_version"] = (
+        labels.get("org.opencontainers.image.version", "unknown"),
+    )
+    job_metadata["action_revision"] = (
+        labels.get("org.opencontainers.image.revision", "unknown"),
+    )
+    job_metadata["action_created"] = (
+        labels.get("org.opencontainers.image.created", "unknown"),
+    )
+    job_metadata["base_revision"] = (
+        labels.get("org.opensafely.base.vcs-ref", "unknown"),
+    )
+    job_metadata["base_created"] = (
+        labels.get("org.opencontainers.base.build-date", "unknown"),
+    )
+    job_metadata["level4_excluded_files"] = {}  # updated after outputs are persisted
     job_metadata["cancelled"] = cancelled
     job_metadata["error"] = error
     # load metrics from metrics db
