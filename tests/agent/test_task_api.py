@@ -35,14 +35,14 @@ def test_get_active_tasks(db, monkeypatch, responses):
 
     responses.add(
         method="GET",
-        url=f"{config.TASK_API_ENDPOINT}dummy/tasks",
+        url=f"{config.TASK_API_ENDPOINT}dummy/tasks/",
         status=200,
         json={"tasks": [AgentTask.from_task(task1).asdict()]},
         match=[matchers.header_matcher({"Authorization": config.JOB_SERVER_TOKEN})],
     )
     responses.add(
         method="GET",
-        url=f"{config.TASK_API_ENDPOINT}another/tasks",
+        url=f"{config.TASK_API_ENDPOINT}another/tasks/",
         status=200,
         json={"tasks": [AgentTask.from_task(task3).asdict()]},
         match=[matchers.header_matcher({"Authorization": config.JOB_SERVER_TOKEN})],
@@ -66,7 +66,7 @@ def test_get_active_tasks_api_error(db, monkeypatch, responses):
 
     responses.add(
         method="GET",
-        url=f"{config.TASK_API_ENDPOINT}dummy/tasks",
+        url=f"{config.TASK_API_ENDPOINT}dummy/tasks/",
         status=500,
         match=[matchers.header_matcher({"Authorization": config.JOB_SERVER_TOKEN})],
     )

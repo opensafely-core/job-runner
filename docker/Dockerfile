@@ -85,12 +85,14 @@ ENV VIRTUAL_ENV=/opt/venv/ PATH="/opt/venv/bin:$PATH"
 RUN mkdir /app
 WORKDIR /app
 
-# We set command rather than entrypoint, to make it easier to run different
-# things from the cli
-CMD ["/opt/venv/bin/python", "-m", "jobrunner.service"]
-
 # This may not be necessary, but it probably doesn't hurt
 ENV PYTHONPATH=/app
+
+# We use --init to run the docker container, which mounts tini binary, and uses
+# it as PID 1, but only in single-process mode. Setting TINI_KILL_PROCESS_GROUP
+# means it will forward signals to any background processes as well as the main
+# process.
+ENV TINI_KILL_PROCESS_GROUP=1
 
 ##################################################
 #

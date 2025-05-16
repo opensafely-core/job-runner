@@ -92,3 +92,22 @@ services:
     # override command
     command: >
       bash -c pytest
+
+  # functional test services - note these intentionally extend prod rather than dev
+  test-agent:
+    extends:
+        service: prod
+    command: /app/docker/scripts/agent.sh
+    environment:
+      WORKDIR: "/tmp/workdir"
+      CONTROLLER_TASK_API_ENDPOINT: "http://test-controller:8000/"
+
+  test-controller:
+    extends:
+        service: prod
+    command: /app/docker/scripts/controller.sh
+    environment:
+      WORKDIR: "/tmp/workdir"
+      DJANGO_CONTROLLER_SECRET_KEY: 12345789abcdefghi
+      DJANGO_CONTROLLER_ALLOWED_HOSTS: "*"
+      DJANGO_DEBUG: "False"
