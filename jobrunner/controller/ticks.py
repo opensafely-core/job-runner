@@ -28,8 +28,7 @@ def main():  # pragma: no cover
         last_run = record_job_tick_trace(last_run, active_jobs)
 
         # record_tick_trace might have take a while, so sleep the remaining interval.
-        # Enforce a minimum time of 2s to ensure we don't hammer honeycomb or
-        # the docker api
+        # Enforce a minimum time of 2s to ensure we don't hammer honeycomb
         elapsed = time.time() - before
         time.sleep(max(2, config.TICK_POLL_INTERVAL - elapsed))
 
