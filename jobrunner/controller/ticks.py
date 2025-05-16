@@ -27,8 +27,8 @@ def main():  # pragma: no cover
         )
         last_run = record_job_tick_trace(last_run, active_jobs)
 
-        # record_tick_trace might have take a while, so sleep the remainding interval
-        # enforce a minimum time of 2s to ensure we don't hammer honeycomb or
+        # record_tick_trace might have take a while, so sleep the remaining interval.
+        # Enforce a minimum time of 2s to ensure we don't hammer honeycomb or
         # the docker api
         elapsed = time.time() - before
         time.sleep(max(2, config.TICK_POLL_INTERVAL - elapsed))
@@ -40,9 +40,9 @@ def record_job_tick_trace(last_run, active_jobs):
     This will give us more realtime information than the job traces, which only
     send spans data when *leaving* a state.
 
-    The easiest way to filter these in honeycomb is on tick==true attribute
+    The easiest way to filter these in honeycomb is on the attribute `scope = ticks`
 
-    Not that this will emit number of active jobs + 1 events every call, so we
+    Note that this will emit number of active jobs + 1 events every call, so we
     don't want to call it on too tight a loop.
     """
 
