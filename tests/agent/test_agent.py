@@ -188,6 +188,9 @@ def test_handle_runjob_with_fatal_error(mock_update_controller, db):
     spans = get_trace("agent_loop")
     assert len(spans) == 1
     span = spans[0]
+    assert len(span.events) == 1
+    assert "test_hard_failure" in span.events[0].attributes["exception.message"]
+
     assert span.attributes["initial_job_status"] == "PREPARED"
     assert span.attributes["final_job_status"] == "ERROR"
     # exception info has been added to the span

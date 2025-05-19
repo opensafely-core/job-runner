@@ -443,6 +443,8 @@ def test_handle_job_finalized_failed_with_fatal_error(db):
     spans = get_trace("loop")
     span = spans[-2]  # final span is loop job
     assert span.name == "LOOP_JOB"
+    assert len(span.events) == 1
+    assert "test_hard_failure" in span.events[0].attributes["exception.message"]
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == "PlatformError: test_hard_failure"
     assert span.attributes["fatal_job_error"] is True
@@ -817,6 +819,8 @@ def test_handle_non_fatal_error(patched_handle_job, db, monkeypatch, exc):
     spans = get_trace("loop")
     span = spans[-2]  # final span is LOOP, we want last LOOP_JOB
     assert span.name == "LOOP_JOB"
+    assert len(span.events) == 1
+    assert str(exc) in span.events[0].attributes["exception.message"]
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == f"{exc.__class__.__name__}: {str(exc)}"
     assert span.attributes["fatal_job_error"] is False

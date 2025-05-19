@@ -70,8 +70,6 @@ def handle_single_task(task, api):
                 case _:
                     assert False, f"Unknown task type {task.type}"
         except Exception as exc:
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
-            span.record_exception(exc)
             if is_fatal_task_error(exc):
                 span.set_attribute("fatal_task_error", True)
                 mark_task_as_error(
