@@ -42,6 +42,7 @@ test_job_definition = JobDefinition(
     image="",
     args=[],
     env={},
+    inputs=[],
     input_job_ids=[],
     output_spec={},
     allow_database_access=False,

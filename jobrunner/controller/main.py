@@ -340,6 +340,7 @@ def job_to_job_definition(job):
         image=full_image,
         args=action_args,
         env=env,
+        inputs=[],
         input_job_ids=input_job_ids,
         output_spec=outputs,
         allow_database_access=job.requires_db,
