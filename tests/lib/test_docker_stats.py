@@ -34,7 +34,7 @@ def test_get_job_stats_cache(docker_cleanup):
 
     assert len(docker_stats.CONTAINER_METADATA) == 1
     assert "os-job-test" in docker_stats.CONTAINER_METADATA
-    assert "state_container" not in docker_stats.CONTAINER_METADATA
+    assert "stale_container" not in docker_stats.CONTAINER_METADATA
 
     # for coverage of already cached branch
     with tracer.start_as_current_span("s2") as s2:
