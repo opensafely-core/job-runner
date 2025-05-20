@@ -14,8 +14,9 @@ from pathlib import Path
 
 from opentelemetry import trace
 
-from jobrunner import tracing
+from jobrunner.agent import task_api, tracing
 from jobrunner.config import agent as config
+from jobrunner.job_executor import JobDefinition
 from jobrunner.lib.docker_stats import get_job_stats
 from jobrunner.lib.log_utils import configure_logging
 
@@ -128,7 +129,11 @@ def record_metrics_tick_trace(last_run):
     if last_run is None:
         return time.time_ns()
 
-    trace_attrs = {"stats_timeout": False, "stats_error": False}
+    trace_attrs = {
+        "stats_timeout": False,
+        "stats_error": False,
+        "backend": config.BACKEND,
+    }
     stats = {}
     error_attrs = {}
 
@@ -144,6 +149,10 @@ def record_metrics_tick_trace(last_run):
         error_attrs["cmd"] = " ".join(exc.cmd)
         error_attrs["exit_code"] = exc.returncode
         error_attrs["output"] = exc.stderr + "\n\n" + exc.output
+
+    tasks = task_api.get_active_tasks(config.BACKEND)
+    # any task definition with an id is assumed to be a job id
+    tasks_by_job_id = {t.definition["id"]: t for t in tasks if "id" in t.definition}
 
     # record time once stats call has completed, as it can take a while
     now = time.time_ns()
@@ -162,9 +171,7 @@ def record_metrics_tick_trace(last_run):
 
         for job_id, metrics in stats.items():
             # set up attributes
-            span_attrs = {
-                "job": job_id,
-            }
+            span_attrs = {"job": job_id}
             span_attrs.update(trace_attrs)
             span_attrs.update(metrics)
 
@@ -186,6 +193,25 @@ def record_metrics_tick_trace(last_run):
             # record span
             span = tracer.start_span("METRICS", start_time=start_time)
             tracing.set_span_attributes(span, span_attrs)
+
+            # annotate with job/task metadata
+            if task := tasks_by_job_id.get(job_id):
+                # this will set backend
+                tracing.set_task_span_metadata(span, task)
+                tracing.set_job_span_metadata(
+                    span, JobDefinition.from_dict(task.definition)
+                )
+            else:
+                # something is not right - we should have a task for this.
+                # setup some fallback tracing metadata
+                span.set_attributes(
+                    {
+                        "job": job_id,
+                        "task": "unknown",
+                        "backend": config.BACKEND,
+                    }
+                )
+
             span.end(end_time)
 
     return end_time
