@@ -57,7 +57,12 @@ def test_read_write_job_metrics():
 
 
 @pytest.mark.parametrize("task_present", [True, False])
-def test_record_metrics_tick_trace(db, freezer, monkeypatch, task_present):
+def test_record_metrics_tick_trace(
+    db, freezer, monkeypatch, live_server, responses, task_present
+):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
     mb = 1024 * 1024
 
     if task_present:
@@ -126,7 +131,12 @@ def test_record_metrics_tick_trace(db, freezer, monkeypatch, task_present):
     assert span.attributes["mem_mb_mean"] == 1000
 
 
-def test_record_metrics_tick_trace_stats_timeout(db, freezer, monkeypatch):
+def test_record_metrics_tick_trace_stats_timeout(
+    db, freezer, live_server, responses, monkeypatch
+):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
     def timeout():
         raise subprocess.TimeoutExpired("cmd", 10)
 
@@ -148,7 +158,12 @@ def test_record_metrics_tick_trace_stats_timeout(db, freezer, monkeypatch):
     assert span.attributes["stats_error"] is False
 
 
-def test_record_metrics_tick_trace_stats_error(db, freezer, monkeypatch):
+def test_record_metrics_tick_trace_stats_error(
+    db, freezer, monkeypatch, live_server, responses
+):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
     def error():
         raise subprocess.CalledProcessError(
             returncode=1, cmd=["test", "cmd"], output="stdout", stderr="stderr"
