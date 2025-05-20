@@ -516,20 +516,18 @@ def get_job_metadata(
     job_metadata["database_name"] = job_definition.database_name
     # new metadata added later, ensure default value is in METADATA_DEFAULTS
     labels = container_metadata.get("Config", {}).get("Labels", {})
-    job_metadata["action_version"] = (
-        labels.get("org.opencontainers.image.version", "unknown"),
+    job_metadata["action_version"] = labels.get(
+        "org.opencontainers.image.version", "unknown"
     )
-    job_metadata["action_revision"] = (
-        labels.get("org.opencontainers.image.revision", "unknown"),
+    job_metadata["action_revision"] = labels.get(
+        "org.opencontainers.image.revision", "unknown"
     )
-    job_metadata["action_created"] = (
-        labels.get("org.opencontainers.image.created", "unknown"),
+    job_metadata["action_created"] = labels.get(
+        "org.opencontainers.image.created", "unknown"
     )
-    job_metadata["base_revision"] = (
-        labels.get("org.opensafely.base.vcs-ref", "unknown"),
-    )
-    job_metadata["base_created"] = (
-        labels.get("org.opencontainers.base.build-date", "unknown"),
+    job_metadata["base_revision"] = labels.get("org.opensafely.base.vcs-ref", "unknown")
+    job_metadata["base_created"] = labels.get(
+        "org.opencontainers.base.build-date", "unknown"
     )
     job_metadata["level4_excluded_files"] = {}  # updated after outputs are persisted
     job_metadata["cancelled"] = cancelled
