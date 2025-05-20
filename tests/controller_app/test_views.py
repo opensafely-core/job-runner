@@ -172,8 +172,13 @@ def test_update_task_no_matching_task(db, client, monkeypatch):
 
 
 def test_active_tasks_view_tracing(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+    headers = {"Authorization": "test_token"}
+
     setup_auto_tracing()
-    client.get(reverse("active_tasks", args=("test",)))
+    client.get(reverse("active_tasks", args=("test",)), headers=headers)
     traces = get_trace()
     last_trace = traces[-1]
     # default django attributes
@@ -185,6 +190,11 @@ def test_active_tasks_view_tracing(db, client, monkeypatch):
 
 
 def test_update_task_view_tracing(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+    headers = {"Authorization": "test_token"}
+
     setup_auto_tracing()
     task = runjob_db_task_factory(backend="test")
 
@@ -195,13 +205,17 @@ def test_update_task_view_tracing(db, client, monkeypatch):
         "complete": False,
     }
 
-    client.post(reverse("update_task", args=("test",)), data=post_data)
+    client.post(
+        reverse("update_task", args=("test",)),
+        data={"payload": json.dumps(post_data)},
+        headers=headers,
+    )
     traces = get_trace()
     last_trace = traces[-1]
     # default django attributes
     assert last_trace.attributes["http.method"] == "POST"
     assert last_trace.attributes["http.url"].endswith("/test/task/update/")
-    assert last_trace.attributes["http.status_code"] == 204
+    assert last_trace.attributes["http.status_code"] == 200
     # custom attributes
     assert last_trace.attributes["backend"] == "test"
     assert last_trace.attributes["task_id"] == task.id
