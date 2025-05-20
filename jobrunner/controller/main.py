@@ -249,9 +249,21 @@ def handle_job(job, mode=None, paused=None):
                 save_results(job, results)
                 # TODO: Delete obsolete files
         else:
-            # Record the fact that we've visited the job (and not forgotten about it)
-            # even though nothing has changed
-            refresh_job_timestamps(job)
+            # A task exists for this job already and it hasn't completed yet
+            # The current task stage may be None if the agent hasn't sent back any
+            # update yet, otherwise it should be in one of the running status codes which
+            # mirror ExecutorState
+            # (PREPARING, PREPARED, EXECUTING, EXECUTED, FINALIZING)
+            # Note we won't get here with FINALIZED status, because at that stage it
+            # will also be complete
+            # In case a running job is updated with an unknown agent_stage (i.e. an
+            # ExecutorState that is not a valid StatusCode (i.e. error, unknown), we
+            # use the current job status_code as a default)
+            set_code(
+                job,
+                StatusCode.from_value(task.agent_stage, default=job.status_code),
+                job.status_message,
+            )
 
 
 def save_results(job, results):

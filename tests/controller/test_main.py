@@ -241,7 +241,7 @@ def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
     job3 = database.find_one(Job, id=job3.id)
 
     assert job1.state == State.RUNNING
-    assert job1.status_code == StatusCode.EXECUTING
+    assert job1.status_code == StatusCode.INITIATED
 
     assert job2.state == State.PENDING
     assert (
