@@ -125,8 +125,6 @@ def handle_single_job(job):
         try:
             handle_job(job, mode, paused)
         except Exception as exc:
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
-            span.record_exception(exc)
             if is_fatal_job_error(exc):
                 span.set_attribute("fatal_job_error", True)
                 mark_job_as_failed(

@@ -114,6 +114,7 @@ def test_handle_job_pending_dependency_failed(db):
 
     # tracing
     spans = get_trace("jobs")
+    assert all(s.attributes["backend"] == "test" for s in spans)
     assert spans[-3].name == "CREATED"
     assert spans[-2].name == "DEPENDENCY_FAILED"
     assert spans[-2].status.status_code == trace.StatusCode.ERROR
@@ -141,6 +142,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
 
     # tracing
     spans = get_trace("jobs")
+    assert all(s.attributes["backend"] == "test" for s in spans)
     assert spans[-1].name == "CREATED"
 
 
@@ -160,6 +162,7 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
 
     # tracing
     spans = get_trace("jobs")
+    assert all(s.attributes["backend"] == "test" for s in spans)
     assert spans[-1].name == "CREATED"
 
 
@@ -198,6 +201,8 @@ def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
     # tracing
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
+    assert spans[-1].attributes["backend"] == "foo"
+    assert spans[-2].attributes["backend"] == "bar"
 
 
 def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
@@ -443,6 +448,8 @@ def test_handle_job_finalized_failed_with_fatal_error(db):
     spans = get_trace("loop")
     span = spans[-2]  # final span is loop job
     assert span.name == "LOOP_JOB"
+    assert len(span.events) == 1
+    assert "test_hard_failure" in span.events[0].attributes["exception.message"]
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == "PlatformError: test_hard_failure"
     assert span.attributes["fatal_job_error"] is True
@@ -817,6 +824,8 @@ def test_handle_non_fatal_error(patched_handle_job, db, monkeypatch, exc):
     spans = get_trace("loop")
     span = spans[-2]  # final span is LOOP, we want last LOOP_JOB
     assert span.name == "LOOP_JOB"
+    assert len(span.events) == 1
+    assert str(exc) in span.events[0].attributes["exception.message"]
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == f"{exc.__class__.__name__}: {str(exc)}"
     assert span.attributes["fatal_job_error"] is False

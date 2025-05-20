@@ -2,8 +2,12 @@ import sqlite3
 import subprocess
 import time
 
+import pytest
+
 from jobrunner.agent import metrics
 from jobrunner.config import agent as config
+from jobrunner.job_executor import ExecutorState
+from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
 from tests.factories import metrics_factory
 
@@ -52,14 +56,24 @@ def test_read_write_job_metrics():
     assert metrics.read_job_metrics("id") == {"test": 1.0}
 
 
-def test_record_metrics_tick_trace(db, freezer, monkeypatch):
+@pytest.mark.parametrize("task_present", [True, False])
+def test_record_metrics_tick_trace(db, freezer, monkeypatch, task_present):
     mb = 1024 * 1024
+
+    if task_present:
+        api = StubExecutorAPI()
+        task, job_id = api.add_test_runjob_task(ExecutorState.EXECUTING)
+        task_id = task.id
+    else:
+        job_id = "job_id"
+        task_id = "unknown"
+
     started_at = int(time.time())  # frozen
     monkeypatch.setattr(
         metrics,
         "get_job_stats",
         lambda: {
-            "j1": {
+            job_id: {
                 "cpu_percentage": 50.0,
                 "memory_used": 1000 * mb,
                 "container_id": "a0b1c2d3",
@@ -83,13 +97,16 @@ def test_record_metrics_tick_trace(db, freezer, monkeypatch):
     assert root.name == "METRICS_TICK"
     assert root.start_time == last_run1
     assert root.end_time == last_run2
+    assert root.attributes["backend"] == "test"
 
     span = spans[-2]
 
     assert span.name == "METRICS"
     assert span.start_time == last_run1
     assert span.end_time == last_run2
-    assert span.attributes["job"] == "j1"
+    assert span.attributes["job"] == job_id
+    assert span.attributes["task"] == task_id
+    assert span.attributes["backend"] == "test"
     assert span.parent.span_id == root.context.span_id
 
     assert span.attributes["stats_timeout"] is False
