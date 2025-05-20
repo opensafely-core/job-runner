@@ -87,6 +87,10 @@ class StatusCode(Enum):
         order = list(self.__class__)
         return order.index(self) < order.index(other)
 
+    @classmethod
+    def from_value(cls, value, default=None):
+        return next((item for item in cls if item.value == value), default)
+
 
 # used for tracing to know if a state is final or not
 StatusCode._FINAL_STATUS_CODES = [
