@@ -7,6 +7,7 @@ from opentelemetry import trace
 
 from jobrunner.controller.task_api import get_active_tasks, handle_task_update
 from jobrunner.schema import AgentTask
+from jobrunner.tracing import set_span_attributes
 
 
 log = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ log = logging.getLogger(__name__)
 
 def trace_attributes(**attrs):
     span = trace.get_current_span()
-    span.set_attributes(attrs)
+    set_span_attributes(span, attrs)
 
 
 @csrf_exempt
