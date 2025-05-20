@@ -88,29 +88,32 @@ def trace_job_attributes(job: JobDefinition):
 
 
 def set_job_results_metadata(span, results, attributes=None):
+    attributes = attributes or {}
     try:
-        attributes = attributes or {}
-
-        if results:
-            attributes.update(
-                dict(
-                    exit_code=results["exit_code"],
-                    image_id=results["docker_image_id"],
-                    executor_message=results["status_message"],
-                    action_version=results["action_version"],
-                    action_revision=results["action_revision"],
-                    action_created=results["action_created"],
-                    base_revision=results["base_revision"],
-                    base_created=results["base_created"],
-                    cancelled=results["cancelled"],
-                )
-            )
-            if "error" in results:
-                attributes.update(error=results["error"])
-
+        attributes = trace_job_results_attributes(results, attributes)
         set_span_attributes(span, attributes)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(
             f"failed to trace job results for job {span.attributes.get('id')}"
         )
+
+
+def trace_job_results_attributes(results, attributes):
+    if results:
+        attributes.update(
+            dict(
+                exit_code=results["exit_code"],
+                image_id=results["docker_image_id"],
+                executor_message=results["status_message"],
+                action_version=results["action_version"],
+                action_revision=results["action_revision"],
+                action_created=results["action_created"],
+                base_revision=results["base_revision"],
+                base_created=results["base_created"],
+                cancelled=results["cancelled"],
+            )
+        )
+        if "error" in results:
+            attributes.update(error=results["error"])
+    return attributes
