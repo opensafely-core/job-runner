@@ -235,7 +235,7 @@ def handle_job(job, mode=None, paused=None):
         task = create_task_for_job(job)
         with transaction():
             insert_task(task)
-            set_code(job, StatusCode.EXECUTING, "Executing job on the backend")
+            set_code(job, StatusCode.INITIATED, "Job executing on the backend")
     else:
         assert job.state == State.RUNNING
         task = get_task_for_job(job)
@@ -390,6 +390,7 @@ def set_code(job, new_status_code, message, error=None, results=None, **attrs):
 
         # update coarse state and timings for user
         if new_status_code in [
+            StatusCode.INITIATED,
             StatusCode.PREPARED,
             StatusCode.PREPARING,
             StatusCode.EXECUTING,
