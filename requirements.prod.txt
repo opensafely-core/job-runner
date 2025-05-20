@@ -145,6 +145,10 @@ opentelemetry-api==1.33.0 \
     --hash=sha256:cc4380fd2e6da7dcb52a828ea81844ed1f4f2eb638ca3c816775109d93d58ced
     # via
     #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-wsgi
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
 opentelemetry-exporter-otlp-proto-common==1.33.0 \
@@ -155,6 +159,25 @@ opentelemetry-exporter-otlp-proto-http==1.33.0 \
     --hash=sha256:5babd7498845c12c2d503d8c185ce345cb35e91805d4e3e5ac32a3abd8f75d64 \
     --hash=sha256:bf0cf7568432621b903223e5b72aa9f8fe425fcc748e54d0b21ebe99885c12ee
     # via opensafely-jobrunner (pyproject.toml)
+opentelemetry-instrumentation==0.54b0 \
+    --hash=sha256:1a502238f8af65625ad48800d268d467653e319d959e1732d3b3248916d21327 \
+    --hash=sha256:2949d0bbf2316eb5d928a5ef610d0a8a2c261ba80167d878abf6016e1c4ae7bb
+    # via
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-wsgi
+opentelemetry-instrumentation-django==0.54b0 \
+    --hash=sha256:1df0e7c9f3ab796fbc4579fcc5dae78926b89e7c4c6279fa5355f6630f12f3ce \
+    --hash=sha256:af6b33ebf91c9fccba82a9070ed8d884b0d5d4ee9e4f70716672a6641ee005e6
+    # via opensafely-jobrunner (pyproject.toml)
+opentelemetry-instrumentation-requests==0.54b0 \
+    --hash=sha256:abc604d58a0da9cbfad2e9439df2b85437ec00bf550753cf64bf6d61e2b98bdd \
+    --hash=sha256:c05324b3a5a047b28cd7bccf1f506d7ebadbfd8faefc2661fe7d40c3218d9a8c
+    # via opensafely-jobrunner (pyproject.toml)
+opentelemetry-instrumentation-wsgi==0.54b0 \
+    --hash=sha256:52c58cb532c6ba5641bb5f6188d71d887c1760a4bcabb71f297847df9b95f0f2 \
+    --hash=sha256:7ecc72b765b032cf04c35dceb117306bbfe37fd54885bd46c8bbaff3f9e88140
+    # via opentelemetry-instrumentation-django
 opentelemetry-proto==1.33.0 \
     --hash=sha256:84a1d7daacac4aa0f24a5b1190a3e0619011dbff56f945fc2b6fc0a18f48b942 \
     --hash=sha256:ec5aa35486c990207ead2512a8d616d1b324928562c91dbc7e0cb9aa48c60b7b
@@ -168,11 +191,25 @@ opentelemetry-sdk==1.33.0 \
 opentelemetry-semantic-conventions==0.54b0 \
     --hash=sha256:467b739977bdcb079af1af69f73632535cdb51099d5e3c5709a35d10fe02a9c9 \
     --hash=sha256:fad7c1cf8908fd449eb5cf9fbbeefb301acf4bc995101f85277899cec125d823
-    # via opentelemetry-sdk
+    # via
+    #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-wsgi
+    #   opentelemetry-sdk
+opentelemetry-util-http==0.54b0 \
+    --hash=sha256:2b5fe7157928bdbde194d38df7cbd35a679631fe5b6c23b2c4a271229f7e42b5 \
+    --hash=sha256:40598360e08ee7f8ea563f40dee5e30b1c15be54615e11497aaf190930e94250
+    # via
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-wsgi
 packaging==25.0 \
     --hash=sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484 \
     --hash=sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f
-    # via gunicorn
+    # via
+    #   gunicorn
+    #   opentelemetry-instrumentation
 protobuf==5.29.4 \
     --hash=sha256:13eb236f8eb9ec34e63fc8b1d6efd2777d062fa6aaa68268fb67cf77f6839ad7 \
     --hash=sha256:1832f0515b62d12d8e6ffc078d7e9eb06969aa6dc13c13e1036e39d73bebc2de \
@@ -294,7 +331,9 @@ wrapt==1.17.2 \
     --hash=sha256:f917c1180fdb8623c2b75a99192f4025e412597c50b2ac870f156de8fb101119 \
     --hash=sha256:fc78a84e2dfbc27afe4b2bd7c80c8db9bca75cc5b85df52bfe634596a1da846b \
     --hash=sha256:ff04ef6eec3eee8a5efef2401495967a916feaa353643defcc03fc74fe213b58
-    # via deprecated
+    # via
+    #   deprecated
+    #   opentelemetry-instrumentation
 zipp==3.21.0 \
     --hash=sha256:2c9958f6430a2040341a52eb608ed6dd93ef4392e02ffe219417c1b28b5dd1f4 \
     --hash=sha256:ac1bbe05fd2991f160ebce24ffbac5f6d11d83dc90891255885223d42b3cd931

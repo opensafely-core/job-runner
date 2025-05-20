@@ -3,10 +3,17 @@ from django.urls import reverse
 
 from jobrunner.lib import database
 from jobrunner.models import Task
+from tests.conftest import get_trace
 from tests.factories import (
     canceljob_db_task_factory,
     runjob_db_task_factory,
 )
+
+
+def setup_auto_tracing():
+    from opentelemetry.instrumentation.auto_instrumentation import (  # noqa: F401
+        sitecustomize,
+    )
 
 
 def test_controller_returns_get_request_method(client):
@@ -105,3 +112,39 @@ def test_update_task_no_matching_task(db, client):
 
     assert response.status_code == 500
     assert response.json()["error"] == "Error updating task"
+
+
+def test_active_tasks_view_tracing(db, client, monkeypatch):
+    setup_auto_tracing()
+    client.get(reverse("active_tasks", args=("test",)))
+    traces = get_trace()
+    last_trace = traces[-1]
+    # default django attributes
+    assert last_trace.attributes["http.method"] == "GET"
+    assert last_trace.attributes["http.url"].endswith("/test/tasks/")
+    assert last_trace.attributes["http.status_code"] == 200
+    # custom attributes
+    assert last_trace.attributes["backend"] == "test"
+
+
+def test_update_task_view_tracing(db, client, monkeypatch):
+    setup_auto_tracing()
+    task = runjob_db_task_factory(backend="test")
+
+    post_data = {
+        "task_id": task.id,
+        "stage": "prepared",
+        "results": {},
+        "complete": False,
+    }
+
+    client.post(reverse("update_task", args=("test",)), data=post_data)
+    traces = get_trace()
+    last_trace = traces[-1]
+    # default django attributes
+    assert last_trace.attributes["http.method"] == "POST"
+    assert last_trace.attributes["http.url"].endswith("/test/task/update/")
+    assert last_trace.attributes["http.status_code"] == 204
+    # custom attributes
+    assert last_trace.attributes["backend"] == "test"
+    assert last_trace.attributes["task_id"] == task.id
