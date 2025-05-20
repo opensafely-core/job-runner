@@ -255,9 +255,9 @@ def test_tracing_final_state_attributes_tracing_errors(db, caplog):
     spans = get_trace("agent_loop")
     assert len(spans) == 1
     span = spans[0]
-    # Exception encountered in set_span_attributes(), so no attributes were set, but
-    # exception logged, not raised
-    assert span.attributes == {}
+    # Exception encountered in set_span_attributes(), so only attributes set
+    # directly with span.set_attributes are set, and nothing is raised
+    assert span.attributes == {"initial_job_status": "EXECUTED"}
     assert "failed to trace job results" in caplog.text
 
 

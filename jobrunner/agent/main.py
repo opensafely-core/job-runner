@@ -102,13 +102,11 @@ def handle_cancel_job_task(task, api):
     up a job depend on its state at the point of cancellation
     """
     job = JobDefinition.from_dict(task.definition)
+    span = trace.get_current_span()
+    tracing.set_job_span_metadata(span, job)
 
     initial_job_status = api.get_status(job, cancelled=True)
-
-    span = trace.get_current_span()
-    span.set_attributes(
-        {"id": job.id, "initial_job_status": initial_job_status.state.name}
-    )
+    span.set_attributes({"initial_job_status": initial_job_status.state.name})
 
     # initialize pre_finalized_job_status as initial_job_status
     # this may change during the cancellation process, depending on what we need to
@@ -172,13 +170,14 @@ def handle_run_job_task(task, api):
     well as various operational modes.
     """
     job = JobDefinition.from_dict(task.definition)
+    span = trace.get_current_span()
+    tracing.set_job_span_metadata(span, job)
+
+    initial_job_status = api.get_status(job, cancelled=True)
+    span.set_attributes({"initial_job_status": initial_job_status.state.name})
+
     with set_log_context(job_definition=job):
         job_status = api.get_status(job)
-
-        span = trace.get_current_span()
-        tracing.set_job_span_metadata(
-            span, job, initial_job_status=job_status.state.name
-        )
 
         # TODO: Update get_status to detect an error.json and read it.
         # I think that JobStatus should probably grow .error and .result fields,
