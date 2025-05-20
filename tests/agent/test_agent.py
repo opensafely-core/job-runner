@@ -96,6 +96,8 @@ def test_handle_job_full_execution(db, freezer, caplog):
     # one span each time we called main.handle_single_task
     assert len(spans) == 3
 
+    assert all(s.attributes["backend"] == "test" for s in spans)
+
     assert spans[0].attributes["initial_job_status"] == "UNKNOWN"
     assert spans[0].attributes["final_job_status"] == "PREPARED"
     assert not spans[0].attributes["complete"]
@@ -140,6 +142,7 @@ def test_handle_job_stable_states(db, executor_state):
     # no spans
     assert len(get_trace("jobs")) == 0
     spans = get_trace("agent_loop")
+    assert all(s.attributes["backend"] == "test" for s in spans)
     assert len(spans) == 1
 
     assert spans[0].attributes["initial_job_status"] == executor_state.name
@@ -186,6 +189,7 @@ def test_handle_runjob_with_fatal_error(mock_update_controller, db):
     assert complete is True
 
     spans = get_trace("agent_loop")
+    assert all(s.attributes["backend"] == "test" for s in spans)
     assert len(spans) == 1
     span = spans[0]
     assert len(span.events) == 1
