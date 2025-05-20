@@ -91,7 +91,7 @@ def test_record_metrics_tick_trace(db, freezer, monkeypatch, task_present):
     assert last_run2 == last_run1 + 10 * 1e9
 
     spans = get_trace("metrics")
-    assert len(spans) == 2  # root and single metrics
+    assert len(spans) == 3  # root, single metric, and get_job_stats
 
     root = spans[-1]
     assert root.name == "METRICS_TICK"
@@ -125,6 +125,9 @@ def test_record_metrics_tick_trace(db, freezer, monkeypatch, task_present):
     assert span.attributes["mem_mb_cumsum"] == 10000  # 1000 * 10s
     assert span.attributes["mem_mb_mean"] == 1000
 
+    span = spans[-3]
+    assert span.name == "get_job_stats"
+
 
 def test_record_metrics_tick_trace_stats_timeout(db, freezer, monkeypatch):
     def timeout():
@@ -136,16 +139,19 @@ def test_record_metrics_tick_trace_stats_timeout(db, freezer, monkeypatch):
     freezer.tick(10)
 
     metrics.record_metrics_tick_trace(last_run)
-    assert len(get_trace("metrics")) == 1
+    assert len(get_trace("metrics")) == 2
 
     spans = get_trace("metrics")
-    span = spans[0]
+    span = spans[-1]
 
     assert "cpu_percentage" not in span.attributes
     assert "memory_used" not in span.attributes
     assert "mem_mb_peak" not in span.attributes
     assert span.attributes["stats_timeout"] is True
     assert span.attributes["stats_error"] is False
+
+    span = spans[-2]
+    assert span.name == "get_job_stats"
 
 
 def test_record_metrics_tick_trace_stats_error(db, freezer, monkeypatch):
@@ -158,16 +164,18 @@ def test_record_metrics_tick_trace_stats_error(db, freezer, monkeypatch):
 
     last_run = time.time()
     metrics.record_metrics_tick_trace(last_run)
-    assert len(get_trace("metrics")) == 1
+    assert len(get_trace("metrics")) == 2
 
     spans = get_trace("metrics")
-    span = spans[0]
+    span = spans[-1]
 
     assert "cpu_percentage" not in span.attributes
     assert "memory_used" not in span.attributes
     assert "mem_mb_peak" not in span.attributes
     assert span.attributes["stats_timeout"] is False
     assert span.attributes["stats_error"] is True
+    span = spans[-2]
+    assert span.name == "get_job_stats"
 
 
 def test_update_job_metrics(db):
