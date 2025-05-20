@@ -3,14 +3,28 @@ import os
 import subprocess
 from datetime import datetime
 
+from opentelemetry import trace
+
 
 DEFAULT_TIMEOUT = 10
+CONTAINER_METADATA = {}
+
+
+def get_started_at(container: str, timeout: int) -> int:
+    if container not in CONTAINER_METADATA:
+        env = os.environ.copy()
+        env["DOCKER_TZ"] = "UTC"
+        cmd = ["docker", "inspect", "-f", "{{.Created}}", container]
+        ps = subprocess.run(
+            cmd, capture_output=True, check=True, timeout=timeout, env=env
+        )
+        CONTAINER_METADATA[container] = ps.stdout.strip().decode("utf8")
+
+    return CONTAINER_METADATA[container]
 
 
 def run_and_read_json_lines(cmd, timeout):
-    env = os.environ.copy()
-    env["DOCKER_TZ"] = "UTC"
-    ps = subprocess.run(cmd, capture_output=True, check=True, timeout=timeout, env=env)
+    ps = subprocess.run(cmd, capture_output=True, check=True, timeout=timeout)
     return [json.loads(line) for line in ps.stdout.splitlines()]
 
 
@@ -19,31 +33,32 @@ def get_job_stats(timeout=DEFAULT_TIMEOUT):
         ["docker", "stats", "--no-stream", "--no-trunc", "--format", "{{json .}}"],
         timeout=timeout,
     )
-    metadata_raw = run_and_read_json_lines(
-        ["docker", "container", "ls", "--no-trunc", "--format", "{{json .}}"],
-        timeout=timeout,
-    )
-
-    metadata_dict = {
-        _parse_job_id(m["Names"]): m
-        for m in metadata_raw
-        if m["Names"].startswith("os-job-")
-    }
 
     stats = {}
+    seen = set()
     for row in stats_raw:
         if not row["Name"].startswith("os-job-"):
             continue
 
-        job_id = _parse_job_id(row["Name"])
-        metadata = metadata_dict[job_id]
-
+        container = row["Name"]
+        job_id = _parse_job_id(container)
+        started_at = get_started_at(container, timeout=timeout)
         stats[job_id] = {
             "cpu_percentage": float(row["CPUPerc"].rstrip("%")),
             "memory_used": _parse_size(row["MemUsage"].split()[0]),
             "container_id": row["Container"],
-            "started_at": _docker_datestr_to_int_timestamp(metadata["CreatedAt"]),
+            "started_at": _docker_datestr_to_int_timestamp(started_at),
         }
+        seen.add(container)
+
+    # remove stale containers from cache
+    for container in set(CONTAINER_METADATA.keys()) - seen:
+        del CONTAINER_METADATA[container]
+
+    # track it so we can check cache size
+    trace.get_current_span().set_attribute(
+        "container_cache_size", len(CONTAINER_METADATA)
+    )
 
     return stats
 
@@ -74,5 +89,6 @@ def _parse_job_id(container_name):
 
 
 def _docker_datestr_to_int_timestamp(ts):
-    # parsing timezone names is messy, e.g. BST, so just strip them
-    return int(datetime.strptime(ts[:-4], "%Y-%m-%d %H:%M:%S %z").timestamp())
+    # strptime can only handle 6 fractional digits, docker returns 9. Strip the
+    # last 3 digits and the trailing Z
+    return int(datetime.strptime(ts[0:-4], "%Y-%m-%dT%H:%M:%S.%f").timestamp())
