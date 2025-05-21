@@ -27,7 +27,7 @@ def assert_state_change_logs(caplog, state_changes):
         ]
 
 
-def test_handle_tasks_error(db):
+def test_handle_tasks_error(db, caplog):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.UNKNOWN)
@@ -45,6 +45,8 @@ def test_handle_tasks_error(db):
     assert spans[1].name == "AGENT_LOOP"
     assert spans[1].attributes["handled_tasks"] == 1
     assert spans[1].attributes["errored_tasks"] == 1
+
+    assert caplog.records[0].msg == "task error"
 
 
 def test_handle_job_full_execution(db, freezer, caplog):

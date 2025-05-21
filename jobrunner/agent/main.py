@@ -48,6 +48,7 @@ def handle_tasks(api: ExecutorAPI | None):
                 except Exception:
                     # do not raise now, but record and move on to the next task, so
                     # we do not block loop.
+                    log.exception("task error")
                     errored_tasks.append(task)
 
             handled_tasks.append(task)
