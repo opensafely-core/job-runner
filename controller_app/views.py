@@ -40,12 +40,17 @@ def update_task(request, backend):
     # If the agent posts an empty results dict, it won't be present in the POST data
     results = update_task_info.get("results", {})
     complete = update_task_info["complete"]
+    timestamp_ns = update_task_info["timestamp_ns"]
 
     trace_attributes(backend=backend, task_id=task_id)
 
     try:
         handle_task_update(
-            task_id=task_id, stage=stage, results=results, complete=complete
+            task_id=task_id,
+            stage=stage,
+            results=results,
+            complete=complete,
+            timestamp_ns=timestamp_ns,
         )
     except Exception:
         log.exception("Error updating task")
