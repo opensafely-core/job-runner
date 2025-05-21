@@ -24,10 +24,7 @@ def main(exit_callback=lambda _: False):  # pragma: no cover
     api = get_executor_api()
 
     while True:
-        with tracer.start_as_current_span(
-            "AGENT_LOOP", attributes={"agent_loop": True}
-        ):
-            active_tasks = handle_tasks(api)
+        active_tasks = handle_tasks(api)
 
         if exit_callback(active_tasks):
             break
@@ -39,14 +36,28 @@ def handle_tasks(api: ExecutorAPI | None):
     active_tasks = task_api.get_active_tasks(backend=config.BACKEND)
 
     handled_tasks = []
+    errored_tasks = []
 
-    for task in active_tasks:
-        # `set_log_context` ensures that all log messages triggered anywhere
-        # further down the stack will have `task` set on them
-        with set_log_context(task=task):
-            handle_single_task(task, api)
+    with tracer.start_as_current_span("AGENT_LOOP") as span:
+        for task in active_tasks:
+            # `set_log_context` ensures that all log messages triggered anywhere
+            # further down the stack will have `task` set on them
+            with set_log_context(task=task):
+                try:
+                    handle_single_task(task, api)
+                except Exception:
+                    # do not raise now, but record and move on to the next task, so
+                    # we do not block loop.
+                    errored_tasks.append(task)
 
-        handled_tasks.append(task)
+            handled_tasks.append(task)
+
+        span.set_attributes(
+            {"handled_tasks": len(handled_tasks), "errored_tasks": len(errored_tasks)}
+        )
+
+    if errored_tasks:
+        raise Exception("Some tasks failed, restarting agent loop")
 
     return handled_tasks
 
