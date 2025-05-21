@@ -40,13 +40,6 @@ log = logging.getLogger(__name__)
 tracer = trace.get_tracer("loop")
 
 
-class PlatformError(Exception):
-    """
-    Indicates that something went wrong when running a job that is external to anything
-    that happened within the container
-    """
-
-
 def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
 
@@ -242,8 +235,12 @@ def handle_job(job, mode=None, paused=None):
         assert task is not None
         if task.agent_complete:
             if job_error := task.agent_results["error"]:
-                # Handled elsewhere
-                raise PlatformError(job_error)
+                mark_job_as_failed(
+                    job,
+                    StatusCode.JOB_ERROR,
+                    "This job returned an error.",
+                    error=job_error,
+                )
             else:
                 results = JobTaskResults.from_dict(task.agent_results)
                 save_results(job, results, task.agent_timestamp_ns)
@@ -546,6 +543,7 @@ def create_task_for_job(job):
     previous_tasks = find_where(
         Task, id__glob=f"{job.id}-*", type=TaskType.RUNJOB, backend=job.backend
     )
+
     assert all(not t.active for t in previous_tasks)
     task_number = len(previous_tasks) + 1
     return Task(

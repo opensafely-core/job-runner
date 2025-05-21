@@ -12,7 +12,6 @@ from jobrunner.config import agent as agent_config
 from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
 from jobrunner.controller import main, task_api
-from jobrunner.controller.main import PlatformError
 from jobrunner.lib import database
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.queries import get_flag_value, set_flag
@@ -58,6 +57,7 @@ def test_handle_pending_job_with_previous_tasks(db):
 
     # Make task inactive and run the controller loop again
     task_api.mark_task_inactive(task)
+
     run_controller_loop_once()
 
     # Controller has created a new runjob task
@@ -432,27 +432,26 @@ def test_handle_job_finalized_failed_with_fatal_error(db):
     assert job.state == State.RUNNING
 
     set_job_task_results(
-        job, job_task_results_factory(), error=str(Exception("test_hard_failure"))
+        job, job_task_results_factory(), error=str(Exception("test_job_failure"))
     )
 
-    with pytest.raises(PlatformError):
-        run_controller_loop_once()
+    run_controller_loop_once()
 
     job = database.find_one(Job, id=job.id)
 
     # our state
     assert job.state == State.FAILED
-    assert job.status_code == StatusCode.INTERNAL_ERROR
-    assert "Internal error" in job.status_message
+    assert job.status_code == StatusCode.JOB_ERROR
+    assert "This job returned an error." in job.status_message
 
     spans = get_trace("loop")
+
     span = spans[-2]  # final span is loop job
     assert span.name == "LOOP_JOB"
-    assert len(span.events) == 1
-    assert "test_hard_failure" in span.events[0].attributes["exception.message"]
-    assert span.status.status_code.name == "ERROR"
-    assert span.status.description == "PlatformError: test_hard_failure"
-    assert span.attributes["fatal_job_error"] is True
+    assert len(span.events) == 0
+
+    # this is the OTEL StatusCode not our own. UNSET means implicit success.
+    assert span.status.status_code == trace.StatusCode.UNSET
 
 
 @pytest.fixture

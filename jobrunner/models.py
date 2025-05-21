@@ -78,6 +78,7 @@ class StatusCode(Enum):
     INTERNAL_ERROR = "internal_error"
     KILLED_BY_ADMIN = "killed_by_admin"
     STALE_CODELISTS = "stale_codelists"
+    JOB_ERROR = "job_error"
 
     @property
     def is_final_code(self):
@@ -102,6 +103,7 @@ StatusCode._FINAL_STATUS_CODES = [
     StatusCode.INTERNAL_ERROR,
     StatusCode.KILLED_BY_ADMIN,
     StatusCode.STALE_CODELISTS,
+    StatusCode.JOB_ERROR,
 ]
 
 
