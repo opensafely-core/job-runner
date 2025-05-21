@@ -406,11 +406,12 @@ class Task:
             type TEXT,
             definition TEXT,
             active BOOLEAN,
-            created_at int,
-            finished_at int,
+            created_at INT,
+            finished_at INT,
             agent_stage TEXT,
             agent_complete BOOLEAN,
             agent_results TEXT,
+            agent_timestamp_ns INT,
             PRIMARY KEY (id)
         )
     """
@@ -432,6 +433,15 @@ class Task:
     agent_complete: bool = False
     # results of the task, including any error information
     agent_results: dict = None
+    # timestamp of state change sent by agent, default ns resolution
+    agent_timestamp_ns: int = None
 
     # ensure this table exists
     migration(4, __tableschema__)
+
+    migration(
+        7,
+        """
+        ALTER TABLE tasks ADD COLUMN agent_timestamp_ns INT;
+        """,
+    )
