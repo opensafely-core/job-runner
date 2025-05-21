@@ -62,22 +62,14 @@ DEBUG = get_env_var("DJANGO_DEBUG") == "True"
 # Application definition
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
     "django.contrib.staticfiles",
     "controller_app",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -104,10 +96,9 @@ WSGI_APPLICATION = "controller_app.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-# TODO: The Django app doesn't actually use the database at all at the moment but if we
-# don't define one it gets upset and if we point it to a real path we get permissions
-# issues when running inside a container. Using a in-memory database is a quick solution
-# for now.
+# This app doesn't currently use a Django-managed database at all: the controller code
+# manages its own database connection. But `pytest-django` gets upset if it doesn't have
+# a database to teardown, so the easiest thing to do is to define an in-memory database.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
