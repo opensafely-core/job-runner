@@ -133,6 +133,7 @@ def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, respo
     for job in jobs.values():
         assert job["status"] == "pending"
         assert job["status_code"] == "created"
+        assert job["started_at"] is None
 
     # no active tasks yet
     assert not get_active_db_tasks()
@@ -150,9 +151,15 @@ def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, respo
 
     jobrunner.sync.sync()
 
+    # We should now have one running (initiated, i.e. task created) job and all others waiting on dependencies
+    jobs = get_posted_jobs(responses)
+    # started_at should not change after job is first initiated
+    started_at = jobs["generate_dataset"]["started_at"]
+
     def assert_generate_dataset_dependency_running(jobs, running_status_code):
         assert jobs["generate_dataset"]["status"] == "running"
         assert jobs["generate_dataset"]["status_code"] == running_status_code
+        assert jobs["generate_dataset"]["started_at"] == started_at
         for action in [
             "prepare_data_m_ehrql",
             "prepare_data_f_ehrql",
@@ -164,8 +171,6 @@ def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, respo
             assert jobs[action]["status_code"] == "waiting_on_dependencies"
             assert jobs[action]["status_message"].startswith("Waiting on dependencies")
 
-    # We should now have one running (initiated, i.e. task created) job and all others waiting on dependencies
-    jobs = get_posted_jobs(responses)
     assert_generate_dataset_dependency_running(jobs, "initiated")
 
     # MOVE TO AGENT; set up the expected agent config (and remove controller config)

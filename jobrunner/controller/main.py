@@ -414,7 +414,9 @@ def set_code(
         ]:
             # we've started running
             job.state = State.RUNNING
-            job.started_at = timestamp_s
+            # Only update started_at if it hasn't already been set
+            if not job.started_at:
+                job.started_at = timestamp_s
         elif new_status_code in [StatusCode.CANCELLED_BY_USER]:
             # only set this cancelled status after any finalize/cleanup processes
             job.state = State.FAILED
