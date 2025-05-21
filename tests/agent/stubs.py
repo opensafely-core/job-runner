@@ -16,12 +16,13 @@ class StubExecutorAPI:
     It tracks the current state of any jobs based the calls to the various API
     methods, and get_status() will return the current JobStatus.
 
-    You can inject new jobs to the executor with add_test_job(), for which you
-    must supply a current ExecutorState and also job State.
+    You can inject new job tasks to the executor with add_test_runjob_task()
+    and add_test_canceljob_task(), for which you must supply a current ExecutorState.
 
     By default, transition methods successfully move to the next state. If you
     want to change that, call set_job_transition(job, state), and the next
-    transition method call for that job will instead return that state.
+    transition method call for that job will instead return that state. Optionally
+    also provide a timestamp_ns to specify the timestamp of the next state transition.
 
     It also tracks which methods were called with which job ids to check the
     correct series of methods was invoked.
@@ -45,24 +46,25 @@ class StubExecutorAPI:
     def add_test_runjob_task(
         self,
         executor_state,
-        timestamp=None,
+        timestamp_ns=None,
         **kwargs,
     ) -> AgentTask:
         """Create and track a db job object."""
         job = job_factory(**kwargs)
         task = AgentTask.from_task(runjob_db_task_factory(job=job))
         job = JobDefinition.from_dict(task.definition)
-        self.set_job_status(job.id, executor_state)
+        self.set_job_status(job.id, executor_state, timestamp_ns)
         return task, job.id
 
     def add_test_canceljob_task(
         self,
         executor_state,
+        timestamp_ns=None,
         **kwargs,
     ) -> AgentTask:
         task = AgentTask.from_task(canceljob_db_task_factory(**kwargs))
         job = JobDefinition.from_dict(task.definition)
-        self.set_job_status(job.id, executor_state)
+        self.set_job_status(job.id, executor_state, timestamp_ns)
         return task, job.id
 
     def set_job_status(self, job_id, executor_state, timestamp_ns=None):
@@ -74,13 +76,13 @@ class StubExecutorAPI:
         status.results = self.metadata.get(job_id, {})
         self.job_statuses[job_id] = status
 
-    def set_job_transition(self, job_id, next_executor_state, hook=None):
+    def set_job_transition(
+        self, job_id, next_executor_state, timestamp_ns=None, hook=None
+    ):
         """Set the next transition for this job when called"""
-        self.transitions[job_id] = (next_executor_state, hook)
+        self.transitions[job_id] = (next_executor_state, timestamp_ns, hook)
 
-    def set_job_metadata(self, job_id, timestamp_ns=None, **kwargs):
-        if timestamp_ns is None:
-            timestamp_ns = time.time_ns()
+    def set_job_metadata(self, job_id, **kwargs):
         defaults = {
             "outputs": {},
             "unmatched_patterns": [],
@@ -105,17 +107,18 @@ class StubExecutorAPI:
         next_executor_state,
         transition="",
     ):
+        timestamp_ns = None
         current_job_status = self.get_status(job)
         if current_job_status.state != expected_executor_state:
             executor_state = current_job_status.state
         elif job.id in self.transitions:
-            executor_state, hook = self.transitions.pop(job.id)
+            executor_state, timestamp_ns, hook = self.transitions.pop(job.id)
             if hook:
                 hook(job)
         else:
             executor_state = next_executor_state
 
-        timestamp_ns = time.time_ns()
+        timestamp_ns = timestamp_ns or time.time_ns()
         self.set_job_status(job.id, executor_state, timestamp_ns)
 
     def prepare(self, job):
