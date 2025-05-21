@@ -384,9 +384,12 @@ def set_code(
     collisions when states transition in <1s. Due to this, timestamp parameter
     should be the output of time.time() i.e. a float representing seconds.
     """
-    t = time.time()
-    timestamp_s = int(t)
-    timestamp_ns = int(timestamp_ns or t * 1e9)
+    if timestamp_ns is not None:
+        timestamp_s = int(timestamp_ns / 1e9)
+    else:
+        t = time.time()
+        timestamp_s = int(t)
+        timestamp_ns = int(timestamp_ns or t * 1e9)
 
     # if status code has changed then trace it and update
     if job.status_code != new_status_code:
