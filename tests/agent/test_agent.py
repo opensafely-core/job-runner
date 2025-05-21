@@ -27,6 +27,28 @@ def assert_state_change_logs(caplog, state_changes):
         ]
 
 
+def test_handle_tasks_error(db, caplog):
+    api = StubExecutorAPI()
+
+    task, job_id = api.add_test_runjob_task(ExecutorState.UNKNOWN)
+    api.set_job_transition(
+        job_id, ExecutorState.PREPARED, hook=Mock(side_effect=Exception("task error"))
+    )
+
+    msg = "Some tasks failed, restarting agent loop"
+    with pytest.raises(Exception, match=msg):
+        main.handle_tasks(api)
+
+    spans = get_trace("agent_loop")
+
+    assert spans[0].name == "LOOP_TASK"
+    assert spans[1].name == "AGENT_LOOP"
+    assert spans[1].attributes["handled_tasks"] == 1
+    assert spans[1].attributes["errored_tasks"] == 1
+
+    assert caplog.records[0].msg == "task error"
+
+
 def test_handle_job_full_execution(db, freezer, caplog):
     caplog.set_level(logging.INFO)
     # move to a whole second boundary for easier timestamp maths
