@@ -1,10 +1,19 @@
+import time
 from unittest.mock import patch
 
 from opentelemetry import trace
 
 from jobrunner.agent import main
-from jobrunner.agent.tracing import set_job_span_metadata, set_task_span_metadata
+from jobrunner.agent.tracing import (
+    set_job_span_metadata,
+    set_task_span_metadata,
+    trace_job_attributes,
+    trace_job_results_attributes,
+    trace_task_attributes,
+)
+from jobrunner.executors import local
 from jobrunner.job_executor import ExecutorState
+from jobrunner.tracing import OTEL_ATTR_TYPES
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
 from tests.factories import job_definition_factory, runjob_db_task_factory
@@ -155,6 +164,16 @@ def test_set_task_span_metadata_attrs(db):
     assert span.attributes["custom_attr"] == "I am the custom class"
 
 
+def test_task_trace_attributes_types(db):
+    # check that all the trace attributes are of valid otel types
+    # We test the attributes dict BEFORE it is set on the span (where it
+    # will be turned into a string if it's an invalid type)
+    task = runjob_db_task_factory()
+    trace_attributes = trace_task_attributes(task)
+    for value in trace_attributes.values():
+        assert type(value) in OTEL_ATTR_TYPES
+
+
 def test_set_job_span_metadata_no_attrs(db):
     job = job_definition_factory()
     tracer = trace.get_tracer("test")
@@ -236,7 +255,37 @@ def test_tracing_final_state_attributes_tracing_errors(db, caplog):
     spans = get_trace("agent_loop")
     assert len(spans) == 1
     span = spans[0]
-    # Exception encountered in set_span_attributes(), so no attributes were set, but
-    # exception logged, not raised
-    assert span.attributes == {}
+    # Exception encountered in set_span_attributes(), so only attributes set
+    # directly with span.set_attributes are set, and nothing is raised
+    assert span.attributes == {"initial_job_status": "EXECUTED"}
     assert "failed to trace job results" in caplog.text
+
+
+def test_job_trace_attributes_has_expected_types(db):
+    # check that all the trace attributes are of valid otel types
+    # We test the attributes dict BEFORE it is set on the span (where it
+    # will be turned into a string if it's an invalid type)
+    job_definition = job_definition_factory()
+    results_metadata = {
+        "outputs": ["outputs"],
+        "unmatched_patterns": [],
+        "unmatched_outputs": [],
+        "timestamp_ns": time.time_ns(),
+        "status_message": "message",
+        "hint": "hint",
+    }
+
+    results = local.get_job_metadata(
+        job_definition=job_definition,
+        container_metadata={"State": {"ExitCode": 0, "OOMKilled": False}},
+        results_metadata=results_metadata,
+    )
+
+    trace_attributes = trace_job_results_attributes(
+        results, trace_job_attributes(job_definition)
+    )
+
+    for key, value in trace_attributes.items():
+        if value is None:
+            continue
+        assert type(value) in OTEL_ATTR_TYPES, key

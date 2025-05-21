@@ -130,9 +130,9 @@ def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, respo
     jobrunner.sync.sync()
     # Check that expected number of pending jobs are created
     jobs = get_posted_jobs(responses)
-    assert [job["status"] for job in jobs.values()] == ["pending"] * 7, list(
-        jobs.values()
-    )[0]["status_message"]
+    for job in jobs.values():
+        assert job["status"] == "pending"
+        assert job["status_code"] == "created"
 
     # no active tasks yet
     assert not get_active_db_tasks()
@@ -150,8 +150,9 @@ def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, respo
 
     jobrunner.sync.sync()
 
-    def assert_generate_dataset_dependency_running(jobs):
+    def assert_generate_dataset_dependency_running(jobs, running_status_code):
         assert jobs["generate_dataset"]["status"] == "running"
+        assert jobs["generate_dataset"]["status_code"] == running_status_code
         for action in [
             "prepare_data_m_ehrql",
             "prepare_data_f_ehrql",
@@ -160,11 +161,12 @@ def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, respo
             "test_reusable_action_ehrql",
             "test_cancellation_ehrql",
         ]:
+            assert jobs[action]["status_code"] == "waiting_on_dependencies"
             assert jobs[action]["status_message"].startswith("Waiting on dependencies")
 
-    # We should now have one running job and all others waiting on dependencies
+    # We should now have one running (initiated, i.e. task created) job and all others waiting on dependencies
     jobs = get_posted_jobs(responses)
-    assert_generate_dataset_dependency_running(jobs)
+    assert_generate_dataset_dependency_running(jobs, "initiated")
 
     # MOVE TO AGENT; set up the expected agent config (and remove controller config)
     set_agent_config(monkeypatch, tmp_work_dir)
@@ -177,11 +179,13 @@ def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, respo
 
     # CONTROLLER
     set_controller_config(monkeypatch)
-    # sync again; no change to status of jobs
+    # Run the controller loop again to update the job status code
+    jobrunner.controller.main.handle_jobs()
+    # sync again
     jobrunner.sync.sync()
-    # still one running job and all others waiting on dependencies
+    # still one running job (now prepared) and all others waiting on dependencies
     jobs = get_posted_jobs(responses)
-    assert_generate_dataset_dependency_running(jobs)
+    assert_generate_dataset_dependency_running(jobs, "prepared")
 
     # AGENT
     set_agent_config(monkeypatch, tmp_work_dir)
@@ -193,11 +197,13 @@ def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, respo
 
     # CONTROLLER
     set_controller_config(monkeypatch)
-    # sync again; no change to status of jobs
+    # Run the controller loop again to update the job status code
+    jobrunner.controller.main.handle_jobs()
+    # sync again
     jobrunner.sync.sync()
-    # still one running job and all others waiting on dependencies
+    # still one running job (now executing) and all others waiting on dependencies
     jobs = get_posted_jobs(responses)
-    assert_generate_dataset_dependency_running(jobs)
+    assert_generate_dataset_dependency_running(jobs, "executing")
 
     # Update the existing job request to mark a (not-started) job as cancelled, add a new job
     # request to be run and then sync
@@ -249,8 +255,10 @@ def test_integration(tmp_work_dir, docker_cleanup, monkeypatch, test_repo, respo
     jobrunner.sync.sync()
     jobs = get_posted_jobs(responses)
     assert jobs["generate_dataset"]["status"] == "running"
+    assert jobs["generate_dataset"]["status_code"] == "executing"
     # The new action does not depend on generate_dataset
     assert jobs["generate_dataset_with_dummy_data"]["status"] == "running"
+    assert jobs["generate_dataset_with_dummy_data"]["status_code"] == "initiated"
     cancellation_job = jobs.pop("test_cancellation_ehrql")
     assert cancellation_job["status"] == "failed"
     assert cancellation_job["status_message"] == "Cancelled by user"

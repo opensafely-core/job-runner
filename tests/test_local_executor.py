@@ -29,6 +29,7 @@ def job_definition(request, test_repo):
         created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
         args=["true"],
+        inputs=[],
         input_job_ids=[],
         env={},
         # all files are outputs by default, for simplicity in tests

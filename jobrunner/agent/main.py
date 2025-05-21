@@ -10,7 +10,6 @@ from jobrunner.config import agent as config
 from jobrunner.config import common as common_config
 from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
-from jobrunner.lib.database import is_database_locked_error
 from jobrunner.lib.docker import docker, get_network_config_args
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.schema import TaskType
@@ -71,18 +70,15 @@ def handle_single_task(task, api):
                 case _:
                     assert False, f"Unknown task type {task.type}"
         except Exception as exc:
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
-            span.record_exception(exc)
-            if error_type := get_transient_error_type(exc):
-                span.set_attributes(
-                    {"transient_error": True, "transient_error_type": error_type}
-                )
-            else:
+            if is_fatal_task_error(exc):
+                span.set_attribute("fatal_task_error", True)
                 mark_task_as_error(
                     api,
                     task,
                     sys.exc_info(),
                 )
+            else:
+                span.set_attribute("fatal_task_error", False)
             # Do not clean up, as we may want to debug
             #
             # Raising will kill the main loop, by design. The service manager
@@ -92,16 +88,12 @@ def handle_single_task(task, api):
             raise
 
 
-def get_transient_error_type(exc: Exception) -> str | None:
+def is_fatal_task_error(exc: Exception) -> bool:
     # To faciliate the migration to the split agent/controller world we don't currently
     # consider _any_ errors as hard failures. But we will do so later and we want to
     # ensure that these code paths are adequately tested so we provide a simple
     # mechanism to trigger these in tests.
-    if "test_hard_failure" in str(exc):
-        return None
-    if is_database_locked_error(exc):
-        return "db_locked"
-    return exc.__class__.__name__
+    return "test_hard_failure" in str(exc)
 
 
 def handle_cancel_job_task(task, api):
@@ -110,13 +102,11 @@ def handle_cancel_job_task(task, api):
     up a job depend on its state at the point of cancellation
     """
     job = JobDefinition.from_dict(task.definition)
+    span = trace.get_current_span()
+    tracing.set_job_span_metadata(span, job)
 
     initial_job_status = api.get_status(job, cancelled=True)
-
-    span = trace.get_current_span()
-    span.set_attributes(
-        {"id": job.id, "initial_job_status": initial_job_status.state.name}
-    )
+    span.set_attributes({"initial_job_status": initial_job_status.state.name})
 
     # initialize pre_finalized_job_status as initial_job_status
     # this may change during the cancellation process, depending on what we need to
@@ -180,13 +170,14 @@ def handle_run_job_task(task, api):
     well as various operational modes.
     """
     job = JobDefinition.from_dict(task.definition)
+    span = trace.get_current_span()
+    tracing.set_job_span_metadata(span, job)
+
+    initial_job_status = api.get_status(job, cancelled=True)
+    span.set_attributes({"initial_job_status": initial_job_status.state.name})
+
     with set_log_context(job_definition=job):
         job_status = api.get_status(job)
-
-        span = trace.get_current_span()
-        tracing.set_job_span_metadata(
-            span, job, initial_job_status=job_status.state.name
-        )
 
         # TODO: Update get_status to detect an error.json and read it.
         # I think that JobStatus should probably grow .error and .result fields,

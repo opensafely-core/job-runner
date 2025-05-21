@@ -25,7 +25,6 @@ from jobrunner.lib import ns_timestamp_to_datetime
 from jobrunner.lib.database import (
     exists_where,
     find_where,
-    is_database_locked_error,
     select_values,
     transaction,
     update,
@@ -116,47 +115,6 @@ def handle_single_job(job):
     paused = (
         str(get_flag_value("paused", job.backend, default="False")).lower() == "true"
     )
-    try:
-        trace_handle_job(job, mode, paused)
-    except Exception as exc:
-        if error_type := get_transient_error_type(exc):
-            span = trace.get_current_span()
-            span.set_attributes(
-                {"transient_error": True, "transient_error_type": error_type}
-            )
-        else:
-            mark_job_as_failed(
-                job,
-                StatusCode.INTERNAL_ERROR,
-                "Internal error: this usually means a platform issue rather than a problem "
-                "for users to fix.\n"
-                "The tech team are automatically notified of these errors and will be "
-                "investigating.",
-                error=exc,
-            )
-        # Do not clean up, as we may want to debug
-        #
-        # Raising will kill the main loop, by design. The service manager
-        # will restart, and this job will be ignored when it does, as
-        # it has failed. If we have an internal error, a full restart
-        # might recover better.
-        raise
-
-
-def get_transient_error_type(exc: Exception) -> str | None:
-    # To faciliate the migration to the split agent/controller world we don't currently
-    # consider _any_ errors as hard failures. But we will do so later and we want to
-    # ensure that these code paths are adequately tested so we provide a simple
-    # mechanism to trigger these in tests.
-    if "test_hard_failure" in str(exc):
-        return None
-    if is_database_locked_error(exc):
-        return "db_locked"
-    return exc.__class__.__name__
-
-
-def trace_handle_job(job, mode, paused):
-    """Call handle job with tracing."""
     attrs = {
         "initial_state": job.state.name,
         "initial_code": job.status_code.name,
@@ -167,12 +125,37 @@ def trace_handle_job(job, mode, paused):
         try:
             handle_job(job, mode, paused)
         except Exception as exc:
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
-            span.record_exception(exc)
+            if is_fatal_job_error(exc):
+                span.set_attribute("fatal_job_error", True)
+                mark_job_as_failed(
+                    job,
+                    StatusCode.INTERNAL_ERROR,
+                    "Internal error: this usually means a platform issue rather than a problem "
+                    "for users to fix.\n"
+                    "The tech team are automatically notified of these errors and will be "
+                    "investigating.",
+                    error=exc,
+                )
+            else:
+                span.set_attribute("fatal_job_error", False)
+            # Do not clean up, as we may want to debug
+            #
+            # Raising will kill the main loop, by design. The service manager
+            # will restart, and this job will be ignored when it does, as
+            # it has failed. If we have an internal error, a full restart
+            # might recover better.
             raise
         else:
             span.set_attribute("final_state", job.state.name)
             span.set_attribute("final_code", job.status_code.name)
+
+
+def is_fatal_job_error(exc: Exception) -> bool:
+    # To faciliate the migration to the split agent/controller world we don't currently
+    # consider _any_ errors as hard failures. But we will do so later and we want to
+    # ensure that these code paths are adequately tested so we provide a simple
+    # mechanism to trigger these in tests.
+    return "test_hard_failure" in str(exc)
 
 
 def handle_job(job, mode=None, paused=None):
@@ -252,7 +235,7 @@ def handle_job(job, mode=None, paused=None):
         task = create_task_for_job(job)
         with transaction():
             insert_task(task)
-            set_code(job, StatusCode.EXECUTING, "Executing job on the backend")
+            set_code(job, StatusCode.INITIATED, "Job executing on the backend")
     else:
         assert job.state == State.RUNNING
         task = get_task_for_job(job)
@@ -266,9 +249,21 @@ def handle_job(job, mode=None, paused=None):
                 save_results(job, results)
                 # TODO: Delete obsolete files
         else:
-            # Record the fact that we've visited the job (and not forgotten about it)
-            # even though nothing has changed
-            refresh_job_timestamps(job)
+            # A task exists for this job already and it hasn't completed yet
+            # The current task stage may be None if the agent hasn't sent back any
+            # update yet, otherwise it should be in one of the running status codes which
+            # mirror ExecutorState
+            # (PREPARING, PREPARED, EXECUTING, EXECUTED, FINALIZING)
+            # Note we won't get here with FINALIZED status, because at that stage it
+            # will also be complete
+            # In case a running job is updated with an unknown agent_stage (i.e. an
+            # ExecutorState that is not a valid StatusCode (i.e. error, unknown), we
+            # use the current job status_code as a default)
+            set_code(
+                job,
+                StatusCode.from_value(task.agent_stage, default=job.status_code),
+                job.status_message,
+            )
 
 
 def save_results(job, results):
@@ -340,6 +335,7 @@ def job_to_job_definition(job):
         image=full_image,
         args=action_args,
         env=env,
+        inputs=[],
         input_job_ids=input_job_ids,
         output_spec=outputs,
         allow_database_access=job.requires_db,
@@ -406,6 +402,7 @@ def set_code(job, new_status_code, message, error=None, results=None, **attrs):
 
         # update coarse state and timings for user
         if new_status_code in [
+            StatusCode.INITIATED,
             StatusCode.PREPARED,
             StatusCode.PREPARING,
             StatusCode.EXECUTING,

@@ -68,6 +68,12 @@ def setup_default_tracing(set_global=True):
     if set_global:
         trace.set_tracer_provider(provider)  # pragma: no cover
 
+    # bug: this code requires some envvars to be set, so ensure they are
+    os.environ.setdefault("PYTHONPATH", "")
+    from opentelemetry.instrumentation.auto_instrumentation import (  # noqa: F401
+        sitecustomize,
+    )
+
     return provider
 
 

@@ -44,6 +44,8 @@ class StatusCode(Enum):
     #
     # initial state of a job, not yet running
     CREATED = "created"
+    # initiated; task created and sent to agent, but not yet running
+    INITIATED = "initiated"
     # waiting for pause mode to exit
     WAITING_PAUSED = "paused"
     # waiting db maintenance mode to exit
@@ -84,6 +86,10 @@ class StatusCode(Enum):
     def __lt__(self, other):
         order = list(self.__class__)
         return order.index(self) < order.index(other)
+
+    @classmethod
+    def from_value(cls, value, default=None):
+        return next((item for item in cls if item.value == value), default)
 
 
 # used for tracing to know if a state is final or not
