@@ -246,7 +246,7 @@ def handle_job(job, mode=None, paused=None):
                 raise PlatformError(job_error)
             else:
                 results = JobTaskResults.from_dict(task.agent_results)
-                save_results(job, results)
+                save_results(job, results, task.agent_timestamp_ns)
                 # TODO: Delete obsolete files
         else:
             # A task exists for this job already and it hasn't completed yet
@@ -263,10 +263,11 @@ def handle_job(job, mode=None, paused=None):
                 job,
                 StatusCode.from_value(task.agent_stage, default=job.status_code),
                 job.status_message,
+                task.agent_timestamp_ns,
             )
 
 
-def save_results(job, results):
+def save_results(job, results, timestamp_ns):
     """Extract the results of the execution and update the job accordingly."""
     message = None
     error = False
@@ -296,7 +297,9 @@ def save_results(job, results):
         if results.has_level4_excluded_files:
             message += ", but some file marked as moderately_sensitive were excluded. See job log for details."
 
-    set_code(job, code, message, error=error, results=results)
+    set_code(
+        job, code, message, error=error, results=results, timestamp_ns=timestamp_ns
+    )
 
 
 def job_to_job_definition(job):
@@ -368,7 +371,9 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
     set_code(job, code, message, error=error, **attrs)
 
 
-def set_code(job, new_status_code, message, error=None, results=None, **attrs):
+def set_code(
+    job, new_status_code, message, error=None, results=None, timestamp_ns=None, **attrs
+):
     """Set the granular status code state.
 
     We also trace this transition with OpenTelemetry traces.
@@ -381,7 +386,7 @@ def set_code(job, new_status_code, message, error=None, results=None, **attrs):
     """
     t = time.time()
     timestamp_s = int(t)
-    timestamp_ns = int(t * 1e9)
+    timestamp_ns = int(timestamp_ns or t * 1e9)
 
     # if status code has changed then trace it and update
     if job.status_code != new_status_code:
