@@ -65,20 +65,18 @@ class StubExecutorAPI:
         self.set_job_status(job.id, executor_state)
         return task, job.id
 
-    def set_job_status(self, job_id, executor_state, message=None, timestamp_ns=None):
+    def set_job_status(self, job_id, executor_state, timestamp_ns=None):
         """Directly set a job status from an ExecutorState."""
         # handle the synchronous state meaning the state has completed
         if timestamp_ns is None:
             timestamp_ns = time.time_ns()
-        status = JobStatus(executor_state, message, timestamp_ns)
+        status = JobStatus(state=executor_state, timestamp_ns=timestamp_ns)
         status.results = self.metadata.get(job_id, {})
         self.job_statuses[job_id] = status
 
-    def set_job_transition(
-        self, job_id, next_executor_state, message="executor message", hook=None
-    ):
+    def set_job_transition(self, job_id, next_executor_state, hook=None):
         """Set the next transition for this job when called"""
-        self.transitions[job_id] = (next_executor_state, message, hook)
+        self.transitions[job_id] = (next_executor_state, hook)
 
     def set_job_metadata(self, job_id, timestamp_ns=None, **kwargs):
         if timestamp_ns is None:
@@ -110,17 +108,15 @@ class StubExecutorAPI:
         current_job_status = self.get_status(job)
         if current_job_status.state != expected_executor_state:
             executor_state = current_job_status.state
-            message = f"Invalid transition {transition} to {next_executor_state}, currently state is {current_job_status.state}"
         elif job.id in self.transitions:
-            executor_state, message, hook = self.transitions.pop(job.id)
+            executor_state, hook = self.transitions.pop(job.id)
             if hook:
                 hook(job)
         else:
             executor_state = next_executor_state
-            message = "executor message"
 
         timestamp_ns = time.time_ns()
-        self.set_job_status(job.id, executor_state, message, timestamp_ns)
+        self.set_job_status(job.id, executor_state, timestamp_ns)
 
     def prepare(self, job):
         self.tracker["prepare"].add(job.id)
