@@ -27,6 +27,31 @@ def assert_state_change_logs(caplog, state_changes):
         ]
 
 
+def test_handle_tasks_error(db, caplog, responses, live_server, monkeypatch):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
+    api = StubExecutorAPI()
+
+    task, job_id = api.add_test_runjob_task(ExecutorState.UNKNOWN)
+    api.set_job_transition(
+        job_id, ExecutorState.PREPARED, hook=Mock(side_effect=Exception("task error"))
+    )
+
+    msg = "Some tasks failed, restarting agent loop"
+    with pytest.raises(Exception, match=msg):
+        main.handle_tasks(api)
+
+    spans = get_trace("agent_loop")
+
+    assert spans[0].name == "LOOP_TASK"
+    assert spans[1].name == "AGENT_LOOP"
+    assert spans[1].attributes["handled_tasks"] == 1
+    assert spans[1].attributes["errored_tasks"] == 1
+
+    assert caplog.records[0].msg == "task error"
+
+
 def test_handle_job_full_execution(
     db, freezer, caplog, responses, live_server, monkeypatch
 ):
@@ -44,14 +69,19 @@ def test_handle_job_full_execution(
     freezer.tick(1)
 
     # prepare is synchronous
+    prepared_timestamp_ns = time.time_ns()
     api.set_job_transition(
-        job_id, ExecutorState.PREPARED, hook=lambda j: freezer.tick(1)
+        job_id,
+        ExecutorState.PREPARED,
+        prepared_timestamp_ns,
+        hook=lambda j: freezer.tick(1),
     )
 
     main.handle_single_task(task, api)
 
     task = controller_task_api.get_task(task.id)
     assert task.agent_stage == ExecutorState.PREPARED.value
+    assert task.agent_timestamp_ns == prepared_timestamp_ns
 
     # expected status transitions so far
     state_changes = [
@@ -78,7 +108,10 @@ def test_handle_job_full_execution(
         freezer.tick(1)
         api.set_job_metadata(job.id)
 
-    api.set_job_transition(job_id, ExecutorState.FINALIZED, hook=finalize)
+    finalized_timestamp_ns = prepared_timestamp_ns + 1000
+    api.set_job_transition(
+        job_id, ExecutorState.FINALIZED, finalized_timestamp_ns, hook=finalize
+    )
     assert job_id not in api.tracker["finalize"]
     main.handle_single_task(task, api)
     assert job_id in api.tracker["finalize"]
@@ -86,6 +119,7 @@ def test_handle_job_full_execution(
     assert task.agent_stage == ExecutorState.FINALIZED.value
     assert task.agent_complete
     assert task.agent_results
+    assert task.agent_timestamp_ns == finalized_timestamp_ns
 
     # Note EXECUTING -> EXECUTED happens outside of the agent loop
     # handler, so in this last call to handle_single_task, the job
@@ -125,7 +159,8 @@ def test_handle_job_full_execution(
 )
 def test_handle_job_stable_states(db, executor_state):
     api = StubExecutorAPI()
-    task, job_id = api.add_test_runjob_task(executor_state)
+    timestamp_ns = time.time_ns()
+    task, job_id = api.add_test_runjob_task(executor_state, timestamp_ns=timestamp_ns)
     job = JobDefinition.from_dict(task.definition)
 
     with patch(
@@ -139,6 +174,7 @@ def test_handle_job_stable_states(db, executor_state):
         executor_state.value,
         {},
         False if executor_state == ExecutorState.EXECUTING else True,
+        timestamp_ns,
     )
 
     assert job.id not in api.tracker["prepare"]
@@ -177,25 +213,33 @@ def test_handle_job_requires_db_has_secrets(mock_update_controller, db, monkeypa
 def test_handle_runjob_with_fatal_error(mock_update_controller, db):
     api = StubExecutorAPI()
 
-    task, job_id = api.add_test_runjob_task(ExecutorState.PREPARED)
+    preprared_timestamp_ns = time.time_ns()
+    task, job_id = api.add_test_runjob_task(
+        ExecutorState.PREPARED, timestamp_ns=preprared_timestamp_ns
+    )
 
+    executing_timestamp_ns = preprared_timestamp_ns + 10
     api.set_job_transition(
         job_id,
         ExecutorState.EXECUTING,
+        timestamp_ns=executing_timestamp_ns,
         hook=Mock(side_effect=Exception("test_hard_failure")),
     )
-
     with pytest.raises(Exception, match="test_hard_failure"):
         main.handle_single_task(task, api)
 
     assert mock_update_controller.call_count == 1
-    task2, stage, results, complete = mock_update_controller.call_args[0]
-    assert task2 == task
-    assert stage == ExecutorState.ERROR.value
+    call_kwargs = mock_update_controller.call_args[1]
+    assert call_kwargs["task"] == task
+    assert call_kwargs["stage"] == ExecutorState.ERROR.value
+    results = call_kwargs["results"]
     assert results["error"]["exception"] == "Exception"
     assert results["error"]["message"] == "test_hard_failure"
     assert "traceback" in results["error"]
-    assert complete is True
+    assert call_kwargs["complete"] is True
+    # The fatal error triggers a call to finalize, which sets the timestamp_ns
+    # to the current time_ns
+    assert call_kwargs["timestamp_ns"] > executing_timestamp_ns
 
     spans = get_trace("agent_loop")
     assert all(s.attributes["backend"] == "test" for s in spans)
@@ -247,11 +291,16 @@ def test_handle_runjob_with_not_fatal_error(mock_update_controller, db, exc):
 def test_handle_canceljob_with_fatal_error(mock_update_controller, db):
     api = StubExecutorAPI()
 
-    task, job_id = api.add_test_canceljob_task(ExecutorState.EXECUTED)
+    executed_timestamp_ns = time.time_ns()
+    task, job_id = api.add_test_canceljob_task(
+        ExecutorState.EXECUTED, executed_timestamp_ns
+    )
 
+    finalized_timestamp_ns = executed_timestamp_ns + 10
     api.set_job_transition(
         job_id,
         ExecutorState.FINALIZED,
+        timestamp_ns=finalized_timestamp_ns,
         hook=Mock(side_effect=Exception("test_hard_failure")),
     )
 
@@ -260,13 +309,17 @@ def test_handle_canceljob_with_fatal_error(mock_update_controller, db):
 
     # canceljob handler always calls update first
     assert mock_update_controller.call_count == 2
-    task2, stage, results, complete = mock_update_controller.call_args[0]
-    assert task2 == task
-    assert stage == ExecutorState.ERROR.value
+    call_kwargs = mock_update_controller.call_args[1]
+    assert call_kwargs["task"] == task
+    assert call_kwargs["stage"] == ExecutorState.ERROR.value
+    results = call_kwargs["results"]
     assert results["error"]["exception"] == "Exception"
     assert results["error"]["message"] == "test_hard_failure"
     assert "traceback" in results["error"]
-    assert complete is True
+    assert call_kwargs["complete"] is True
+    # The fatal error triggers a call to finalize, which sets the timestamp_ns
+    # to the current time_ns
+    assert call_kwargs["timestamp_ns"] > executed_timestamp_ns
 
     spans = get_trace("agent_loop")
     assert len(spans) == 1

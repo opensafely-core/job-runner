@@ -138,7 +138,8 @@ def record_metrics_tick_trace(last_run):
     error_attrs = {}
 
     try:
-        stats = get_job_stats()
+        with tracer.start_as_current_span("get_job_stats"):
+            stats = get_job_stats()
     except subprocess.TimeoutExpired:
         log.exception("Getting docker stats timed out")
         trace_attrs["stats_timeout"] = True

@@ -1,4 +1,5 @@
 import json
+import time
 
 from django.http import JsonResponse
 from django.urls import reverse
@@ -132,6 +133,7 @@ def test_update_task(db, client, monkeypatch):
         "stage": "prepared",
         "results": {"foo": "bar"},
         "complete": False,
+        "timestamp_ns": "",
     }
 
     response = client.post(
@@ -147,6 +149,38 @@ def test_update_task(db, client, monkeypatch):
     assert task.agent_stage == "prepared"
     assert task.agent_results == {"foo": "bar"}
     assert not task.agent_complete
+    assert task.agent_timestamp_ns is None
+
+
+def test_update_task_with_timestamp(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+    make_task = runjob_db_task_factory(backend="test")
+
+    assert make_task.agent_stage is None
+    timestamp = time.time_ns()
+
+    post_data = {
+        "task_id": make_task.id,
+        "stage": "prepared",
+        "results": {},
+        "complete": False,
+        "timestamp_ns": timestamp,
+    }
+
+    response = client.post(
+        reverse("update_task", args=("test",)),
+        data={"payload": json.dumps(post_data)},
+        headers={"Authorization": "test_token"},
+    )
+
+    assert response.status_code == 200
+
+    task = database.find_one(Task, id=make_task.id)
+
+    assert task.agent_stage == "prepared"
+    assert task.agent_timestamp_ns == timestamp
 
 
 def test_update_task_no_matching_task(db, client, monkeypatch):
@@ -159,6 +193,7 @@ def test_update_task_no_matching_task(db, client, monkeypatch):
         "stage": "prepared",
         "results": {},
         "complete": False,
+        "timestamp_ns": "",
     }
 
     response = client.post(
@@ -203,6 +238,7 @@ def test_update_task_view_tracing(db, client, monkeypatch):
         "stage": "prepared",
         "results": {},
         "complete": False,
+        "timestamp_ns": "",
     }
 
     client.post(

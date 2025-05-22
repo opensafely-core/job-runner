@@ -235,7 +235,7 @@ def handle_job(job, mode=None, paused=None):
         task = create_task_for_job(job)
         with transaction():
             insert_task(task)
-            set_code(job, StatusCode.EXECUTING, "Executing job on the backend")
+            set_code(job, StatusCode.INITIATED, "Job executing on the backend")
     else:
         assert job.state == State.RUNNING
         task = get_task_for_job(job)
@@ -246,15 +246,28 @@ def handle_job(job, mode=None, paused=None):
                 raise PlatformError(job_error)
             else:
                 results = JobTaskResults.from_dict(task.agent_results)
-                save_results(job, results)
+                save_results(job, results, task.agent_timestamp_ns)
                 # TODO: Delete obsolete files
         else:
-            # Record the fact that we've visited the job (and not forgotten about it)
-            # even though nothing has changed
-            refresh_job_timestamps(job)
+            # A task exists for this job already and it hasn't completed yet
+            # The current task stage may be None if the agent hasn't sent back any
+            # update yet, otherwise it should be in one of the running status codes which
+            # mirror ExecutorState
+            # (PREPARING, PREPARED, EXECUTING, EXECUTED, FINALIZING)
+            # Note we won't get here with FINALIZED status, because at that stage it
+            # will also be complete
+            # In case a running job is updated with an unknown agent_stage (i.e. an
+            # ExecutorState that is not a valid StatusCode (i.e. error, unknown), we
+            # use the current job status_code as a default)
+            set_code(
+                job,
+                StatusCode.from_value(task.agent_stage, default=job.status_code),
+                job.status_message,
+                task.agent_timestamp_ns,
+            )
 
 
-def save_results(job, results):
+def save_results(job, results, timestamp_ns):
     """Extract the results of the execution and update the job accordingly."""
     message = None
     error = False
@@ -284,7 +297,9 @@ def save_results(job, results):
         if results.has_level4_excluded_files:
             message += ", but some file marked as moderately_sensitive were excluded. See job log for details."
 
-    set_code(job, code, message, error=error, results=results)
+    set_code(
+        job, code, message, error=error, results=results, timestamp_ns=timestamp_ns
+    )
 
 
 def job_to_job_definition(job):
@@ -356,7 +371,9 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
     set_code(job, code, message, error=error, **attrs)
 
 
-def set_code(job, new_status_code, message, error=None, results=None, **attrs):
+def set_code(
+    job, new_status_code, message, error=None, results=None, timestamp_ns=None, **attrs
+):
     """Set the granular status code state.
 
     We also trace this transition with OpenTelemetry traces.
@@ -367,9 +384,12 @@ def set_code(job, new_status_code, message, error=None, results=None, **attrs):
     collisions when states transition in <1s. Due to this, timestamp parameter
     should be the output of time.time() i.e. a float representing seconds.
     """
-    t = time.time()
-    timestamp_s = int(t)
-    timestamp_ns = int(t * 1e9)
+    if timestamp_ns is not None:
+        timestamp_s = int(timestamp_ns / 1e9)
+    else:
+        t = time.time()
+        timestamp_s = int(t)
+        timestamp_ns = int(timestamp_ns or t * 1e9)
 
     # if status code has changed then trace it and update
     if job.status_code != new_status_code:
@@ -390,13 +410,16 @@ def set_code(job, new_status_code, message, error=None, results=None, **attrs):
 
         # update coarse state and timings for user
         if new_status_code in [
+            StatusCode.INITIATED,
             StatusCode.PREPARED,
             StatusCode.PREPARING,
             StatusCode.EXECUTING,
         ]:
             # we've started running
             job.state = State.RUNNING
-            job.started_at = timestamp_s
+            # Only update started_at if it hasn't already been set
+            if not job.started_at:
+                job.started_at = timestamp_s
         elif new_status_code in [StatusCode.CANCELLED_BY_USER]:
             # only set this cancelled status after any finalize/cleanup processes
             job.state = State.FAILED

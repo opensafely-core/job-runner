@@ -44,6 +44,8 @@ class StatusCode(Enum):
     #
     # initial state of a job, not yet running
     CREATED = "created"
+    # initiated; task created and sent to agent, but not yet running
+    INITIATED = "initiated"
     # waiting for pause mode to exit
     WAITING_PAUSED = "paused"
     # waiting db maintenance mode to exit
@@ -84,6 +86,10 @@ class StatusCode(Enum):
     def __lt__(self, other):
         order = list(self.__class__)
         return order.index(self) < order.index(other)
+
+    @classmethod
+    def from_value(cls, value, default=None):
+        return next((item for item in cls if item.value == value), default)
 
 
 # used for tracing to know if a state is final or not
@@ -400,11 +406,12 @@ class Task:
             type TEXT,
             definition TEXT,
             active BOOLEAN,
-            created_at int,
-            finished_at int,
+            created_at INT,
+            finished_at INT,
             agent_stage TEXT,
             agent_complete BOOLEAN,
             agent_results TEXT,
+            agent_timestamp_ns INT,
             PRIMARY KEY (id)
         )
     """
@@ -426,6 +433,15 @@ class Task:
     agent_complete: bool = False
     # results of the task, including any error information
     agent_results: dict = None
+    # timestamp of state change sent by agent, default ns resolution
+    agent_timestamp_ns: int = None
 
     # ensure this table exists
     migration(4, __tableschema__)
+
+    migration(
+        7,
+        """
+        ALTER TABLE tasks ADD COLUMN agent_timestamp_ns INT;
+        """,
+    )

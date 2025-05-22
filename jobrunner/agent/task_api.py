@@ -46,12 +46,15 @@ def update_controller(
     stage: str,
     results: dict = None,
     complete: bool = False,
+    timestamp_ns: int = None,
 ):
     """Update the controller with the current state of the task.
 
     stage: the current stage of the task from the agent's perspective
     results: optional dictionary of completed results of this task, expected to be immutable
     complete: if the agent considers this task complete
+    timestamp_ns: Optional timestamp (in ns) of this state change. Can be None for tasks that
+    do not involve state changes.
     """
 
     post_data = {
@@ -59,6 +62,7 @@ def update_controller(
         "stage": stage,
         "results": results,
         "complete": complete,
+        "timestamp_ns": timestamp_ns,
     }
 
     post_json("task/update/", {"payload": json.dumps(post_data)})

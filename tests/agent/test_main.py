@@ -144,10 +144,11 @@ def test_update_job_task_results_redacted(
     main.update_job_task(task, job_status, previous_job_status, complete=True)
 
     mock_update_controller.assert_called_with(
-        task,
-        job_status.state.value,
-        expected_redacted_results,
-        True,
+        task=task,
+        stage=job_status.state.value,
+        results=expected_redacted_results,
+        complete=True,
+        timestamp_ns=ANY,
     )
     mock_set_job_results_metadata.assert_called_with(
         ANY,
