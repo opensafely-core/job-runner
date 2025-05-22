@@ -49,6 +49,7 @@ def test_active_tasks_view(db, client, monkeypatch):
             "type": "runjob",
             "definition": runtask.definition,
             "created_at": runtask.created_at,
+            "attributes": {},
         }
     ]
 
