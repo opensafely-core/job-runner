@@ -39,6 +39,7 @@ def trace_task_attributes(task: AgentTask):
         task_type=task.type.name,
         # convert seconds to ns integer
         task_created_at=int(task.created_at * 1e9),
+        **task.attributes,
     )
 
     return attrs
