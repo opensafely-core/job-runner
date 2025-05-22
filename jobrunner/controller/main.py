@@ -139,9 +139,9 @@ def handle_single_job(job):
             # it has failed. If we have an internal error, a full restart
             # might recover better.
             raise
-        else:
-            span.set_attribute("final_state", job.state.name)
-            span.set_attribute("final_code", job.status_code.name)
+
+        span.set_attribute("final_state", job.state.name)
+        span.set_attribute("final_code", job.status_code.name)
 
 
 def is_fatal_job_error(exc: Exception) -> bool:
