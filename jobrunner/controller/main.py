@@ -109,12 +109,6 @@ def handle_single_job(job):
 
     Mainly exists to wrap the job handling in an exception handler.
     """
-    # we re-read the flags before considering each job, so make sure they apply
-    # as soon as possible when set.
-    mode = get_flag_value("mode", job.backend)
-    paused = (
-        str(get_flag_value("paused", job.backend, default="False")).lower() == "true"
-    )
     attrs = {
         "initial_state": job.state.name,
         "initial_code": job.status_code.name,
@@ -123,7 +117,7 @@ def handle_single_job(job):
     with tracer.start_as_current_span("LOOP_JOB") as span:
         tracing.set_span_metadata(span, job, **attrs)
         try:
-            handle_job(job, mode, paused)
+            handle_job(job)
         except Exception as exc:
             if is_fatal_job_error(exc):
                 span.set_attribute("fatal_job_error", True)
@@ -158,7 +152,7 @@ def is_fatal_job_error(exc: Exception) -> bool:
     return "test_hard_failure" in str(exc)
 
 
-def handle_job(job, mode=None, paused=None):
+def handle_job(job):
     """Handle an active job.
 
     This contains the main state machine logic for a job. For the most part,
@@ -167,6 +161,13 @@ def handle_job(job, mode=None, paused=None):
     well as supporting cancellation and various operational modes.
     """
     assert job.state in (State.PENDING, State.RUNNING)
+
+    # we re-read the flags before considering each job, so make sure they apply
+    # as soon as possible when set.
+    mode = get_flag_value("mode", job.backend)
+    paused = (
+        str(get_flag_value("paused", job.backend, default="False")).lower() == "true"
+    )
 
     # Cancellation is driven by user request, so is handled explicitly first
     if job.cancelled:
