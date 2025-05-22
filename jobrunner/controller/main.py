@@ -93,7 +93,26 @@ def handle_jobs():
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            handle_single_job(job)
+            try:
+                handle_job_telemetry_wrapper(job)
+            except Exception as exc:
+                if is_fatal_job_error(exc):
+                    mark_job_as_failed(
+                        job,
+                        StatusCode.INTERNAL_ERROR,
+                        "Internal error: this usually means a platform issue rather than a problem "
+                        "for users to fix.\n"
+                        "The tech team are automatically notified of these errors and will be "
+                        "investigating.",
+                        error=exc,
+                    )
+                # Do not clean up, as we may want to debug
+                #
+                # Raising will kill the main loop, by design. The service manager
+                # will restart, and this job will be ignored when it does, as
+                # it has failed. If we have an internal error, a full restart
+                # might recover better.
+                raise
 
         # Add running jobs to the backend/workspace count
         if job.state == State.RUNNING:
@@ -104,11 +123,8 @@ def handle_jobs():
     return handled_jobs
 
 
-def handle_single_job(job):
-    """The top level handler for a job.
-
-    Mainly exists to wrap the job handling in an exception handler.
-    """
+def handle_job_telemetry_wrapper(job):
+    """A wrapper for handle_job which adds OpenTelemetry"""
     attrs = {
         "initial_state": job.state.name,
         "initial_code": job.status_code.name,
@@ -119,25 +135,7 @@ def handle_single_job(job):
         try:
             handle_job(job)
         except Exception as exc:
-            if is_fatal_job_error(exc):
-                span.set_attribute("fatal_job_error", True)
-                mark_job_as_failed(
-                    job,
-                    StatusCode.INTERNAL_ERROR,
-                    "Internal error: this usually means a platform issue rather than a problem "
-                    "for users to fix.\n"
-                    "The tech team are automatically notified of these errors and will be "
-                    "investigating.",
-                    error=exc,
-                )
-            else:
-                span.set_attribute("fatal_job_error", False)
-            # Do not clean up, as we may want to debug
-            #
-            # Raising will kill the main loop, by design. The service manager
-            # will restart, and this job will be ignored when it does, as
-            # it has failed. If we have an internal error, a full restart
-            # might recover better.
+            span.set_attribute("fatal_job_error", is_fatal_job_error(exc))
             raise
 
         span.set_attribute("final_state", job.state.name)
