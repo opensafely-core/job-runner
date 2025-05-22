@@ -30,6 +30,11 @@ DEFAULT_DATABASE_URL=mssql+pyodbc://xxxx
 # Database in which we can create temporary tables
 TEMP_DATABASE_NAME=OPENCoronaTempTables
 
+# Token for authenticating with the controller task api
+# For now this will reuse the job-server token per backend
+JOB_SERVER_TOKEN=pass
+
+
 # USED BY CONTROLLER ONLY
 #########################
 # The endpoint to poll for jobs
@@ -41,7 +46,7 @@ TEST_JOB_SERVER_TOKEN=pass
 
 # Change this to reduce parallelism (per backend)
 # Note this variable is per-backend i.e. <BACKEND>_MAX_WORKERS for each backend
-TEST_MAX_WORKERS=
+# TEST_MAX_WORKERS=
 
 
 # USED BY CONTROLLER DJANGO APP
@@ -49,3 +54,5 @@ TEST_MAX_WORKERS=
 DJANGO_CONTROLLER_SECRET_KEY=secret
 DJANGO_CONTROLLER_ALLOWED_HOSTS=*
 DJANGO_DEBUG=True
+
+CONTROLLER_TASK_API_ENDPOINT=http://localhost:8000/

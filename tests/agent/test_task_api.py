@@ -1,9 +1,13 @@
 import time
 
 import pytest
+import requests
+from responses import matchers
 
 from jobrunner.agent import task_api
+from jobrunner.config import agent as config
 from jobrunner.controller import task_api as controller_api
+from jobrunner.schema import AgentTask
 from tests.factories import runjob_db_task_factory
 
 
@@ -12,33 +16,72 @@ def setup_config(monkeypatch):
     monkeypatch.setattr(
         "jobrunner.config.controller.DEFAULT_JOB_CPU_COUNT",
         {
+            "test": 2,
             "dummy": 2,
             "another": 2,
         },
     )
     monkeypatch.setattr(
         "jobrunner.config.controller.DEFAULT_JOB_MEMORY_LIMIT",
-        {"dummy": "4G", "another": "4G"},
+        {"test": "4G", "dummy": "4G", "another": "4G"},
     )
 
 
-def test_get_active_jobs(db):
+def test_get_active_tasks(db, monkeypatch, responses):
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy")
+
     task1 = runjob_db_task_factory(backend="dummy")
     task2 = runjob_db_task_factory(backend="dummy")
     task3 = runjob_db_task_factory(backend="another")
     controller_api.mark_task_inactive(task2)
 
-    active = task_api.get_active_tasks(backend="dummy")
+    responses.add(
+        method="GET",
+        url=f"{config.TASK_API_ENDPOINT}dummy/tasks/",
+        status=200,
+        json={"tasks": [AgentTask.from_task(task1).asdict()]},
+        match=[matchers.header_matcher({"Authorization": config.JOB_SERVER_TOKEN})],
+    )
+    responses.add(
+        method="GET",
+        url=f"{config.TASK_API_ENDPOINT}another/tasks/",
+        status=200,
+        json={"tasks": [AgentTask.from_task(task3).asdict()]},
+        match=[matchers.header_matcher({"Authorization": config.JOB_SERVER_TOKEN})],
+    )
+
+    active = task_api.get_active_tasks()
     assert len(active) == 1
     assert active[0].id == task1.id
 
-    active = task_api.get_active_tasks(backend="another")
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "another")
+
+    active = task_api.get_active_tasks()
     assert len(active) == 1
     assert active[0].id == task3.id
 
 
-def test_update_controller(db):
-    task = runjob_db_task_factory(backend="dummy")
+def test_get_active_tasks_api_error(db, monkeypatch, responses):
+    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy")
+
+    runjob_db_task_factory(backend="dummy")
+
+    responses.add(
+        method="GET",
+        url=f"{config.TASK_API_ENDPOINT}dummy/tasks/",
+        status=500,
+        match=[matchers.header_matcher({"Authorization": config.JOB_SERVER_TOKEN})],
+    )
+
+    with pytest.raises(requests.HTTPError):
+        task_api.get_active_tasks()
+
+
+def test_update_controller(db, monkeypatch, responses, live_server):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
+    task = runjob_db_task_factory(backend="test")
 
     task_api.update_controller(
         task,
@@ -54,7 +97,10 @@ def test_update_controller(db):
     assert db_task.agent_timestamp_ns is None
 
 
-def test_update_controller_with_timestamp(db):
+def test_update_controller_with_timestamp(db, monkeypatch, responses, live_server):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
     task = runjob_db_task_factory(backend="dummy")
 
     timestamp = time.time_ns()
@@ -73,7 +119,9 @@ def test_update_controller_with_timestamp(db):
     assert db_task.agent_timestamp_ns == timestamp
 
 
-def test_full_job_stages(db):
+def test_full_job_stages(db, responses, monkeypatch, live_server):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
     task = runjob_db_task_factory(backend="dummy")
 
     stages = [

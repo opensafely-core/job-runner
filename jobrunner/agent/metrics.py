@@ -151,7 +151,7 @@ def record_metrics_tick_trace(last_run):
         error_attrs["exit_code"] = exc.returncode
         error_attrs["output"] = exc.stderr + "\n\n" + exc.output
 
-    tasks = task_api.get_active_tasks(config.BACKEND)
+    tasks = task_api.get_active_tasks()
     # any task definition with an id is assumed to be a job id
     tasks_by_job_id = {t.definition["id"]: t for t in tasks if "id" in t.definition}
 

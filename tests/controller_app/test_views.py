@@ -1,3 +1,4 @@
+import json
 import time
 
 from django.http import JsonResponse
@@ -33,8 +34,13 @@ def test_controller_returns_post_request_method(client):
 
 
 def test_active_tasks_view(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+    headers = {"Authorization": "test_token"}
+
     runtask = runjob_db_task_factory(backend="test")
-    response = client.get(reverse("active_tasks", args=("test",)))
+    response = client.get(reverse("active_tasks", args=("test",)), headers=headers)
     response = response.json()
     assert response["tasks"] == [
         {
@@ -56,6 +62,10 @@ def test_active_tasks_view_multiple_backends(db, client, monkeypatch):
         "jobrunner.config.controller.DEFAULT_JOB_MEMORY_LIMIT",
         {"test": "1G", "foo": "1G"},
     )
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS",
+        {"test": "test_token", "foo": "foo_token"},
+    )
 
     # active tasks on test backend
     runtask1 = runjob_db_task_factory(backend="test")
@@ -66,22 +76,54 @@ def test_active_tasks_view_multiple_backends(db, client, monkeypatch):
     canceltask2.active = False
     database.update(canceltask2)
     # active tasks on other backend
-    runjob_db_task_factory(backend="foo")
-    canceljob_db_task_factory(backend="foo")
+    runtask2 = runjob_db_task_factory(backend="foo")
+    canceltask3 = canceljob_db_task_factory(backend="foo")
 
-    response = client.get(reverse("active_tasks", args=("test",)))
+    response = client.get(
+        reverse("active_tasks", args=("test",)), headers={"Authorization": "test_token"}
+    )
     response = response.json()
 
     assert {task["id"] for task in response["tasks"]} == {runtask1.id, canceltask1.id}
 
+    response = client.get(
+        reverse("active_tasks", args=("foo",)), headers={"Authorization": "foo_token"}
+    )
+    response = response.json()
+
+    assert {task["id"] for task in response["tasks"]} == {runtask2.id, canceltask3.id}
+
 
 def test_active_tasks_unknown_backend(db, client):
     response = client.get(reverse("active_tasks", args=("foo",)))
-    response = response.json()
-    assert response["tasks"] == []
+    assert response.status_code == 404
+    assert response.json()["details"] == "Backend 'foo' not found"
 
 
-def test_update_task(db, client):
+def test_no_auth_token(db, client):
+    response = client.get(reverse("active_tasks", args=("test",)))
+    assert response.status_code == 401
+    assert response.json()["details"] == "No token provided"
+
+
+def test_auth_token_invalid(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS",
+        {"test": "test_token", "foo": "foo_token"},
+    )
+    # headers with valid token, but for wrong backend
+    response = client.get(
+        reverse("active_tasks", args=("test",)), headers={"Authorization": "foo_token"}
+    )
+    assert response.status_code == 401
+    assert response.json()["details"] == "Invalid token for backend 'test'"
+
+
+def test_update_task(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+
     make_task = runjob_db_task_factory(backend="test")
 
     assert make_task.agent_stage is None
@@ -89,22 +131,31 @@ def test_update_task(db, client):
     post_data = {
         "task_id": make_task.id,
         "stage": "prepared",
-        "results": {},
+        "results": {"foo": "bar"},
         "complete": False,
         "timestamp_ns": "",
     }
 
-    response = client.post(reverse("update_task", args=("test",)), data=post_data)
+    response = client.post(
+        reverse("update_task", args=("test",)),
+        data={"payload": json.dumps(post_data)},
+        headers={"Authorization": "test_token"},
+    )
 
-    assert response.status_code == 204
+    assert response.status_code == 200
 
     task = database.find_one(Task, id=make_task.id)
 
     assert task.agent_stage == "prepared"
+    assert task.agent_results == {"foo": "bar"}
+    assert not task.agent_complete
     assert task.agent_timestamp_ns is None
 
 
-def test_update_task_with_timestamp(db, client):
+def test_update_task_with_timestamp(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
     make_task = runjob_db_task_factory(backend="test")
 
     assert make_task.agent_stage is None
@@ -118,9 +169,13 @@ def test_update_task_with_timestamp(db, client):
         "timestamp_ns": timestamp,
     }
 
-    response = client.post(reverse("update_task", args=("test",)), data=post_data)
+    response = client.post(
+        reverse("update_task", args=("test",)),
+        data={"payload": json.dumps(post_data)},
+        headers={"Authorization": "test_token"},
+    )
 
-    assert response.status_code == 204
+    assert response.status_code == 200
 
     task = database.find_one(Task, id=make_task.id)
 
@@ -128,7 +183,11 @@ def test_update_task_with_timestamp(db, client):
     assert task.agent_timestamp_ns == timestamp
 
 
-def test_update_task_no_matching_task(db, client):
+def test_update_task_no_matching_task(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+
     post_data = {
         "task_id": "unknown-task-id",
         "stage": "prepared",
@@ -137,15 +196,24 @@ def test_update_task_no_matching_task(db, client):
         "timestamp_ns": "",
     }
 
-    response = client.post(reverse("update_task", args=("test",)), data=post_data)
+    response = client.post(
+        reverse("update_task", args=("test",)),
+        data={"payload": json.dumps(post_data)},
+        headers={"Authorization": "test_token"},
+    )
 
     assert response.status_code == 500
     assert response.json()["error"] == "Error updating task"
 
 
 def test_active_tasks_view_tracing(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+    headers = {"Authorization": "test_token"}
+
     setup_auto_tracing()
-    client.get(reverse("active_tasks", args=("test",)))
+    client.get(reverse("active_tasks", args=("test",)), headers=headers)
     traces = get_trace()
     last_trace = traces[-1]
     # default django attributes
@@ -157,6 +225,11 @@ def test_active_tasks_view_tracing(db, client, monkeypatch):
 
 
 def test_update_task_view_tracing(db, client, monkeypatch):
+    monkeypatch.setattr(
+        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
+    )
+    headers = {"Authorization": "test_token"}
+
     setup_auto_tracing()
     task = runjob_db_task_factory(backend="test")
 
@@ -168,13 +241,17 @@ def test_update_task_view_tracing(db, client, monkeypatch):
         "timestamp_ns": "",
     }
 
-    client.post(reverse("update_task", args=("test",)), data=post_data)
+    client.post(
+        reverse("update_task", args=("test",)),
+        data={"payload": json.dumps(post_data)},
+        headers=headers,
+    )
     traces = get_trace()
     last_trace = traces[-1]
     # default django attributes
     assert last_trace.attributes["http.method"] == "POST"
     assert last_trace.attributes["http.url"].endswith("/test/task/update/")
-    assert last_trace.attributes["http.status_code"] == 204
+    assert last_trace.attributes["http.status_code"] == 200
     # custom attributes
     assert last_trace.attributes["backend"] == "test"
     assert last_trace.attributes["task_id"] == task.id

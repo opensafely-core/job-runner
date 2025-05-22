@@ -125,7 +125,7 @@ def test_session_request_no_flags(db, responses):
         match=[
             matchers.header_matcher(
                 {
-                    "Authorization": config.JOB_SERVER_TOKEN["test"],
+                    "Authorization": config.JOB_SERVER_TOKENS["test"],
                     "Flags": "{}",
                 }
             ),
@@ -154,7 +154,7 @@ def test_session_request_flags(db, responses):
         match=[
             matchers.header_matcher(
                 {
-                    "Authorization": config.JOB_SERVER_TOKEN["test"],
+                    "Authorization": config.JOB_SERVER_TOKENS["test"],
                     "Flags": expected_header,
                 }
             ),
@@ -192,7 +192,7 @@ def test_sync_empty_response(db, monkeypatch, responses):
 def test_session_request_multiple_backends(db, monkeypatch, responses):
     monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["foo", "bar"])
     monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKEN",
+        "jobrunner.config.controller.JOB_SERVER_TOKENS",
         {"foo": "token-foo", "bar": "token-bar"},
     )
 

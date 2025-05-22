@@ -30,9 +30,12 @@ branch = true
 dynamic_context = "test_function"
 source = ["jobrunner"]
 omit = [
-    "jobrunner/service.py",
+    # These are covered by subprocess tests which aren't tracked properly
+    "jobrunner/agent/service.py",
+    "jobrunner/controller/service.py",
+    # This is covered in the functional test set up
     "jobrunner/cli/controller/migrate.py",
-    # these are temporary wrappers for backwards compatibility and will be removed soon
+    # These are temporary wrappers for backwards compatibility and will be removed soon
     "jobrunner/cli/add_backend_to_flags.py",
     "jobrunner/cli/add_backend_to_job.py",
     "jobrunner/cli/add_job.py",
