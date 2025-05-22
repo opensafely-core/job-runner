@@ -44,7 +44,7 @@ def get_active_tasks(backend: str) -> list[Task]:
     return active_tasks
 
 
-def handle_task_update(*, task_id, stage, results, complete):
+def handle_task_update(*, task_id, stage, results, complete, timestamp_ns=None):
     # This is the function we expect to eventually be invoked via an HTTP API call.
     # This currently just updates the task table, and lets the main controller loop
     # update the jobs table as needed, and handle a completed task. In the future, we
@@ -55,6 +55,8 @@ def handle_task_update(*, task_id, stage, results, complete):
     task.agent_stage = stage
     task.agent_results = results
     task.agent_complete = complete
+    if timestamp_ns:
+        task.agent_timestamp_ns = int(timestamp_ns)
     if complete:
         task.active = False
         task.finished_at = int(time.time())

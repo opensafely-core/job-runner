@@ -267,7 +267,13 @@ def update_job_task(
 
     tracing.set_job_results_metadata(span, redacted_results, attributes)
     log_state_change(task, status, previous_status)
-    task_api.update_controller(task, status.state.value, redacted_results, complete)
+    task_api.update_controller(
+        task=task,
+        stage=status.state.value,
+        results=redacted_results,
+        complete=complete,
+        timestamp_ns=status.timestamp_ns,
+    )
 
 
 def redact_results(results):

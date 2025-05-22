@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from jobrunner.agent import task_api
@@ -49,6 +51,26 @@ def test_update_controller(db):
     assert db_task.agent_stage == "FINALIZED"
     assert db_task.agent_results == {"test": "test"}
     assert bool(db_task.agent_complete) is True
+    assert db_task.agent_timestamp_ns is None
+
+
+def test_update_controller_with_timestamp(db):
+    task = runjob_db_task_factory(backend="dummy")
+
+    timestamp = time.time_ns()
+    task_api.update_controller(
+        task,
+        stage="FINALIZED",
+        results={"test": "test"},
+        complete=True,
+        timestamp_ns=timestamp,
+    )
+
+    db_task = controller_api.get_task(task.id)
+    assert db_task.agent_stage == "FINALIZED"
+    assert db_task.agent_results == {"test": "test"}
+    assert bool(db_task.agent_complete) is True
+    assert db_task.agent_timestamp_ns == timestamp
 
 
 def test_full_job_stages(db):

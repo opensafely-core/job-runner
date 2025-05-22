@@ -1,3 +1,5 @@
+import time
+
 from django.http import JsonResponse
 from django.urls import reverse
 
@@ -89,6 +91,7 @@ def test_update_task(db, client):
         "stage": "prepared",
         "results": {},
         "complete": False,
+        "timestamp_ns": "",
     }
 
     response = client.post(reverse("update_task", args=("test",)), data=post_data)
@@ -98,6 +101,31 @@ def test_update_task(db, client):
     task = database.find_one(Task, id=make_task.id)
 
     assert task.agent_stage == "prepared"
+    assert task.agent_timestamp_ns is None
+
+
+def test_update_task_with_timestamp(db, client):
+    make_task = runjob_db_task_factory(backend="test")
+
+    assert make_task.agent_stage is None
+    timestamp = time.time_ns()
+
+    post_data = {
+        "task_id": make_task.id,
+        "stage": "prepared",
+        "results": {},
+        "complete": False,
+        "timestamp_ns": timestamp,
+    }
+
+    response = client.post(reverse("update_task", args=("test",)), data=post_data)
+
+    assert response.status_code == 204
+
+    task = database.find_one(Task, id=make_task.id)
+
+    assert task.agent_stage == "prepared"
+    assert task.agent_timestamp_ns == timestamp
 
 
 def test_update_task_no_matching_task(db, client):
@@ -106,6 +134,7 @@ def test_update_task_no_matching_task(db, client):
         "stage": "prepared",
         "results": {},
         "complete": False,
+        "timestamp_ns": "",
     }
 
     response = client.post(reverse("update_task", args=("test",)), data=post_data)
@@ -136,6 +165,7 @@ def test_update_task_view_tracing(db, client, monkeypatch):
         "stage": "prepared",
         "results": {},
         "complete": False,
+        "timestamp_ns": "",
     }
 
     client.post(reverse("update_task", args=("test",)), data=post_data)
