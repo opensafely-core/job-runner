@@ -439,6 +439,7 @@ class Task:
             active BOOLEAN,
             created_at INT,
             finished_at INT,
+            attributes TEXT,
             agent_stage TEXT,
             agent_complete BOOLEAN,
             agent_results TEXT,
@@ -457,7 +458,9 @@ class Task:
     # default second resolution
     created_at: int = None
     finished_at: int = None
-
+    # attributes: any key-value pairs that the controller can send to
+    # the agent for tracing purposes
+    attributes: dict = dataclasses.field(default_factory=dict)
     # state sent from the agent
     agent_stage: str = None
     # the task is complete from the agent's POV once this is set
@@ -474,5 +477,12 @@ class Task:
         7,
         """
         ALTER TABLE tasks ADD COLUMN agent_timestamp_ns INT;
+        """,
+    )
+
+    migration(
+        9,
+        """
+        ALTER TABLE tasks ADD COLUMN attributes TEXT;
         """,
     )
