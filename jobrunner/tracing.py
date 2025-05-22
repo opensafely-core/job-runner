@@ -11,8 +11,9 @@ from opentelemetry.trace import propagation
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from jobrunner.config import common as common_config
-from jobrunner.lib import database, warn_assertions
-from jobrunner.models import Job, SavedJobRequest, State, StatusCode
+from jobrunner.lib import warn_assertions
+from jobrunner.models import Job, State, StatusCode
+from jobrunner.queries import get_saved_job_request
 
 
 logger = logging.getLogger(__name__)
@@ -300,12 +301,7 @@ def trace_attributes(job, results=None):
     # grab job request metadata, caching it on the job instance to avoid excess
     # queries/jsoning
     if job._job_request is None:
-        try:
-            job._job_request = database.find_one(
-                SavedJobRequest, id=job.job_request_id
-            ).original
-        except ValueError:  # pragma: no cover
-            job._job_request = {}
+        job._job_request = get_saved_job_request(job)
 
     attrs = dict(
         backend=job.backend,
