@@ -49,9 +49,14 @@ def test_active_tasks_view(db, client, monkeypatch):
             "type": "runjob",
             "definition": runtask.definition,
             "created_at": runtask.created_at,
-            "attributes": {},
+            # test factory defaults
+            "attributes": {
+                "user": "testuser",
+                "project": "project",
+                "orgs": "org1,org2",
+            },
         }
-    ]
+    ], response["tasks"][0]["attributes"]
 
 
 def test_active_tasks_view_multiple_backends(db, client, monkeypatch):

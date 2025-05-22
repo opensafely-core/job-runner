@@ -32,7 +32,11 @@ from jobrunner.lib.database import (
 )
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 from jobrunner.models import Job, State, StatusCode, Task, TaskType
-from jobrunner.queries import calculate_workspace_state, get_flag_value
+from jobrunner.queries import (
+    calculate_workspace_state,
+    get_flag_value,
+    get_saved_job_request,
+)
 from jobrunner.schema import JobTaskResults
 
 
@@ -557,6 +561,16 @@ def update_job(job):
     update(job, exclude_fields=["cancelled"])
 
 
+def get_attributes_for_job_task(job):
+    job_request = get_saved_job_request(job)
+
+    return {
+        "user": job_request.get("created_by", "unknown"),
+        "project": job_request.get("project", "unknown"),
+        "orgs": ",".join(job_request.get("orgs", [])),
+    }
+
+
 def create_task_for_job(job):
     previous_tasks = find_where(
         Task, id__glob=f"{job.id}-*", type=TaskType.RUNJOB, backend=job.backend
@@ -572,6 +586,7 @@ def create_task_for_job(job):
         type=TaskType.RUNJOB,
         definition=job_to_job_definition(job, task_id).to_dict(),
         backend=job.backend,
+        attributes=get_attributes_for_job_task(job),
     )
 
 
@@ -603,6 +618,7 @@ def cancel_job(job):
         type=TaskType.CANCELJOB,
         definition=job_to_job_definition(job, task_id).to_dict(),
         backend=job.backend,
+        attributes=get_attributes_for_job_task(job),
     )
     insert_task(canceljob_task)
 
