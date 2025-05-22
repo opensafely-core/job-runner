@@ -112,6 +112,13 @@ def test_record_metrics_tick_trace(
     assert span.attributes["job"] == job_id
     assert span.attributes["task"] == task_id
     assert span.attributes["backend"] == "test"
+    if task_present:
+        assert span.attributes["user"] == "testuser"
+        assert span.attributes["project"] == "project"
+        assert span.attributes["orgs"] == "org1,org2"
+    else:
+        for key in ["user", "project", "orgs"]:
+            assert key not in span.attributes
     assert span.parent.span_id == root.context.span_id
 
     assert span.attributes["stats_timeout"] is False
