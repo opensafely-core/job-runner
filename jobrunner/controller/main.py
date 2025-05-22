@@ -125,12 +125,11 @@ def handle_jobs():
 
 def handle_job_telemetry_wrapper(job):
     """A wrapper for handle_job which adds OpenTelemetry"""
-    attrs = {
-        "initial_state": job.state.name,
-        "initial_code": job.status_code.name,
-    }
-
     with tracer.start_as_current_span("LOOP_JOB") as span:
+        attrs = {
+            "initial_state": job.state.name,
+            "initial_code": job.status_code.name,
+        }
         tracing.set_span_metadata(span, job, **attrs)
         try:
             handle_job(job)
