@@ -287,11 +287,9 @@ def handle_job(job, mode=None, paused=None):
 def save_results(job, results, timestamp_ns):
     """Extract the results of the execution and update the job accordingly."""
     message = None
-    error = False
 
     if results.exit_code != 0:
         code = StatusCode.NONZERO_EXIT
-        error = True
         message = "Job exited with an error"
         if results.message:
             message += f": {results.message}"
@@ -302,7 +300,6 @@ def save_results(job, results, timestamp_ns):
 
     elif results.has_unmatched_patterns:
         code = StatusCode.UNMATCHED_PATTERNS
-        error = True
         # If the job fails because an output was missing its very useful to
         # inform the user as often the issue is just a typo
         message = "Outputs matching expected patterns were not found. See job log for details."
@@ -314,9 +311,7 @@ def save_results(job, results, timestamp_ns):
         if results.has_level4_excluded_files:
             message += ", but some file marked as moderately_sensitive were excluded. See job log for details."
 
-    set_code(
-        job, code, message, error=error, results=results, timestamp_ns=timestamp_ns
-    )
+    set_code(job, code, message, results=results, timestamp_ns=timestamp_ns)
 
 
 def job_to_job_definition(job):

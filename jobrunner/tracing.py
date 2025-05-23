@@ -147,6 +147,8 @@ def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
         # Note: this *must* be timestamp as integer nanoseconds
         start_time = job.status_code_updated_at
 
+        attrs["succeeded"] = job.status_code == StatusCode.SUCCEEDED
+
         # final states have no duration, so make last for 1 sec, just act
         # as a marker
         end_time = int(timestamp_ns + 1e9)
