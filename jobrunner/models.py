@@ -58,6 +58,8 @@ class StatusCode(Enum):
     WAITING_ON_DB_WORKERS = "waiting_on_db_workers"
     # reset for reboot
     WAITING_ON_REBOOT = "waiting_on_reboot"
+    # reset using a new task
+    WAITING_ON_NEW_TASK = "waiting_on_new_task"
 
     # RUNNING states, these mirror ExecutorState, and are the normal happy path
     PREPARING = "preparing"
@@ -78,10 +80,15 @@ class StatusCode(Enum):
     INTERNAL_ERROR = "internal_error"
     KILLED_BY_ADMIN = "killed_by_admin"
     STALE_CODELISTS = "stale_codelists"
+    JOB_ERROR = "job_error"
 
     @property
     def is_final_code(self):
         return self in StatusCode._FINAL_STATUS_CODES
+
+    @property
+    def is_reset_code(self):
+        return self in StatusCode._RESET_STATUS_CODES
 
     def __lt__(self, other):
         order = list(self.__class__)
@@ -102,6 +109,14 @@ StatusCode._FINAL_STATUS_CODES = [
     StatusCode.INTERNAL_ERROR,
     StatusCode.KILLED_BY_ADMIN,
     StatusCode.STALE_CODELISTS,
+    StatusCode.JOB_ERROR,
+]
+
+# used for tracing to know if a state should reset to PENDING
+StatusCode._RESET_STATUS_CODES = [
+    StatusCode.WAITING_ON_REBOOT,
+    StatusCode.WAITING_DB_MAINTENANCE,
+    StatusCode.WAITING_ON_NEW_TASK,
 ]
 
 

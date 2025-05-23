@@ -40,13 +40,6 @@ log = logging.getLogger(__name__)
 tracer = trace.get_tracer("loop")
 
 
-class PlatformError(Exception):
-    """
-    Indicates that something went wrong when running a job that is external to anything
-    that happened within the container
-    """
-
-
 def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
 
@@ -125,8 +118,8 @@ def handle_single_job(job):
         try:
             handle_job(job, mode, paused)
         except Exception as exc:
-            if is_fatal_job_error(exc):
-                span.set_attribute("fatal_job_error", True)
+            span.set_attribute("fatal_job_error", is_fatal_controller_error(exc))
+            if is_fatal_controller_error(exc):
                 mark_job_as_failed(
                     job,
                     StatusCode.INTERNAL_ERROR,
@@ -136,8 +129,6 @@ def handle_single_job(job):
                     "investigating.",
                     error=exc,
                 )
-            else:
-                span.set_attribute("fatal_job_error", False)
             # Do not clean up, as we may want to debug
             #
             # Raising will kill the main loop, by design. The service manager
@@ -150,12 +141,20 @@ def handle_single_job(job):
             span.set_attribute("final_code", job.status_code.name)
 
 
-def is_fatal_job_error(exc: Exception) -> bool:
+def is_fatal_controller_error(exc: Exception) -> bool:
+    """Returns whether an Exception thrown by the controller should be fatal to the job."""
     # To faciliate the migration to the split agent/controller world we don't currently
     # consider _any_ errors as hard failures. But we will do so later and we want to
     # ensure that these code paths are adequately tested so we provide a simple
     # mechanism to trigger these in tests.
     return "test_hard_failure" in str(exc)
+
+
+def is_fatal_job_error(exc: Exception) -> bool:
+    """Returns whether an Exception thrown in the agent & returned to the controller should be fatal to the job."""
+    # An example might be: if there is version skew between the agent & the controller
+    # and the agent reports an exception due to an API change.
+    return "test_job_failure" in str(exc)
 
 
 def handle_job(job, mode=None, paused=None):
@@ -242,8 +241,26 @@ def handle_job(job, mode=None, paused=None):
         assert task is not None
         if task.agent_complete:
             if job_error := task.agent_results["error"]:
-                # Handled elsewhere
-                raise PlatformError(job_error)
+                span = trace.get_current_span()
+                span.set_attribute("fatal_job_error", is_fatal_job_error(job_error))
+                if is_fatal_job_error(job_error):
+                    mark_job_as_failed(
+                        job,
+                        StatusCode.JOB_ERROR,
+                        "This job returned a fatal error.",
+                        error=job_error,
+                    )
+                else:
+                    # mark task as inactive, this will trigger the loop to respawn it
+                    set_code(
+                        job,
+                        StatusCode.WAITING_ON_NEW_TASK,
+                        "This job returned an error that could be retried"
+                        "with a new task.",
+                        error=False,
+                        active=False,
+                    )
+
             else:
                 results = JobTaskResults.from_dict(task.agent_results)
                 save_results(job, results, task.agent_timestamp_ns)
@@ -430,10 +447,7 @@ def set_code(
             else:
                 job.state = State.FAILED
         # we sometimes reset the job back to pending
-        elif new_status_code in [
-            StatusCode.WAITING_ON_REBOOT,
-            StatusCode.WAITING_DB_MAINTENANCE,
-        ]:
+        elif new_status_code.is_reset_code:
             job.state = State.PENDING
             job.started_at = None
 
@@ -546,6 +560,7 @@ def create_task_for_job(job):
     previous_tasks = find_where(
         Task, id__glob=f"{job.id}-*", type=TaskType.RUNJOB, backend=job.backend
     )
+
     assert all(not t.active for t in previous_tasks)
     task_number = len(previous_tasks) + 1
     return Task(
