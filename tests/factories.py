@@ -10,7 +10,7 @@ from jobrunner.config import common as common_config
 from jobrunner.controller import task_api
 from jobrunner.controller.main import create_task_for_job, job_to_job_definition
 from jobrunner.lib import docker
-from jobrunner.lib.database import insert, update
+from jobrunner.lib.database import count_where, insert, update
 from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
 from jobrunner.schema import JobTaskResults, TaskType
 from tests.conftest import test_exporter
@@ -151,16 +151,26 @@ def runjob_db_task_factory(job=None, *, backend="test", **kwargs):
     return task
 
 
-def canceljob_db_task_factory(*args, state=State.RUNNING, backend="test", **kwargs):
+def canceljob_db_task_factory(job=None, *, backend="test", **kwargs):
     """Set up a job and corresponding task"""
-    job = job_factory(*args, state=state, cancelled=True, **kwargs)
+    if job is None:
+        job = job_factory(state=State.RUNNING, cancelled=True, backend=backend)
+    previous_task_count = count_where(Task, id__glob=f"{job.id}-*", backend=job.backend)
     task = Task(
-        id=f"{job.id}-001",
+        id=f"{job.id}-00{previous_task_count + 1}",
         backend=backend,
         type=TaskType.CANCELJOB,
         definition=job_to_job_definition(job).to_dict(),
+        **kwargs,
     )
     task_api.insert_task(task)
+
+    # insert_task always sets active=true. If we want to create an inactive
+    # task, we need to modify it post insertion.
+    if kwargs.get("active") is False:
+        task.active = False
+        update(task)
+
     return task
 
 

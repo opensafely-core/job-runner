@@ -72,9 +72,7 @@ def test_active_tasks_view_multiple_backends(db, client, monkeypatch):
     canceltask1 = canceljob_db_task_factory(backend="test")
     # inactive tasks on test backend
     runjob_db_task_factory(backend="test", active=False)
-    canceltask2 = canceljob_db_task_factory(backend="test")
-    canceltask2.active = False
-    database.update(canceltask2)
+    canceljob_db_task_factory(backend="test", active=False)
     # active tasks on other backend
     runtask2 = runjob_db_task_factory(backend="foo")
     canceltask3 = canceljob_db_task_factory(backend="foo")

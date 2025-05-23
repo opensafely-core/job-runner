@@ -156,10 +156,10 @@ def test_prepare_for_reboot_status_with_running_job(db, paused, capsys):
 def test_prepare_for_reboot_status_with_cancelled_job(db, paused, capsys):
     pause_backend(paused)
     # reset job
-    t1 = canceljob_db_task_factory(
+    j1 = job_factory(
         state=State.PENDING, status_code=StatusCode.WAITING_ON_REBOOT, backend="test"
     )
-    j1 = database.find_one(Job, id=t1.id.split("-")[0])
+    t1 = canceljob_db_task_factory(job=j1)
 
     prepare_for_reboot.main("test", status=True, require_confirmation=False)
     job = database.find_one(Job, id=j1.id)
@@ -177,12 +177,10 @@ def test_prepare_for_reboot_status_with_cancelled_job(db, paused, capsys):
 def test_prepare_for_reboot_status_ready_to_reboot(db, paused, capsys):
     pause_backend(paused)
     # reset job, inactive task
-    t1 = canceljob_db_task_factory(
+    j1 = job_factory(
         state=State.PENDING, status_code=StatusCode.WAITING_ON_REBOOT, backend="test"
     )
-    t1.active = False
-    database.update(t1)
-    j1 = database.find_one(Job, id=t1.id.split("-")[0])
+    t1 = canceljob_db_task_factory(job=j1, active=False)
 
     prepare_for_reboot.main("test", status=True, require_confirmation=False)
     job = database.find_one(Job, id=j1.id)
