@@ -65,30 +65,68 @@ is missing).
 
 ## Architecture
 
-The package has two main entrypoints:
-[jobrunner.sync](./jobrunner/sync.py) and
-[jobrunner.run](./jobrunner/run.py). Both are implemented as infinite
-loops with a fixed sleep period and are designed to be run as services.
+The project consists of two main components which are intended to run entirely separately:
+- the **RAP [agent](jobrunner/agent/)**: executes tasks
+- the **RAP [controller](jobrunner/controller/)**:  schedules tasks
 
-### jobrunner.sync
+The RAP agent communicates with the RAP controller via an [http API (a Django app)](controller_app/).
 
-This handles all communication between the job-server and the
-job-runner. It polls the job-server for active JobRequests, updates its
-local Jobs table accordingly, and then posts back the details of all
-Jobs associated with the active JobRequests it received.
+A *task* is an activity that the controller schedules and the agent executes.
+Tasks can (currently) take 3 forms:
+- `RUNJOB`: A task to run a specific job.
+- `CANCELJOB`: A task to cancel an existing RUNJOB task, and stop the job if
+it is already running.
+- `DBSTATUS`: A task to check if the backend database is in maintenance mode.
 
+### The RAP Agent
+
+The RAP Agent has two main entrypoints:
+- [jobrunner.agent.main]./(jobrunner/agent/main.py) polls the Controller API for
+    active tasks. For jobs, it runs docker containers to execute the required actions.
+    The bulk of the work here is done by the [local Docker executor](./jobrunner/executors/local.py) implementation module which starts new Docker containers and stores the appropriate job metadata and outputs when they finish. It updates the Controller
+    about the progress of tasks by calling the Controller API.
+- [jobrunner.agent.metrics](./jobrunner/agent/metrics.py) records and logs docker and
+    system stats for running jobs.
+
+Both are  implemented as infinite loop with fixed sleep periods and are designed to be run
+together as a [service](./jobrunner/agent/service.py).
+
+
+### The RAP Controller
+
+The RAP Controller has two main entrypoints:
+
+- [jobrunner.controller.main](./jobrunner/controller/main.py) polls the database for
+    active jobs and takes appropriate action. This involves creating RUNJOB tasks for
+    new jobs, creating CANCELJOB tasks for jobs which have been cancelled, retrieving
+    associated tasks for running jobs and updating their status.
+- [jobrunner.sync](./jobrunner/sync.py) handles all communication between the job-server and the RAP Controller. It polls the job-server for active JobRequests, updates its local Jobs table accordingly, and then posts back the details of all Jobs associated with the active JobRequests it received.
 The bulk of the work here is done by the
 [create_or_update_jobs](./jobrunner/create_or_update_jobs.py) module.
 
-### jobrunner.run
+Only the Controller has access to the database of Jobs and Tasks.
 
-This runs Docker containers based on the contents of the Jobs table.
-It's implemented as a synchronous loop which polls the database for
-active jobs and takes appropriate actions.
+### The RAP Controller API
 
-The bulk of the work here is done by the the [local Docker executor
-implementation](./jobrunner/executors/local.py) module which starts new Docker
-containers and stores the appropriate outputs when they finish.
+This is a very simple [Django application](./controller_app/) that allows external
+applications and users (currently just the Agent) to communicate with the Controller.
+
+It has two endpoints, and uses the same backend-specific token from job-server to
+authenticate. These endpoints are essentially view wrappers around methods in the
+controller's [tasks api module](./jobrunner/controller/task_api.py):
+
+- /<backend>/tasks/: gets all active tasks for <backend>
+- /<backend>/task/update/: posts information about a task
+
+
+### Configuration
+
+Configuration is set via environment variables, parsed in the [config](./jobrunner/config)
+module. Config is split into:
+- common: configuration required by both Agent and Controller (but not necessarily identical in both when deployed in production)
+- agent: configuration required by Agent only
+- controller: configuration required by Controller only
+
 
 ### Job State
 
