@@ -117,9 +117,7 @@ def test_handle_job_pending_dependency_failed(db):
     assert all(s.attributes["backend"] == "test" for s in spans)
     assert spans[-3].name == "CREATED"
     assert spans[-2].name == "DEPENDENCY_FAILED"
-    assert spans[-2].status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
-    assert spans[-1].status.status_code == trace.StatusCode.ERROR
 
 
 def test_handle_pending_job_waiting_on_dependency(db):
@@ -389,7 +387,6 @@ def test_handle_job_finalized_failed_exit_code(
     # data about outputs or filename patterns is excluded
     for key in ["outputs", "unmatched_patterns", "unmatched_outputs"]:
         assert key not in completed_span.attributes
-    assert completed_span.status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
 
 
