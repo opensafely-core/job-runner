@@ -175,6 +175,9 @@ def transaction():
 def filename_or_get_default(filename=None):
     if filename is None:
         filename = config.DATABASE_FILE
+        assert filename is not None, (
+            "DATABASE_FILE config must not be None; did you omit the `db` fixture in a test?"
+        )
     return filename
 
 

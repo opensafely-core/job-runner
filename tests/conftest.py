@@ -53,7 +53,6 @@ def set_tmp_workdir_config(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "jobrunner.config.controller.DATABASE_FILE", tmp_path / "db.sqlite"
     )
-
     config_vars = {
         "common": ["GIT_REPO_DIR"],
         "agent": [
@@ -196,14 +195,23 @@ def test_repo(tmp_work_dir):
     )
 
 
+@pytest.fixture(autouse=True)
+def db_config(monkeypatch):
+    """
+    Always patch DATABASE_FILE to None to ensure the db fixture
+    has been used for tests that need to use the db.
+    """
+    monkeypatch.setattr(controller_config, "DATABASE_FILE", None)
+
+
 @pytest.fixture()
 def db(monkeypatch, request):
     """Create a throwaway db."""
     database_file = f"file:db-{request.node.name}?mode=memory&cache=shared"
     monkeypatch.setattr(controller_config, "DATABASE_FILE", database_file)
-    database.ensure_db(database_file)
+    database.ensure_db(controller_config.DATABASE_FILE)
     yield
-    del database.CONNECTION_CACHE.__dict__[database_file]
+    del database.CONNECTION_CACHE.__dict__[controller_config.DATABASE_FILE]
 
 
 @pytest.fixture(autouse=True)

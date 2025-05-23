@@ -24,6 +24,7 @@ from jobrunner.lib.database import (
 )
 from jobrunner.models import Job, State
 from tests.conftest import get_trace
+from tests.factories import job_factory
 
 
 def test_get_connection():
@@ -368,3 +369,8 @@ def test_is_database_locked_error(tmp_path):
         captured = exc
     assert isinstance(captured, sqlite3.OperationalError)
     assert not is_database_locked_error(captured)
+
+
+def test_needs_db_fixture():
+    with pytest.raises(AssertionError, match="DATABASE_FILE config must not be None"):
+        job_factory()
