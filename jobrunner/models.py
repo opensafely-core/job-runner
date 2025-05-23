@@ -84,6 +84,10 @@ class StatusCode(Enum):
     def is_final_code(self):
         return self in StatusCode._FINAL_STATUS_CODES
 
+    @property
+    def is_reset_code(self):
+        return self in StatusCode._RESET_STATUS_CODES
+
     def __lt__(self, other):
         order = list(self.__class__)
         return order.index(self) < order.index(other)
@@ -104,6 +108,12 @@ StatusCode._FINAL_STATUS_CODES = [
     StatusCode.KILLED_BY_ADMIN,
     StatusCode.STALE_CODELISTS,
     StatusCode.JOB_ERROR,
+]
+
+# used for tracing to know if a state should reset to PENDING
+StatusCode._RESET_STATUS_CODES = [
+    StatusCode.WAITING_ON_REBOOT,
+    StatusCode.WAITING_DB_MAINTENANCE,
 ]
 
 

@@ -426,10 +426,7 @@ def set_code(
             else:
                 job.state = State.FAILED
         # we sometimes reset the job back to pending
-        elif new_status_code in [
-            StatusCode.WAITING_ON_REBOOT,
-            StatusCode.WAITING_DB_MAINTENANCE,
-        ]:
+        elif new_status_code.is_reset_code:
             job.state = State.PENDING
             job.started_at = None
 
