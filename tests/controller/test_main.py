@@ -52,6 +52,11 @@ def test_handle_pending_job_with_previous_tasks(db):
     # no active runjob tasks)
     job = job_factory(state=State.PENDING)
     task = runjob_db_task_factory(job)
+
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
+    assert len(tasks) == 1
+    assert tasks[0].active
+
     with pytest.raises(AssertionError):
         run_controller_loop_once()
 
@@ -442,7 +447,7 @@ def test_handle_job_finalized_failed_with_fatal_error(db):
     # our state
     assert job.state == State.FAILED
     assert job.status_code == StatusCode.JOB_ERROR
-    assert "This job returned an error." in job.status_message
+    assert "fatal" in job.status_message
 
     spans = get_trace("loop")
 
@@ -452,6 +457,49 @@ def test_handle_job_finalized_failed_with_fatal_error(db):
 
     # this is the OTEL StatusCode not our own. UNSET means implicit success.
     assert span.status.status_code == trace.StatusCode.UNSET
+
+
+def test_handle_job_finalized_failed_with_non_fatal_error(db):
+    # insert previous outputs
+    # create new job
+    job = job_factory()
+
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.RUNNING
+
+    set_job_task_results(
+        job, job_task_results_factory(), error=str(Exception("test_soft_failure"))
+    )
+
+    run_controller_loop_once()
+
+    job = database.find_one(Job, id=job.id)
+
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
+    assert len(tasks) == 1
+    assert not tasks[0].active
+
+    # our state
+    assert job.state == State.PENDING
+    assert job.status_code == StatusCode.WAITING_ON_NEW_TASK
+    assert "retried" in job.status_message
+
+    run_controller_loop_once()
+
+    # Controller has created a new runjob task
+    tasks = database.find_where(Task, type=TaskType.RUNJOB)
+    assert len(tasks) == 2
+    assert not tasks[0].active
+    assert tasks[1].active
+
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.RUNNING
+
+    spans = get_trace("loop")
+    span = spans[-2]  # final span is loop job
+    assert span.name == "LOOP_JOB"
+    assert len(span.events) == 0
 
 
 @pytest.fixture

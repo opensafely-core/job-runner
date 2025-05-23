@@ -150,6 +150,13 @@ def is_fatal_controller_error(exc: Exception) -> bool:
     return "test_hard_failure" in str(exc)
 
 
+def is_fatal_job_error(exc: Exception) -> bool:
+    """Returns whether an Exception thrown in the agent & returned to the controller should be fatal to the job."""
+    # An example might be: if there is version skew between the agent & the controller
+    # and the agent reports an exception due to an API change.
+    return "test_job_failure" in str(exc)
+
+
 def handle_job(job, mode=None, paused=None):
     """Handle an active job.
 
@@ -234,12 +241,26 @@ def handle_job(job, mode=None, paused=None):
         assert task is not None
         if task.agent_complete:
             if job_error := task.agent_results["error"]:
-                mark_job_as_failed(
-                    job,
-                    StatusCode.JOB_ERROR,
-                    "This job returned an error.",
-                    error=job_error,
-                )
+                span = trace.get_current_span()
+                span.set_attribute("fatal_job_error", is_fatal_job_error(job_error))
+                if is_fatal_job_error(job_error):
+                    mark_job_as_failed(
+                        job,
+                        StatusCode.JOB_ERROR,
+                        "This job returned a fatal error.",
+                        error=job_error,
+                    )
+                else:
+                    # mark task as inactive, this will trigger the loop to respawn it
+                    set_code(
+                        job,
+                        StatusCode.WAITING_ON_NEW_TASK,
+                        "This job returned an error that could be retried"
+                        "with a new task.",
+                        error=False,
+                        active=False,
+                    )
+
             else:
                 results = JobTaskResults.from_dict(task.agent_results)
                 save_results(job, results, task.agent_timestamp_ns)
