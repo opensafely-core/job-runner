@@ -248,14 +248,14 @@ def test_record_final_state_error(db):
     assert spans[-2].status.status_code.name == "ERROR"
     assert spans[-2].events[0].name == "exception"
     assert spans[-2].events[0].attributes["exception.message"] == "error"
-    assert spans[-2].status.status_code == trace.StatusCode.ERROR
+    assert not spans[-2].status.is_ok
     assert spans[-2].attributes["exit_code"] == 1
 
     assert spans[-1].name == "JOB"
     assert spans[-1].status.status_code.name == "ERROR"
     assert spans[-1].events[0].name == "exception"
     assert spans[-1].events[0].attributes["exception.message"] == "error"
-    assert spans[-1].status.status_code == trace.StatusCode.ERROR
+    assert not spans[-1].status.is_ok
     assert spans[-1].attributes["exit_code"] == 1
 
 
@@ -329,7 +329,7 @@ def test_set_span_metadata_error(db):
     span = tracer.start_span("test")
     tracing.set_span_metadata(span, job, error=Exception("test"))
 
-    assert span.status.status_code == trace.StatusCode.ERROR
+    assert not span.status.is_ok
     assert span.status.description == "test"
     assert span.events[0].name == "exception"
     assert span.events[0].attributes["exception.message"] == "test"

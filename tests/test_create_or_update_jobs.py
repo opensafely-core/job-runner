@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from opentelemetry import trace
 
 from jobrunner.create_or_update_jobs import (
     JobRequestError,
@@ -490,11 +489,11 @@ def test_create_job_from_exception(db):
     spans = get_trace("jobs")
 
     assert spans[0].name == "INTERNAL_ERROR"
-    assert spans[0].status.status_code == trace.StatusCode.ERROR
+    assert not spans[0].status.is_ok
     assert spans[0].events[0].name == "exception"
     assert spans[0].events[0].attributes["exception.message"] == "test"
     assert spans[1].name == "JOB"
-    assert spans[1].status.status_code == trace.StatusCode.ERROR
+    assert not spans[1].status.is_ok
     assert spans[1].events[0].name == "exception"
     assert spans[1].events[0].attributes["exception.message"] == "test"
 
@@ -532,9 +531,9 @@ def test_create_job_from_exception_stale_codelist(db):
     spans = get_trace("jobs")
 
     assert spans[0].name == "STALE_CODELISTS"
-    assert spans[0].status.status_code == trace.StatusCode.ERROR
+    assert not spans[0].status.is_ok
     assert spans[1].name == "JOB"
-    assert spans[1].status.status_code == trace.StatusCode.ERROR
+    assert not spans[1].status.is_ok
 
 
 @pytest.mark.parametrize(
