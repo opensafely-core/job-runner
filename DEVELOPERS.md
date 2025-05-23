@@ -6,16 +6,17 @@
 
 ### Just
 
-We use [`just`](https://github.com/casey/just) as our command runner. It's
+We use [`just`](https://just.systems/man/en/) as our command runner. It's
 a single file binary available for many platforms so should be easy to
-install.
+[install via package managers](https://just.systems/man/en/packages.html) or
+from [pre-built binaries](https://just.systems/man/en/pre-built-binaries.html).
 
 ```sh
 # macOS
 brew install just
 
 # Linux
-# Install from https://github.com/casey/just/releases
+apt install just
 
 # Add completion for your shell. E.g. for bash:
 source <(just --completions bash)
@@ -41,15 +42,25 @@ Set up a local development environment with:
 just devenv
 ```
 
-This includes the production dependencies in `requirements.txt` (which
-are intentionally kept minimal) and the dev dependencies in `requirements.dev.txt`.
+This creates a virtual environment and installs the production dependencies in
+`requirements.txt` (which are intentionally kept minimal) and the dev dependencies in `requirements.dev.txt`.
 
-It also creates a `.env` file from `dotenv-sample`, and populates the
-`HIGH_PRIVACY_STORAGE_BASE` and `MEDIUM_PRIVACY_STORAGE_BASE` environment
-variables.
+It also creates a `.env` file from `dotenv-sample`, and populates the minimum
+required environment variables.
 
+Note that the `dotenv-sample` file contains environment variables required by both the *agent*
+and *controller* components of the system; in production these components are deployed
+separately and will only require a subset of the variables set. See comments in the
+file for information on which components require each variable.
+
+### Optional
 Update `.env` to add a value for `PRIVATE_REPO_ACCESS_TOKEN`; this should be a
 developer [GitHub PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#about-personal-access-tokens) with `repo` scope.
+
+This is not required in order to run the project locally, unless you wish to test
+running jobs from private GitHub repos, and/or you want to exercise the full test
+suite (some tests in `tests/lib/test_git.py` are skipped if this environment variable
+is missing).
 
 
 ## Architecture
