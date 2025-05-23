@@ -118,8 +118,8 @@ def handle_single_job(job):
         try:
             handle_job(job, mode, paused)
         except Exception as exc:
-            if is_fatal_job_error(exc):
-                span.set_attribute("fatal_job_error", True)
+            span.set_attribute("fatal_job_error", is_fatal_controller_error(exc))
+            if is_fatal_controller_error(exc):
                 mark_job_as_failed(
                     job,
                     StatusCode.INTERNAL_ERROR,
@@ -129,8 +129,6 @@ def handle_single_job(job):
                     "investigating.",
                     error=exc,
                 )
-            else:
-                span.set_attribute("fatal_job_error", False)
             # Do not clean up, as we may want to debug
             #
             # Raising will kill the main loop, by design. The service manager
@@ -143,7 +141,8 @@ def handle_single_job(job):
             span.set_attribute("final_code", job.status_code.name)
 
 
-def is_fatal_job_error(exc: Exception) -> bool:
+def is_fatal_controller_error(exc: Exception) -> bool:
+    """Returns whether an Exception thrown by the controller should be fatal to the job."""
     # To faciliate the migration to the split agent/controller world we don't currently
     # consider _any_ errors as hard failures. But we will do so later and we want to
     # ensure that these code paths are adequately tested so we provide a simple
