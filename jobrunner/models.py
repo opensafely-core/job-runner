@@ -58,6 +58,8 @@ class StatusCode(Enum):
     WAITING_ON_DB_WORKERS = "waiting_on_db_workers"
     # reset for reboot
     WAITING_ON_REBOOT = "waiting_on_reboot"
+    # reset using a new task
+    WAITING_ON_NEW_TASK = "waiting_on_new_task"
 
     # RUNNING states, these mirror ExecutorState, and are the normal happy path
     PREPARING = "preparing"
@@ -114,6 +116,7 @@ StatusCode._FINAL_STATUS_CODES = [
 StatusCode._RESET_STATUS_CODES = [
     StatusCode.WAITING_ON_REBOOT,
     StatusCode.WAITING_DB_MAINTENANCE,
+    StatusCode.WAITING_ON_NEW_TASK,
 ]
 
 
