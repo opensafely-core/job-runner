@@ -513,9 +513,9 @@ def test_create_job_from_exception_nothing_to_do(db):
     spans = get_trace("jobs")
 
     assert spans[0].name == "SUCCEEDED"
-    assert spans[0].status.status_code == trace.StatusCode.UNSET
+    assert spans[0].status.is_ok
     assert spans[1].name == "JOB"
-    assert spans[1].status.status_code == trace.StatusCode.UNSET
+    assert spans[1].status.is_ok
 
 
 def test_create_job_from_exception_stale_codelist(db):

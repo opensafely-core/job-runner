@@ -455,8 +455,7 @@ def test_handle_job_finalized_failed_with_fatal_error(db):
     assert span.name == "LOOP_JOB"
     assert len(span.events) == 0
 
-    # this is the OTEL StatusCode not our own. UNSET means implicit success.
-    assert span.status.status_code == trace.StatusCode.UNSET
+    assert span.status.is_ok
 
 
 def test_handle_job_finalized_failed_with_non_fatal_error(db):
