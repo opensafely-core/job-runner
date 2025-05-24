@@ -197,7 +197,7 @@ def record_metrics_tick_trace(last_run):
 
             # annotate with job/task metadata
             if task := tasks_by_job_id.get(job_id):
-                # this will set backend
+                # this will set backend and any task attributes sent by the controller
                 tracing.set_task_span_metadata(span, task)
                 tracing.set_job_span_metadata(
                     span, JobDefinition.from_dict(task.definition)

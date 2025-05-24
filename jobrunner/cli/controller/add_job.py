@@ -49,6 +49,9 @@ def main(
             cancelled_actions=[],
             codelists_ok=True,
             backend=backend,
+            created_by="controller",
+            project="unknown",
+            orgs=[],
         )
     )
     print("Submitting JobRequest:\n")
