@@ -130,57 +130,93 @@ module. Config is split into:
 
 ### Job State
 
-Jobs move through a defined set of `StatusCode`'s as the job-runner manages them.
+Jobs move through a defined set of `StatusCode`s as the Controller manages them and the
+Agent prepares and executes them.
+
 These are defined in `jobrunner/models.py`.
 
 The diagram below shows the transitions, but all states have an implicit transition to
-`INTERNAL_ERROR` or `CANCELLED_BY_USER`, which is not shown.
+`INTERNAL_ERROR` or `CANCELLED_BY_USER`, which is not shown. Jobs can also
+transition from running states back to `WAITING_ON_REBOOT` or `WAITING_DB_MAINTENANCE`. Once the system is ready again, these jobs will be picked up and restarted.
 
 
 ```mermaid
 graph TD
-    CREATED --> PREPARING
+    CREATED --> INITIALIZED
     CREATED --> WAITING_ON_DEPENDENCIES
     CREATED --> WAITING_ON_WORKERS
     CREATED --> WAITING_ON_REBOOT
     CREATED --> WAITING_DB_MAINTENANCE
     CREATED --> WAITING_PAUSED
     CREATED --> STALE_CODELISTS
-    CREATED --> SUCCEEDED
-    WAITING_ON_DEPENDENCIES -->  WAITING_ON_WORKERS
-    WAITING_ON_DEPENDENCIES -->  WAITING_ON_REBOOT
-    WAITING_ON_DEPENDENCIES -->  WAITING_DB_MAINTENANCE
-    WAITING_ON_DEPENDENCIES --> PREPARING
+    INITIALIZED --> PREPARING
+    WAITING_ON_DEPENDENCIES --> INITIALIZED
     WAITING_ON_DEPENDENCIES --> DEPENDENCY_FAILED
-    WAITING_PAUSED --> PREPARING
-    WAITING_ON_WORKERS --> PREPARING
-    WAITING_ON_REBOOT --> PREPARING
-    WAITING_DB_MAINTENANCE --> PREPARING
+    WAITING_PAUSED --> INITIALIZED
+    WAITING_ON_WORKERS --> INITIALIZED
+    WAITING_ON_REBOOT --> INITIALIZED
+    WAITING_DB_MAINTENANCE --> INITIALIZED
     PREPARING --> EXECUTING
     EXECUTING --> FINALIZING
-    FINALIZING --> SUCCEEDED
-    FINALIZING --> NONZERO_EXIT
-    FINALIZING --> UNMATCHED_PATTERNS
-    FINALIZING --all states can go here--> CANCELLED_BY_USER
-    FINALIZING --all states can go here--> INTERNAL_ERROR
-    FINALIZING --all states can go here--> KILLED_BY_ADMIN
+    FINALIZING --> FINALIZED
+    FINALIZED --> SUCCEEDED
+    FINALIZED --> NONZERO_EXIT
+    FINALIZED --> UNMATCHED_PATTERNS
+    FINALIZED --all states can go here--> CANCELLED_BY_USER
+    FINALIZED --all states can go here--> INTERNAL_ERROR
+
+    subgraph controller1["`**CONTROLLER - pending**`"]
+      direction LR
+      CREATED
+      INITIALIZED
+      WAITING_DB_MAINTENANCE
+      WAITING_ON_DEPENDENCIES
+      WAITING_ON_REBOOT
+      WAITING_ON_WORKERS
+      WAITING_PAUSED
+      STALE_CODELISTS
+      DEPENDENCY_FAILED
+    end
+
+    subgraph agent["`**Agent - running**`"]
+      direction TB
+      PREPARING
+      EXECUTING
+      FINALIZING
+      FINALIZED
+    end
+
+    subgraph controller2["`**CONTROLLER - finalizing**`"]
+        direction LR
+        SUCCEEDED
+        CANCELLED_BY_USER
+        NONZERO_EXIT
+        UNMATCHED_PATTERNS
+        INTERNAL_ERROR
+    end
 
     subgraph Legend
-      direction TB
+      direction LR
       LEGEND_ERROR[ERROR STATE]
       LEGEND_BLOCKED[BLOCKED]
       LEGEND_NORMAL[HAPPY PATH]
     end
 
-    %% styles
+        %% styles
     classDef default fill:#00397a,color:#f1f7ff,stroke-width:2px,stroke:#002147;
     classDef error fill:#b6093d,color:#fef3f6,stroke-width:2px,stroke:#770628;
     classDef blocking fill:#ffdf75,color:#7d661c,stroke-width:2px,stroke:#997d23;
+    classDef legend fill:#fff,stroke:#000;
+    classDef agent fill:#d2fcea,color:#013820,stroke-width:2px,stroke:#007d47;
+    classDef controller fill:#fcfbd2,color:#995808,stroke-width:2px,stroke:#f7ab4d;
 
     class LEGEND_BLOCKED,WAITING_ON_WORKERS,WAITING_ON_REBOOT,WAITING_PAUSED,WAITING_DB_MAINTENANCE blocking
     class LEGEND_ERROR,INTERNAL_ERROR,UNMATCHED_PATTERNS,DEPENDENCY_FAILED,NONZERO_EXIT,STALE_CODELISTS error
-
+    class Legend legend
+    class agent agent
+    class controller1,controller2 controller
 ```
+
 
 ## Testing
 
