@@ -140,8 +140,11 @@ class JobRequest:
 
 # This stores the original JobRequest as received from the job-server. Once
 # we've created the relevant Jobs we have no real need for the JobRequest
-# object, but we it's useful to store it for debugging/audit purposes so we
-# just save a blob of the original JSON as received from the job-server.
+# object, but elements from the original JSON data from job-server can be
+# useful for debugging/audit purposes. Certain fields are also added as telemetry
+# trace attributes (e.g. created_by user, project, orgs); these could change in
+# future depending on telemetry needs, so we just retrieve them from the
+# original JSON blob.
 @databaseclass
 class SavedJobRequest:
     __tablename__ = "job_request"
