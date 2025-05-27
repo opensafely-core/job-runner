@@ -51,7 +51,7 @@ test *args: build
     #!/bin/bash
     docker compose run --rm test {{ args }}
 
-functional-test:
+functional-test: (build 'prod')
     #!/bin/bash
     container=job-runner-test-controller-1
     trap 'docker compose kill test-controller test-agent' EXIT
@@ -73,10 +73,6 @@ functional-test:
         sleep 1
     done
     docker logs -n 10 $container |& grep "Completed successfully"
-
-# run dev server in docker container
-service: build
-    docker compose up dev
 
 # run command in dev container
 run env="dev" *args="": (build env)
