@@ -28,3 +28,12 @@ def test_set_flag(tmp_work_dir):
     assert ts1 == ts2
     set_flag("foo", None, backend="foo")
     assert get_flag_value("foo", backend="foo") is None
+
+
+def test_set_flag_multiple_backends(tmp_work_dir):
+    assert get_flag_value("foo", backend="test1") is None
+    set_flag("foo", "bar", backend="test1")
+    assert get_flag_value("foo", backend="test1") == "bar"
+    assert get_flag_value("foo", backend="test2") is None
+    set_flag("foo", "baz", backend="test2")
+    assert get_flag_value("foo", backend="test2") == "baz"
