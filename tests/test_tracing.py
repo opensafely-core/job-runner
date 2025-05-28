@@ -224,7 +224,7 @@ def test_finish_current_state(db):
     assert spans[-1].attributes["exit_code"] == 0
 
 
-def test_record_final_state(db):
+def test_record_final_state_success(db):
     job = job_factory(status_code=models.StatusCode.SUCCEEDED)
     results = job_task_results_factory()
     ts = int(time.time() * 1e9)
@@ -233,11 +233,29 @@ def test_record_final_state(db):
     spans = get_trace("jobs")
     assert spans[-2].name == "SUCCEEDED"
     assert spans[-2].attributes["exit_code"] == 0
+    assert spans[-2].attributes["succeeded"] is True
     assert spans[-1].name == "JOB"
     assert spans[-1].attributes["exit_code"] == 0
+    assert spans[-1].attributes["succeeded"] is True
 
 
-def test_record_final_state_error(db):
+def test_record_final_state_job_error(db):
+    job = job_factory(status_code=models.StatusCode.NONZERO_EXIT)
+    ts = int(time.time() * 1e9)
+    results = job_task_results_factory(exit_code=1)
+    tracing.record_final_state(job, ts, error=Exception("error"), results=results)
+
+    spans = get_trace("jobs")
+    assert spans[-2].name == "NONZERO_EXIT"
+    assert spans[-2].attributes["exit_code"] == 1
+    assert spans[-2].attributes["succeeded"] is False
+
+    assert spans[-1].name == "JOB"
+    assert spans[-1].attributes["exit_code"] == 1
+    assert spans[-1].attributes["succeeded"] is False
+
+
+def test_record_final_state_internal_error(db):
     job = job_factory(status_code=models.StatusCode.INTERNAL_ERROR)
     ts = int(time.time() * 1e9)
     results = job_task_results_factory(exit_code=1)
@@ -250,6 +268,7 @@ def test_record_final_state_error(db):
     assert spans[-2].events[0].attributes["exception.message"] == "error"
     assert spans[-2].status.status_code == trace.StatusCode.ERROR
     assert spans[-2].attributes["exit_code"] == 1
+    assert spans[-2].attributes["succeeded"] is False
 
     assert spans[-1].name == "JOB"
     assert spans[-1].status.status_code.name == "ERROR"
@@ -257,6 +276,7 @@ def test_record_final_state_error(db):
     assert spans[-1].events[0].attributes["exception.message"] == "error"
     assert spans[-1].status.status_code == trace.StatusCode.ERROR
     assert spans[-1].attributes["exit_code"] == 1
+    assert spans[-1].attributes["succeeded"] is False
 
 
 def test_record_job_span_skips_uninitialized_job(db):
