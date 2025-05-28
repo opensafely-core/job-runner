@@ -115,8 +115,8 @@ It has two endpoints, and uses the same backend-specific token from job-server t
 authenticate. These endpoints are essentially view wrappers around methods in the
 controller's [tasks api module](./jobrunner/controller/task_api.py):
 
-- /<backend>/tasks/: gets all active tasks for <backend>
-- /<backend>/task/update/: posts information about a task
+- `/<backend>/tasks/`: returns all active tasks for <backend>
+- `/<backend>/task/update/`: receives information about a task and updates the controller database
 
 
 ### Configuration
