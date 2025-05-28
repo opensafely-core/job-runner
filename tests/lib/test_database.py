@@ -22,7 +22,7 @@ from jobrunner.lib.database import (
     update,
     upsert,
 )
-from jobrunner.models import Job, State
+from jobrunner.models import Flag, Job, State
 from tests.conftest import get_trace
 from tests.factories import job_factory
 
@@ -122,6 +122,28 @@ def test_upsert_update(tmp_work_dir):
     job.action = "bar"
     upsert(job)
     assert find_one(Job, id="foo123").action == "bar"
+
+
+def test_upsert_insert_composite_key(tmp_work_dir):
+    flag1 = Flag(id="foo", backend="test1", value="bar")
+    flag2 = Flag(id="foo", backend="test2", value="baz")
+    upsert(flag1, keys=("id", "backend"))
+    upsert(flag2, keys=("id", "backend"))
+    assert find_one(Flag, id="foo", backend="test1").value == "bar"
+    assert find_one(Flag, id="foo", backend="test2").value == "baz"
+
+
+def test_upsert_update_composite_key(tmp_work_dir):
+    flag1 = Flag(id="foo", backend="test1", value="bar")
+    flag2 = Flag(id="foo", backend="test2", value="baz")
+    insert(flag1)
+    insert(flag2)
+    flag1.value = "abc"
+    flag2.value = "def"
+    upsert(flag1, keys=("id", "backend"))
+    upsert(flag2, keys=("id", "backend"))
+    assert find_one(Flag, id="foo", backend="test1").value == "abc"
+    assert find_one(Flag, id="foo", backend="test2").value == "def"
 
 
 def test_update_excluding_a_field(tmp_work_dir):
