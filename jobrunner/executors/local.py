@@ -514,6 +514,7 @@ def get_job_metadata(
     job_metadata = {**results_metadata}
     job_metadata["job_definition_id"] = job_definition.id
     job_metadata["job_definition_request_id"] = job_definition.job_request_id
+    job_metadata["task_id"] = job_definition.task_id
     job_metadata["created_at"] = job_definition.created_at
     job_metadata["completed_at"] = int(time.time())
     job_metadata["docker_image_id"] = container_metadata.get("Image")
