@@ -386,7 +386,7 @@ class Flag:
             value TEXT,
             backend TEXT,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id)
+            PRIMARY KEY (id, backend)
         )
     """
 
@@ -394,6 +394,22 @@ class Flag:
         6,
         """
         ALTER TABLE flags ADD COLUMN backend TEXT;
+        """,
+    )
+    migration(
+        8,
+        """
+        CREATE TABLE tmp_flags (
+            id TEXT,
+            value TEXT,
+            backend TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id, backend)
+        );
+        INSERT INTO tmp_flags (id, value, backend, timestamp)
+           SELECT id, value, backend, timestamp FROM flags;
+        DROP TABLE flags;
+        ALTER TABLE tmp_flags RENAME TO flags;
         """,
     )
 
