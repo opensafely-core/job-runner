@@ -19,6 +19,11 @@ class Study:
 class JobDefinition:
     id: str  # a unique identifier for the job  # noqa: A003
     job_request_id: str  # a unique identifier for the job's job request
+    # a unique identifier for the task associated with this job. Note that a
+    # job definition is constructed for use with a specific task; it may be
+    # constructed multiple times for the same job (e.g. run the job, cancel the
+    # job, run it again), each time with a  different task ID
+    task_id: str
     study: Study  # the study defining the action for this job
     workspace: str  # the workspace to run the job in
     action: str  # the name of the action that the job is running
@@ -53,6 +58,9 @@ class JobDefinition:
         study = Study(
             git_repo_url=study_data.get("git_repo_url"), commit=study_data.get("commit")
         )
+        # Ensure any dict used to construct a JobDefinition has a task_id key
+        if "task_id" not in data:
+            data["task_id"] = ""
 
         # Create the JobDefinition instance with the Study object
         return cls(study=study, **{k: v for k, v in data.items()})
