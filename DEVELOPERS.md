@@ -231,7 +231,7 @@ tests with:
 
     just test-fast
 
-The big integration test will sit there inscrutably for 30s-1min.
+The big integration test takes several seconds to run.
 If you want to know what it's up to you can get pytest to show the log output with:
 
     just test-verbose
@@ -242,44 +242,68 @@ To run tests in docker, simply run:
 
     just docker/test
 
-This will build the docker image and run tests. You can run job-runner as
-a service with:
+This will build the docker image and run tests.
 
-    just docker/service
-
-Or run a command inside the docker image:
+You can run a command inside the docker image with:
 
     just docker/run ARGS=command  # bash by default
+
+
+There is also a functional test that runs in docker. This runs the controller and agent
+in separate docker containers, and adds and runs a job.
+
+    just docker/functional-test
 
 
 ## Running jobs locally
 
 Adding jobs locally is most easily done with the `just add-job` command, which
-calls `jobrunner.cli.add_job` with a study repo and an action to run e.g.
+calls `jobrunner.cli.controller.add_job` with a study repo, an action to run, and
+a backend to run it on e.g.
 ```
-just add-job https://github.com/opensafely/test-age-distribution run_all
+just add-job https://github.com/opensafely/test-age-distribution run_all --backend test
 ```
 
 As well as URLs this will accept paths to local git repos e.g.
 ```
-just add-job ../test-age-distribution run_all
+just add-job ../test-age-distribution run_all --backend test
 ```
 
-You can now run the main loop and you'll see it pick up the jobs:
+In order to pick up and execute the job, you need to run the three job-runner
+components. In separate terminal windows, run:
+
 ```
-just run
+# Controller service
+just run-controller
+
+# Controller django app
+just run-app
+
+# Agent service
+just run-agent
 ```
+
+You should see the controller pick up the new job and create a RUNJOB task for it.
+In the controller app terminal, you'll see the agent poll for new tasks every second or so.
+Then the agent will receive the new task, execute the job, and call the controller app
+to update the controller after each step.
 
 See the full set of options `add-job` will accept with:
 ```
-python -m jobrunner.cli.add_job --help
+just add_job --help
 ```
+Outputs and logs from the job can be found at `workdir/high_privacy` and `workdir/medium_privacy`.
+Note that `add-job` adds a job with a workspace named `test` by default, so e.g. high privacy
+outputs will be found in `workdir/high_privacy/workspaces/test`.
+
 
 ## Running jobs on the test backend
 
 The [test backend](https://github.com/opensafely-core/backend-server/tree/main/backends/test) is
 a test version of an OpenSAFELY backend which has no access to patient data, but can be used to
 schedule and run jobs in a production-like environment.
+
+### Using the CLI
 
 You will need ssh access to test.opensafely.org in order to add jobs using the CLI. This
 currently requires the same permissions as any non-test backend; see the
@@ -289,14 +313,14 @@ currently requires the same permissions as any non-test backend; see the
 ssh <your-username>@test.opensafely.org
 sudo su - opensafely
 
-just jobrunner/add-job https://github.com/opensafely/os-demo-research run_all
+just jobrunner/add-job https://github.com/opensafely/test-age-distribution run_all --backend test
 ```
 
 You will see the output of the newly created job (note that if it returns `'state': 'succeeded'`
 in the displayed json, the job has already run successfully on the test backend. Use `-f` to
 force dependencies to re-run).
 
-The jobrunner service is already running in the background on the test backend, so
+The jobrunner services are already running in the background on the test backend, so
 jobs should be picked up and run automatically. Check the job logs to see the progress of your
 job. From the output of `just add-job`, find the new job's `id` value.
 
@@ -305,6 +329,12 @@ Now check the logs for this job:
 ```
 just jobrunner/logs-id <your-job-id>
 ```
+
+### Using job-server
+
+If you have an account on <jobs.opensafely.org> with relevant permissions, you can select "Test" as the backend when running jobs. This will exercise the entire user interaction, using
+the test backend instead of a production backend, and results of the jobs will be reported back to job-server.
+
 
 ## job-runner docker image
 
