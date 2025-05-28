@@ -450,7 +450,7 @@ def finalize_job(job_definition, cancelled, error=None):
                 )
 
         elif exit_code == 137 and cancelled:
-            message = "Job cancelled by user"
+            message = "Job cancelled by system"
         # Nb. this flag has been observed to be unreliable on some versions of Linux
         elif (
             container_metadata["State"]["ExitCode"] == 137
@@ -465,7 +465,7 @@ def finalize_job(job_definition, cancelled, error=None):
             message = config.DOCKER_EXIT_CODES.get(exit_code)
 
     elif cancelled:
-        message = "Job cancelled by user"
+        message = "Job cancelled by system"
 
     elif error:
         message = "Job errored"

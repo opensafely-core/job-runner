@@ -1078,7 +1078,7 @@ def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     assert status.results["cancelled"]
     assert status.state == ExecutorState.FINALIZED
     assert status.results["exit_code"] == str(137)
-    assert status.results["status_message"] == "Job cancelled by user"
+    assert status.results["status_message"] == "Job cancelled by system"
 
     # Calling terminate again on a finalized job just returns the current status
     api.terminate(job_definition)
@@ -1109,7 +1109,7 @@ def test_running_job_cancelled_retry(docker_cleanup, job_definition, tmp_work_di
     assert status.results["cancelled"]
     assert status.state == ExecutorState.FINALIZED
     assert status.results["exit_code"] == str(137)
-    assert status.results["status_message"] == "Job cancelled by user"
+    assert status.results["status_message"] == "Job cancelled by system"
 
     # Calling get_status again on the same job definition, with the same task id
     # returns our existing finialized state
