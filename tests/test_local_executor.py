@@ -150,9 +150,26 @@ def test_read_metadata_path(job_definition):
     }
 
 
-def test_read_job_task_metadata(job_definition, test_repo, tmp_work_dir):
+@pytest.mark.parametrize(
+    "metadata_task_id,job_task_id,has_metadata",
+    [
+        # Both job definition and existing stored metadata have a populated
+        # task_id - only return metadata if they match
+        ("task-id", "task-id", True),
+        ("task-id", "new-task", False),
+        # Either job definition or existing stored metadata are missing
+        # task id, return the stored metadata
+        ("", "task-id", True),
+        ("task-id", "", True),
+        ("", "", True),
+        (None, "task-id", True),
+    ],
+)
+def test_read_job_task_metadata(
+    job_definition, test_repo, tmp_work_dir, metadata_task_id, job_task_id, has_metadata
+):
     assert local.read_job_metadata(job_definition.id) == {}
-
+    job_definition.task_id = job_task_id
     metadata_path = (
         config.JOB_LOG_DIR
         / "last-month"
@@ -160,14 +177,13 @@ def test_read_job_task_metadata(job_definition, test_repo, tmp_work_dir):
         / local.METADATA_FILE
     )
     metadata_path.parent.mkdir(parents=True)
-    metadata_path.write_text(json.dumps({"task_id": job_definition.task_id}))
+    metadata = {"task_id": metadata_task_id} if metadata_task_id is not None else {}
+    metadata_path.write_text(json.dumps(metadata))
     job_metadata = local.read_job_metadata(job_definition.id)
-    assert job_metadata == local.METADATA_DEFAULTS | {"task_id": job_definition.task_id}
+    assert job_metadata == local.METADATA_DEFAULTS | metadata
 
-    assert local.read_job_task_metadata(job_definition) == job_metadata
-
-    job_definition.task_id = "new-task-id"
-    assert local.read_job_task_metadata(job_definition) == {}
+    expected = job_metadata if has_metadata else {}
+    assert local.read_job_task_metadata(job_definition) == expected
 
 
 @pytest.mark.needs_docker

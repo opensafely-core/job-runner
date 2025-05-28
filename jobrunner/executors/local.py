@@ -87,9 +87,12 @@ def read_job_task_metadata(job_definition):
     """Read any previously stored metadata for this specific task"""
     metadata = read_job_metadata(job_definition.id)
     metadata_task_id = metadata.get("task_id")
-    if job_definition.task_id and job_definition.task_id == metadata_task_id:
-        return metadata
-    return {}
+    # Ignore previously stored task-specifc job metadata (i.e. metadata that
+    # has written a task_id) if it doesn't match our current task
+    if job_definition.task_id and metadata_task_id:
+        if job_definition.task_id != metadata_task_id:
+            return {}
+    return metadata
 
 
 def write_job_metadata(job_definition, job_metadata):
