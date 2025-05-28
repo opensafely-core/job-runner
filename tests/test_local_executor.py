@@ -23,6 +23,7 @@ def job_definition(request, test_repo):
     return JobDefinition(
         id=clean_name,
         job_request_id=f"job-request-{clean_name}",
+        task_id=f"{clean_name}-001",
         study=test_repo.study,
         workspace="test",
         action="action",
@@ -147,6 +148,42 @@ def test_read_metadata_path(job_definition):
     assert local.read_job_metadata(job_definition.id) == local.METADATA_DEFAULTS | {
         "test": "actual"
     }
+
+
+@pytest.mark.parametrize(
+    "metadata_task_id,job_task_id,has_metadata",
+    [
+        # Both job definition and existing stored metadata have a populated
+        # task_id - only return metadata if they match
+        ("task-id", "task-id", True),
+        ("task-id", "new-task", False),
+        # Either job definition or existing stored metadata are missing
+        # task id, return the stored metadata
+        ("", "task-id", True),
+        ("task-id", "", True),
+        ("", "", True),
+        (None, "task-id", True),
+    ],
+)
+def test_read_job_task_metadata(
+    job_definition, test_repo, tmp_work_dir, metadata_task_id, job_task_id, has_metadata
+):
+    assert local.read_job_metadata(job_definition.id) == {}
+    job_definition.task_id = job_task_id
+    metadata_path = (
+        config.JOB_LOG_DIR
+        / "last-month"
+        / local.container_name(job_definition.id)
+        / local.METADATA_FILE
+    )
+    metadata_path.parent.mkdir(parents=True)
+    metadata = {"task_id": metadata_task_id} if metadata_task_id is not None else {}
+    metadata_path.write_text(json.dumps(metadata))
+    job_metadata = local.read_job_metadata(job_definition.id)
+    assert job_metadata == local.METADATA_DEFAULTS | metadata
+
+    expected = job_metadata if has_metadata else {}
+    assert local.read_job_task_metadata(job_definition) == expected
 
 
 @pytest.mark.needs_docker
@@ -393,6 +430,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     assert txt_metadata["col_count"] is None
 
     job_metadata = local.read_job_metadata(job_definition.id)
+    assert job_metadata["task_id"] == job_definition.task_id
     for key in {
         "exit_code",
         "completed_at",
@@ -1053,6 +1091,43 @@ def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
 
     assert log_dir_log_file_exists(job_definition)
     assert not workspace_log_file_exists(job_definition)
+
+
+@pytest.mark.needs_docker
+def test_running_job_cancelled_retry(docker_cleanup, job_definition, tmp_work_dir):
+    job_definition.args = ["sleep", "101"]
+
+    api = local.LocalDockerAPI()
+    # process the job and terminate after executing
+    api.prepare(job_definition)
+    api.execute(job_definition)
+    api.terminate(job_definition)
+    api.finalize(job_definition, cancelled=True)
+    api.cleanup(job_definition)
+    # we have the expected cancelled results
+    status = api.get_status(job_definition)
+    assert status.results["cancelled"]
+    assert status.state == ExecutorState.FINALIZED
+    assert status.results["exit_code"] == str(137)
+    assert status.results["status_message"] == "Job cancelled by user"
+
+    # Calling get_status again on the same job definition, with the same task id
+    # returns our existing finialized state
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    # We can't re-prepare
+    api.prepare(job_definition)
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+
+    # But we can try again with a new task
+    job_definition.task_id = "new-task-id"
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.UNKNOWN
+    api.prepare(job_definition)
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.PREPARED
 
 
 @pytest.mark.needs_docker

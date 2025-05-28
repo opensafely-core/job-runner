@@ -680,7 +680,7 @@ def test_ignores_cancelled_jobs_when_calculating_dependencies(db):
 
 def test_job_definition_limits(db):
     job = job_factory()
-    job_definition = main.job_to_job_definition(job)
+    job_definition = main.job_to_job_definition(job, task_id="")
     assert job_definition.cpu_count == 2
     assert job_definition.memory_limit == "4G"
 
@@ -801,7 +801,7 @@ def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
 def test_job_definition_stata_license(db, monkeypatch, run_command, expect_env):
     monkeypatch.setattr(config, "STATA_LICENSE", "dummy-license")
     job = job_factory(run_command=run_command)
-    job_definition = main.job_to_job_definition(job)
+    job_definition = main.job_to_job_definition(job, task_id="")
     if expect_env:
         assert job_definition.env["STATA_LICENSE"] == "dummy-license"
     else:
