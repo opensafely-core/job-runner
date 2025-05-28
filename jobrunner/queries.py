@@ -76,7 +76,7 @@ def set_flag(name, value, backend, timestamp=None):
     if timestamp is None:
         timestamp = time.time()
     flag = Flag(name, value, backend, timestamp)
-    upsert(flag)
+    upsert(flag, keys=("id", "backend"))
     return flag
 
 

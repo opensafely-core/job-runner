@@ -64,17 +64,18 @@ def insert(item):
     get_connection().execute(sql, encode_field_values(fields, item))
 
 
-def upsert(item):
-    assert item.id
+def upsert(item, keys=("id",)):
+    assert all(getattr(item, k) for k in keys)
     insert_sql, fields = generate_insert_sql(item)
 
     updates = ", ".join(f"{escape(field.name)} = ?" for field in fields)
+    key_sql = ", ".join(escape(k) for k in keys)
     # Note: technically we update the id on conflict with this approach, which
     # is unnecessary, but it does not hurt and simplifies updates and params
     # parts of the query.
     sql = f"""
         {insert_sql}
-        ON CONFLICT(id) DO UPDATE SET {updates}
+        ON CONFLICT({key_sql}) DO UPDATE SET {updates}
     """
     params = encode_field_values(fields, item)
     # pass params twice, once for INSERT and once for UPDATE
