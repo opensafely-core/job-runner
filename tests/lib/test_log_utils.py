@@ -35,6 +35,7 @@ test_request = JobRequest(
 test_job_definition = JobDefinition(
     id="job-def",
     job_request_id="request1",
+    task_id="job-def-001",
     study=None,
     workspace="workspace",
     action="",

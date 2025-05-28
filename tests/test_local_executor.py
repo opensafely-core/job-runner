@@ -23,6 +23,7 @@ def job_definition(request, test_repo):
     return JobDefinition(
         id=clean_name,
         job_request_id=f"job-request-{clean_name}",
+        task_id=f"{clean_name}-001",
         study=test_repo.study,
         workspace="test",
         action="action",

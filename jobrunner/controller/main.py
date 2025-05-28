@@ -319,7 +319,7 @@ def save_results(job, results, timestamp_ns):
     )
 
 
-def job_to_job_definition(job):
+def job_to_job_definition(job, task_id):
     env = {"OPENSAFELY_BACKEND": job.backend}
 
     # Prepend registry name
@@ -348,6 +348,7 @@ def job_to_job_definition(job):
     return JobDefinition(
         id=job.id,
         job_request_id=job.job_request_id,
+        task_id=task_id,
         study=study,
         workspace=job.workspace,
         action=job.action,
@@ -563,11 +564,13 @@ def create_task_for_job(job):
 
     assert all(not t.active for t in previous_tasks)
     task_number = len(previous_tasks) + 1
+    # Zero-pad the task number so tasks sort lexically
+    task_id = f"{job.id}-{task_number:03}"
     return Task(
         # Zero-pad the task number so tasks sort lexically
-        id=f"{job.id}-{task_number:03}",
+        id=task_id,
         type=TaskType.RUNJOB,
-        definition=job_to_job_definition(job).to_dict(),
+        definition=job_to_job_definition(job, task_id).to_dict(),
         backend=job.backend,
     )
 
@@ -594,10 +597,11 @@ def cancel_job(job):
     if not runjob_task or not runjob_task.active:
         return
     mark_task_inactive(runjob_task)
+    task_id = f"{runjob_task.id}-cancel"
     canceljob_task = Task(
-        id=f"{runjob_task.id}-cancel",
+        id=task_id,
         type=TaskType.CANCELJOB,
-        definition=job_to_job_definition(job).to_dict(),
+        definition=job_to_job_definition(job, task_id).to_dict(),
         backend=job.backend,
     )
     insert_task(canceljob_task)
