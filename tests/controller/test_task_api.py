@@ -7,12 +7,12 @@ from tests.factories import job_factory
 
 def test_insert_runjob_task(db):
     job = job_factory()
-
+    task_id = job.id
     task = Task(
-        id=job.id,
+        id=task_id,
         backend="test",
         type=TaskType.RUNJOB,
-        definition=job_to_job_definition(job).to_dict(),
+        definition=job_to_job_definition(job, task_id).to_dict(),
     )
 
     task_api.insert_task(task)
@@ -20,17 +20,17 @@ def test_insert_runjob_task(db):
     task = task_api.get_task(job.id)
     assert task.active
     job_definition = JobDefinition.from_dict(task.definition)
-    assert job_definition == job_to_job_definition(job)
+    assert job_definition == job_to_job_definition(job, task_id)
 
 
 def test_mark_inactive(db):
     job = job_factory()
-
+    task_id = job.id
     task = Task(
-        id=job.id,
+        id=task_id,
         backend="test",
         type=TaskType.RUNJOB,
-        definition=job_to_job_definition(job).to_dict(),
+        definition=job_to_job_definition(job, task_id).to_dict(),
     )
 
     task_api.insert_task(task)

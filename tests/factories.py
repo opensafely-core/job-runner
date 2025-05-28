@@ -135,7 +135,6 @@ def runjob_db_task_factory(job=None, *, backend="test", **kwargs):
     if job is None:
         # default to RUNNING, as no task is created for PENDING by default
         job = job_factory(state=State.RUNNING, backend=backend)
-
     task = create_task_for_job(job)
     for k, v in kwargs.items():
         setattr(task, k, v)
@@ -156,11 +155,12 @@ def canceljob_db_task_factory(job=None, *, backend="test", **kwargs):
     if job is None:
         job = job_factory(state=State.RUNNING, cancelled=True, backend=backend)
     previous_task_count = count_where(Task, id__glob=f"{job.id}-*", backend=job.backend)
+    task_id = f"{job.id}-00{previous_task_count + 1}"
     task = Task(
-        id=f"{job.id}-00{previous_task_count + 1}",
+        id=task_id,
         backend=backend,
         type=TaskType.CANCELJOB,
-        definition=job_to_job_definition(job).to_dict(),
+        definition=job_to_job_definition(job, task_id).to_dict(),
         **kwargs,
     )
     task_api.insert_task(task)
@@ -175,8 +175,9 @@ def canceljob_db_task_factory(job=None, *, backend="test", **kwargs):
 
 
 def job_definition_factory(*args, **kwargs):
+    task_id = kwargs.pop("task_id", "")
     job = job_factory(*args, **kwargs)
-    return job_to_job_definition(job)
+    return job_to_job_definition(job, task_id)
 
 
 def ensure_docker_images_present(*images):

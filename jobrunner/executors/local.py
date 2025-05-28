@@ -73,14 +73,26 @@ def get_log_dir(job_id):
 
 
 def read_job_metadata(job_id):
+    """Load any stored metadata for this job ID"""
     path = job_metadata_path(job_id)
     if path:
         metadata = json.loads(path.read_text())
         # ensure all metadata has default values, as older json files might be
         # missing some
         return METADATA_DEFAULTS | metadata
-
     return {}
+
+
+def read_job_task_metadata(job_definition):
+    """Read any previously stored metadata for this specific task"""
+    metadata = read_job_metadata(job_definition.id)
+    metadata_task_id = metadata.get("task_id")
+    # Ignore previously stored task-specifc job metadata (i.e. metadata that
+    # has written a task_id) if it doesn't match our current task
+    if job_definition.task_id and metadata_task_id:
+        if job_definition.task_id != metadata_task_id:
+            return {}
+    return metadata
 
 
 def write_job_metadata(job_definition, job_metadata):
@@ -270,7 +282,7 @@ class LocalDockerAPI(ExecutorAPI):
                 f"docker timed out after {timeout}s inspecting container {name}"
             )
 
-        job_metadata = read_job_metadata(job_definition.id)
+        job_metadata = read_job_task_metadata(job_definition)
 
         if job_metadata.get("error"):
             return JobStatus(
@@ -401,8 +413,8 @@ def prepare_job(job_definition):
 
 
 def finalize_job(job_definition, cancelled, error=None):
-    assert not read_job_metadata(job_definition.id), (
-        f"job {job_definition.id}has already been finalized"
+    assert not read_job_task_metadata(job_definition), (
+        f"task {job_definition.task_id} for job {job_definition.id} has already been finalized"
     )
 
     container_metadata = docker.container_inspect(
@@ -438,7 +450,7 @@ def finalize_job(job_definition, cancelled, error=None):
                 )
 
         elif exit_code == 137 and cancelled:
-            message = "Job cancelled by user"
+            message = "Job cancelled by system"
         # Nb. this flag has been observed to be unreliable on some versions of Linux
         elif (
             container_metadata["State"]["ExitCode"] == 137
@@ -453,7 +465,7 @@ def finalize_job(job_definition, cancelled, error=None):
             message = config.DOCKER_EXIT_CODES.get(exit_code)
 
     elif cancelled:
-        message = "Job cancelled by user"
+        message = "Job cancelled by system"
 
     elif error:
         message = "Job errored"
@@ -505,6 +517,7 @@ def get_job_metadata(
     job_metadata = {**results_metadata}
     job_metadata["job_definition_id"] = job_definition.id
     job_metadata["job_definition_request_id"] = job_definition.job_request_id
+    job_metadata["task_id"] = job_definition.task_id
     job_metadata["created_at"] = job_definition.created_at
     job_metadata["completed_at"] = int(time.time())
     job_metadata["docker_image_id"] = container_metadata.get("Image")

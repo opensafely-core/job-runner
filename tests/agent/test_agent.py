@@ -9,6 +9,7 @@ from jobrunner.agent import main, task_api
 from jobrunner.config import agent as config
 from jobrunner.controller import task_api as controller_task_api
 from jobrunner.job_executor import ExecutorState, JobDefinition
+from jobrunner.lib.database import update_where
 from jobrunner.models import Task, TaskType
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
@@ -473,3 +474,27 @@ def test_db_status_task_rejects_unexpected_status(mock_docker, monkeypatch):
     with pytest.raises(ValueError, match="Invalid status") as exc:
         main.db_status_task(database_name="default")
     assert "unexpected value" not in str(exc.value)
+
+
+def test_handle_job_no_task_id_in_definition(
+    db, freezer, caplog, responses, live_server, monkeypatch
+):
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
+    caplog.set_level(logging.INFO)
+    # move to a whole second boundary for easier timestamp maths
+    freezer.move_to("2022-01-01T12:34:56")
+
+    api = StubExecutorAPI()
+
+    task, _ = api.add_test_runjob_task(ExecutorState.UNKNOWN)
+
+    task.definition.pop("task_id")
+    update_where(Task, {"definition": task.definition}, id=task.id)
+
+    main.handle_single_task(task, api)
+
+    task = controller_task_api.get_task(task.id)
+    assert task.agent_stage == ExecutorState.PREPARED.value
+    assert "task_id" not in task.definition
