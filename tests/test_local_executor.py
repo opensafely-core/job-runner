@@ -150,6 +150,26 @@ def test_read_metadata_path(job_definition):
     }
 
 
+def test_read_job_task_metadata(job_definition, test_repo, tmp_work_dir):
+    assert local.read_job_metadata(job_definition.id) == {}
+
+    metadata_path = (
+        config.JOB_LOG_DIR
+        / "last-month"
+        / local.container_name(job_definition.id)
+        / local.METADATA_FILE
+    )
+    metadata_path.parent.mkdir(parents=True)
+    metadata_path.write_text(json.dumps({"task_id": job_definition.task_id}))
+    job_metadata = local.read_job_metadata(job_definition.id)
+    assert job_metadata == local.METADATA_DEFAULTS | {"task_id": job_definition.task_id}
+
+    assert local.read_job_task_metadata(job_definition) == job_metadata
+
+    job_definition.task_id = "new-task-id"
+    assert local.read_job_task_metadata(job_definition) == {}
+
+
 @pytest.mark.needs_docker
 def test_prepare_success(
     docker_cleanup, job_definition, test_repo, tmp_work_dir, freezer
