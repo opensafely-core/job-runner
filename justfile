@@ -167,6 +167,9 @@ pause:
 unpause:
     just manage flags set paused= --backend test
 
+prepare-for-reboot *args:
+    just manage prepare_for_reboot {{ args }} --backend test
+
 # Run the dev project
 run-agent: devenv
     $BIN/python -m jobrunner.agent.main

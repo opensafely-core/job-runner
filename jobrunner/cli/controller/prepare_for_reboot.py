@@ -79,8 +79,7 @@ def main(backend, status=False, require_confirmation=True):
             cancel_job(job)
 
 
-def run():  # pragma: no cover
-    parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
+def add_parser_args(parser):
     add_backend_argument(parser)
     parser.add_argument(
         "-s",
@@ -89,6 +88,11 @@ def run():  # pragma: no cover
         default=False,
         help="Report on status of system in prepration for reboot",
     )
+
+
+def run():  # pragma: no cover
+    parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
+    add_parser_args(parser)
     args = parser.parse_args()
     main(**vars(args))
 
