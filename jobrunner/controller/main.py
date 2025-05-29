@@ -316,7 +316,7 @@ def save_results(job, results, timestamp_ns):
         message = "Completed successfully"
 
         if results.has_level4_excluded_files:
-            message += ", but some file marked as moderately_sensitive were excluded. See job log for details."
+            message += ", but some file(s) marked as moderately_sensitive were excluded. See job log for details."
 
     set_code(
         job, code, message, error=error, results=results, timestamp_ns=timestamp_ns
