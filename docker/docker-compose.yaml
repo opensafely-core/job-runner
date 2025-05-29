@@ -58,7 +58,7 @@ services:
       WORKDIR: /workdir
       # force using mounted docker socket
       DOCKER_HOST: unix:///var/run/docker.sock
-      # used to enable in CI
+      # used to enable tests using private repos in CI
       PRIVATE_REPO_TOKEN: ${PRIVATE_REPO_TOKEN:-}
 
   # main development service
