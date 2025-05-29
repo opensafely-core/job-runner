@@ -113,10 +113,6 @@ test-no-docker *ARGS: devenv
 cli command *ARGS: devenv
     $BIN/python -m jobrunner.cli.{{ command }} {{ ARGS }}
 
-# Run db migrations locally
-migrate:
-    just cli controller.migrate
-
 # Lint and check formatting but don't modify anything
 check: devenv
     #!/usr/bin/env bash
@@ -169,6 +165,10 @@ unpause:
 
 prepare-for-reboot *args:
     just manage prepare_for_reboot {{ args }} --backend test
+
+# Run db migrations locally
+migrate:
+    just manage migrate_controller
 
 # Run the dev project
 run-agent: devenv

@@ -64,3 +64,10 @@ def test_prepare_for_reboot(db, monkeypatch):
     assert task.finished_at is not None
     assert len(cancel_tasks) == 1
     assert cancel_tasks[0].id.startswith(j1.id)
+
+
+def test_migrate(tmp_path, caplog):
+    caplog.set_level("INFO")
+    temp_db_file = tmp_path / "test.db"
+    call_command("migrate_controller", dbpath=temp_db_file)
+    assert f"created new db at {temp_db_file}" in caplog.text, caplog.text
