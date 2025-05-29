@@ -57,9 +57,7 @@ def main(backend, action, flags, create=False):
         print(flag)
 
 
-def run(argv):
-    parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
-
+def add_parser_args(parser):
     subparsers = parser.add_subparsers(dest="action")
     subparsers.required = True
     # for get, flag arguments is optional
@@ -91,6 +89,11 @@ def run(argv):
     )
     add_backend_argument(parser_set, helptext="backend this flag/flags relates to")
     parser_set.set_defaults(action="set")
+
+
+def run(argv):
+    parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
+    add_parser_args(parser)
 
     args = parser.parse_args(argv)
     main(**vars(args))

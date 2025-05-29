@@ -155,18 +155,24 @@ fix: devenv
     just --fmt --unstable --justfile justfile
     just --fmt --unstable --justfile docker/justfile
 
-# Run the dev project
+manage *args: devenv
+    $BIN/python manage.py {{ args }}
+
 add-job *args:
     just manage add_job {{ args }} --backend test
 
+pause:
+    just manage flags set paused=true --backend test
+
+unpause:
+    just manage flags set paused= --backend test
+
+# Run the dev project
 run-agent: devenv
     $BIN/python -m jobrunner.agent.main
 
 run-controller: devenv
     $BIN/python -m jobrunner.controller.main
-
-manage *args: devenv
-    $BIN/python manage.py {{ args }}
 
 run-app: devenv
     just manage runserver
