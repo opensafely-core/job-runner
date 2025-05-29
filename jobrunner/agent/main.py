@@ -159,14 +159,11 @@ def handle_cancel_job_task(task, api):
                     f"unexpected state of job {job.id}: {initial_job_status.state}"
                 )
 
-        # Clean up based on the starting job state
-        if initial_job_status.state in [
-            ExecutorState.EXECUTING,
-            ExecutorState.EXECUTED,
-            ExecutorState.FINALIZED,
-            ExecutorState.ERROR,
-        ]:
-            api.cleanup(job)
+        # Clean up containers and volumes
+        # Note that if the job hasn't started (initial status UNKNOWN) or has
+        # already finished (FINALIZED), there should be nothing to clean up, but
+        # cleanup() will handle that
+        api.cleanup(job)
 
         update_job_task(
             task, final_status, previous_status=pre_finalized_job_status, complete=True

@@ -334,14 +334,14 @@ def test_handle_canceljob_with_fatal_error(mock_update_controller, db):
 
 
 @pytest.mark.parametrize(
-    "initial_state,interim_state,terminate,finalize,cleanup",
+    "initial_state,interim_state,terminate,finalize",
     [
-        (ExecutorState.PREPARED, None, False, True, False),
-        (ExecutorState.EXECUTING, ExecutorState.EXECUTED, True, True, True),
-        (ExecutorState.UNKNOWN, None, False, True, False),
-        (ExecutorState.EXECUTED, None, False, True, True),
-        (ExecutorState.ERROR, None, False, True, True),
-        (ExecutorState.FINALIZED, None, False, False, True),
+        (ExecutorState.PREPARED, None, False, True),
+        (ExecutorState.EXECUTING, ExecutorState.EXECUTED, True, True),
+        (ExecutorState.UNKNOWN, None, False, True),
+        (ExecutorState.EXECUTED, None, False, True),
+        (ExecutorState.ERROR, None, False, True),
+        (ExecutorState.FINALIZED, None, False, False),
     ],
 )
 def test_handle_cancel_job(
@@ -351,7 +351,6 @@ def test_handle_cancel_job(
     interim_state,
     terminate,
     finalize,
-    cleanup,
     monkeypatch,
     responses,
     live_server,
@@ -386,7 +385,8 @@ def test_handle_cancel_job(
 
     assert (job_id in api.tracker["terminate"]) == terminate
     assert (job_id in api.tracker["finalize"]) == finalize
-    assert (job_id in api.tracker["cleanup"]) == cleanup
+    # clean up is run irrespective of initial state
+    assert job_id in api.tracker["cleanup"]
 
     spans = get_trace("agent_loop")
     assert len(spans) == 1
