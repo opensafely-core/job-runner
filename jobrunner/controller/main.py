@@ -330,6 +330,7 @@ def job_to_job_definition(job, task_id):
     action_args = job.action_args
     image = action_args.pop(0)
     full_image = f"{common_config.DOCKER_REGISTRY}/{image}"
+
     if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 
