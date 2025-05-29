@@ -40,7 +40,7 @@ ALLOWED_IMAGES = {
     "sqlrunner",
 }
 
-#  Set workers per-backend. This will be used by the controller to
+# Set workers per-backend. This will be used by the controller to
 # determine if there are enough resources available to start a new
 # job running.
 default_workers = {"test": 2, "tpp": 10, "emis": 10}
