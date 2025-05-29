@@ -43,4 +43,4 @@ jobs:
         ssh-agent -a "$SSH_AUTH_SOCK" > /dev/null
         ssh-add - <<< "${{ secrets.DOKKU4_DEPLOY_SSH_KEY }}"
         SHA=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_ID:latest")
-        ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" dokku@dokku4.ebmdatalab.net git:from-image job-controller "$SHA"
+        ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" dokku@dokku4.ebmdatalab.net git:from-image rap-controller "$SHA"
