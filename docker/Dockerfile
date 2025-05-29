@@ -94,6 +94,13 @@ ENV PYTHONPATH=/app
 # process.
 ENV TINI_KILL_PROCESS_GROUP=1
 
+# Copy django bash completion script
+COPY docker/scripts/django_bash_completion /etc/bash_completion.d
+COPY docker/scripts/bashrc_addendum /tmp
+
+# Add bash completion to bashrc
+RUN cat /tmp/bashrc_addendum >> /etc/bash.bashrc && rm /tmp/bashrc_addendum
+
 ##################################################
 #
 # Production image
