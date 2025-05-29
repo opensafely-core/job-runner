@@ -1,0 +1,10 @@
+{
+  "formation": {
+    "web": {
+      "quantity": 1
+    },
+    "service": {
+      "quantity": 1
+    }
+  }
+}
