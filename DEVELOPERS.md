@@ -217,7 +217,12 @@ graph TD
     class controller1,controller2 controller
 ```
 
-An additional state diagram including notes on the state of docker containers and volumes during the various state transitions can be found at [docs/execution_state_diagram.md](docs/execution_state_diagram.md)
+Additional state diagrams including notes on the state of docker containers and volumes during the various state transitions can be found at [docs/](docs/):
+- [Combined execution state diagram](docs/execution_state_diagram.md)
+- [Controller state diagram](docs/controller_state_diagram.md)
+- [Agent state diagram](docs/agent_state_diagram.md)
+
+There are also
 
 ## Testing
 
