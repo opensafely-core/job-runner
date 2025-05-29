@@ -28,7 +28,7 @@ Source = "https://github.com/opensafely-core/job-runner"
 [tool.coverage.run]
 branch = true
 dynamic_context = "test_function"
-source = ["jobrunner"]
+source = ["jobrunner", "controller_app"]
 omit = [
     # These are covered by subprocess tests which aren't tracked properly
     "jobrunner/agent/service.py",
@@ -42,6 +42,9 @@ omit = [
     "jobrunner/cli/flags.py",
     "jobrunner/cli/migrate.py",
     "jobrunner/cli/prepare_for_reboot.py",
+    # django app
+    "controller_app/asgi.py",
+    "controller_app/wsgi.py",
 ]
 
 [tool.coverage.report]
