@@ -113,10 +113,6 @@ test-no-docker *ARGS: devenv
 cli command *ARGS: devenv
     $BIN/python -m jobrunner.cli.{{ command }} {{ ARGS }}
 
-# Run db migrations locally
-migrate:
-    just cli controller.migrate
-
 # Lint and check formatting but don't modify anything
 check: devenv
     #!/usr/bin/env bash
@@ -155,18 +151,31 @@ fix: devenv
     just --fmt --unstable --justfile justfile
     just --fmt --unstable --justfile docker/justfile
 
-# Run the dev project
-add-job *args:
-    just cli controller.add_job {{ args }} --backend test
+manage *args: devenv
+    $BIN/python manage.py {{ args }}
 
+add-job *args:
+    just manage add_job {{ args }} --backend test
+
+pause:
+    just manage pause on test
+
+unpause:
+    just manage pause off test
+
+prepare-for-reboot *args:
+    just manage prepare_for_reboot {{ args }} --backend test
+
+# Run db migrations locally
+migrate:
+    just manage migrate_controller
+
+# Run the dev project
 run-agent: devenv
     $BIN/python -m jobrunner.agent.main
 
 run-controller: devenv
     $BIN/python -m jobrunner.controller.main
-
-manage *args: devenv
-    $BIN/python manage.py {{ args }}
 
 run-app: devenv
     just manage runserver

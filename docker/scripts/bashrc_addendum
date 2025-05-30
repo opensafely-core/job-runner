@@ -1,0 +1,10 @@
+
+# enable bash completion
+if [ -d /etc/bash_completion.d ]; then
+  for i in /etc/bash_completion.d/*; do
+    if [ -r $i ]; then
+      . $i
+    fi
+  done
+  unset i
+fi

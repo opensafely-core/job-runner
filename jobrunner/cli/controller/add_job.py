@@ -72,12 +72,7 @@ def display_obj(obj):
     print()
 
 
-def run(argv=None):
-    if argv is None:  # pragma: no cover
-        argv = sys.argv[1:]
-
-    configure_logging()
-    parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
+def add_parser_args(parser):
     parser.add_argument("repo_url", help="URL (or local path) of git repository")
     parser.add_argument("actions", nargs="+", help="Name of project action to run")
     add_backend_argument(parser)
@@ -101,6 +96,15 @@ def run(argv=None):
     )
     parser.add_argument("-f", "--force-run-dependencies", action="store_true")
 
+
+def run(argv=None):
+    if argv is None:  # pragma: no cover
+        argv = sys.argv[1:]
+
+    configure_logging()
+
+    parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
+    add_parser_args(parser)
     args = parser.parse_args(argv)
     return main(**vars(args))
 
