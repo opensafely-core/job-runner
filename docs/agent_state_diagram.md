@@ -37,6 +37,13 @@ stateDiagram
 
     finalized --> [*]: cleanup()
 
+    note right of unknown
+        not started
+        volume does not exist
+        container does not exist
+        Task stage UNKNOWN
+    end note
+
     note right of prepared
         volume exists
         container does not exist
@@ -89,7 +96,9 @@ stateDiagram
     finalized: Finalized
     error: Error
     unknown: Unknown
-    cleanup: Clean up if required
+    cleanup: cleanup()
+    finalizing_states: finalize(cancelled=True)
+
 
     state initial_fork <<choice>>
 
@@ -104,15 +113,22 @@ stateDiagram
 
     state finalizing_states <<join>>
 
-    unknown --> finalizing_states: finalize(cancelled=True)
-    prepared --> finalizing_states: finalize(cancelled=True)
-    error --> finalizing_states: finalize(cancelled=True)
-    executing --> finalizing_states: terminate() --> finalize(cancelled=True)
-    executed --> finalizing_states: finalize(cancelled=True)
+    unknown --> finalizing_states
+    prepared --> finalizing_states
+    error --> finalizing_states
+    executing --> finalizing_states: terminate()
+    executed --> finalizing_states
     finalizing_states --> finalized
 
     finalized --> cleanup
     cleanup --> [*]
+
+    note right of unknown
+        not started
+        volume does not exist
+        container does not exist
+        Task stage UNKNOWN
+    end note
 
     note right of prepared
         volume exists
@@ -146,14 +162,17 @@ stateDiagram
 
     note right of cleanup
         Delete container and volume for all
-        states except UNKNOWN (job not started yet)
+        states
+        Note: nothing to do for UNKNOWN (job not started yet)
         and FINALIZED (job already done)
     end note
 
 
 classDef success fill:lightgreen;
 classDef error fill:red;
+classDef action fill:#ebebeb,stroke:gray,stroke-width:0.5px,stroke-dasharray: 3 3;
 
 class error error
 class prepared,executing,executed,finalized success
+class cleanup,finalizing_states action
 ```
