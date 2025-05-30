@@ -396,5 +396,5 @@ just migrate
 
 ## Deploying
 
-The jobrunner docker image is built by GitHub actions on merges to `main` and deployed automatically
-on backend servers.
+Deployment is handled automatically on merge to main. See the [DEPLOY](./DEPLOY.md)
+documentation for more details.
