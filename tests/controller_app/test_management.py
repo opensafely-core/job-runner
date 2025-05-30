@@ -71,3 +71,49 @@ def test_migrate(tmp_path, caplog):
     temp_db_file = tmp_path / "test.db"
     call_command("migrate_controller", dbpath=temp_db_file)
     assert f"created new db at {temp_db_file}" in caplog.text, caplog.text
+
+
+def test_pause(db, freezer, capsys, monkeypatch):
+    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test", "test1"])
+    freezer.move_to(TEST_DATESTR)
+    # pause test backend
+    call_command("pause", "on", "test")
+    stdout, stderr = capsys.readouterr()
+    assert stdout == f"[test] paused=true ({TEST_DATESTR})\n"
+    assert stderr == ""
+    assert queries.get_flag("paused", "test").value == "true"
+
+    # unpause test backend
+    call_command("pause", "off", "test")
+    stdout, stderr = capsys.readouterr()
+    assert stdout == f"[test] paused=None ({TEST_DATESTR})\n"
+    assert stderr == ""
+    assert queries.get_flag("paused", "test").value is None
+
+    # pause a different backend
+    call_command("pause", "on", "test1")
+    assert queries.get_flag("paused", "test").value is None
+    assert queries.get_flag("paused", "test1").value == "true"
+
+
+def test_db_maintenance(db, freezer, capsys):
+    freezer.move_to(TEST_DATESTR)
+    call_command("db_maintenance", "on", "test")
+    stdout, stderr = capsys.readouterr()
+    assert (
+        stdout
+        == f"[test] mode=db-maintenance ({TEST_DATESTR})\n[test] manual-db-maintenance=on ({TEST_DATESTR})\n"
+    )
+    assert stderr == ""
+    assert queries.get_flag("mode", "test").value == "db-maintenance"
+    assert queries.get_flag("manual-db-maintenance", "test").value == "on"
+
+    call_command("db_maintenance", "off", "test")
+    stdout, stderr = capsys.readouterr()
+    assert (
+        stdout
+        == f"[test] mode=None ({TEST_DATESTR})\n[test] manual-db-maintenance=None ({TEST_DATESTR})\n"
+    )
+    assert stderr == ""
+    assert queries.get_flag("mode", "test").value is None
+    assert queries.get_flag("manual-db-maintenance", "test").value is None

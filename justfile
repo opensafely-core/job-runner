@@ -158,10 +158,10 @@ add-job *args:
     just manage add_job {{ args }} --backend test
 
 pause:
-    just manage flags set paused=true --backend test
+    just manage pause on test
 
 unpause:
-    just manage flags set paused= --backend test
+    just manage pause off test
 
 prepare-for-reboot *args:
     just manage prepare_for_reboot {{ args }} --backend test
