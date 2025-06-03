@@ -55,12 +55,19 @@ def test_tracing_state_change_attributes(mock_update_controller, db):
         "memory_limit",
         "final_job_status",
         "complete",
+        # from the task attributes dict
+        "user",
+        "project",
+        "orgs",
     }
     # attributes added from the task
     assert span.attributes["backend"] == "test"
     assert span.attributes["task_type"] == "RUNJOB"
     assert span.attributes["task"] == task.id
     assert span.attributes["task_created_at"] == task.created_at * 1e9
+    assert span.attributes["user"] == "testuser"
+    assert span.attributes["project"] == "project"
+    assert span.attributes["orgs"] == "org1,org2"
     # attributes added from the job
     assert span.attributes["job"] == job_id
     assert spans[0].attributes["initial_job_status"] == "UNKNOWN"
@@ -105,6 +112,10 @@ def test_tracing_final_state_attributes(mock_update_controller, db):
         "memory_limit",
         "final_job_status",
         "complete",
+        # from the task attributes dict
+        "user",
+        "project",
+        "orgs",
         # results included on the final span
         "image_id",
         "executor_message",
@@ -121,6 +132,9 @@ def test_tracing_final_state_attributes(mock_update_controller, db):
     assert span.attributes["task_type"] == "RUNJOB"
     assert span.attributes["task"] == task.id
     assert span.attributes["task_created_at"] == task.created_at * 1e9
+    assert span.attributes["user"] == "testuser"
+    assert span.attributes["project"] == "project"
+    assert span.attributes["orgs"] == "org1,org2"
     # attributes added from the job
     assert span.attributes["job"] == job_id
     assert spans[0].attributes["initial_job_status"] == "EXECUTED"

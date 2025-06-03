@@ -51,7 +51,9 @@ test_job_definition = JobDefinition(
     level4_max_csv_rows=0,
     level4_max_filesize=0,
 )
-test_task = AgentTask(id="id-001", type=TaskType.RUNJOB, backend="", definition={})
+test_task = AgentTask(
+    id="id-001", type=TaskType.RUNJOB, backend="", definition={}, attributes={}
+)
 
 
 def test_formatting_filter():

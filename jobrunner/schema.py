@@ -30,6 +30,7 @@ class AgentTask:
     backend: str
     type: TaskType  # noqa: A003
     definition: dict
+    attributes: dict
     created_at: int = None
 
     @classmethod
@@ -40,6 +41,7 @@ class AgentTask:
             type=task.type,
             definition=task.definition,
             created_at=task.created_at,
+            attributes=task.attributes,
         )
 
     def asdict(self):
