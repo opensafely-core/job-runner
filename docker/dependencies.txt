@@ -2,4 +2,3 @@
 docker.io
 sqlite3
 git
-run-one
