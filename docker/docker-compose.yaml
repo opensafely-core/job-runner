@@ -14,7 +14,7 @@ services:
       # the prod stage in the Dockerfile
       target: job-runner-prod
       # should speed up the build in CI, where we have a cold cache
-      cache_from:  # should speed up the build in CI, where we have a cold cache
+      cache_from:
         - ghcr.io/opensafely-core/base-docker
         - ghcr.io/opensafely-core/job-runner
       args:
@@ -58,7 +58,7 @@ services:
       WORKDIR: /workdir
       # force using mounted docker socket
       DOCKER_HOST: unix:///var/run/docker.sock
-      # used to enable in CI
+      # used to enable tests using private repos in CI
       PRIVATE_REPO_TOKEN: ${PRIVATE_REPO_TOKEN:-}
 
   # main development service

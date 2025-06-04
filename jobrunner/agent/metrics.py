@@ -116,7 +116,7 @@ def main():  # pragma: no cover
         last_run = record_metrics_tick_trace(last_run)
 
         # record_tick_trace might have take a while, so sleep the remainding interval
-        # enforce a minimum time of 3s to ensure we don't hammer honeycomb or
+        # enforce a minimum time of 2s to ensure we don't hammer honeycomb or
         # the docker api
         elapsed = time.time() - before
         time.sleep(max(2, config.STATS_POLL_INTERVAL - elapsed))

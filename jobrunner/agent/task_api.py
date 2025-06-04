@@ -55,6 +55,8 @@ def update_controller(
     complete: if the agent considers this task complete
     timestamp_ns: Optional timestamp (in ns) of this state change. Can be None for tasks that
     do not involve state changes.
+
+    Nb. If results contains an error key, the task is considered to have failed.
     """
 
     post_data = {

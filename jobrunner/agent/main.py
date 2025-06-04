@@ -66,7 +66,9 @@ def handle_tasks(api: ExecutorAPI | None):
 def handle_single_task(task, api):
     """The top level handler for a task.
 
-    Mainly exists to wrap the task handling in an exception handler, and trace it.
+    Calls the appropriate handle_*_job_task function for the new task, and
+    wraps the task handling in an exception handler.
+    Also creates telemetry span for this task.
     """
 
     with tracer.start_as_current_span("LOOP_TASK") as span:
@@ -94,7 +96,7 @@ def handle_single_task(task, api):
             # Do not clean up, as we may want to debug
             #
             # Raising will kill the main loop, by design. The service manager
-            # will restart, and this job will be ignored when it does, as
+            # will restart, and this task will be ignored when it does, as
             # it has failed. If we have an internal error, a full restart
             # might recover better.
             raise
@@ -111,7 +113,7 @@ def is_fatal_task_error(exc: Exception) -> bool:
 def handle_cancel_job_task(task, api):
     """
     Handle cancelling a job. The actions required to terminate, finalize and clean
-    up a job depend on its state at the point of cancellation
+    up a job depend on its state at the point of cancellation.
     """
     job = JobDefinition.from_dict(task.definition)
     span = trace.get_current_span()
@@ -140,7 +142,7 @@ def handle_cancel_job_task(task, api):
                 | ExecutorState.EXECUTED
                 | ExecutorState.ERROR
             ):
-                # States wehere we need to run finalize()
+                # Handle states where we need to run finalize()
                 # If the job hasn't started; we run finalize() to record metadata, including
                 # its cancelled state. If it's finished or errored, finalize() will also write the job logs
                 api.finalize(job, cancelled=True)
@@ -249,7 +251,7 @@ def update_job_task(
 ):
     """
     Wrap the update_controller call to set the final job status on the current
-    span from the agent_loop trace
+    span from the agent_loop trace.
     Note that we set final_job_status twice when we call prepare and finalise, as
     we update the controller before (when status is PREPARING/FINALIZING) and
     after, (when status is PREPARED/FINALIZED); this is OK, because we'll still

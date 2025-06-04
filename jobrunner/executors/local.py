@@ -320,7 +320,7 @@ class LocalDockerAPI(ExecutorAPI):
                 job_definition, TIMESTAMP_REFERENCE_FILE, 10
             )
             # TODO: maybe log the case where the volume exists, but the
-            # timestamp file does not? It's not a problems as the loop should
+            # timestamp file does not? It's not a problem as the loop should
             # re-prepare it anyway.
             if timestamp_ns is None:
                 # we are Jon Snow
@@ -615,7 +615,7 @@ def persist_outputs(job_definition, outputs, job_metadata):
     ]
 
     csv_metadata = {}
-    # check any L4 files are vaild
+    # check any L4 files are valid
     for filename in l4_files:
         ok, job_msg, file_msg, csv_counts = check_l4_file(
             job_definition, filename, sizes[filename], workspace_dir

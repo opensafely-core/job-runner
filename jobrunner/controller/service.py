@@ -1,5 +1,5 @@
 """
-Script runs both all controller flows in a single process.
+Script runs all controller flows in a single process.
 """
 
 import logging
