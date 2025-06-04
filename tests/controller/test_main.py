@@ -944,7 +944,7 @@ def test_handle_task_update_dbstatus(
     # Use the live_server url for our task api endpoint, for the agent to call in`run_agent_loop_once`
     monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
     # Ensure we have correct auth for the task api
-    monkeypatch.setattr("jobrunner.config.agent.JOB_SERVER_TOKEN", "test_token")
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_TOKEN", "test_token")
     monkeypatch.setattr(
         "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
     )
