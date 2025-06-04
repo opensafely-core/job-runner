@@ -31,8 +31,10 @@ DEFAULT_DATABASE_URL=mssql+pyodbc://xxxx
 TEMP_DATABASE_NAME=OPENCoronaTempTables
 
 # Token for authenticating with the controller task api
-# For now this will reuse the job-server token per backend
-JOB_SERVER_TOKEN=pass
+CONTROLLER_TASK_API_TOKEN=pass
+
+# URL for controller task api
+CONTROLLER_TASK_API_ENDPOINT=http://localhost:8000/
 
 
 # USED BY CONTROLLER ONLY
@@ -54,5 +56,3 @@ TEST_JOB_SERVER_TOKEN=pass
 DJANGO_CONTROLLER_SECRET_KEY=secret
 DJANGO_CONTROLLER_ALLOWED_HOSTS=*
 DJANGO_DEBUG=True
-
-CONTROLLER_TASK_API_ENDPOINT=http://localhost:8000/

@@ -29,7 +29,7 @@ def set_agent_config(monkeypatch, tmp_work_dir):
     # Note that as we are running ehrql actions in this test, we need to set
     # the backend to a value that ehrql will accept
     monkeypatch.setattr("jobrunner.config.agent.BACKEND", "test")
-    monkeypatch.setattr("jobrunner.config.agent.JOB_SERVER_TOKEN", "test_token")
+    monkeypatch.setattr("jobrunner.config.agent.TASK_API_TOKEN", "test_token")
     # set all the tmp workdir config as we remove it for the controller phase
     set_tmp_workdir_config(monkeypatch, tmp_work_dir)
 
@@ -80,7 +80,7 @@ def set_controller_config(monkeypatch):
         "HIGH_PRIVACY_ARCHIVE_DIR",
         "HIGH_PRIVACY_VOLUME_DIR",
         "JOB_LOG_DIR",
-        "JOB_SERVER_TOKEN",
+        "TASK_API_TOKEN",
     ]
 
     for config_var in config_vars:

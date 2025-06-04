@@ -25,7 +25,7 @@ def request_json(method, path, data=None):
     base_url = urljoin(config.TASK_API_ENDPOINT, config.BACKEND)
     data = data or {}
     url = f"{base_url}/{path}"
-    headers = {"Authorization": config.JOB_SERVER_TOKEN}
+    headers = {"Authorization": config.TASK_API_TOKEN}
     response = session.request(method, url, data=data, headers=headers)
     try:
         response.raise_for_status()
