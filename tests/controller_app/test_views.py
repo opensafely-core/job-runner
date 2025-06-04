@@ -1,11 +1,13 @@
 import json
 import time
+from datetime import datetime, timezone
 
 from django.http import JsonResponse
 from django.urls import reverse
 
 from jobrunner.lib import database
 from jobrunner.models import Task
+from jobrunner.queries import get_flag_value
 from tests.conftest import get_trace
 from tests.factories import (
     canceljob_db_task_factory,
@@ -33,11 +35,16 @@ def test_controller_returns_post_request_method(client):
     assert isinstance(response, JsonResponse)
 
 
-def test_active_tasks_view(db, client, monkeypatch):
+def test_active_tasks_view(db, client, monkeypatch, freezer):
+    mock_now = datetime(2025, 6, 1, 10, 30, tzinfo=timezone.utc)
+    freezer.move_to(mock_now)
+
     monkeypatch.setattr(
         "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
     )
     headers = {"Authorization": "test_token"}
+
+    assert get_flag_value("last_seen_at", "test") is None
 
     runtask = runjob_db_task_factory(backend="test")
     response = client.get(reverse("active_tasks", args=("test",)), headers=headers)
@@ -57,6 +64,12 @@ def test_active_tasks_view(db, client, monkeypatch):
             },
         }
     ], response["tasks"][0]["attributes"]
+    # Calling the tasks endpoint sets the last_seen_at flag for the backend
+    assert get_flag_value("last-seen-at", "test") == mock_now.isoformat()
+    mock_later = datetime(2025, 6, 1, 22, 30, tzinfo=timezone.utc)
+    freezer.move_to(mock_later)
+    client.get(reverse("active_tasks", args=("test",)), headers=headers)
+    assert get_flag_value("last-seen-at", "test") == mock_later.isoformat()
 
 
 def test_active_tasks_view_multiple_backends(db, client, monkeypatch):
