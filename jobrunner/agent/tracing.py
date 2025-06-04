@@ -62,7 +62,7 @@ def set_job_span_metadata(span, job: JobDefinition, **attrs):
 
 
 def trace_job_attributes(job: JobDefinition):
-    """These attributes are added to every job span in order to slice and dice by
+    """These attributes are added to every task span in order to slice and dice by
     each as needed.
     """
     repo_url = job.study.git_repo_url or ""
