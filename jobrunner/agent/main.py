@@ -176,9 +176,7 @@ def handle_run_job_task(task, api):
     """Handle an active task.
 
     This contains the main state machine logic for a task. For the most part,
-    state transitions follow the same logic, which is abstracted. Some
-    transitions require special logic, mainly the initial and final states, as
-    well as various operational modes.
+    state transitions follow the same logic, which is abstracted.
     """
     job = JobDefinition.from_dict(task.definition)
     span = trace.get_current_span()
