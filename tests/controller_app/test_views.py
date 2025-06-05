@@ -44,7 +44,7 @@ def test_active_tasks_view(db, client, monkeypatch, freezer):
     )
     headers = {"Authorization": "test_token"}
 
-    assert get_flag_value("last_seen_at", "test") is None
+    assert get_flag_value("last-seen-at", "test") is None
 
     runtask = runjob_db_task_factory(backend="test")
     response = client.get(reverse("active_tasks", args=("test",)), headers=headers)
@@ -64,7 +64,7 @@ def test_active_tasks_view(db, client, monkeypatch, freezer):
             },
         }
     ], response["tasks"][0]["attributes"]
-    # Calling the tasks endpoint sets the last_seen_at flag for the backend
+    # Calling the tasks endpoint sets the last-seen-at flag for the backend
     assert get_flag_value("last-seen-at", "test") == mock_now.isoformat()
     mock_later = datetime(2025, 6, 1, 22, 30, tzinfo=timezone.utc)
     freezer.move_to(mock_later)
