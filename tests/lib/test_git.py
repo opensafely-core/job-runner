@@ -279,7 +279,7 @@ def test_commit_fetch_retry_unexpected_error(tmp_path):
     ],
 )
 def test_add_access_token_and_proxy(repo_url, token, backend, expected, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.common.GIT_PROXY_DOMAIN", "proxy.com")
+    monkeypatch.setattr("jobrunner.config.common.GITHUB_PROXY_DOMAIN", "proxy.com")
     monkeypatch.setattr("jobrunner.config.agent.BACKEND", backend)
     monkeypatch.setattr("jobrunner.config.common.PRIVATE_REPO_ACCESS_TOKEN", token)
 

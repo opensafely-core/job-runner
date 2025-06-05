@@ -324,7 +324,7 @@ def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
 
 def add_access_token_and_proxy(repo_url):
     # We've already validated that the repo url starts with https://github.com
-    repo_url = repo_url.replace("github.com", config.GIT_PROXY_DOMAIN)
+    repo_url = repo_url.replace("github.com", config.GITHUB_PROXY_DOMAIN)
     # We previously did a complicated thing involving the GIT_ASKPASS
     # executable which worked OK on Linux but not on Windows or macOS, so we're
     # doing the more reliable thing of just sticking the token in the URL
@@ -333,7 +333,7 @@ def add_access_token_and_proxy(repo_url):
         return repo_url
     # Ensure we only ever send our token to github.com over https
     parsed = urlparse(repo_url)
-    if parsed.hostname != config.GIT_PROXY_DOMAIN or parsed.scheme != "https":
+    if parsed.hostname != config.GITHUB_PROXY_DOMAIN or parsed.scheme != "https":
         return repo_url
     # Don't overwrite existing auth details (not sure why they'd be there but
     # seems polite)
