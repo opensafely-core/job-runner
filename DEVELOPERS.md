@@ -125,13 +125,12 @@ this:
 ### Consuming jobs
 
 A job runner's RAP Agent is a service installed on a machine that has access to a given
-backend. It receives jobs from the RAP Controller and consumes those whose `backend` value matches the
+backend. It retrieves tasks from the RAP Controller and consumes those whose `backend` value matches the
 value of the current `BACKEND` environment variable.
 
 It must also define three environment variables which are an RFC1838 connection
 URL; these correspond to the `db` requested in the job's workspace definition,
-and as such are named `FULL_DATABASE_URL`, `SLICE_DATABASE_URL`, and
-`DUMMY_DATABASE_URL`.
+and as such are named `DEFAULT_DATABASE_URL`, and `INCLUDE_T1OO_DATABASE_URL`.
 
 TODO: FIX THE NEXT SECTION
 When a job is found, the following happens:
