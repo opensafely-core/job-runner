@@ -38,10 +38,9 @@ default_work_dir = Path(__file__) / "../../../workdir"
 WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()
 GIT_REPO_DIR = WORKDIR / "repos"
 
-# We hardcode this for now, as from a security perspective, we do not want it
-# to be run time configurable
-# TODO Controller will not need to proxy once outside backend
-GITHUB_PROXY_DOMAIN = "github-proxy.opensafely.org"
+GITHUB_PROXY_DOMAIN = os.environ.get(
+    "GITHUB_PROXY_DOMAIN", "github-proxy.opensafely.org"
+)
 PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 
 # Used by the controller to validate database name passed in a job request
