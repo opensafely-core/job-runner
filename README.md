@@ -168,4 +168,4 @@ synchronous docker commands, rather than asynchronously via the job queue.
 
 # For developers
 
-Please see [the additional information](DEVELOPERS.md).
+Please see [the additional information for developers](DEVELOPERS.md) and [the deployment notes](DEPLOY.md).
