@@ -239,53 +239,53 @@ def handle_job(job, mode=None, paused=None):
         with transaction():
             insert_task(task)
             set_code(job, StatusCode.INITIATED, "Job executing on the backend")
-    else:
-        assert job.state == State.RUNNING
-        task = get_task_for_job(job)
-        assert task is not None
-        if task.agent_complete:
-            if job_error := task.agent_results["error"]:
-                span = trace.get_current_span()
-                span.set_attribute("fatal_job_error", is_fatal_job_error(job_error))
-                if is_fatal_job_error(job_error):
-                    mark_job_as_failed(
-                        job,
-                        StatusCode.JOB_ERROR,
-                        "This job returned a fatal error.",
-                        error=job_error,
-                    )
-                else:
-                    # mark task as inactive, this will trigger the loop to respawn it
-                    set_code(
-                        job,
-                        StatusCode.WAITING_ON_NEW_TASK,
-                        "This job returned an error that could be retried"
-                        "with a new task.",
-                        error=False,
-                        active=False,
-                    )
+        return
 
+    assert job.state == State.RUNNING
+    task = get_task_for_job(job)
+    assert task is not None
+    if task.agent_complete:
+        if job_error := task.agent_results["error"]:
+            span = trace.get_current_span()
+            span.set_attribute("fatal_job_error", is_fatal_job_error(job_error))
+            if is_fatal_job_error(job_error):
+                mark_job_as_failed(
+                    job,
+                    StatusCode.JOB_ERROR,
+                    "This job returned a fatal error.",
+                    error=job_error,
+                )
             else:
-                results = JobTaskResults.from_dict(task.agent_results)
-                save_results(job, results, task.agent_timestamp_ns)
-                # TODO: Delete obsolete files
+                # mark task as inactive, this will trigger the loop to respawn it
+                set_code(
+                    job,
+                    StatusCode.WAITING_ON_NEW_TASK,
+                    "This job returned an error that could be retriedwith a new task.",
+                    error=False,
+                    active=False,
+                )
+
         else:
-            # A task exists for this job already and it hasn't completed yet
-            # The current task stage may be None if the agent hasn't sent back any
-            # update yet, otherwise it should be in one of the running status codes which
-            # mirror ExecutorState
-            # (PREPARING, PREPARED, EXECUTING, EXECUTED, FINALIZING)
-            # Note we won't get here with FINALIZED status, because at that stage it
-            # will also be complete
-            # In case a running job is updated with an unknown agent_stage (i.e. an
-            # ExecutorState that is not a valid StatusCode (i.e. error, unknown), we
-            # use the current job status_code as a default)
-            set_code(
-                job,
-                StatusCode.from_value(task.agent_stage, default=job.status_code),
-                job.status_message,
-                task.agent_timestamp_ns,
-            )
+            results = JobTaskResults.from_dict(task.agent_results)
+            save_results(job, results, task.agent_timestamp_ns)
+            # TODO: Delete obsolete files
+    else:
+        # A task exists for this job already and it hasn't completed yet
+        # The current task stage may be None if the agent hasn't sent back any
+        # update yet, otherwise it should be in one of the running status codes which
+        # mirror ExecutorState
+        # (PREPARING, PREPARED, EXECUTING, EXECUTED, FINALIZING)
+        # Note we won't get here with FINALIZED status, because at that stage it
+        # will also be complete
+        # In case a running job is updated with an unknown agent_stage (i.e. an
+        # ExecutorState that is not a valid StatusCode (i.e. error, unknown), we
+        # use the current job status_code as a default)
+        set_code(
+            job,
+            StatusCode.from_value(task.agent_stage, default=job.status_code),
+            job.status_message,
+            task.agent_timestamp_ns,
+        )
 
 
 def save_results(job, results, timestamp_ns):
