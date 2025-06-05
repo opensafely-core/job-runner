@@ -1,12 +1,16 @@
 # OpenSAFELY job runner
 
-A job runner is a service that encapsulates:
+This repository contains three services that form part of the wider [OpenSAFELY](https://docs.opensafely.org/) system:
+* the RAP Controller
+* the RAP Agent
+* the RAP Controller API
+
+Together, these services do things such as:
  * the task of checking out an OpenSAFELY study repo;
  * executing actions defined in its `project.yaml` configuration file when
    requested via a jobs queue; and
  * storing its results in a particular locations.
 
-End users will find more information in the [OpenSAFELY documentation](https://docs.opensafely.org).
 
 # Operating principles
 
