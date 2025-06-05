@@ -5,6 +5,8 @@ This repository contains three services that form part of the wider [OpenSAFELY]
 * the RAP Agent
 * the RAP Controller API
 
+The [technical architecture container diagram](https://docs.opensafely.org/technical-architecture/#container-diagram) shows these services in context.
+
 Together, these services do things such as:
  * the task of checking out an OpenSAFELY study repo;
  * executing actions defined in its `project.yaml` configuration file when
