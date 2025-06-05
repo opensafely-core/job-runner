@@ -160,12 +160,6 @@ See the [project pipeline documentation](https://docs.opensafely.org/actions-pip
 description of the project.yaml setup.
 
 
-## Local actions development
-
-The [`cohortextractor` command-line tool](https://github.com/opensafely/cohort-extractor/) imports this library, and implements the action-parsing-and-running functionality as a series of
-synchronous docker commands, rather than asynchronously via the job queue.
-
-
 # For developers
 
 Please see [the additional information for developers](DEVELOPERS.md) and [the deployment notes](DEPLOY.md).
