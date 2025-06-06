@@ -120,8 +120,8 @@ MAINTENANCE_ENABLED_BACKENDS = (
 
 # Map known exit codes to user-friendly messages
 DATABASE_EXIT_CODES = {
-    # Custom database-related exit codes return from cohortextractor, see
-    # https://github.com/opensafely-core/cohort-extractor/blob/0a314a909817dbcc48907643e0b6eeff319337db/cohortextractor/cohortextractor.py#L787
+    # Custom database-related exit codes return from ehrQL, see e.g.
+    # https://github.com/opensafely-core/ehrql/blob/main/ehrql/backends/tpp.py#L159-L171
     3: (
         "A transient database error occurred, your job may run "
         "if you try it again, if it keeps failing then contact tech support"
