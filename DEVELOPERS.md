@@ -116,17 +116,6 @@ and are currently "default", and "include_t1oo".
 
 [common-config]: https://github.com/opensafely-core/job-runner/blob/main/jobrunner/config/common.py
 
-To enqueue a job, a client POSTs JSON like
-this:
-
-```json
-{
-    "backend": "tpp",
-    "action_id": "do_thing",
-    "workspace_id": 1
-}
-```
-
 ### Consuming jobs
 
 A job runner's RAP Agent is a service installed on a machine that has access to a given
