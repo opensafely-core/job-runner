@@ -68,9 +68,10 @@ The project retrieves jobs to be run from an [OpenSAFELY job
 server](https://github.com/opensafely-core/job-server) by polling the job server.
 
 Jobs belong to a `workspace`. This describes the git repo containing the
-OpenSAFELY-compliant project under execution; the git branch, and which
-database to use. The workspace also acts as a kind of namespace for
-partitioning outputs of its jobs.
+OpenSAFELY-compliant project under execution and the git branch.
+The workspace also acts as a kind of namespace for partitioning outputs of its jobs.
+Jobs can also target a specific database (such as in the case of TPP whether to use
+the database that include type-1-opt-outs).
 
 An OpenSAFELY-compliant repo must provide a `project.yaml` file which
 describes how a requested job should be converted into a command (& arguments)
@@ -98,20 +99,24 @@ later versions of job-runner do not provide `local_run`, see
 
 ### Job structure
 
-The job server serves jobs as JSON in the following format. First, a job must
-belong to a workspace:
+The job server serves jobs as JSON. See the [job-server serializer](https://github.com/opensafely-core/job-server/blob/5f490d55ad1e6fd187d6da37d0907200550052ce/jobserver/api/jobs.py#L227)
+and the [job-runner converter](https://github.com/opensafely-core/job-runner/blob/main/jobrunner/sync.py#L127) for more details.
+
+Some important fields include:
 
 ```json
 {
+    ...
+    "database_name": "default"
     "workspace": {
         "name": "my workspace",
         "repo": "https://github.com/opensafely/job-integration-tests",
         "branch": "main",
-        "db": "default"
     }
+    ...
 }
 ```
-Valid values for `"db"` can be found in [VALID_DATABASE_NAMES][common-config],
+Valid values for `"database_name"` can be found in [VALID_DATABASE_NAMES][common-config],
 and are currently "default", and "include_t1oo".
 
 [common-config]: https://github.com/opensafely-core/job-runner/blob/main/jobrunner/config/common.py
