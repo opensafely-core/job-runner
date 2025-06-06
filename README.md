@@ -9,7 +9,7 @@ Together, these services do things such as:
  * retrieving jobs to be run from an [OpenSAFELY job
 server](https://github.com/opensafely-core/job-server);
  * cloning an OpenSAFELY study repo from Github;
- * executing actions defined in a job's `project.yaml` configuration file when
+ * executing actions defined in a workspace's `project.yaml` configuration file when
    requested via a jobs queue; and
  * storing the results of a job in particular locations.
 

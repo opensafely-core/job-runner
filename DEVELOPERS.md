@@ -81,7 +81,7 @@ that extracts data from the database *for* that chart.  See the
 [Actions reference](https://docs.opensafely.org/actions-intro/) for more information.
 
 An action can define `outputs`; these are persisted on disk and made available
-to subsequent actions in the workspace, and users who have permission to log
+to subsequent actions in the workspace, and to users who have permission to log
 into the server and view the raw files.
 
 The runner takes care of executing dependencies in order. By default, it skips
@@ -127,8 +127,8 @@ A job runner's RAP Agent is a service installed on a machine that has access to 
 backend. It retrieves tasks from the RAP Controller and consumes those whose `backend` value matches the
 value of the current `BACKEND` environment variable.
 
-It must also define three environment variables which are an RFC1838 connection
-URL; these correspond to the `db` requested in the job's workspace definition,
+It must also define at least one environment variable which is an RFC1838 connection
+URL; these correspond to the `database_name` requested in the job's definition,
 and as such are named `DEFAULT_DATABASE_URL`, and `INCLUDE_T1OO_DATABASE_URL`.
 
 When a job is found, the following happens:
@@ -144,7 +144,7 @@ When a job is found, the following happens:
       run; (b) are currently running; (c) failed on their last run do not
       need to be run
   * If a dependency has failed, then the requested action fails
-  * If the dependency needs to be run, a new job is pushed to the RAP Controller's queue,
+  * If the dependency needs to be run, a new task for running the dependent job is pushed to the RAP Controller's queue,
     and the current job is postponed
   * If an action has no dependencies needing to be run, then it is added to the
     RAP Agent's queue of tasks to be run
@@ -152,10 +152,9 @@ When a job is found, the following happens:
     runs everything it receives
   * On completion, a status code and message are reported back to the RAP Controller via
     the RAP Controller API. The RAP Controller will then report back to the job-server.
-    On success, a list of output file locations are also posted. On failure, the
-    message has any potentially-sensitive information redacted, and is associated with
-    a unique string so that a user with requisite permissions can log into the
-    production environment and examine the docker logs for the full error.
+    On completion, non-sensitive information about the outcome of the job is posted back to job-server. If the
+    job failed, an error message is reported, and a user with requisite permissions can log into the
+    production environment and examine the job logs in [Airlock](https://docs.opensafely.org/outputs/viewing-with-airlock/#log-files) for the full error.
 
 [pipeline]: https://github.com/opensafely-core/pipeline
 
@@ -166,24 +165,21 @@ storage location.  The project author must categorise these outputs as either
 `highly_sensitive` or `moderately_sensitive`.  Any pseudonymised data which may
 be highly disclosive (e.g. without low number redaction) should be classed as
 `highly_sensitive`; data which the author believes could be released following
-review should be classed as `moderately_sensitive`. This design allows tiered
-levels of permissions for collaborators to review data outputs. For example, the
-study author would usually have access to `highly_sensitive` material for
-debugging; but other collaborators could have access to `moderately_sensitive`
-data to prepare it for release (for which it is planned to add a
-`minimally_sensitive` category).
+review should be classed as `moderately_sensitive`. Study authors and collaborators with requisite
+permissions can log into the secure environment and view `moderately_sensitive` outputs via
+[Airlock](https://docs.opensafely.org/outputs/viewing-with-airlock/).
 
-Outputs are therefore persisted to filesystem paths according to the following
+Outputs are persisted to filesystem paths according to the following
 environment variables:
 
 ```sh
-# A location where cohort CSVs (one row per patient) should be
+# A location where patient-level (one row per patient) output files should be
 # stored. This folder must exist.
-HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
+HIGH_PRIVACY_STORAGE_BASE=/srv/high_security
 
-# A location where script outputs (some for publication) should be
+# A location where aggregated outputs (some for publication) should be
 # stored
-MEDIUM_PRIVACY_STORAGE_BASE=/tmp/outputs/medium_security
+MEDIUM_PRIVACY_STORAGE_BASE=/srv/medium_privacy
 ```
 
 ### Project.yaml
