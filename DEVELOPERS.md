@@ -89,9 +89,12 @@ the production environment.  The runner also reports status back to the job
 server, redacting possibly-sensitive information.
 
 The runner is bundled as part of the [opensafely-cli][cli] tool so users
-can test their actions locally.
+can test their actions locally. The bundled version is frozen at v2.75.3 as
+later versions of job-runner do not provide `local_run`, see
+[this opensafely-cli ticket][cli-ticket] for more information.
 
 [cli]: https://github.com/opensafely-core/opensafely-cli
+[cli-ticket]: https://github.com/opensafely-core/opensafely-cli/issues/330
 
 ### Job structure
 
