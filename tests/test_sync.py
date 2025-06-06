@@ -47,43 +47,6 @@ def test_job_request_from_remote_format():
     assert job_request == expected
 
 
-def test_job_request_from_remote_format_database_name_fallback():
-    remote_job_request = {
-        "identifier": "123",
-        "workspace": {
-            "name": "testing",
-            "repo": "https://github.com/opensafely/foo",
-            "branch": "master",
-            "db": "default",
-        },
-        "requested_actions": ["generate_cohort"],
-        "cancelled_actions": ["analyse"],
-        "force_run_dependencies": True,
-        "sha": "abcdef",
-        "codelists_ok": True,
-        "created_by": "user",
-        "project": "project",
-        "orgs": ["org"],
-        "backend": "test",
-    }
-    expected = JobRequest(
-        id="123",
-        repo_url="https://github.com/opensafely/foo",
-        commit="abcdef",
-        branch="master",
-        workspace="testing",
-        codelists_ok=True,
-        database_name="default",
-        requested_actions=["generate_cohort"],
-        cancelled_actions=["analyse"],
-        force_run_dependencies=True,
-        original=remote_job_request,
-        backend="test",
-    )
-    job_request = sync.job_request_from_remote_format(remote_job_request)
-    assert job_request == expected
-
-
 def test_job_to_remote_format_default(db):
     job = job_factory()
 
