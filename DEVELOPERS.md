@@ -139,10 +139,11 @@ When a job is found, the following happens:
   * Individual `actions` are extracted from this file
   * A dependency graph is calculated for the requested action; for example, an
     action might depend on three previous actions before it can be run
-  * Each action in the graph is checked to see if it needs to be run
-    * Actions that either: (a) already have output generated from a previous
-      run; (b) are currently running; (c) failed on their last run do not
-      need to be run
+  * Each action in the graph is checked to see if it needs to be run. Actions do
+    not need to be run if:
+    * they already have output generated from a previous run;
+    * they are currently running;
+    * they failed for a "fatal" reason on their last run
   * If a dependency has failed, then the requested action fails
   * If the dependency needs to be run, a new task for running the dependent job is pushed to the RAP Controller's queue,
     and the current job is postponed
