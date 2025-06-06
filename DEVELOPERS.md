@@ -68,7 +68,7 @@ The project retrieves jobs to be run from an [OpenSAFELY job
 server](https://github.com/opensafely-core/job-server) by polling the job server.
 
 Jobs belong to a `workspace`. This describes the git repo containing the
-OpenSAFELY-compliant project under execution; the git branch, and kind of
+OpenSAFELY-compliant project under execution; the git branch, and which
 database to use. The workspace also acts as a kind of namespace for
 partitioning outputs of its jobs.
 
