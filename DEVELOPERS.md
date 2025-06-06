@@ -131,12 +131,11 @@ It must also define three environment variables which are an RFC1838 connection
 URL; these correspond to the `db` requested in the job's workspace definition,
 and as such are named `DEFAULT_DATABASE_URL`, and `INCLUDE_T1OO_DATABASE_URL`.
 
-TODO: FIX THE NEXT SECTION
 When a job is found, the following happens:
 
 * The corresponding repo is fetched. Private repos are accessed using
   the `PRIVATE_REPO_ACCESS_TOKEN` supplied in the environment.
-* The RAP Controller parses `project.yaml`:
+* The RAP Controller parses `project.yaml` using [OpenSAFELY Pipeline][pipeline]:
   * Individual `actions` are extracted from this file
   * A dependency graph is calculated for the requested action; for example, an
     action might depend on three previous actions before it can be run
@@ -149,14 +148,16 @@ When a job is found, the following happens:
     and the current job is postponed
   * If an action has no dependencies needing to be run, then it is added to the
     RAP Agent's queue of tasks to be run
-  * The RAP Agent polls the RAP Controller for tasks to be run & runs everything it
-    receives
+  * The RAP Agent polls the RAP Controller's queue for tasks to be run &
+    runs everything it receives
   * On completion, a status code and message are reported back to the RAP Controller via
     the RAP Controller API. The RAP Controller will then report back to the job-server.
     On success, a list of output file locations are also posted. On failure, the
     message has any potentially-sensitive information redacted, and is associated with
     a unique string so that a user with requisite permissions can log into the
     production environment and examine the docker logs for the full error.
+
+[pipeline]: https://github.com/opensafely-core/pipeline
 
 ### Output locations
 
