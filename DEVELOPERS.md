@@ -62,6 +62,126 @@ running jobs from private GitHub repos, and/or you want to exercise the full tes
 suite (some tests in `tests/lib/test_git.py` are skipped if this environment variable
 is missing).
 
+## Operating principles
+
+The project retrieves jobs to be run from an [OpenSAFELY job
+server](https://github.com/opensafely-core/job-server) by polling the job server.
+
+Jobs belong to a `workspace`. This describes the git repo containing the
+OpenSAFELY-compliant project under execution and the git branch.
+The workspace also acts as a kind of namespace for partitioning outputs of its jobs.
+Jobs can also target a specific database (such as in the case of TPP whether to use
+the database that includes type-1-opt-outs).
+
+An OpenSAFELY-compliant repo must provide a `project.yaml` file which
+describes how a requested job should be converted into a command (& arguments)
+that can be run in a subprocess on the secure server.  It incorporates the idea
+of dependencies, so an action that generates a chart might depend on an action
+that extracts data from the database *for* that chart.  See the
+[Actions reference](https://docs.opensafely.org/actions-intro/) for more information.
+
+An action can define `outputs`; these are persisted on disk and made available
+to subsequent actions in the workspace, and to users who have permission to log
+into the server and view the raw files.
+
+The runner takes care of executing dependencies in order. By default, it skips
+re-running a dependency whose previous run produced output that still exists in
+the production environment.  The runner also reports status back to the job
+server, redacting possibly-sensitive information.
+
+The runner is bundled as part of the [opensafely-cli][cli] tool so users
+can test their actions locally. The bundled version is frozen at v2.75.3 as
+later versions of job-runner do not provide `local_run`, see
+[this opensafely-cli ticket][cli-ticket] for more information.
+
+[cli]: https://github.com/opensafely-core/opensafely-cli
+[cli-ticket]: https://github.com/opensafely-core/opensafely-cli/issues/330
+
+### Job structure
+
+The job server serves jobs as JSON. See the [job-server serializer](https://github.com/opensafely-core/job-server/blob/5f490d55ad1e6fd187d6da37d0907200550052ce/jobserver/api/jobs.py#L227)
+and the [job-runner converter](https://github.com/opensafely-core/job-runner/blob/main/jobrunner/sync.py#L127) for more details.
+
+Some important fields include:
+
+```json
+{
+    ...
+    "database_name": "default"
+    "workspace": {
+        "name": "my workspace",
+        "repo": "https://github.com/opensafely/job-integration-tests",
+        "branch": "main",
+    }
+    ...
+}
+```
+Valid values for `"database_name"` can be found in [VALID_DATABASE_NAMES][common-config],
+and are currently "default", and "include_t1oo".
+
+[common-config]: https://github.com/opensafely-core/job-runner/blob/main/jobrunner/config/common.py
+
+### Consuming jobs
+
+A job runner's RAP Agent is a service installed on a machine that has access to a given
+backend. It retrieves tasks from the RAP Controller and consumes those whose `backend` value matches the
+value of the current `BACKEND` environment variable.
+
+It must also define at least one environment variable which is an RFC1838 connection
+URL; these correspond to the `database_name` requested in the job's definition,
+and as such are named `DEFAULT_DATABASE_URL`, and `INCLUDE_T1OO_DATABASE_URL`.
+
+When a job is found, the following happens:
+
+* The corresponding repo is fetched. Private repos are accessed using
+  the `PRIVATE_REPO_ACCESS_TOKEN` supplied in the environment.
+* The RAP Controller parses `project.yaml` using [OpenSAFELY Pipeline][pipeline]:
+  * Individual `actions` are extracted from this file
+  * A dependency graph is calculated for the requested action; for example, an
+    action might depend on three previous actions before it can be run
+  * Each action in the graph is checked to see if it needs to be run
+  * If a dependency has failed, then the requested action fails
+  * If the dependency needs to be run, a new task for running the dependent job is pushed to the RAP Controller's queue,
+    and the current job is postponed
+  * If an action has no dependencies needing to be run, then it is added to the
+    RAP Agent's queue of tasks to be run
+  * The RAP Agent polls the RAP Controller's queue for tasks to be run &
+    runs everything it receives
+  * On completion, a status code and message are reported back to the RAP Controller via
+    the RAP Controller API. The RAP Controller will then report back to the job-server.
+    On completion, non-sensitive information about the outcome of the job is posted back to job-server. If the
+    job failed, an error message is reported, and a user with requisite permissions can log into the
+    production environment and examine the job logs in [Airlock](https://docs.opensafely.org/outputs/viewing-with-airlock/#log-files) for the full error.
+
+[pipeline]: https://github.com/opensafely-core/pipeline
+
+### Output locations
+
+Every action defines a list of `outputs` which are persisted to a permanent
+storage location.  The project author must categorise these outputs as either
+`highly_sensitive` or `moderately_sensitive`.  Any pseudonymised data which may
+be highly disclosive (e.g. without low number redaction) should be classed as
+`highly_sensitive`; data which the author believes could be released following
+review should be classed as `moderately_sensitive`. Study authors and collaborators with requisite
+permissions can log into the secure environment and view `moderately_sensitive` outputs via
+[Airlock](https://docs.opensafely.org/outputs/viewing-with-airlock/).
+
+Outputs are persisted to filesystem paths according to the following
+environment variables:
+
+```sh
+# A location where patient-level (one row per patient) output files should be
+# stored. This folder must exist.
+HIGH_PRIVACY_STORAGE_BASE=/srv/high_security
+
+# A location where aggregated outputs (some for publication) should be
+# stored
+MEDIUM_PRIVACY_STORAGE_BASE=/srv/medium_privacy
+```
+
+### Project.yaml
+
+The `project.yaml` format is described in the [OpenSAFELY Action Pipelines documentation](https://docs.opensafely.org/actions-pipelines/#projectyaml-format).
 
 ## Architecture
 
