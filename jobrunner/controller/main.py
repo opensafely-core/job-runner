@@ -208,40 +208,53 @@ def handle_job(job, mode=None, paused=None):
             )
         return
 
-    # A new job, which may or may not be ready to start
-    if job.state == State.PENDING:
-        # Check states of jobs we're depending on
-        awaited_states = get_states_of_awaited_jobs(job)
-        if State.FAILED in awaited_states:
-            mark_job_as_failed(
-                job,
-                StatusCode.DEPENDENCY_FAILED,
-                "Not starting as dependency failed",
-            )
-            return
+    match job.state:
+        case State.PENDING:
+            handle_pending_job(job)
+        case State.RUNNING:
+            handle_running_job(job)
+        case _:
+            assert False, f"unexpected job state {job.state}"
 
-        if any(state != State.SUCCEEDED for state in awaited_states):
-            set_code(
-                job,
-                StatusCode.WAITING_ON_DEPENDENCIES,
-                "Waiting on dependencies",
-            )
-            return
 
-        # Give me ONE GOOD REASON why I shouldn't start you running right now!
-        not_started_reason = get_reason_job_not_started(job)
-        if not_started_reason:
-            code, message = not_started_reason
-            set_code(job, code, message)
-            return
+def handle_pending_job(job):
+    assert job.state == State.PENDING
 
-        task = create_task_for_job(job)
-        with transaction():
-            insert_task(task)
-            set_code(job, StatusCode.INITIATED, "Job executing on the backend")
+    # Check states of jobs we're depending on
+    awaited_states = get_states_of_awaited_jobs(job)
+    if State.FAILED in awaited_states:
+        mark_job_as_failed(
+            job,
+            StatusCode.DEPENDENCY_FAILED,
+            "Not starting as dependency failed",
+        )
         return
 
+    if any(state != State.SUCCEEDED for state in awaited_states):
+        set_code(
+            job,
+            StatusCode.WAITING_ON_DEPENDENCIES,
+            "Waiting on dependencies",
+        )
+        return
+
+    # Give me ONE GOOD REASON why I shouldn't start you running right now!
+    not_started_reason = get_reason_job_not_started(job)
+    if not_started_reason:
+        code, message = not_started_reason
+        set_code(job, code, message)
+        return
+
+    task = create_task_for_job(job)
+    with transaction():
+        insert_task(task)
+        set_code(job, StatusCode.INITIATED, "Job executing on the backend")
+    return
+
+
+def handle_running_job(job):
     assert job.state == State.RUNNING
+
     task = get_task_for_job(job)
     assert task is not None
     if task.agent_complete:
