@@ -116,8 +116,7 @@ and are currently "default", and "include_t1oo".
 
 [common-config]: https://github.com/opensafely-core/job-runner/blob/main/jobrunner/config/common.py
 
-A workspace is a way of associating jobs related to a given combination of
-branch, repository and database. To enqueue a job, a client POSTs JSON like
+To enqueue a job, a client POSTs JSON like
 this:
 
 ```json
