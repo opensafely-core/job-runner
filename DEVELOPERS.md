@@ -71,7 +71,7 @@ Jobs belong to a `workspace`. This describes the git repo containing the
 OpenSAFELY-compliant project under execution and the git branch.
 The workspace also acts as a kind of namespace for partitioning outputs of its jobs.
 Jobs can also target a specific database (such as in the case of TPP whether to use
-the database that include type-1-opt-outs).
+the database that includes type-1-opt-outs).
 
 An OpenSAFELY-compliant repo must provide a `project.yaml` file which
 describes how a requested job should be converted into a command (& arguments)
