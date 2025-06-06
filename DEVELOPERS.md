@@ -179,35 +179,10 @@ HIGH_PRIVACY_STORAGE_BASE=/home/opensafely/high_security
 # stored
 MEDIUM_PRIVACY_STORAGE_BASE=/tmp/outputs/medium_security
 ```
+
 ### Project.yaml
 
-A valid project file looks like this:
-
-```yaml
-version: "3.0"
-
-expectations:
-  population_size: 1000
-
-actions:
-
-  generate_study_population:
-    run: ehrql:v1 generate-dataset analysis/dataset_definition.py --output output/dataset.arrow
-    outputs:
-      highly_sensitive:
-        cohort: output/dataset.arrow
-
-  run_model:
-    run: stata-mp:latest analysis/model.do
-    needs: [generate_study_population]
-    outputs:
-      moderately_sensitive:
-        model: models/cox-model.txt
-        figure: figures/survival-plot.png
-```
-See the [project pipeline documentation](https://docs.opensafely.org/actions-pipelines/) for a detailed
-description of the project.yaml setup.
-
+The `project.yaml` format is described in the [OpenSAFELY Action Pipelines documentation](https://docs.opensafely.org/actions-pipelines/#projectyaml-format).
 
 ## Architecture
 
