@@ -107,11 +107,14 @@ belong to a workspace:
         "name": "my workspace",
         "repo": "https://github.com/opensafely/job-integration-tests",
         "branch": "main",
-        "db": "full"
+        "db": "default"
     }
 }
 ```
-Possible values for `"db"` are "full", "slice", and "dummy".
+Valid values for `"db"` can be found in [VALID_DATABASE_NAMES][common-config],
+and are currently "default", and "include_t1oo".
+
+[common-config]: https://github.com/opensafely-core/job-runner/blob/main/jobrunner/config/common.py
 
 A workspace is a way of associating jobs related to a given combination of
 branch, repository and database. To enqueue a job, a client POSTs JSON like
