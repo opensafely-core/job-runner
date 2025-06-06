@@ -138,12 +138,7 @@ def job_request_from_remote_format(job_request):
         cancelled_actions=job_request["cancelled_actions"],
         workspace=job_request["workspace"]["name"],
         codelists_ok=job_request["codelists_ok"],
-        # Transitional code while we move the location of the `database_name` attribute
-        database_name=(
-            job_request["database_name"]
-            if "database_name" in job_request
-            else job_request["workspace"]["db"]
-        ),
+        database_name=job_request["database_name"],
         force_run_dependencies=job_request["force_run_dependencies"],
         backend=job_request["backend"],
         original=job_request,
