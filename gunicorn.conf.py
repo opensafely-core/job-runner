@@ -19,6 +19,10 @@ port = 5000
 bind = "0.0.0.0"
 
 
+# disable access logging, as not needed
+accesslog = None
+
+
 # Because of Gunicorn's pre-fork web server model, we need to initialise opentelemetry
 # in gunicorn's post_fork method in order to instrument our application process, see:
 # https://opentelemetry-python.readthedocs.io/en/latest/examples/fork-process-model/README.html
