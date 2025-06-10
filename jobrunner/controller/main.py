@@ -124,7 +124,7 @@ def handle_single_job(job):
         except Exception as exc:
             span.set_attribute("fatal_job_error", is_fatal_controller_error(exc))
             if is_fatal_controller_error(exc):
-                mark_job_as_failed(
+                set_code(
                     job,
                     StatusCode.INTERNAL_ERROR,
                     "Internal error: this usually means a platform issue rather than a problem "
@@ -175,7 +175,7 @@ def handle_job(job, mode=None, paused=None):
     if job.cancelled:
         with transaction():
             cancel_job(job)
-            mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+            set_code(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
         return
 
     # Handle special modes
@@ -223,7 +223,7 @@ def handle_pending_job(job):
     # Check states of jobs we're depending on
     awaited_states = get_states_of_awaited_jobs(job)
     if State.FAILED in awaited_states:
-        mark_job_as_failed(
+        set_code(
             job,
             StatusCode.DEPENDENCY_FAILED,
             "Not starting as dependency failed",
@@ -262,7 +262,7 @@ def handle_running_job(job):
             span = trace.get_current_span()
             span.set_attribute("fatal_job_error", is_fatal_job_error(job_error))
             if is_fatal_job_error(job_error):
-                mark_job_as_failed(
+                set_code(
                     job,
                     StatusCode.JOB_ERROR,
                     "This job returned a fatal error.",
@@ -397,13 +397,6 @@ def get_states_of_awaited_jobs(job):
     states = select_values(Job, "state", id__in=job_ids)
     log.debug("Done query")
     return states
-
-
-def mark_job_as_failed(job, code, message, error=None):
-    if error is None:
-        error = True
-
-    set_code(job, code, message, error=error)
 
 
 def set_code(
