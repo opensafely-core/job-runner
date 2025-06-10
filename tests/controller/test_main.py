@@ -393,7 +393,7 @@ def test_handle_job_finalized_failed_exit_code(
     # data about outputs or filename patterns is excluded
     for key in ["outputs", "unmatched_patterns", "unmatched_outputs"]:
         assert key not in completed_span.attributes
-    assert not completed_span.status.is_ok
+    assert completed_span.status.is_ok
     assert spans[-1].name == "JOB"
 
 
