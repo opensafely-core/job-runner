@@ -297,7 +297,7 @@ def handle_running_job(job):
             job,
             StatusCode.from_value(task.agent_stage, default=job.status_code),
             job.status_message,
-            task.agent_timestamp_ns,
+            task_timestamp_ns=task.agent_timestamp_ns,
         )
 
 
@@ -332,7 +332,7 @@ def save_results(job, results, timestamp_ns):
             message += ", but some file(s) marked as moderately_sensitive were excluded. See job log for details."
 
     set_code(
-        job, code, message, error=error, results=results, timestamp_ns=timestamp_ns
+        job, code, message, error=error, results=results, task_timestamp_ns=timestamp_ns
     )
 
 
@@ -408,7 +408,14 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
 
 
 def set_code(
-    job, new_status_code, message, error=None, results=None, timestamp_ns=None, **attrs
+    job,
+    new_status_code,
+    message,
+    *,
+    error=None,
+    results=None,
+    task_timestamp_ns=None,
+    **attrs,
 ):
     """Set the granular status code state.
 
