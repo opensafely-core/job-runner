@@ -297,7 +297,7 @@ def handle_running_job(job):
             job,
             StatusCode.from_value(task.agent_stage, default=job.status_code),
             job.status_message,
-            task.agent_timestamp_ns,
+            task_timestamp_ns=task.agent_timestamp_ns,
         )
 
 
@@ -332,7 +332,7 @@ def save_results(job, results, timestamp_ns):
             message += ", but some file(s) marked as moderately_sensitive were excluded. See job log for details."
 
     set_code(
-        job, code, message, error=error, results=results, timestamp_ns=timestamp_ns
+        job, code, message, error=error, results=results, task_timestamp_ns=timestamp_ns
     )
 
 
@@ -408,7 +408,14 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
 
 
 def set_code(
-    job, new_status_code, message, error=None, results=None, timestamp_ns=None, **attrs
+    job,
+    new_status_code,
+    message,
+    *,
+    error=None,
+    results=None,
+    task_timestamp_ns=None,
+    **attrs,
 ):
     """Set the granular status code state.
 
@@ -420,15 +427,16 @@ def set_code(
     collisions when states transition in <1s. Due to this, timestamp parameter
     should be the output of time.time() i.e. a float representing seconds.
     """
-    if timestamp_ns is not None:
-        timestamp_s = int(timestamp_ns / 1e9)
-    else:
-        t = time.time()
-        timestamp_s = int(t)
-        timestamp_ns = int(timestamp_ns or t * 1e9)
+    current_timestamp_ns = int(time.time() * 1e9)
+    if task_timestamp_ns is None:
+        task_timestamp_ns = current_timestamp_ns
 
     # if status code has changed then trace it and update
     if job.status_code != new_status_code:
+        # For a status change, we use the timestamp from the task. This records the more
+        # accurate timestamp of the status change in the agent
+        timestamp_ns = task_timestamp_ns
+        timestamp_s = int(task_timestamp_ns / 1e9)
         # handle timer measurement errors
         if job.status_code_updated_at > timestamp_ns:
             # we somehow have a negative duration, which honeycomb does funny things with.
@@ -497,10 +505,15 @@ def set_code(
 
         log.info(job.status_message, extra={"status_code": job.status_code})
 
-    # If the status message hasn't changed then we only update the timestamp
+    # If the status code hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
     # active without writing to the database every single time we poll
-    elif timestamp_s - job.updated_at >= 60:
+    else:
+        # For unchanged status codes, we use the current time as the timestamp
+        timestamp_ns = current_timestamp_ns
+        timestamp_s = int(current_timestamp_ns / 1e9)
+        if timestamp_s - job.updated_at < 60:
+            return
         job.updated_at = timestamp_s
         log.debug("Updating job timestamp")
         update_job(job)

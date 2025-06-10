@@ -789,6 +789,47 @@ def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
     assert last_info_log.message == "Waiting on dependencies"
 
 
+def test_status_code_updated_from_task_timestamp(db, freezer):
+    mock_now = datetime.datetime(2025, 3, 1, 10, 5, 10, 99999)
+    freezer.move_to(mock_now)
+
+    job = job_factory(state=State.PENDING)
+    # first run through the controller creates the task, changes the
+    # job to running (initiated) and sets the status_code_updated_at to now
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    task = main.get_task_for_job(job)
+    assert task.agent_timestamp_ns is None
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.INITIATED
+    assert job.updated_at == int(mock_now.timestamp())
+    assert job.status_code_updated_at == datetime_to_ns(mock_now)
+
+    # update task to PREPARED, with timestamp one second later
+    prepared_at = datetime.datetime(2025, 3, 1, 10, 5, 11, 99999)
+    task.agent_stage = StatusCode.PREPARED.value
+    task.agent_timestamp_ns = int(datetime_to_ns(prepared_at))
+    database.update(task)
+
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.PREPARED
+    assert job.updated_at == int(prepared_at.timestamp())
+    assert job.status_code_updated_at == datetime_to_ns(prepared_at)
+
+    # task hasn't changed, move forward > 60s so we will update
+    mock_now1 = datetime.datetime(2025, 3, 1, 10, 7, 10, 99999)
+    freezer.move_to(mock_now1)
+    run_controller_loop_once()
+    job = database.find_one(Job, id=job.id)
+    assert job.state == State.RUNNING
+    assert job.status_code == StatusCode.PREPARED
+    # Updated at has changes, status_code_updated_at remains at the prepared time
+    assert job.updated_at == int(mock_now1.timestamp())
+    assert job.status_code_updated_at == datetime_to_ns(prepared_at)
+
+
 @pytest.mark.parametrize(
     "run_command,expect_env",
     [
