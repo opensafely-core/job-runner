@@ -269,13 +269,12 @@ def handle_running_job(job):
                     error=job_error,
                 )
             else:
-                # mark task as inactive, this will trigger the loop to respawn it
+                # mark task as waiting on new task, this will trigger the loop to respawn it
                 set_code(
                     job,
                     StatusCode.WAITING_ON_NEW_TASK,
                     "This job returned an error that could be retriedwith a new task.",
                     error=False,
-                    active=False,
                 )
 
         else:
@@ -400,11 +399,11 @@ def get_states_of_awaited_jobs(job):
     return states
 
 
-def mark_job_as_failed(job, code, message, error=None, **attrs):
+def mark_job_as_failed(job, code, message, error=None):
     if error is None:
         error = True
 
-    set_code(job, code, message, error=error, **attrs)
+    set_code(job, code, message, error=error)
 
 
 def set_code(
@@ -415,7 +414,6 @@ def set_code(
     error=None,
     results=None,
     task_timestamp_ns=None,
-    **attrs,
 ):
     """Set the granular status code state.
 
@@ -480,7 +478,7 @@ def set_code(
 
         # job trace: we finished the previous state
         tracing.finish_current_state(
-            job, timestamp_ns, error=error, message=message, results=results, **attrs
+            job, timestamp_ns, error=error, message=message, results=results
         )
 
         # update db object
@@ -500,7 +498,6 @@ def set_code(
                 error=error,
                 message=message,
                 results=results,
-                **attrs,
             )
 
         log.info(job.status_message, extra={"status_code": job.status_code})
