@@ -427,15 +427,16 @@ def set_code(
     collisions when states transition in <1s. Due to this, timestamp parameter
     should be the output of time.time() i.e. a float representing seconds.
     """
-    if timestamp_ns is not None:
-        timestamp_s = int(timestamp_ns / 1e9)
-    else:
-        t = time.time()
-        timestamp_s = int(t)
-        timestamp_ns = int(timestamp_ns or t * 1e9)
+    current_timestamp_ns = int(time.time() * 1e9)
+    if task_timestamp_ns is None:
+        task_timestamp_ns = current_timestamp_ns
 
     # if status code has changed then trace it and update
     if job.status_code != new_status_code:
+        # For a status change, we use the timestamp from the task. This records the more
+        # accurate timestamp of the status change in the agent
+        timestamp_ns = task_timestamp_ns
+        timestamp_s = int(task_timestamp_ns / 1e9)
         # handle timer measurement errors
         if job.status_code_updated_at > timestamp_ns:
             # we somehow have a negative duration, which honeycomb does funny things with.
@@ -504,10 +505,15 @@ def set_code(
 
         log.info(job.status_message, extra={"status_code": job.status_code})
 
-    # If the status message hasn't changed then we only update the timestamp
+    # If the status code hasn't changed then we only update the timestamp
     # once a minute. This gives the user some confidence that the job is still
     # active without writing to the database every single time we poll
-    elif timestamp_s - job.updated_at >= 60:
+    else:
+        # For unchanged status codes, we use the current time as the timestamp
+        timestamp_ns = current_timestamp_ns
+        timestamp_s = int(current_timestamp_ns / 1e9)
+        if timestamp_s - job.updated_at < 60:
+            return
         job.updated_at = timestamp_s
         log.debug("Updating job timestamp")
         update_job(job)
