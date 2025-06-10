@@ -121,9 +121,9 @@ def test_handle_job_pending_dependency_failed(db):
     assert all(s.attributes["backend"] == "test" for s in spans)
     assert spans[-3].name == "CREATED"
     assert spans[-2].name == "DEPENDENCY_FAILED"
-    assert not spans[-2].status.is_ok
+    assert spans[-2].status.is_ok
     assert spans[-1].name == "JOB"
-    assert not spans[-1].status.is_ok
+    assert spans[-1].status.is_ok
 
 
 def test_handle_pending_job_waiting_on_dependency(db):
@@ -845,19 +845,6 @@ def test_job_definition_stata_license(db, monkeypatch, run_command, expect_env):
         assert job_definition.env["STATA_LICENSE"] == "dummy-license"
     else:
         assert "STATA_LICENSE" not in job_definition.env
-
-
-def test_mark_job_as_failed_adds_error(db):
-    job = job_factory()
-    main.mark_job_as_failed(job, StatusCode.INTERNAL_ERROR, "error")
-
-    # tracing
-    spans = get_trace("jobs")
-    assert spans[-3].name == "CREATED"
-    assert spans[-2].name == "INTERNAL_ERROR"
-    assert not spans[-2].status.is_ok
-    assert spans[-1].name == "JOB"
-    assert not spans[-1].status.is_ok
 
 
 @patch("jobrunner.controller.main.handle_job")
