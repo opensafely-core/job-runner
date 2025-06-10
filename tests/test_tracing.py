@@ -224,7 +224,7 @@ def test_finish_current_state(db):
     assert spans[-1].attributes["exit_code"] == 0
 
 
-def test_record_final_state(db):
+def test_record_final_state_success(db):
     job = job_factory(status_code=models.StatusCode.SUCCEEDED)
     results = job_task_results_factory()
     ts = int(time.time() * 1e9)
@@ -233,30 +233,53 @@ def test_record_final_state(db):
     spans = get_trace("jobs")
     assert spans[-2].name == "SUCCEEDED"
     assert spans[-2].attributes["exit_code"] == 0
+    assert spans[-2].attributes["succeeded"] is True
+    assert spans[-2].status.is_ok
+
     assert spans[-1].name == "JOB"
     assert spans[-1].attributes["exit_code"] == 0
+    assert spans[-1].attributes["succeeded"] is True
+    assert spans[-2].status.is_ok
 
 
-def test_record_final_state_error(db):
-    job = job_factory(status_code=models.StatusCode.INTERNAL_ERROR)
+def test_record_final_state_job_failure(db):
+    job = job_factory(status_code=models.StatusCode.NONZERO_EXIT)
     ts = int(time.time() * 1e9)
     results = job_task_results_factory(exit_code=1)
     tracing.record_final_state(job, ts, error=Exception("error"), results=results)
 
     spans = get_trace("jobs")
+    assert spans[-2].name == "NONZERO_EXIT"
+    assert spans[-2].attributes["exit_code"] == 1
+    assert spans[-2].attributes["succeeded"] is False
+    assert spans[-2].status.is_ok
+
+    assert spans[-1].name == "JOB"
+    assert spans[-1].attributes["exit_code"] == 1
+    assert spans[-1].attributes["succeeded"] is False
+    assert spans[-2].status.is_ok
+
+
+def test_record_final_state_internal_error(db):
+    job = job_factory(status_code=models.StatusCode.INTERNAL_ERROR)
+    ts = int(time.time() * 1e9)
+    results = job_task_results_factory(exit_code=1)
+    tracing.record_final_state(job, ts, exception=Exception("error"), results=results)
+
+    spans = get_trace("jobs")
     assert spans[-2].name == "INTERNAL_ERROR"
-    assert spans[-2].status.status_code.name == "ERROR"
     assert spans[-2].events[0].name == "exception"
     assert spans[-2].events[0].attributes["exception.message"] == "error"
     assert not spans[-2].status.is_ok
     assert spans[-2].attributes["exit_code"] == 1
+    assert spans[-2].attributes["succeeded"] is False
 
     assert spans[-1].name == "JOB"
-    assert spans[-1].status.status_code.name == "ERROR"
     assert spans[-1].events[0].name == "exception"
     assert spans[-1].events[0].attributes["exception.message"] == "error"
     assert not spans[-1].status.is_ok
     assert spans[-1].attributes["exit_code"] == 1
+    assert spans[-1].attributes["succeeded"] is False
 
 
 def test_record_job_span_skips_uninitialized_job(db):
@@ -264,7 +287,7 @@ def test_record_job_span_skips_uninitialized_job(db):
     ts = int(time.time() * 1e9)
     job.trace_context = None
 
-    tracing.record_job_span(job, "name", ts, ts + 10000, error=None, results=None)
+    tracing.record_job_span(job, "name", ts, ts + 10000, exception=None, results=None)
 
     assert len(get_trace("jobs")) == 0
 
@@ -322,12 +345,24 @@ def test_set_span_metadata_attrs(db):
     assert span.attributes["orgs"] == ",".join(job_request.original["orgs"])
 
 
-def test_set_span_metadata_error(db):
+def test_set_span_metadata_failure(db):
     job = job_factory()
     tracer = trace.get_tracer("test")
 
     span = tracer.start_span("test")
-    tracing.set_span_metadata(span, job, error=Exception("test"))
+    tracing.set_span_metadata(span, job, exception=Exception("test"))
+
+    assert span.status.is_ok
+    assert span.events[0].name == "exception"
+    assert span.events[0].attributes["exception.message"] == "test"
+
+
+def test_set_span_metadata_internal_error(db):
+    job = job_factory(status_code=models.StatusCode.INTERNAL_ERROR)
+    tracer = trace.get_tracer("test")
+
+    span = tracer.start_span("test")
+    tracing.set_span_metadata(span, job, exception=Exception("test"))
 
     assert not span.status.is_ok
     assert span.status.description == "test"
