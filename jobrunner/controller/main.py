@@ -124,14 +124,14 @@ def handle_single_job(job):
         except Exception as exc:
             span.set_attribute("fatal_job_error", is_fatal_controller_error(exc))
             if is_fatal_controller_error(exc):
-                mark_job_as_failed(
+                set_code(
                     job,
                     StatusCode.INTERNAL_ERROR,
                     "Internal error: this usually means a platform issue rather than a problem "
                     "for users to fix.\n"
                     "The tech team are automatically notified of these errors and will be "
                     "investigating.",
-                    error=exc,
+                    exception=exc,
                 )
             # Do not clean up, as we may want to debug
             #
@@ -175,7 +175,7 @@ def handle_job(job, mode=None, paused=None):
     if job.cancelled:
         with transaction():
             cancel_job(job)
-            mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+            set_code(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
         return
 
     # Handle special modes
@@ -223,7 +223,7 @@ def handle_pending_job(job):
     # Check states of jobs we're depending on
     awaited_states = get_states_of_awaited_jobs(job)
     if State.FAILED in awaited_states:
-        mark_job_as_failed(
+        set_code(
             job,
             StatusCode.DEPENDENCY_FAILED,
             "Not starting as dependency failed",
@@ -262,20 +262,18 @@ def handle_running_job(job):
             span = trace.get_current_span()
             span.set_attribute("fatal_job_error", is_fatal_job_error(job_error))
             if is_fatal_job_error(job_error):
-                mark_job_as_failed(
+                set_code(
                     job,
                     StatusCode.JOB_ERROR,
                     "This job returned a fatal error.",
-                    error=job_error,
+                    exception=job_error,
                 )
             else:
-                # mark task as inactive, this will trigger the loop to respawn it
+                # mark task as waiting on new task, this will trigger the loop to respawn it
                 set_code(
                     job,
                     StatusCode.WAITING_ON_NEW_TASK,
                     "This job returned an error that could be retriedwith a new task.",
-                    error=False,
-                    active=False,
                 )
 
         else:
@@ -304,11 +302,9 @@ def handle_running_job(job):
 def save_results(job, results, timestamp_ns):
     """Extract the results of the execution and update the job accordingly."""
     message = None
-    error = False
 
     if results.exit_code != 0:
         code = StatusCode.NONZERO_EXIT
-        error = True
         message = "Job exited with an error"
         if results.message:
             message += f": {results.message}"
@@ -319,7 +315,6 @@ def save_results(job, results, timestamp_ns):
 
     elif results.has_unmatched_patterns:
         code = StatusCode.UNMATCHED_PATTERNS
-        error = True
         # If the job fails because an output was missing its very useful to
         # inform the user as often the issue is just a typo
         message = "Outputs matching expected patterns were not found. See job log for details."
@@ -331,9 +326,7 @@ def save_results(job, results, timestamp_ns):
         if results.has_level4_excluded_files:
             message += ", but some file(s) marked as moderately_sensitive were excluded. See job log for details."
 
-    set_code(
-        job, code, message, error=error, results=results, task_timestamp_ns=timestamp_ns
-    )
+    set_code(job, code, message, results=results, task_timestamp_ns=timestamp_ns)
 
 
 def job_to_job_definition(job, task_id):
@@ -400,22 +393,14 @@ def get_states_of_awaited_jobs(job):
     return states
 
 
-def mark_job_as_failed(job, code, message, error=None, **attrs):
-    if error is None:
-        error = True
-
-    set_code(job, code, message, error=error, **attrs)
-
-
 def set_code(
     job,
     new_status_code,
     message,
     *,
-    error=None,
+    exception: Exception | str | None = None,
     results=None,
     task_timestamp_ns=None,
-    **attrs,
 ):
     """Set the granular status code state.
 
@@ -480,7 +465,11 @@ def set_code(
 
         # job trace: we finished the previous state
         tracing.finish_current_state(
-            job, timestamp_ns, error=error, message=message, results=results, **attrs
+            job,
+            timestamp_ns,
+            exception=exception,
+            message=message,
+            results=results,
         )
 
         # update db object
@@ -497,10 +486,9 @@ def set_code(
             tracing.record_final_state(
                 job,
                 timestamp_ns,
-                error=error,
+                exception=exception,
                 message=message,
                 results=results,
-                **attrs,
             )
 
         log.info(job.status_message, extra={"status_code": job.status_code})
