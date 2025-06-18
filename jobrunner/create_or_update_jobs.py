@@ -371,7 +371,7 @@ def create_job_from_exception(job_request, exception):
     )
     tracing.initialise_trace(job)
     insert_into_database(job_request, [job])
-    tracing.record_final_state(job, job.status_code_updated_at, error=error)
+    tracing.record_final_state(job, job.status_code_updated_at, exception=error)
 
 
 def insert_into_database(job_request, jobs):

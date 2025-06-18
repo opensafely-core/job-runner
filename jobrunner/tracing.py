@@ -122,7 +122,7 @@ def _traceable(job):
     return True
 
 
-def finish_current_state(job, timestamp_ns, error=None, results=None, **attrs):
+def finish_current_state(job, timestamp_ns, exception=None, results=None, **attrs):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):  # pragma: no cover
         return
@@ -132,13 +132,15 @@ def finish_current_state(job, timestamp_ns, error=None, results=None, **attrs):
     try:
         name = job.status_code.name
         start_time = job.status_code_updated_at
-        record_job_span(job, name, start_time, timestamp_ns, error, results, **attrs)
+        record_job_span(
+            job, name, start_time, timestamp_ns, exception, results, **attrs
+        )
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
 
 
-def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
+def record_final_state(job, timestamp_ns, exception=None, results=None, **attrs):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):  # pragma: no cover
         return
@@ -148,14 +150,16 @@ def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
         # Note: this *must* be timestamp as integer nanoseconds
         start_time = job.status_code_updated_at
 
+        attrs["succeeded"] = job.status_code == StatusCode.SUCCEEDED
+
         # final states have no duration, so make last for 1 sec, just act
         # as a marker
         end_time = int(timestamp_ns + 1e9)
         record_job_span(
-            job, name, start_time, end_time, error, results, final=True, **attrs
+            job, name, start_time, end_time, exception, results, final=True, **attrs
         )
 
-        complete_job(job, timestamp_ns, error, results, **attrs)
+        complete_job(job, timestamp_ns, exception, results, **attrs)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
@@ -197,7 +201,7 @@ MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0).timestamp() * 1e9)
 
 
 @warn_assertions
-def record_job_span(job, name, start_time, end_time, error, results, **attrs):
+def record_job_span(job, name, start_time, end_time, exception, results, **attrs):
     """Record a span for a job."""
     if not _traceable(job):
         return
@@ -220,11 +224,11 @@ def record_job_span(job, name, start_time, end_time, error, results, **attrs):
     ctx = load_trace_context(job)
     tracer = trace.get_tracer("jobs")
     span = tracer.start_span(name, context=ctx, start_time=start_time)
-    set_span_metadata(span, job, error, results, **attrs)
+    set_span_metadata(span, job, exception, results, **attrs)
     span.end(end_time)
 
 
-def complete_job(job, timestamp_ns, error=None, results=None, **attrs):
+def complete_job(job, timestamp_ns, exception=None, results=None, **attrs):
     """Send the root span to record the full duration for this job."""
 
     root_ctx = load_root_span(job)
@@ -246,14 +250,14 @@ def complete_job(job, timestamp_ns, error=None, results=None, **attrs):
     root_span._context = root_ctx
 
     # annotate and send
-    set_span_metadata(root_span, job, error, results, **attrs)
+    set_span_metadata(root_span, job, exception, results, **attrs)
     root_span.end(timestamp_ns)
 
 
 OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 
-def set_span_metadata(span, job, error=None, results=None, **attrs):
+def set_span_metadata(span, job, exception=None, results=None, **attrs):
     """Set span metadata with everything we know about a job."""
     try:
         attributes = {}
@@ -264,10 +268,17 @@ def set_span_metadata(span, job, error=None, results=None, **attrs):
 
         set_span_attributes(span, attributes)
 
-        if error:
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(error)))
-        if isinstance(error, Exception):
-            span.record_exception(error)
+        if exception:
+            span.record_exception(exception)
+
+        # only internal errors are marked as span erros
+        if job.status_code == StatusCode.INTERNAL_ERROR:
+            if exception:
+                msg = str(exception)
+            else:  # pragma: nocover
+                msg = "internal error"
+            span.set_status(trace.Status(trace.StatusCode.ERROR, msg))
+
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace job {job.id}")

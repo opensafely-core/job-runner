@@ -531,9 +531,9 @@ def test_create_job_from_exception_stale_codelist(db):
     spans = get_trace("jobs")
 
     assert spans[0].name == "STALE_CODELISTS"
-    assert not spans[0].status.is_ok
+    assert spans[0].status.is_ok
     assert spans[1].name == "JOB"
-    assert not spans[1].status.is_ok
+    assert spans[1].status.is_ok
 
 
 @pytest.mark.parametrize(
