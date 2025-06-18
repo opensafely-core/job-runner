@@ -174,12 +174,12 @@ def test_tracing_resource_config():
     assert span.resource.attributes["service.version"] == common_config.VERSION
 
 
-def test_initialise_trace(db):
+def test_initialise_job_trace(db):
     job = job_factory()
     # clear factories default context
     job.trace_context = None
 
-    tracing.initialise_trace(job)
+    tracing.initialise_job_trace(job)
 
     assert "traceparent" in job.trace_context
 
@@ -191,28 +191,28 @@ def test_initialise_trace(db):
     assert len(spans) == 0
 
 
-def test_initialise_trace_does_not_use_current_span(db):
+def test_initialise_job_trace_does_not_use_current_span(db):
     job = job_factory()
     # clear factories default context
     job.trace_context = None
 
     tracer = trace.get_tracer("test")
-    with tracer.start_as_current_span("test_initialise_trace") as current_span:
-        tracing.initialise_trace(job)
+    with tracer.start_as_current_span("test_initialise_job_trace") as current_span:
+        tracing.initialise_job_trace(job)
 
     # check that we did not use the current spans trace id
     span_context = tracing.load_root_span(job)
     assert span_context.trace_id != current_span.context.trace_id
 
 
-def test_finish_current_state(db):
+def test_finish_current_job_state(db):
     job = job_factory()
     start_time = job.status_code_updated_at
     results = job_task_results_factory()
 
     ts = int(time.time() * 1e9)
 
-    tracing.finish_current_state(job, ts, results=results, extra="extra")
+    tracing.finish_current_job_state(job, ts, results=results, extra="extra")
 
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
@@ -223,11 +223,11 @@ def test_finish_current_state(db):
     assert spans[-1].attributes["job.exit_code"] == 0
 
 
-def test_record_final_state_success(db):
+def test_record_final_job_state_success(db):
     job = job_factory(status_code=models.StatusCode.SUCCEEDED)
     results = job_task_results_factory()
     ts = int(time.time() * 1e9)
-    tracing.record_final_state(job, ts, results=results)
+    tracing.record_final_job_state(job, ts, results=results)
 
     spans = get_trace("jobs")
     assert spans[-2].name == "SUCCEEDED"
@@ -241,11 +241,11 @@ def test_record_final_state_success(db):
     assert spans[-2].status.is_ok
 
 
-def test_record_final_state_job_failure(db):
+def test_record_final_job_state_job_failure(db):
     job = job_factory(status_code=models.StatusCode.NONZERO_EXIT)
     ts = int(time.time() * 1e9)
     results = job_task_results_factory(exit_code=1)
-    tracing.record_final_state(job, ts, error=Exception("error"), results=results)
+    tracing.record_final_job_state(job, ts, error=Exception("error"), results=results)
 
     spans = get_trace("jobs")
     assert spans[-2].name == "NONZERO_EXIT"
@@ -259,11 +259,13 @@ def test_record_final_state_job_failure(db):
     assert spans[-2].status.is_ok
 
 
-def test_record_final_state_internal_error(db):
+def test_record_final_job_state_internal_error(db):
     job = job_factory(status_code=models.StatusCode.INTERNAL_ERROR)
     ts = int(time.time() * 1e9)
     results = job_task_results_factory(exit_code=1)
-    tracing.record_final_state(job, ts, exception=Exception("error"), results=results)
+    tracing.record_final_job_state(
+        job, ts, exception=Exception("error"), results=results
+    )
 
     spans = get_trace("jobs")
     assert spans[-2].name == "INTERNAL_ERROR"
@@ -314,7 +316,7 @@ def test_complete_job(db):
         assert span.attributes["job.exit_code"] == 1
 
 
-def test_set_span_metadata_attrs(db):
+def test_set_span_job_metadata_attrs(db):
     job_request = job_request_factory()
     job = job_factory(job_request=job_request)
     tracer = trace.get_tracer("test")
@@ -324,7 +326,7 @@ def test_set_span_metadata_attrs(db):
             return "test"
 
     span = tracer.start_span("test")
-    tracing.set_span_metadata(
+    tracing.set_span_job_metadata(
         span,
         job,
         custom_attr=Test(),  # test that attr is added and the type coerced to string
@@ -344,24 +346,24 @@ def test_set_span_metadata_attrs(db):
     assert span.attributes["job.orgs"] == ",".join(job_request.original["orgs"])
 
 
-def test_set_span_metadata_failure(db):
+def test_set_span_job_metadata_failure(db):
     job = job_factory()
     tracer = trace.get_tracer("test")
 
     span = tracer.start_span("test")
-    tracing.set_span_metadata(span, job, exception=Exception("test"))
+    tracing.set_span_job_metadata(span, job, exception=Exception("test"))
 
     assert span.status.is_ok
     assert span.events[0].name == "exception"
     assert span.events[0].attributes["exception.message"] == "test"
 
 
-def test_set_span_metadata_internal_error(db):
+def test_set_span_job_metadata_internal_error(db):
     job = job_factory(status_code=models.StatusCode.INTERNAL_ERROR)
     tracer = trace.get_tracer("test")
 
     span = tracer.start_span("test")
-    tracing.set_span_metadata(span, job, exception=Exception("test"))
+    tracing.set_span_job_metadata(span, job, exception=Exception("test"))
 
     assert not span.status.is_ok
     assert span.status.description == "test"
@@ -369,21 +371,23 @@ def test_set_span_metadata_internal_error(db):
     assert span.events[0].attributes["exception.message"] == "test"
 
 
-def test_set_span_metadata_non_recording_span_with_invalid_attribute_type(db, caplog):
+def test_set_span_job_metadata_non_recording_span_with_invalid_attribute_type(
+    db, caplog
+):
     # This is a test for a previous bug, where logging an invalid type for a
     # a non-recording span attempted to call span.name (non-recording spans have no
     # name attribute)
     job = job_factory()
     non_recording_span = trace.NonRecordingSpan({})
-    tracing.set_span_metadata(non_recording_span, job, bar=dict())
+    tracing.set_span_job_metadata(non_recording_span, job, bar=dict())
     assert "attribute job.bar was set invalid type: {}" in caplog.text
 
 
-def test_set_span_metadata_invalid_attribute_type(db, caplog):
+def test_set_span_job_metadata_invalid_attribute_type(db, caplog):
     job = job_factory()
     tracer = trace.get_tracer("test")
     span = tracer.start_span("test")
-    tracing.set_span_metadata(span, job, foo=None, bar=dict(), foobar=set())
+    tracing.set_span_job_metadata(span, job, foo=None, bar=dict(), foobar=set())
     assert "attribute job.foo was set invalid type" not in caplog.text
     assert "attribute job.bar was set invalid type: {}" in caplog.text
     assert "attribute job.foobar was set invalid type: set()" in caplog.text
@@ -392,36 +396,38 @@ def test_set_span_metadata_invalid_attribute_type(db, caplog):
     assert span.attributes["job.foobar"] == "set()"
 
 
-def test_set_span_metadata_tracing_errors_do_not_raise(db, caplog):
+def test_set_span_job_metadata_tracing_errors_do_not_raise(db, caplog):
     job = job_factory()
     tracer = trace.get_tracer("test")
 
     span = tracer.start_span("test")
-    # mock Exception raised in function called by set_span_metadata
+    # mock Exception raised in function called by set_span_job_metadata
     with patch("jobrunner.tracing.trace_attributes", side_effect=Exception("foo")):
-        tracing.set_span_metadata(span, job, error=Exception("test"))
+        tracing.set_span_job_metadata(span, job, error=Exception("test"))
 
     assert f"failed to trace job {job.id}" in caplog.text
 
 
-def test_record_final_state_tracing_errors_do_not_raise(db, caplog):
+def test_record_final_job_state_tracing_errors_do_not_raise(db, caplog):
     job = job_factory()
     ts = int(time.time() * 1e9)
     results = job_task_results_factory()
-    # mock Exception raised in function called by set_span_metadata
+    # mock Exception raised in function called by set_span_job_metadata
     with patch("jobrunner.tracing.complete_job", side_effect=Exception("foo")):
-        tracing.record_final_state(job, ts, error=Exception("error"), results=results)
+        tracing.record_final_job_state(
+            job, ts, error=Exception("error"), results=results
+        )
 
     assert f"failed to trace state for {job.id}" in caplog.text
 
 
-def test_finish_current_state_tracing_errors_do_not_raise(db, caplog):
+def test_finish_current_job_state_tracing_errors_do_not_raise(db, caplog):
     job = job_factory()
     ts = int(time.time() * 1e9)
     results = job_task_results_factory()
-    # mock Exception raised in function called by set_span_metadata
+    # mock Exception raised in function called by set_span_job_metadata
     with patch("jobrunner.tracing.record_job_span", side_effect=Exception("foo")):
-        tracing.finish_current_state(job, ts, results=results)
+        tracing.finish_current_job_state(job, ts, results=results)
 
     assert f"failed to trace state for {job.id}" in caplog.text
 

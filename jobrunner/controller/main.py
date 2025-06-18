@@ -118,7 +118,7 @@ def handle_single_job(job):
     }
 
     with tracer.start_as_current_span("LOOP_JOB") as span:
-        tracing.set_span_metadata(span, job, **attrs)
+        tracing.set_span_job_metadata(span, job, **attrs)
         try:
             handle_job(job, mode, paused)
         except Exception as exc:
@@ -467,7 +467,7 @@ def set_code(
             job.started_at = None
 
         # job trace: we finished the previous state
-        tracing.finish_current_state(
+        tracing.finish_current_job_state(
             job,
             timestamp_ns,
             exception=exception,
@@ -486,7 +486,7 @@ def set_code(
 
         if new_status_code.is_final_code:
             # transitioning to a final state, so just record that state
-            tracing.record_final_state(
+            tracing.record_final_job_state(
                 job,
                 timestamp_ns,
                 exception=exception,

@@ -79,7 +79,7 @@ def setup_default_tracing(set_global=True):
 
 
 @warn_assertions
-def initialise_trace(job):
+def initialise_job_trace(job):
     """Initialise the trace for this job by creating a root span.
 
     We store the serialised trace context in the db, so we can reuse it for
@@ -122,7 +122,7 @@ def _traceable(job):
     return True
 
 
-def finish_current_state(job, timestamp_ns, exception=None, results=None, **attrs):
+def finish_current_job_state(job, timestamp_ns, exception=None, results=None, **attrs):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):  # pragma: no cover
         return
@@ -138,7 +138,7 @@ def finish_current_state(job, timestamp_ns, exception=None, results=None, **attr
         logger.exception(f"failed to trace state for {job.id}")
 
 
-def record_final_state(job, timestamp_ns, exception=None, results=None, **attrs):
+def record_final_job_state(job, timestamp_ns, exception=None, results=None, **attrs):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):  # pragma: no cover
         return
@@ -222,7 +222,7 @@ def record_job_span(job, name, start_time, end_time, exception, results, **attrs
     ctx = load_trace_context(job)
     tracer = trace.get_tracer("jobs")
     span = tracer.start_span(name, context=ctx, start_time=start_time)
-    set_span_metadata(span, job, exception, results, **attrs)
+    set_span_job_metadata(span, job, exception, results, **attrs)
     span.end(end_time)
 
 
@@ -248,14 +248,14 @@ def complete_job(job, timestamp_ns, exception=None, results=None, **attrs):
     root_span._context = root_ctx
 
     # annotate and send
-    set_span_metadata(root_span, job, exception, results, **attrs)
+    set_span_job_metadata(root_span, job, exception, results, **attrs)
     root_span.end(timestamp_ns)
 
 
 OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 
-def set_span_metadata(span, job, exception=None, results=None, **attrs):
+def set_span_job_metadata(span, job, exception=None, results=None, **attrs):
     """Set span metadata with everything we know about a job."""
     try:
         attributes = {}
@@ -376,7 +376,7 @@ if __name__ == "__main__":
         commit="commit",
         created_at=timestamp,
     )
-    initialise_trace(job)
+    initialise_job_trace(job)
 
     states = [
         StatusCode.WAITING_ON_DEPENDENCIES,
