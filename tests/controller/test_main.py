@@ -118,7 +118,7 @@ def test_handle_job_pending_dependency_failed(db):
 
     # tracing
     spans = get_trace("jobs")
-    assert all(s.attributes["backend"] == "test" for s in spans)
+    assert all(s.attributes["job.backend"] == "test" for s in spans)
     assert spans[-3].name == "CREATED"
     assert spans[-2].name == "DEPENDENCY_FAILED"
     assert spans[-2].status.is_ok
@@ -146,7 +146,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
 
     # tracing
     spans = get_trace("jobs")
-    assert all(s.attributes["backend"] == "test" for s in spans)
+    assert all(s.attributes["job.backend"] == "test" for s in spans)
     assert spans[-1].name == "CREATED"
 
 
@@ -166,7 +166,7 @@ def test_handle_job_waiting_on_workers(monkeypatch, db):
 
     # tracing
     spans = get_trace("jobs")
-    assert all(s.attributes["backend"] == "test" for s in spans)
+    assert all(s.attributes["job.backend"] == "test" for s in spans)
     assert spans[-1].name == "CREATED"
 
 
@@ -205,8 +205,8 @@ def test_handle_job_waiting_on_workers_by_backend(monkeypatch, db):
     # tracing
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
-    assert spans[-1].attributes["backend"] == "foo"
-    assert spans[-2].attributes["backend"] == "bar"
+    assert spans[-1].attributes["job.backend"] == "foo"
+    assert spans[-2].attributes["job.backend"] == "bar"
 
 
 def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
@@ -388,10 +388,10 @@ def test_handle_job_finalized_failed_exit_code(
     spans = get_trace("jobs")
     completed_span = spans[-2]
     assert completed_span.name == "NONZERO_EXIT"
-    assert completed_span.attributes["exit_code"] == exit_code
-    assert completed_span.attributes["image_id"] == "image_id"
+    assert completed_span.attributes["job.exit_code"] == exit_code
+    assert completed_span.attributes["job.image_id"] == "image_id"
     # data about outputs or filename patterns is excluded
-    for key in ["outputs", "unmatched_patterns", "unmatched_outputs"]:
+    for key in ["job.outputs", "job.unmatched_patterns", "job.unmatched_outputs"]:
         assert key not in completed_span.attributes
     assert completed_span.status.is_ok
     assert spans[-1].name == "JOB"

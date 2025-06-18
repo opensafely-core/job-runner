@@ -35,8 +35,8 @@ def test_record_job_tick_trace(db, freezer, monkeypatch):
         assert span.name == job.status_code.name
         assert span.start_time == last_run1
         assert span.end_time == last_run2
-        assert span.attributes["job"] == job.id
-        assert span.attributes["backend"] == "test"
+        assert span.attributes["job.id"] == job.id
+        assert span.attributes["job.backend"] == "test"
         assert span.parent.span_id == root.context.span_id
 
     assert "SUCCEEDED" not in [s.name for s in spans]

@@ -148,7 +148,7 @@ def record_final_state(job, timestamp_ns, exception=None, results=None, **attrs)
         # Note: this *must* be timestamp as integer nanoseconds
         start_time = job.status_code_updated_at
 
-        attrs["succeeded"] = job.status_code == StatusCode.SUCCEEDED
+        attrs["job.succeeded"] = job.status_code == StatusCode.SUCCEEDED
 
         # final states have no duration, so make last for 1 sec, just act
         # as a marker
@@ -260,8 +260,12 @@ def set_span_metadata(span, job, exception=None, results=None, **attrs):
     try:
         attributes = {}
 
-        if attrs:
-            attributes.update(attrs)
+        for k, v in attrs.items():
+            # automatically give any additional attributes the job prefix if not already present
+            if not k.startswith("job."):
+                k = "job." + k
+            attributes[k] = v
+
         attributes.update(trace_attributes(job, results))
 
         set_span_attributes(span, attributes)
@@ -312,41 +316,41 @@ def trace_attributes(job, results=None):
     if job._job_request is None:
         job._job_request = get_saved_job_request(job)
 
-    attrs = dict(
-        backend=job.backend,
-        job=job.id,
-        job_request=job.job_request_id,
-        workspace=job.workspace,
-        action=job.action,
-        commit=job.commit,
-        run_command=job.run_command,
-        user=job._job_request.get("created_by", "unknown"),
-        project=job._job_request.get("project", "unknown"),
-        orgs=",".join(job._job_request.get("orgs", [])),
-        state=job.state.name,
-        message=job.status_message,
+    attrs = {
+        "job.backend": job.backend,
+        "job.id": job.id,
+        "job.request": job.job_request_id,
+        "job.workspace": job.workspace,
+        "job.action": job.action,
+        "job.commit": job.commit,
+        "job.run_command": job.run_command,
+        "job.user": job._job_request.get("created_by", "unknown"),
+        "job.project": job._job_request.get("project", "unknown"),
+        "job.orgs": ",".join(job._job_request.get("orgs", [])),
+        "job.state": job.state.name,
+        "job.message": job.status_message,
         # convert float seconds to ns integer
-        created_at=int(job.created_at * 1e9),
-        started_at=int(job.started_at * 1e9) if job.started_at else None,
+        "job.created_at": int(job.created_at * 1e9),
+        "job.started_at": int(job.started_at * 1e9) if job.started_at else None,
         # when did the state last change?
-        status_code_updated_at=job.status_code_updated_at,
-        requires_db=job.requires_db,
-    )
+        "job.status_code_updated_at": job.status_code_updated_at,
+        "job.requires_db": job.requires_db,
+    }
 
     if job.action_repo_url:
-        attrs["reusable_action"] = job.action_repo_url
+        attrs["job.reusable_action"] = job.action_repo_url
         if job.action_commit:  # pragma: no cover
-            attrs["reusable_action"] += ":" + job.action_commit
+            attrs["job.reusable_action"] += ":" + job.action_commit
 
     if results:
-        attrs["exit_code"] = results.exit_code
-        attrs["image_id"] = results.image_id
-        attrs["executor_message"] = results.message
-        attrs["action_version"] = results.action_version
-        attrs["action_revision"] = results.action_revision
-        attrs["action_created"] = results.action_created
-        attrs["base_revision"] = results.base_revision
-        attrs["base_created"] = results.base_created
+        attrs["job.exit_code"] = results.exit_code
+        attrs["job.image_id"] = results.image_id
+        attrs["job.executor_message"] = results.message
+        attrs["job.action_version"] = results.action_version
+        attrs["job.action_revision"] = results.action_revision
+        attrs["job.action_created"] = results.action_created
+        attrs["job.base_revision"] = results.base_revision
+        attrs["job.base_created"] = results.base_created
 
     return attrs
 
