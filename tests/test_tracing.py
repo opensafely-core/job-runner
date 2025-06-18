@@ -220,7 +220,6 @@ def test_finish_current_state(db):
     assert spans[-1].end_time == ts
     assert spans[-1].attributes["extra"] == "extra"
     assert spans[-1].attributes["job"] == job.id
-    assert spans[-1].attributes["is_state"] is True
     assert spans[-1].attributes["exit_code"] == 0
 
 

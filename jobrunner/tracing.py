@@ -127,8 +127,6 @@ def finish_current_state(job, timestamp_ns, exception=None, results=None, **attr
     if not _traceable(job):  # pragma: no cover
         return
 
-    # allow them to be filtered out from tracking spans
-    attrs["is_state"] = True
     try:
         name = job.status_code.name
         start_time = job.status_code_updated_at
