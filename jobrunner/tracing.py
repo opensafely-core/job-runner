@@ -122,7 +122,9 @@ def _traceable(job):
     return True
 
 
-def finish_current_job_state(job, timestamp_ns, exception=None, results=None, **attrs):
+def finish_current_job_state(
+    job, timestamp_ns, exception=None, results=None, extra=None
+):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):  # pragma: no cover
         return
@@ -130,15 +132,13 @@ def finish_current_job_state(job, timestamp_ns, exception=None, results=None, **
     try:
         name = job.status_code.name
         start_time = job.status_code_updated_at
-        record_job_span(
-            job, name, start_time, timestamp_ns, exception, results, **attrs
-        )
+        record_job_span(job, name, start_time, timestamp_ns, exception, results, extra)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
 
 
-def record_final_job_state(job, timestamp_ns, exception=None, results=None, **attrs):
+def record_final_job_state(job, timestamp_ns, exception=None, results=None, extra=None):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):  # pragma: no cover
         return
@@ -148,16 +148,16 @@ def record_final_job_state(job, timestamp_ns, exception=None, results=None, **at
         # Note: this *must* be timestamp as integer nanoseconds
         start_time = job.status_code_updated_at
 
-        attrs["job.succeeded"] = job.status_code == StatusCode.SUCCEEDED
+        extra = {"job.succeeded": job.status_code == StatusCode.SUCCEEDED}
 
         # final states have no duration, so make last for 1 sec, just act
         # as a marker
         end_time = int(timestamp_ns + 1e9)
         record_job_span(
-            job, name, start_time, end_time, exception, results, final=True, **attrs
+            job, name, start_time, end_time, exception, results, extra=extra
         )
 
-        complete_job(job, timestamp_ns, exception, results, **attrs)
+        complete_job(job, timestamp_ns, exception, results, extra)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
@@ -199,7 +199,7 @@ MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0).timestamp() * 1e9)
 
 
 @warn_assertions
-def record_job_span(job, name, start_time, end_time, exception, results, **attrs):
+def record_job_span(job, name, start_time, end_time, exception, results, extra=None):
     """Record a span for a job."""
     if not _traceable(job):
         return
@@ -222,11 +222,11 @@ def record_job_span(job, name, start_time, end_time, exception, results, **attrs
     ctx = load_trace_context(job)
     tracer = trace.get_tracer("jobs")
     span = tracer.start_span(name, context=ctx, start_time=start_time)
-    set_span_job_metadata(span, job, exception, results, **attrs)
+    set_span_job_metadata(span, job, exception, results, extra)
     span.end(end_time)
 
 
-def complete_job(job, timestamp_ns, exception=None, results=None, **attrs):
+def complete_job(job, timestamp_ns, exception=None, results=None, extra=None):
     """Send the root span to record the full duration for this job."""
 
     root_ctx = load_root_span(job)
@@ -248,23 +248,24 @@ def complete_job(job, timestamp_ns, exception=None, results=None, **attrs):
     root_span._context = root_ctx
 
     # annotate and send
-    set_span_job_metadata(root_span, job, exception, results, **attrs)
+    set_span_job_metadata(root_span, job, exception, results, extra)
     root_span.end(timestamp_ns)
 
 
 OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 
-def set_span_job_metadata(span, job, exception=None, results=None, **attrs):
+def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
     """Set span metadata with everything we know about a job."""
     try:
         attributes = {}
 
-        for k, v in attrs.items():
-            # automatically give any additional attributes the job prefix if not already present
-            if not k.startswith("job."):
-                k = "job." + k
-            attributes[k] = v
+        if extra:
+            for k, v in extra.items():
+                # automatically give any additional attributes the job prefix if not already present
+                if not k.startswith("job."):
+                    k = "job." + k
+                attributes[k] = v
 
         attributes.update(trace_attributes(job, results))
 

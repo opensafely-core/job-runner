@@ -212,7 +212,9 @@ def test_finish_current_job_state(db):
 
     ts = int(time.time() * 1e9)
 
-    tracing.finish_current_job_state(job, ts, results=results, extra="extra")
+    tracing.finish_current_job_state(
+        job, ts, results=results, extra={"job.extra": "extra"}
+    )
 
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
@@ -245,7 +247,7 @@ def test_record_final_job_state_job_failure(db):
     job = job_factory(status_code=models.StatusCode.NONZERO_EXIT)
     ts = int(time.time() * 1e9)
     results = job_task_results_factory(exit_code=1)
-    tracing.record_final_job_state(job, ts, error=Exception("error"), results=results)
+    tracing.record_final_job_state(job, ts, results=results)
 
     spans = get_trace("jobs")
     assert spans[-2].name == "NONZERO_EXIT"
@@ -329,8 +331,10 @@ def test_set_span_job_metadata_attrs(db):
     tracing.set_span_job_metadata(
         span,
         job,
-        custom_attr=Test(),  # test that attr is added and the type coerced to string
-        state="should be ignored",  # test that we can't override core job attributes
+        extra={
+            "custom_attr": Test(),  # test that attr is added and the type coerced to string
+            "state": "should be ignored",  # test that we can't override core job attributes
+        },
     )
 
     assert span.attributes["job.id"] == job.id
@@ -379,7 +383,7 @@ def test_set_span_job_metadata_non_recording_span_with_invalid_attribute_type(
     # name attribute)
     job = job_factory()
     non_recording_span = trace.NonRecordingSpan({})
-    tracing.set_span_job_metadata(non_recording_span, job, bar=dict())
+    tracing.set_span_job_metadata(non_recording_span, job, extra={"bar": dict()})
     assert "attribute job.bar was set invalid type: {}" in caplog.text
 
 
@@ -387,7 +391,9 @@ def test_set_span_job_metadata_invalid_attribute_type(db, caplog):
     job = job_factory()
     tracer = trace.get_tracer("test")
     span = tracer.start_span("test")
-    tracing.set_span_job_metadata(span, job, foo=None, bar=dict(), foobar=set())
+    tracing.set_span_job_metadata(
+        span, job, extra={"foo": None, "bar": dict(), "foobar": set()}
+    )
     assert "attribute job.foo was set invalid type" not in caplog.text
     assert "attribute job.bar was set invalid type: {}" in caplog.text
     assert "attribute job.foobar was set invalid type: set()" in caplog.text
@@ -403,7 +409,7 @@ def test_set_span_job_metadata_tracing_errors_do_not_raise(db, caplog):
     span = tracer.start_span("test")
     # mock Exception raised in function called by set_span_job_metadata
     with patch("jobrunner.tracing.trace_attributes", side_effect=Exception("foo")):
-        tracing.set_span_job_metadata(span, job, error=Exception("test"))
+        tracing.set_span_job_metadata(span, job)
 
     assert f"failed to trace job {job.id}" in caplog.text
 
@@ -414,9 +420,7 @@ def test_record_final_job_state_tracing_errors_do_not_raise(db, caplog):
     results = job_task_results_factory()
     # mock Exception raised in function called by set_span_job_metadata
     with patch("jobrunner.tracing.complete_job", side_effect=Exception("foo")):
-        tracing.record_final_job_state(
-            job, ts, error=Exception("error"), results=results
-        )
+        tracing.record_final_job_state(job, ts, results=results)
 
     assert f"failed to trace state for {job.id}" in caplog.text
 

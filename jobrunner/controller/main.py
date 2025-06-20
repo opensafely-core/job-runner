@@ -118,7 +118,7 @@ def handle_single_job(job):
     }
 
     with tracer.start_as_current_span("LOOP_JOB") as span:
-        tracing.set_span_job_metadata(span, job, **attrs)
+        tracing.set_span_job_metadata(span, job, extra=attrs)
         try:
             handle_job(job, mode, paused)
         except Exception as exc:
@@ -471,7 +471,6 @@ def set_code(
             job,
             timestamp_ns,
             exception=exception,
-            message=message,
             results=results,
         )
 
@@ -490,7 +489,6 @@ def set_code(
                 job,
                 timestamp_ns,
                 exception=exception,
-                message=message,
                 results=results,
             )
 
