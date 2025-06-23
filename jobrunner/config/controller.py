@@ -144,3 +144,10 @@ def job_limits_from_env(env, limit_name, default, transform=str):
 
 DEFAULT_JOB_CPU_COUNT = job_limits_from_env(os.environ, "job_cpu_count", 2, float)
 DEFAULT_JOB_MEMORY_LIMIT = job_limits_from_env(os.environ, "job_memory_limit", "4G")
+
+
+# Repos associated with projects approved by NOD to try out the new Event Level Data
+# features in ehrQL against real data
+REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS = {
+    "https://github.com/opensafely/ve-ccw",
+}

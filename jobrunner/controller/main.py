@@ -340,6 +340,9 @@ def job_to_job_definition(job, task_id):
     if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 
+    if job.requires_db and job.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
+        env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] = "True"
+
     # Jobs which are running reusable actions pull their code from the reusable
     # action repo, all other jobs pull their code from the study repo
     study = Study(job.action_repo_url or job.repo_url, job.action_commit or job.commit)
