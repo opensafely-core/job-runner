@@ -847,6 +847,27 @@ def test_job_definition_stata_license(db, monkeypatch, run_command, expect_env):
         assert "STATA_LICENSE" not in job_definition.env
 
 
+@pytest.mark.parametrize(
+    "repo_url,expect_env",
+    [
+        ("https://github.com/opensafely/ok-repo", True),
+        ("https://github.com/opensafely/not-ok-repo", False),
+    ],
+)
+def test_job_definition_ehrql_event_level_access(db, monkeypatch, repo_url, expect_env):
+    monkeypatch.setattr(
+        config,
+        "REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS",
+        {"https://github.com/opensafely/ok-repo"},
+    )
+    job = job_factory(requires_db=True, repo_url=repo_url)
+    job_definition = main.job_to_job_definition(job, task_id="")
+    if expect_env:
+        assert job_definition.env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] == "True"
+    else:
+        assert "EHRQL_ENABLE_EVENT_LEVEL_QUERIES" not in job_definition.env
+
+
 @patch("jobrunner.controller.main.handle_job")
 def test_handle_error(patched_handle_job, db, monkeypatch):
     monkeypatch.setattr(common_config, "JOB_LOOP_INTERVAL", 0)
