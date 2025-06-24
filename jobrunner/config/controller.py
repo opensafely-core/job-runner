@@ -149,5 +149,7 @@ DEFAULT_JOB_MEMORY_LIMIT = job_limits_from_env(os.environ, "job_memory_limit", "
 # Repos associated with projects approved by NOD to try out the new Event Level Data
 # features in ehrQL against real data
 REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS = {
+    # Vaccine effectiveness repos
     "https://github.com/opensafely/ve-ccw",
+    "https://github.com/opensafely/covid-vaccine-history",
 }
