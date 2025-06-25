@@ -59,7 +59,7 @@ def record_job_tick_trace(last_run, active_jobs):
         for job in active_jobs:
             # record span with clamped start/end times
             span = tracer.start_span(job.status_code.name, start_time=start_time)
-            tracing.set_span_metadata(span, job)
+            tracing.set_span_job_metadata(span, job)
             span.end(end_time)
 
     return end_time

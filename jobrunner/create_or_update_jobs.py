@@ -249,7 +249,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         updated_at=int(timestamp),
         backend=job_request.backend,
     )
-    tracing.initialise_trace(job)
+    tracing.initialise_job_trace(job)
 
     # Add it to the dictionary of scheduled jobs
     jobs_by_action[action] = job
@@ -369,9 +369,9 @@ def create_job_from_exception(job_request, exception):
         completed_at=int(now),
         backend=job_request.backend,
     )
-    tracing.initialise_trace(job)
+    tracing.initialise_job_trace(job)
     insert_into_database(job_request, [job])
-    tracing.record_final_state(job, job.status_code_updated_at, exception=error)
+    tracing.record_final_job_state(job, job.status_code_updated_at, exception=error)
 
 
 def insert_into_database(job_request, jobs):

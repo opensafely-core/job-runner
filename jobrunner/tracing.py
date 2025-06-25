@@ -1,5 +1,6 @@
 import logging
 import os
+import warnings
 from datetime import datetime
 
 from opentelemetry import trace
@@ -79,7 +80,7 @@ def setup_default_tracing(set_global=True):
 
 
 @warn_assertions
-def initialise_trace(job):
+def initialise_job_trace(job):
     """Initialise the trace for this job by creating a root span.
 
     We store the serialised trace context in the db, so we can reuse it for
@@ -122,25 +123,23 @@ def _traceable(job):
     return True
 
 
-def finish_current_state(job, timestamp_ns, exception=None, results=None, **attrs):
+def finish_current_job_state(
+    job, timestamp_ns, exception=None, results=None, extra=None
+):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):  # pragma: no cover
         return
 
-    # allow them to be filtered out from tracking spans
-    attrs["is_state"] = True
     try:
         name = job.status_code.name
         start_time = job.status_code_updated_at
-        record_job_span(
-            job, name, start_time, timestamp_ns, exception, results, **attrs
-        )
+        record_job_span(job, name, start_time, timestamp_ns, exception, results, extra)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
 
 
-def record_final_state(job, timestamp_ns, exception=None, results=None, **attrs):
+def record_final_job_state(job, timestamp_ns, exception=None, results=None, extra=None):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):  # pragma: no cover
         return
@@ -150,16 +149,16 @@ def record_final_state(job, timestamp_ns, exception=None, results=None, **attrs)
         # Note: this *must* be timestamp as integer nanoseconds
         start_time = job.status_code_updated_at
 
-        attrs["succeeded"] = job.status_code == StatusCode.SUCCEEDED
+        extra = {"job.succeeded": job.status_code == StatusCode.SUCCEEDED}
 
         # final states have no duration, so make last for 1 sec, just act
         # as a marker
         end_time = int(timestamp_ns + 1e9)
         record_job_span(
-            job, name, start_time, end_time, exception, results, final=True, **attrs
+            job, name, start_time, end_time, exception, results, extra=extra
         )
 
-        complete_job(job, timestamp_ns, exception, results, **attrs)
+        complete_job(job, timestamp_ns, exception, results, extra)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
@@ -201,7 +200,7 @@ MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0).timestamp() * 1e9)
 
 
 @warn_assertions
-def record_job_span(job, name, start_time, end_time, exception, results, **attrs):
+def record_job_span(job, name, start_time, end_time, exception, results, extra=None):
     """Record a span for a job."""
     if not _traceable(job):
         return
@@ -224,11 +223,11 @@ def record_job_span(job, name, start_time, end_time, exception, results, **attrs
     ctx = load_trace_context(job)
     tracer = trace.get_tracer("jobs")
     span = tracer.start_span(name, context=ctx, start_time=start_time)
-    set_span_metadata(span, job, exception, results, **attrs)
+    set_span_job_metadata(span, job, exception, results, extra)
     span.end(end_time)
 
 
-def complete_job(job, timestamp_ns, exception=None, results=None, **attrs):
+def complete_job(job, timestamp_ns, exception=None, results=None, extra=None):
     """Send the root span to record the full duration for this job."""
 
     root_ctx = load_root_span(job)
@@ -250,23 +249,34 @@ def complete_job(job, timestamp_ns, exception=None, results=None, **attrs):
     root_span._context = root_ctx
 
     # annotate and send
-    set_span_metadata(root_span, job, exception, results, **attrs)
+    set_span_job_metadata(root_span, job, exception, results, extra)
     root_span.end(timestamp_ns)
 
 
 OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 
-def set_span_metadata(span, job, exception=None, results=None, **attrs):
+def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
     """Set span metadata with everything we know about a job."""
     try:
         attributes = {}
 
-        if attrs:
-            attributes.update(attrs)
+        if extra:
+            for k, v in extra.items():
+                # automatically give any additional attributes the job prefix if not already present
+                if not k.startswith("job."):  # pragma: nocover
+                    # this will fail tests
+                    warnings.warn(f"attribute {k} does not start with job. prefix")
+                    # but correctly prefix it somehow this happens for real.
+                    k = "job." + k
+                attributes[k] = v
+
         attributes.update(trace_attributes(job, results))
 
         set_span_attributes(span, attributes)
+
+        # temporary backwards compatibility, can remove after a few months
+        set_span_attributes(span, backwards_compatible_job_attrs(attributes))
 
         if exception:
             span.record_exception(exception)
@@ -282,6 +292,28 @@ def set_span_metadata(span, job, exception=None, results=None, **attrs):
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace job {job.id}")
+
+
+BACKWARDS_MAPPING = {}
+
+
+def backwards_compatible_job_attrs(attributes):
+    bwcompat = {}
+
+    for k, v in attributes.items():
+        if not k.startswith("job."):
+            continue
+
+        if k == "job.id":
+            k = "job"
+        elif k == "job.request":
+            k = "job_request"
+        else:
+            k = k.replace("job.", "")
+
+        bwcompat[k] = v
+
+    return bwcompat
 
 
 def set_span_attributes(span, attributes):
@@ -314,41 +346,41 @@ def trace_attributes(job, results=None):
     if job._job_request is None:
         job._job_request = get_saved_job_request(job)
 
-    attrs = dict(
-        backend=job.backend,
-        job=job.id,
-        job_request=job.job_request_id,
-        workspace=job.workspace,
-        action=job.action,
-        commit=job.commit,
-        run_command=job.run_command,
-        user=job._job_request.get("created_by", "unknown"),
-        project=job._job_request.get("project", "unknown"),
-        orgs=",".join(job._job_request.get("orgs", [])),
-        state=job.state.name,
-        message=job.status_message,
+    attrs = {
+        "job.backend": job.backend,
+        "job.id": job.id,
+        "job.request": job.job_request_id,
+        "job.workspace": job.workspace,
+        "job.action": job.action,
+        "job.commit": job.commit,
+        "job.run_command": job.run_command,
+        "job.user": job._job_request.get("created_by", "unknown"),
+        "job.project": job._job_request.get("project", "unknown"),
+        "job.orgs": ",".join(job._job_request.get("orgs", [])),
+        "job.state": job.state.name,
+        "job.message": job.status_message,
         # convert float seconds to ns integer
-        created_at=int(job.created_at * 1e9),
-        started_at=int(job.started_at * 1e9) if job.started_at else None,
+        "job.created_at": int(job.created_at * 1e9),
+        "job.started_at": int(job.started_at * 1e9) if job.started_at else None,
         # when did the state last change?
-        status_code_updated_at=job.status_code_updated_at,
-        requires_db=job.requires_db,
-    )
+        "job.status_code_updated_at": job.status_code_updated_at,
+        "job.requires_db": job.requires_db,
+    }
 
     if job.action_repo_url:
-        attrs["reusable_action"] = job.action_repo_url
+        attrs["job.reusable_action"] = job.action_repo_url
         if job.action_commit:  # pragma: no cover
-            attrs["reusable_action"] += ":" + job.action_commit
+            attrs["job.reusable_action"] += ":" + job.action_commit
 
     if results:
-        attrs["exit_code"] = results.exit_code
-        attrs["image_id"] = results.image_id
-        attrs["executor_message"] = results.message
-        attrs["action_version"] = results.action_version
-        attrs["action_revision"] = results.action_revision
-        attrs["action_created"] = results.action_created
-        attrs["base_revision"] = results.base_revision
-        attrs["base_created"] = results.base_created
+        attrs["job.exit_code"] = results.exit_code
+        attrs["job.image_id"] = results.image_id
+        attrs["job.executor_message"] = results.message
+        attrs["job.action_version"] = results.action_version
+        attrs["job.action_revision"] = results.action_revision
+        attrs["job.action_created"] = results.action_created
+        attrs["job.base_revision"] = results.base_revision
+        attrs["job.base_created"] = results.base_created
 
     return attrs
 
@@ -374,7 +406,7 @@ if __name__ == "__main__":
         commit="commit",
         created_at=timestamp,
     )
-    initialise_trace(job)
+    initialise_job_trace(job)
 
     states = [
         StatusCode.WAITING_ON_DEPENDENCIES,

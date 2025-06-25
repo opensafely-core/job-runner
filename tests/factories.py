@@ -103,7 +103,7 @@ def job_factory(job_request=None, **kwargs):
     job = Job(**values)
 
     # initialise tracing
-    tracing.initialise_trace(job)
+    tracing.initialise_job_trace(job)
 
     insert(job)
 

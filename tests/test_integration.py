@@ -415,14 +415,16 @@ def test_integration(
     job_spans = [s for s in get_trace("jobs") if s.name == "JOB"]
     assert len(job_spans) == 8
     # one job is cancelled
-    executed_jobs = [s for s in job_spans if "exit_code" in s.attributes]
+    executed_jobs = [s for s in job_spans if "job.exit_code" in s.attributes]
     assert len(executed_jobs) == 7
-    assert sum(s.attributes["exit_code"] for s in executed_jobs) == 0
+    assert sum(s.attributes["job.exit_code"] for s in executed_jobs) == 0
 
     # If this fails, it might be that your docker images have missing labels,
     # try pulling.  If that fails, it maybe the latest images are missing
     # labels.
-    assert not any(s.attributes["action_created"] == "unknown" for s in executed_jobs)
+    assert not any(
+        s.attributes["job.action_created"] == "unknown" for s in executed_jobs
+    )
 
     loop_spans = [s for s in get_trace("agent_loop") if s.name == "AGENT_LOOP"]
     assert len(loop_spans) > 1

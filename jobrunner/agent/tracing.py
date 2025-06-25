@@ -2,7 +2,7 @@ import logging
 
 from jobrunner.job_executor import JobDefinition
 from jobrunner.schema import AgentTask
-from jobrunner.tracing import set_span_attributes
+from jobrunner.tracing import backwards_compatible_job_attrs, set_span_attributes
 
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,10 @@ def set_job_span_metadata(span, job: JobDefinition, **attrs):
         attributes.update(trace_job_attributes(job))
 
         set_span_attributes(span, attributes)
+
+        # temporary backwards compatibility, can remove after a few months
+        set_span_attributes(span, backwards_compatible_job_attrs(attributes))
+
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace job {job.id}")
