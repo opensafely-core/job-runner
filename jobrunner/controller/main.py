@@ -113,8 +113,8 @@ def handle_single_job(job):
         str(get_flag_value("paused", job.backend, default="False")).lower() == "true"
     )
     attrs = {
-        "initial_state": job.state.name,
-        "initial_code": job.status_code.name,
+        "job.initial_state": job.state.name,
+        "job.initial_code": job.status_code.name,
     }
 
     with tracer.start_as_current_span("LOOP_JOB") as span:
@@ -122,7 +122,7 @@ def handle_single_job(job):
         try:
             handle_job(job, mode, paused)
         except Exception as exc:
-            span.set_attribute("fatal_job_error", is_fatal_controller_error(exc))
+            span.set_attribute("job.fatal_error", is_fatal_controller_error(exc))
             if is_fatal_controller_error(exc):
                 set_code(
                     job,
@@ -141,8 +141,8 @@ def handle_single_job(job):
             # might recover better.
             raise
         else:
-            span.set_attribute("final_state", job.state.name)
-            span.set_attribute("final_code", job.status_code.name)
+            span.set_attribute("job.final_state", job.state.name)
+            span.set_attribute("job.final_code", job.status_code.name)
 
 
 def is_fatal_controller_error(exc: Exception) -> bool:

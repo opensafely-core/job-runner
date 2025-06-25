@@ -889,7 +889,7 @@ def test_handle_error(patched_handle_job, db, monkeypatch):
     assert span.name == "LOOP_JOB"
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == "Exception: test_hard_failure"
-    assert span.attributes["fatal_job_error"] is True
+    assert span.attributes["job.fatal_error"] is True
 
 
 @pytest.mark.parametrize(
@@ -922,7 +922,7 @@ def test_handle_non_fatal_error(patched_handle_job, db, monkeypatch, exc):
     assert str(exc) in span.events[0].attributes["exception.message"]
     assert span.status.status_code.name == "ERROR"
     assert span.status.description == f"{exc.__class__.__name__}: {str(exc)}"
-    assert span.attributes["fatal_job_error"] is False
+    assert span.attributes["job.fatal_error"] is False
 
 
 def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):

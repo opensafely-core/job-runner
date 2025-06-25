@@ -1,5 +1,6 @@
 import logging
 import os
+import warnings
 from datetime import datetime
 
 from opentelemetry import trace
@@ -263,7 +264,10 @@ def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
         if extra:
             for k, v in extra.items():
                 # automatically give any additional attributes the job prefix if not already present
-                if not k.startswith("job."):
+                if not k.startswith("job."):  # pragma: nocover
+                    # this will fail tests
+                    warnings.warn(f"attribute {k} does not start with job. prefix")
+                    # but correctly prefix it somehow this happens for real.
                     k = "job." + k
                 attributes[k] = v
 
