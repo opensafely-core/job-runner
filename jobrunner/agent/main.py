@@ -416,6 +416,8 @@ def db_status_task(*, database_name):
         raise ValueError(
             f"Invalid status, expected one of: {','.join(status_allowlist)}"
         )
+    span = trace.get_current_span()
+    span.set_attribute("agent.db-maintenance", last_line == "db-maintenance")
     return {"status": last_line}
 
 
