@@ -275,6 +275,9 @@ def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
 
         set_span_attributes(span, attributes)
 
+        # temporary backwards compatibility, can remove after a few months
+        set_span_attributes(span, backwards_compatible_job_attrs(attributes))
+
         if exception:
             span.record_exception(exception)
 
@@ -289,6 +292,28 @@ def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace job {job.id}")
+
+
+BACKWARDS_MAPPING = {}
+
+
+def backwards_compatible_job_attrs(attributes):
+    bwcompat = {}
+
+    for k, v in attributes.items():
+        if not k.startswith("job."):
+            continue
+
+        if k == "job.id":
+            k = "job"
+        elif k == "job.request":
+            k = "job_request"
+        else:
+            k = k.replace("job.", "")
+
+        bwcompat[k] = v
+
+    return bwcompat
 
 
 def set_span_attributes(span, attributes):
