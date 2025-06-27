@@ -43,32 +43,6 @@ def test_get_action_specification_ehrql_has_output_flag():
     sys.platform.startswith("win"),
     reason="ActionSpecification is only used to build commands for Docker",
 )
-def test_get_action_specification_for_cohortextractor_generate_cohort_action():
-    config = Pipeline.build(
-        **{
-            "version": 3,
-            "expectations": {"population_size": 1000},
-            "actions": {
-                "generate_cohort": {
-                    "run": "cohortextractor:latest generate_cohort",
-                    "outputs": {"highly_sensitive": {"cohort": "output/input.csv"}},
-                }
-            },
-        }
-    )
-
-    action_spec = get_action_specification(config, "generate_cohort")
-
-    assert (
-        action_spec.run
-        == """cohortextractor:latest generate_cohort --output-dir=output"""
-    )
-
-
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="ActionSpecification is only used to build commands for Docker",
-)
 def test_get_action_specification_with_config():
     config = Pipeline.build(
         **{

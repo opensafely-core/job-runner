@@ -402,7 +402,7 @@ if __name__ == "__main__":
         job_request_id="request_id",
         workspace="workspace",
         action="action name",
-        run_command="cohortextractor:latest cmd opt",
+        run_command="ehrql:latest cmd opt",
         commit="commit",
         created_at=timestamp,
     )
