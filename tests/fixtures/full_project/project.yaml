@@ -4,66 +4,6 @@ expectations:
   population_size: 100
 
 actions:
-  generate_cohort:
-    run: cohortextractor:latest generate_cohort
-    outputs:
-      highly_sensitive:
-        cohort: output/input.csv
-
-  generate_cohort_with_dummy_data:
-    # we provide --output-dir here to distinguish the action from the one above
-    run: cohortextractor:latest generate_cohort --output-dir output/extra
-    dummy_data_file: test-data/dummy-data.csv
-    outputs:
-      highly_sensitive:
-        cohort: output/extra/input.csv
-
-  prepare_data_m_cohortextractor:
-    run: python:latest python analysis/filter_by_sex.py M output/input.csv cohortextractor-male.csv
-    needs: [generate_cohort]
-    outputs:
-      highly_sensitive:
-        male_cohort: cohortextractor-male*.csv
-
-  prepare_data_f_cohortextractor:
-    run: python:latest python analysis/filter_by_sex.py F output/input.csv cohortextractor-female.csv
-    needs: [generate_cohort]
-    outputs:
-      highly_sensitive:
-        female_cohort: cohortextractor-female*.csv
-
-  prepare_data_with_quote_in_filename_cohortextractor:
-    run: python:latest python analysis/filter_by_sex.py F output/input.csv "cohortextractor-qu'ote.csv"
-    needs: [generate_cohort]
-    outputs:
-      highly_sensitive:
-        quote_cohort: "cohortextractor-qu'ote.csv"
-
-  analyse_data_cohortextractor:
-    run: python:latest python analysis/count_lines.py cohortextractor-counts.txt
-    config:
-      files: ["cohortextractor-male.csv", "cohortextractor-female.csv", "cohortextractor-qu'ote.csv"]
-    needs: [prepare_data_m_cohortextractor, prepare_data_f_cohortextractor, prepare_data_with_quote_in_filename_cohortextractor]
-    outputs:
-      moderately_sensitive:
-        counts: cohortextractor-counts.txt
-
-  test_reusable_action_cohortextractor:
-    run: minimal-action:v1.1.0 output/input.csv
-    config:
-      suffix: .backup
-    needs: [generate_cohort]
-    outputs:
-      highly_sensitive:
-        cohort: output/input.backup.csv
-
-  test_cancellation_cohortextractor:
-    run: python:latest python analysis/filter_by_sex.py F output/input.csv cohortextractor-somefile.csv
-    needs: [generate_cohort]
-    outputs:
-      highly_sensitive:
-        somefile: cohortextractor-somefile.csv
-
   generate_dataset:
     run: ehrql:v1 generate-dataset analysis/dataset_definition.py --output=output/dataset.csv
     outputs:
