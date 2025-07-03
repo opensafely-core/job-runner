@@ -90,10 +90,12 @@ config=(
   TPP_JOB_CPU_COUNT=4
   TPP_JOB_MEMORY_LIMIT=128G
 
-  # These are the default values in the codebase, but it seems clearer
-  # to set them explicitly here
+  # Service specific honeycomb dataset name
+  OTEL_SERVICE_NAME=rap-controller
+
+  # This is the default values in the codebase, but it seems clearer
+  # to set it explicitly here
   JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/api/v2/
-  OTEL_SERVICE_NAME=jobrunner
 )
 ```
 
