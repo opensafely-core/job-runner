@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner.lib.github_validators import (
+from common.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,

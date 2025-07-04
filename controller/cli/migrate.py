@@ -6,8 +6,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from common.lib import log_utils
 from controller import config
-from jobrunner.lib import database, log_utils
+from controller.lib import database
 
 
 def main(dbpath):

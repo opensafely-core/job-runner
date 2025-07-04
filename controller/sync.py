@@ -11,12 +11,12 @@ import time
 import requests
 
 from common import config as common_config
+from common.lib.log_utils import configure_logging, set_log_context
 from controller import config, queries
 from controller.create_or_update_jobs import create_or_update_jobs
+from controller.lib.database import find_where, select_values
 from controller.main import get_task_for_job
 from controller.models import Job, JobRequest, State
-from jobrunner.lib.database import find_where, select_values
-from jobrunner.lib.log_utils import configure_logging, set_log_context
 
 
 session = requests.Session()

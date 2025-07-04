@@ -3,16 +3,16 @@ from unittest import mock
 
 import pytest
 
+from common.lib import git, github_validators
+from common.lib.yaml_utils import YAMLError
 from controller import reusable_actions
 from controller.models import Job
 from controller.reusable_actions import ReusableAction
-from jobrunner.lib import git, github_validators
-from jobrunner.lib.yaml_utils import YAMLError
 from tests.factories import JOB_DEFAULTS
 
 
 @mock.patch.multiple(
-    "jobrunner.lib.git",
+    "common.lib.git",
     get_sha_from_remote_ref=mock.DEFAULT,
     read_file_from_repo=mock.DEFAULT,
 )

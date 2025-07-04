@@ -10,6 +10,7 @@ from types import MappingProxyType
 
 from agent import config
 from agent.executors import volumes
+from agent.lib import docker
 from agent.metrics import read_job_metrics
 from common.job_executor import (
     ExecutorAPI,
@@ -19,9 +20,9 @@ from common.job_executor import (
     JobStatus,
     Privacy,
 )
-from jobrunner.lib import datestr_to_ns_timestamp, docker, file_digest
-from jobrunner.lib.git import checkout_commit
-from jobrunner.lib.string_utils import tabulate
+from common.lib import datestr_to_ns_timestamp, file_digest
+from common.lib.git import checkout_commit
+from common.lib.string_utils import tabulate
 
 
 class LocalExecutorError(Exception):

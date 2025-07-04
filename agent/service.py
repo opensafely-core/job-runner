@@ -8,9 +8,9 @@ import threading
 from agent import config
 from agent.main import main as agent_main
 from agent.metrics import main as metrics_main
+from common.lib.log_utils import configure_logging
+from common.lib.service_utils import ThreadWrapper
 from jobrunner import tracing
-from jobrunner.lib.log_utils import configure_logging
-from jobrunner.lib.service_utils import ThreadWrapper
 
 
 log = logging.getLogger(__name__)

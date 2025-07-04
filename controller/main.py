@@ -18,8 +18,18 @@ from common.job_executor import (
     JobDefinition,
     Study,
 )
+from common.lib import ns_timestamp_to_datetime
+from common.lib.log_utils import configure_logging, set_log_context
 from common.schema import JobTaskResults
 from controller import config
+from controller.lib.database import (
+    exists_where,
+    find_where,
+    select_values,
+    transaction,
+    update,
+    update_where,
+)
 from controller.models import Job, State, StatusCode, Task, TaskType
 from controller.queries import (
     calculate_workspace_state,
@@ -28,16 +38,6 @@ from controller.queries import (
 )
 from controller.task_api import insert_task, mark_task_inactive
 from jobrunner import tracing
-from jobrunner.lib import ns_timestamp_to_datetime
-from jobrunner.lib.database import (
-    exists_where,
-    find_where,
-    select_values,
-    transaction,
-    update,
-    update_where,
-)
-from jobrunner.lib.log_utils import configure_logging, set_log_context
 
 
 log = logging.getLogger(__name__)

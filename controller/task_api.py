@@ -1,8 +1,8 @@
 import time
 
+from controller.lib import database
 from controller.models import Task, TaskType
 from controller.queries import set_flag
-from jobrunner.lib import database
 
 
 def insert_task(task):

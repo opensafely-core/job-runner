@@ -5,7 +5,7 @@ import os
 import sys
 
 import jobrunner.tracing as tracing
-from jobrunner.lib.log_utils import configure_logging
+from common.lib.log_utils import configure_logging
 
 
 def main():

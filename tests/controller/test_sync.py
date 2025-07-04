@@ -4,8 +4,8 @@ import pytest
 from responses import matchers
 
 from controller import config, queries, sync
+from controller.lib.database import find_where
 from controller.models import Job, JobRequest, State
-from jobrunner.lib.database import find_where
 from tests.factories import job_factory, runjob_db_task_factory
 
 

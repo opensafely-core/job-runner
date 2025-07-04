@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 
+from common.lib.github_validators import GithubValidationError
 from controller.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
@@ -14,9 +15,8 @@ from controller.create_or_update_jobs import (
     create_or_update_jobs,
     validate_job_request,
 )
+from controller.lib.database import count_where, find_one, find_where, update_where
 from controller.models import Job, JobRequest, State, StatusCode
-from jobrunner.lib.database import count_where, find_one, find_where, update_where
-from jobrunner.lib.github_validators import GithubValidationError
 from tests.conftest import get_trace
 from tests.factories import job_request_factory_raw
 

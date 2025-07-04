@@ -14,8 +14,8 @@ import controller.main
 import controller.sync
 from agent.executors import get_executor_api
 from common.schema import TaskType
+from controller.lib.database import find_where
 from controller.models import Task
-from jobrunner.lib.database import find_where
 from tests.conftest import get_trace, set_tmp_workdir_config
 from tests.factories import ensure_docker_images_present
 

@@ -16,8 +16,8 @@ from agent import config as agent_config
 from agent import metrics
 from common.job_executor import Study
 from controller import config as controller_config
+from controller.lib import database
 from jobrunner import tracing
-from jobrunner.lib import database
 
 
 # set up test tracing
@@ -125,7 +125,7 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
 @pytest.fixture
 def docker_cleanup(monkeypatch):
     label_for_tests = "jobrunner-pytest"
-    monkeypatch.setattr("jobrunner.lib.docker.LABEL", label_for_tests)
+    monkeypatch.setattr("agent.lib.docker.LABEL", label_for_tests)
     monkeypatch.setattr("agent.executors.local.LABEL", label_for_tests)
     yield
     delete_docker_entities("container", label_for_tests)

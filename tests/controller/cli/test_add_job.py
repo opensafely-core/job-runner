@@ -1,6 +1,6 @@
 from controller.cli import add_job
+from controller.lib import database
 from controller.models import Job
-from jobrunner.lib import database
 
 
 def test_add_job(monkeypatch, tmp_work_dir, db, test_repo):

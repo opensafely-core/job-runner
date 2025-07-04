@@ -7,9 +7,9 @@ import sqlite3
 import sys
 
 from controller.cli.utils import add_backend_argument
+from controller.lib.database import create_table, get_connection
 from controller.models import Flag
 from controller.queries import get_current_flags, get_flag, set_flag
-from jobrunner.lib.database import create_table, get_connection
 
 
 def parse_cli_flag(raw):

@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from jobrunner.lib.service_utils import ThreadWrapper
+from common.lib.service_utils import ThreadWrapper
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")

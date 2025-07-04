@@ -13,7 +13,7 @@ import sys
 from dataclasses import dataclass
 
 from agent.executors.volumes import delete_volume
-from jobrunner.lib import docker
+from agent.lib import docker
 
 
 @dataclass(frozen=True)

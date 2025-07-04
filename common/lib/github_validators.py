@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from jobrunner.lib.git import GitUnknownRefError, commit_reachable_from_ref
+from common.lib.git import GitUnknownRefError, commit_reachable_from_ref
 
 
 class GithubValidationError(Exception):

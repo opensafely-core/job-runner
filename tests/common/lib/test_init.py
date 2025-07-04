@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner import lib
+from common import lib
 
 
 def test_atomic_writer_success(tmp_path):
