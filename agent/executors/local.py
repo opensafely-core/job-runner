@@ -8,9 +8,9 @@ import time
 from pathlib import Path
 from types import MappingProxyType
 
-from jobrunner.agent.metrics import read_job_metrics
+from agent.executors import volumes
+from agent.metrics import read_job_metrics
 from jobrunner.config import agent as config
-from jobrunner.executors import volumes
 from jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorRetry,

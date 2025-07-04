@@ -5,8 +5,8 @@ from operator import attrgetter
 
 from opentelemetry import trace
 
+from controller.models import Flag, Job, SavedJobRequest
 from jobrunner.lib.database import find_one, find_where, upsert
-from jobrunner.models import Flag, Job, SavedJobRequest
 
 
 tracer = trace.get_tracer("db")

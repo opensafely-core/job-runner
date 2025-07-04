@@ -79,7 +79,7 @@ if PRESTO_TLS_CERT_PATH:  # pragma: no cover
 
 STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
 
-EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI")
+EXECUTOR = os.environ.get("EXECUTOR", "agent.executors.local:LocalDockerAPI")
 
 # LocalDockerAPI executor specific configuration
 # Note: the local backend also reuses the main GIT_REPO_DIR config

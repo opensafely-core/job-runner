@@ -10,8 +10,8 @@ import pytest
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from agent import metrics
 from jobrunner import tracing
-from jobrunner.agent import metrics
 from jobrunner.config import agent as agent_config
 from jobrunner.config import controller as controller_config
 from jobrunner.job_executor import Study
@@ -128,7 +128,7 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
 def docker_cleanup(monkeypatch):
     label_for_tests = "jobrunner-pytest"
     monkeypatch.setattr("jobrunner.lib.docker.LABEL", label_for_tests)
-    monkeypatch.setattr("jobrunner.executors.local.LABEL", label_for_tests)
+    monkeypatch.setattr("agent.executors.local.LABEL", label_for_tests)
     yield
     delete_docker_entities("container", label_for_tests)
     delete_docker_entities("volume", label_for_tests)

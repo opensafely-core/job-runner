@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from jobrunner.models import StatusCode
+from controller.models import StatusCode
 from tests.factories import (
     job_factory,
 )

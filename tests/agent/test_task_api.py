@@ -4,9 +4,9 @@ import pytest
 import requests
 from responses import matchers
 
-from jobrunner.agent import task_api
+from agent import task_api
+from controller import task_api as controller_api
 from jobrunner.config import agent as config
-from jobrunner.controller import task_api as controller_api
 from jobrunner.schema import AgentTask
 from tests.factories import runjob_db_task_factory
 

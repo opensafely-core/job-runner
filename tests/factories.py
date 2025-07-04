@@ -4,14 +4,14 @@ import subprocess
 import time
 from copy import deepcopy
 
+from agent import metrics
+from controller import task_api
+from controller.main import create_task_for_job, job_to_job_definition
+from controller.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
 from jobrunner import tracing
-from jobrunner.agent import metrics
 from jobrunner.config import common as common_config
-from jobrunner.controller import task_api
-from jobrunner.controller.main import create_task_for_job, job_to_job_definition
 from jobrunner.lib import docker
 from jobrunner.lib.database import count_where, insert, update
-from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
 from jobrunner.schema import JobTaskResults, TaskType
 from tests.conftest import test_exporter
 

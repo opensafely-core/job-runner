@@ -12,7 +12,7 @@ import re
 import sys
 from dataclasses import dataclass
 
-from jobrunner.executors.volumes import delete_volume
+from agent.executors.volumes import delete_volume
 from jobrunner.lib import docker
 
 

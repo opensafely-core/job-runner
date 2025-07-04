@@ -1,7 +1,7 @@
 import time
 
+from controller.queries import get_flag_value, get_saved_job_request, set_flag
 from jobrunner.lib.database import get_connection
-from jobrunner.queries import get_flag_value, get_saved_job_request, set_flag
 from tests.factories import job_factory, job_request_factory, job_request_factory_raw
 
 

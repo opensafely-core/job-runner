@@ -5,10 +5,10 @@ import traceback
 
 from opentelemetry import trace
 
-from jobrunner.agent import task_api, tracing
+from agent import task_api, tracing
+from agent.executors import get_executor_api
 from jobrunner.config import agent as config
 from jobrunner.config import common as common_config
-from jobrunner.executors import get_executor_api
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.docker import docker, get_network_config_args
 from jobrunner.lib.log_utils import configure_logging, set_log_context
@@ -20,7 +20,7 @@ tracer = trace.get_tracer("agent_loop")
 
 
 def main(exit_callback=lambda _: False):  # pragma: no cover
-    log.info("jobrunner.agent.main loop started")
+    log.info("agent.main loop started")
     api = get_executor_api()
 
     while True:

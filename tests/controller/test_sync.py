@@ -3,10 +3,10 @@ import json
 import pytest
 from responses import matchers
 
-from jobrunner import queries, sync
+from controller import queries, sync
+from controller.models import Job, JobRequest, State
 from jobrunner.config import controller as config
 from jobrunner.lib.database import find_where
-from jobrunner.models import Job, JobRequest, State
 from tests.factories import job_factory, runjob_db_task_factory
 
 

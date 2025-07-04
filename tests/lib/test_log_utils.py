@@ -6,9 +6,9 @@ from datetime import datetime
 
 import pytest
 
+from controller.models import Job, JobRequest, TaskType
 from jobrunner.job_executor import JobDefinition
 from jobrunner.lib import log_utils
-from jobrunner.models import Job, JobRequest, TaskType
 from jobrunner.schema import AgentTask
 
 

@@ -3,15 +3,15 @@ from unittest.mock import patch
 
 from opentelemetry import trace
 
-from jobrunner.agent import main, task_api
-from jobrunner.agent.tracing import (
+from agent import main, task_api
+from agent.executors import local
+from agent.tracing import (
     set_job_span_metadata,
     set_task_span_metadata,
     trace_job_attributes,
     trace_job_results_attributes,
     trace_task_attributes,
 )
-from jobrunner.executors import local
 from jobrunner.job_executor import ExecutorState
 from jobrunner.tracing import OTEL_ATTR_TYPES
 from tests.agent.stubs import StubExecutorAPI
@@ -19,7 +19,7 @@ from tests.conftest import get_trace
 from tests.factories import job_definition_factory, runjob_db_task_factory
 
 
-@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_tracing_state_change_attributes(mock_update_controller, db):
     api = StubExecutorAPI()
 
@@ -75,7 +75,7 @@ def test_tracing_state_change_attributes(mock_update_controller, db):
     assert not spans[0].attributes["complete"]
 
 
-@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_tracing_final_state_attributes(mock_update_controller, db):
     api = StubExecutorAPI()
 
@@ -234,9 +234,7 @@ def test_set_job_span_metadata_tracing_errors_do_not_raise(db, caplog):
 
     span = tracer.start_span("the-span")
     # mock Exception raised in function called by set_job_span_metadata
-    with patch(
-        "jobrunner.agent.tracing.trace_job_attributes", side_effect=Exception("foo")
-    ):
+    with patch("agent.tracing.trace_job_attributes", side_effect=Exception("foo")):
         set_job_span_metadata(span, job)
 
     assert f"failed to trace job {job.id}" in caplog.text
@@ -248,15 +246,13 @@ def test_set_task_span_metadata_tracing_errors_do_not_raise(db, caplog):
     span = tracer.start_span("the-span")
 
     # mock Exception raised in function called by set_task_span_metadata
-    with patch(
-        "jobrunner.agent.tracing.trace_task_attributes", side_effect=Exception("foo")
-    ):
+    with patch("agent.tracing.trace_task_attributes", side_effect=Exception("foo")):
         set_task_span_metadata(span, task)
 
     assert f"failed to trace task {task.id}" in caplog.text
 
 
-@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_tracing_final_state_attributes_tracing_errors(
     mock_update_controller, db, caplog
 ):
@@ -266,9 +262,7 @@ def test_tracing_final_state_attributes_tracing_errors(
     api.set_job_transition(
         job_id, ExecutorState.FINALIZED, hook=lambda job: api.set_job_metadata(job.id)
     )
-    with patch(
-        "jobrunner.agent.tracing.set_span_attributes", side_effect=Exception("foo")
-    ):
+    with patch("agent.tracing.set_span_attributes", side_effect=Exception("foo")):
         main.handle_single_task(task, api)
 
     spans = get_trace("agent_loop")

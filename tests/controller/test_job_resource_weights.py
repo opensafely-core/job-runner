@@ -1,8 +1,8 @@
 import textwrap
 
+from controller.main import get_job_resource_weight
+from controller.models import Job
 from jobrunner.config.controller import parse_job_resource_weights
-from jobrunner.controller.main import get_job_resource_weight
-from jobrunner.models import Job
 
 
 def test_job_resource_weights(tmp_path):

@@ -1,8 +1,8 @@
 import pytest
 
+from controller.models import Flag
 from jobrunner.cli.agent import add_backend_to_flags
 from jobrunner.lib import database
-from jobrunner.models import Flag
 
 
 def test_add_backend_to_flag(db, monkeypatch):

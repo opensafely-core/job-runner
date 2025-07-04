@@ -6,9 +6,9 @@ that they run correctly via management command.
 
 from django.core.management import call_command
 
-from jobrunner import queries
+from controller import queries
+from controller.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.lib import database
-from jobrunner.models import Job, State, StatusCode, Task, TaskType
 from tests.cli.controller.test_flags import TEST_DATESTR, TEST_TIME
 from tests.cli.controller.test_prepare_for_reboot import pause_backend
 from tests.factories import job_factory, runjob_db_task_factory
