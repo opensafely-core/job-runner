@@ -11,7 +11,7 @@ from types import MappingProxyType
 from agent import config
 from agent.executors import volumes
 from agent.metrics import read_job_metrics
-from jobrunner.job_executor import (
+from common.job_executor import (
     ExecutorAPI,
     ExecutorRetry,
     ExecutorState,

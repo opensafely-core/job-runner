@@ -5,7 +5,7 @@ import time
 import pytest
 
 from agent import config, metrics
-from jobrunner.job_executor import ExecutorState
+from common.job_executor import ExecutorState
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
 from tests.factories import metrics_factory

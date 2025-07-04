@@ -1,7 +1,7 @@
+from common.job_executor import JobDefinition
 from controller import task_api
 from controller.main import job_to_job_definition
 from controller.models import Task, TaskType
-from jobrunner.job_executor import JobDefinition
 from tests.factories import job_factory
 
 

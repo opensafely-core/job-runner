@@ -6,9 +6,9 @@ from unittest.mock import Mock, patch
 import pytest
 
 from agent import config, main, task_api
+from common.job_executor import ExecutorState, JobDefinition
 from controller import task_api as controller_task_api
 from controller.models import Task, TaskType
-from jobrunner.job_executor import ExecutorState, JobDefinition
 from jobrunner.lib.database import update_where
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace

@@ -14,9 +14,9 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 from agent import config as agent_config
 from agent import metrics
+from common.job_executor import Study
 from controller import config as controller_config
 from jobrunner import tracing
-from jobrunner.job_executor import Study
 from jobrunner.lib import database
 
 

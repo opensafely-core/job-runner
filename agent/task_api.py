@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 import requests
 
 from agent import config
-from jobrunner.schema import AgentTask
+from common.schema import AgentTask
 
 
 log = logging.getLogger(__name__)
