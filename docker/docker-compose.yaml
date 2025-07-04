@@ -123,4 +123,4 @@ services:
   test-controller-service:
     extends:
         service: test-controller
-    command: python -m jobrunner.controller.service
+    command: python -m controller.service

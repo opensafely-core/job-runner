@@ -28,11 +28,11 @@ Source = "https://github.com/opensafely-core/job-runner"
 [tool.coverage.run]
 branch = true
 dynamic_context = "test_function"
-source = ["jobrunner", "controller_app"]
+source = ["agent", "controller", "controller_app"]
 omit = [
     # These are covered by subprocess tests which aren't tracked properly
-    "jobrunner/agent/service.py",
-    "jobrunner/controller/service.py",
+    "agent/service.py",
+    "controller/service.py",
     # This is covered in the functional test set up
     "jobrunner/cli/controller/migrate.py",
     # These are temporary wrappers for backwards compatibility and will be removed soon
