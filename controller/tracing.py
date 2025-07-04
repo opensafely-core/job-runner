@@ -1,82 +1,18 @@
 import logging
-import os
 import warnings
 from datetime import datetime
 
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace import propagation
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from common import config as common_config
 from common.lib import warn_assertions
+from common.tracing import backwards_compatible_job_attrs, set_span_attributes
 from controller.models import Job, State, StatusCode
 from controller.queries import get_saved_job_request
 
 
 logger = logging.getLogger(__name__)
-
-
-def get_provider():
-    # https://github.com/open-telemetry/semantic-conventions/tree/main/docs/resource#service
-    resource = Resource.create(
-        attributes={
-            "service.name": os.environ.get("OTEL_SERVICE_NAME", "jobrunner"),
-            # Note this will be set in the agent only
-            "service.namespace": os.environ.get("BACKEND", "unknown"),
-            "service.version": common_config.VERSION,
-        }
-    )
-    return TracerProvider(resource=resource)
-
-
-def add_exporter(provider, exporter, processor=BatchSpanProcessor):
-    """Utility method to add an exporter.
-
-    We use the BatchSpanProcessor by default, which is the default for
-    production. This is asynchronous, and queues and retries sending telemetry.
-
-    In testing, we insteads use SimpleSpanProcessor, which is synchronous and
-    easy to inspect the output of within a test.
-    """
-    # Note: BatchSpanProcessor is configured via env vars:
-    # https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor
-    provider.add_span_processor(processor(exporter))
-
-
-def setup_default_tracing(set_global=True):
-    """Inspect environment variables and set up exporters accordingly."""
-
-    provider = get_provider()
-
-    if "OTEL_EXPORTER_OTLP_HEADERS" in os.environ:
-        # workaround for env file parsing issues
-        cleaned_headers = os.environ["OTEL_EXPORTER_OTLP_HEADERS"].strip("\"'")
-        # put back into env to be parsed properly
-        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = cleaned_headers
-
-        if "OTEL_EXPORTER_OTLP_ENDPOINT" not in os.environ:
-            os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://api.honeycomb.io"
-
-        # now we can created OTLP exporter
-        add_exporter(provider, OTLPSpanExporter())
-
-    if "OTEL_EXPORTER_CONSOLE" in os.environ:
-        add_exporter(provider, ConsoleSpanExporter())
-
-    if set_global:
-        trace.set_tracer_provider(provider)  # pragma: no cover
-
-    # bug: this code requires some envvars to be set, so ensure they are
-    os.environ.setdefault("PYTHONPATH", "")
-    from opentelemetry.instrumentation.auto_instrumentation import (  # noqa: F401
-        sitecustomize,
-    )
-
-    return provider
 
 
 @warn_assertions
@@ -253,9 +189,6 @@ def complete_job(job, timestamp_ns, exception=None, results=None, extra=None):
     root_span.end(timestamp_ns)
 
 
-OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
-
-
 def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
     """Set span metadata with everything we know about a job."""
     try:
@@ -292,49 +225,6 @@ def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace job {job.id}")
-
-
-BACKWARDS_MAPPING = {}
-
-
-def backwards_compatible_job_attrs(attributes):
-    bwcompat = {}
-
-    for k, v in attributes.items():
-        if not k.startswith("job."):
-            continue
-
-        if k == "job.id":
-            k = "job"
-        elif k == "job.request":
-            k = "job_request"
-        else:
-            k = k.replace("job.", "")
-
-        bwcompat[k] = v
-
-    return bwcompat
-
-
-def set_span_attributes(span, attributes):
-    # opentelemetry can only handle serializing certain attribute types
-    clean_attrs = {}
-    for k, v in attributes.items():
-        if not isinstance(v, OTEL_ATTR_TYPES):
-            if v is not None:
-                # log to help us notice this
-                # values can often be None and this isn't particularly interesting, so don't fill up
-                # the logs with that
-                # If the span has no name attribute (e.g. NonRecordingSpans), log its type instead
-                span_name = getattr(span, "name", type(span))
-                logger.error(
-                    f"Trace span {span_name} attribute {k} was set invalid type: {v}, type {type(v)}"
-                )
-                # coerce to string so we preserve some information
-            v = str(v)
-        clean_attrs[k] = v
-
-    span.set_attributes(clean_attrs)
 
 
 def trace_attributes(job, results=None):
@@ -389,7 +279,8 @@ if __name__ == "__main__":
     # local testing utility for tracing
     import time
 
-    from jobrunner.run import set_code
+    from common.tracing import setup_default_tracing
+    from controller.main import set_code
 
     setup_default_tracing()
 

@@ -5,13 +5,13 @@ Script runs all controller flows in a single process.
 import logging
 import threading
 
+from common import tracing
 from common.lib.log_utils import configure_logging
 from common.lib.service_utils import ThreadWrapper
 from controller import config, sync
 from controller.lib.database import ensure_valid_db
 from controller.main import main as controller_main
 from controller.ticks import main as ticks_main
-from jobrunner import tracing
 
 
 log = logging.getLogger(__name__)

@@ -9,22 +9,23 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from opentelemetry import trace
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from agent import config as agent_config
 from agent import metrics
 from common.job_executor import Study
+from common.tracing import add_exporter, get_provider
 from controller import config as controller_config
 from controller.lib import database
-from jobrunner import tracing
 
 
 # set up test tracing
-provider = tracing.get_provider()
-tracing.trace.set_tracer_provider(provider)
+provider = get_provider()
+trace.set_tracer_provider(provider)
 test_exporter = InMemorySpanExporter()
-tracing.add_exporter(provider, test_exporter, processor=SimpleSpanProcessor)
+add_exporter(provider, test_exporter, processor=SimpleSpanProcessor)
 
 
 def pytest_configure(config):
