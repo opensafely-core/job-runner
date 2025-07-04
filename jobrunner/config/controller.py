@@ -30,7 +30,6 @@ POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
 TICK_POLL_INTERVAL = float(os.environ.get("TICK_POLL_INTERVAL", "30"))
 
 ALLOWED_IMAGES = {
-    "databuilder",
     "ehrql",
     "stata-mp",
     "r",
