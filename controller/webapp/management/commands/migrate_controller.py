@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from jobrunner.cli.controller import migrate
+from controller.cli import migrate
 
 
 class Command(BaseCommand):

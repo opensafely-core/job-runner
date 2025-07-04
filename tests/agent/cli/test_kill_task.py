@@ -2,20 +2,18 @@ from unittest import mock
 
 import pytest
 
-from jobrunner.cli.agent import kill_task
+from agent.cli import kill_task
 
 
 @pytest.fixture(autouse=True)
 def mock_delete_volume():
-    with mock.patch("jobrunner.cli.agent.kill_task.delete_volume", autospec=True):
+    with mock.patch("agent.cli.kill_task.delete_volume", autospec=True):
         yield
 
 
 @pytest.fixture
 def mock_container_ls():
-    with mock.patch(
-        "jobrunner.cli.agent.kill_task.docker", autospec=True
-    ) as mock_docker:
+    with mock.patch("agent.cli.kill_task.docker", autospec=True) as mock_docker:
         mock_docker.docker.return_value = mock.Mock(
             stdout="'\"os-job-1234\"'\n'\"os-job-1245\"'\n"
         )
@@ -26,7 +24,7 @@ def test_get_container_names(mock_container_ls):
     assert kill_task.get_container_names() == ["os-job-1234", "os-job-1245"]
 
 
-@mock.patch("jobrunner.cli.agent.kill_task.docker", autospec=True)
+@mock.patch("agent.cli.kill_task.docker", autospec=True)
 def test_get_container_names_no_containers(mock_docker):
     mock_docker.docker.return_value = mock.Mock(stdout="")
     assert kill_task.get_container_names() == []
@@ -56,9 +54,7 @@ def test_get_job_multiple_matches(mock_container_ls, monkeypatch):
 
 def test_main_no_running_container(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda _: "")
-    with mock.patch(
-        "jobrunner.cli.agent.kill_task.docker", autospec=True
-    ) as mock_docker:
+    with mock.patch("agent.cli.kill_task.docker", autospec=True) as mock_docker:
         mock_docker.docker.return_value = mock.Mock(stdout="'\"os-job-1234\"'\n")
         mock_docker.container_exists.return_value = False
         kill_task.main(["1234"])
@@ -69,9 +65,7 @@ def test_main_no_running_container(monkeypatch, capsys):
 
 def test_main_kill_one_task(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda _: "")
-    with mock.patch(
-        "jobrunner.cli.agent.kill_task.docker", autospec=True
-    ) as mock_docker:
+    with mock.patch("agent.cli.kill_task.docker", autospec=True) as mock_docker:
         mock_docker.docker.return_value = mock.Mock(stdout="'\"os-job-1234\"'\n")
         mock_docker.container_exists.return_value = True
         kill_task.main(["1234"])
@@ -82,9 +76,7 @@ def test_main_kill_one_task(monkeypatch, capsys):
 
 def test_main_kill_multiple_tasks(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda _: "")
-    with mock.patch(
-        "jobrunner.cli.agent.kill_task.docker", autospec=True
-    ) as mock_docker:
+    with mock.patch("agent.cli.kill_task.docker", autospec=True) as mock_docker:
         mock_docker.docker.return_value = mock.Mock(
             stdout="'\"os-job-1234\"'\n'\"os-job-1245\"'\n"
         )
@@ -102,9 +94,7 @@ def test_main_kill_multiple_tasks(monkeypatch, capsys):
 
 def test_run(monkeypatch):
     monkeypatch.setattr("builtins.input", lambda _: "")
-    with mock.patch(
-        "jobrunner.cli.agent.kill_task.docker", autospec=True
-    ) as mock_docker:
+    with mock.patch("agent.cli.kill_task.docker", autospec=True) as mock_docker:
         mock_docker.docker.return_value = mock.Mock(stdout="'\"os-job-1234\"'\n")
         mock_docker.container_exists.return_value = True
         kill_task.run(["kill_task", "1234"])

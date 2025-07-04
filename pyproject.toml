@@ -34,14 +34,7 @@ omit = [
     "agent/service.py",
     "controller/service.py",
     # This is covered in the functional test set up
-    "jobrunner/cli/controller/migrate.py",
-    # These are temporary wrappers for backwards compatibility and will be removed soon
-    "jobrunner/cli/add_backend_to_flags.py",
-    "jobrunner/cli/add_backend_to_job.py",
-    "jobrunner/cli/add_job.py",
-    "jobrunner/cli/flags.py",
-    "jobrunner/cli/migrate.py",
-    "jobrunner/cli/prepare_for_reboot.py",
+    "controller/cli/migrate.py",
     # django app
     "controller/webapp/asgi.py",
     "controller/webapp/wsgi.py",

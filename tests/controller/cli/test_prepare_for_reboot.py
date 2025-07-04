@@ -1,8 +1,8 @@
 import pytest
 
+from controller.cli import prepare_for_reboot
 from controller.models import Job, State, StatusCode, Task, TaskType
 from controller.queries import set_flag
-from jobrunner.cli.controller import prepare_for_reboot
 from jobrunner.lib import database
 from tests.conftest import get_trace
 from tests.factories import (

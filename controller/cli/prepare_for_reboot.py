@@ -5,10 +5,10 @@ automatically re-run after a reboot.
 
 import argparse
 
+from controller.cli.utils import add_backend_argument
 from controller.main import cancel_job, set_code
 from controller.models import Job, State, StatusCode, Task, TaskType
 from controller.queries import get_flag_value
-from jobrunner.cli.controller.utils import add_backend_argument
 from jobrunner.lib.database import find_where, transaction
 
 

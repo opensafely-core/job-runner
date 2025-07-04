@@ -3,8 +3,8 @@ import time
 import pytest
 
 from controller import queries
+from controller.cli import flags
 from controller.models import timestamp_to_isoformat
-from jobrunner.cli.controller import flags
 from jobrunner.lib import database
 
 

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from common import config as common_config
-from jobrunner.cli.controller import flags as flags_cli
+from controller.cli import flags as flags_cli
 
 
 class Command(BaseCommand):
