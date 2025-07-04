@@ -15,8 +15,7 @@ errorlog = "-"
 workers = 5
 
 # listen
-port = 5000
-bind = "0.0.0.0"
+bind = "0.0.0.0:8000"
 
 
 # disable access logging, as not needed
