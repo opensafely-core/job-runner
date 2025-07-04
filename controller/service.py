@@ -9,7 +9,6 @@ from controller import sync
 from controller.main import main as controller_main
 from controller.ticks import main as ticks_main
 from jobrunner import tracing
-from jobrunner.config import agent as agent_config
 from jobrunner.config import controller as config
 from jobrunner.lib.database import ensure_valid_db
 from jobrunner.lib.log_utils import configure_logging
@@ -40,7 +39,7 @@ def main():
         log.info("controller.service started")
 
         start_thread(sync.main, "sync", config.POLL_INTERVAL * 5)
-        start_thread(ticks_main, "tick", agent_config.STATS_POLL_INTERVAL)
+        start_thread(ticks_main, "tick", config.TICK_POLL_INTERVAL)
         controller_main()
     except KeyboardInterrupt:
         log.info("controller.service stopped")
