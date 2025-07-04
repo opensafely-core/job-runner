@@ -6,7 +6,7 @@ from jobrunner.lib import database
 
 
 def test_add_backend_to_flag(db, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy_backend")
+    monkeypatch.setattr("agent.config.BACKEND", "dummy_backend")
     monkeypatch.setattr("builtins.input", lambda _: "y")
 
     flag1 = Flag(id="foo", value="bar")
@@ -29,7 +29,7 @@ def test_add_backend_to_flag(db, monkeypatch):
     ],
 )
 def test_add_backend_to_flag_confirmation(db, monkeypatch, response, expected_backend):
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy_backend")
+    monkeypatch.setattr("agent.config.BACKEND", "dummy_backend")
     flag1 = Flag(id="foo", value="bar", backend="the_test_backend")
     database.insert(flag1)
     flag2 = Flag(id="foo1", value="bar1")
@@ -42,7 +42,7 @@ def test_add_backend_to_flag_confirmation(db, monkeypatch, response, expected_ba
 
 
 def test_add_backend_to_flag_nothing_to_do(db, monkeypatch, capsys):
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy_backend")
+    monkeypatch.setattr("agent.config.BACKEND", "dummy_backend")
     # flag with a backend already set
     flag1 = Flag(id="foo", value="bar", backend="the_test_backend")
     database.insert(flag1)

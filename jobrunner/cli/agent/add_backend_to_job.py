@@ -1,5 +1,5 @@
+from agent import config
 from controller.models import Job, SavedJobRequest
-from jobrunner.config import agent as config
 from jobrunner.lib.database import find_where, update
 
 

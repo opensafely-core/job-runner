@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pipeline
 
-from jobrunner.config import common
+from common import config as common_config
 
 
 class ConfigException(Exception):
     pass
 
 
-DATABASE_FILE = common.WORKDIR / "db.sqlite"
+DATABASE_FILE = common_config.WORKDIR / "db.sqlite"
 
 JOB_SERVER_ENDPOINT = os.environ.get(
     "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/v2/"
@@ -20,7 +20,7 @@ JOB_SERVER_ENDPOINT = os.environ.get(
 
 JOB_SERVER_TOKENS = {
     backend: os.environ.get(f"{backend.upper()}_JOB_SERVER_TOKEN", "token")
-    for backend in common.BACKENDS
+    for backend in common_config.BACKENDS
 }
 
 # API poll
@@ -47,13 +47,13 @@ MAX_WORKERS = {
         os.environ.get(f"{backend.upper()}_MAX_WORKERS")
         or default_workers.get(backend, 10)
     )
-    for backend in common.BACKENDS
+    for backend in common_config.BACKENDS
 }
 MAX_DB_WORKERS = {
     backend: int(
         os.environ.get(f"{backend.upper()}_MAX_DB_WORKERS") or MAX_WORKERS[backend]
     )
-    for backend in common.BACKENDS
+    for backend in common_config.BACKENDS
 }
 
 # Currently we assume all backends will have the same
@@ -91,9 +91,9 @@ def parse_job_resource_weights(config_file_template):
     assigned a weight of 1.
     """
     weights = {}
-    for backend in common.BACKENDS:
+    for backend in common_config.BACKENDS:
         weights[backend] = {}
-        config_file = common.WORKDIR / Path(
+        config_file = common_config.WORKDIR / Path(
             config_file_template.format(backend=backend.lower())
         )
         if config_file.exists():
@@ -136,7 +136,7 @@ def job_limits_from_env(env, limit_name, default, transform=str):
         backend: transform(
             env.get(f"{backend.upper()}_{limit_name.upper()}") or common_default
         )
-        for backend in common.BACKENDS
+        for backend in common_config.BACKENDS
     }
 
 

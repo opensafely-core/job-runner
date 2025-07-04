@@ -2,22 +2,22 @@ import os
 import sys
 from pathlib import Path
 
-from jobrunner.config import common
+from common import config as common_config
 
 
 class ConfigException(Exception):
     pass
 
 
-METRICS_FILE = common.WORKDIR / "metrics.sqlite"
+METRICS_FILE = common_config.WORKDIR / "metrics.sqlite"
 
 # valid archive formats
 ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
 
 BACKEND = os.environ.get("BACKEND")
 # this is tested in tests/test_config.py but via subprocess so it isn't registered by coverage
-if BACKEND and BACKEND not in common.BACKENDS:  # pragma: no cover
-    valid_backends = ", ".join(common.BACKENDS)
+if BACKEND and BACKEND not in common_config.BACKENDS:  # pragma: no cover
+    valid_backends = ", ".join(common_config.BACKENDS)
     raise RuntimeError(
         f"BACKEND {BACKEND} is not valid, allowed backends are: {valid_backends}"
     )
@@ -38,7 +38,7 @@ def database_urls_from_env(env):
         db_name: db_url
         for db_name, db_url in [
             (db_name, env.get(f"{db_name.upper()}_DATABASE_URL"))
-            for db_name in common.VALID_DATABASE_NAMES
+            for db_name in common_config.VALID_DATABASE_NAMES
         ]
         if db_url
     }
@@ -85,12 +85,14 @@ EXECUTOR = os.environ.get("EXECUTOR", "agent.executors.local:LocalDockerAPI")
 # Note: the local backend also reuses the main GIT_REPO_DIR config
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("HIGH_PRIVACY_STORAGE_BASE", common.WORKDIR / "high_privacy")
+    os.environ.get("HIGH_PRIVACY_STORAGE_BASE", common_config.WORKDIR / "high_privacy")
 )
 assert HIGH_PRIVACY_STORAGE_BASE.is_absolute()
 
 MEDIUM_PRIVACY_STORAGE_BASE = Path(
-    os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE", common.WORKDIR / "medium_privacy")
+    os.environ.get(
+        "MEDIUM_PRIVACY_STORAGE_BASE", common_config.WORKDIR / "medium_privacy"
+    )
 )
 assert MEDIUM_PRIVACY_STORAGE_BASE.is_absolute()
 
@@ -105,7 +107,7 @@ HIGH_PRIVACY_ARCHIVE_DIR = Path(
 CLEAN_UP_DOCKER_OBJECTS = True
 
 # use to checkout the repo
-TMP_DIR = common.WORKDIR / "temp"
+TMP_DIR = common_config.WORKDIR / "temp"
 
 # docker specific exit codes we understand
 DOCKER_EXIT_CODES = {

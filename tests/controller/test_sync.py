@@ -3,9 +3,8 @@ import json
 import pytest
 from responses import matchers
 
-from controller import queries, sync
+from controller import config, queries, sync
 from controller.models import Job, JobRequest, State
-from jobrunner.config import controller as config
 from jobrunner.lib.database import find_where
 from tests.factories import job_factory, runjob_db_task_factory
 
@@ -130,7 +129,7 @@ def test_session_request_flags(db, responses):
 
 def test_sync_empty_response(db, monkeypatch, responses):
     monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+        "controller.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
     responses.add(
         method="GET",
@@ -153,9 +152,9 @@ def test_sync_empty_response(db, monkeypatch, responses):
 
 
 def test_session_request_multiple_backends(db, monkeypatch, responses):
-    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["foo", "bar"])
+    monkeypatch.setattr("common.config.BACKENDS", ["foo", "bar"])
     monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS",
+        "controller.config.JOB_SERVER_TOKENS",
         {"foo": "token-foo", "bar": "token-bar"},
     )
 
@@ -198,9 +197,9 @@ def test_session_request_multiple_backends(db, monkeypatch, responses):
 
 
 def test_sync_no_token(db, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["foo"])
+    monkeypatch.setattr("common.config.BACKENDS", ["foo"])
     monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+        "controller.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
     with pytest.raises(sync.SyncAPIError, match="No api token found"):
         sync.sync()

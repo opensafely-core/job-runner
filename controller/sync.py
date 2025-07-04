@@ -10,12 +10,11 @@ import time
 
 import requests
 
-from controller import queries
+from common import config as common_config
+from controller import config, queries
 from controller.create_or_update_jobs import create_or_update_jobs
 from controller.main import get_task_for_job
 from controller.models import Job, JobRequest, State
-from jobrunner.config import common as common_config
-from jobrunner.config import controller as config
 from jobrunner.lib.database import find_where, select_values
 from jobrunner.lib.log_utils import configure_logging, set_log_context
 

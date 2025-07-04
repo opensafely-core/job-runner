@@ -7,7 +7,7 @@ from tests.factories import job_factory, job_request_factory, job_request_factor
 
 
 def test_add_backend_to_job(db, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy_backend")
+    monkeypatch.setattr("agent.config.BACKEND", "dummy_backend")
     monkeypatch.setattr("builtins.input", lambda _: "y")
     # job with no SavedJobRequest instance
     job1 = job_factory(job_request=job_request_factory_raw(backend=None), backend=None)
@@ -45,7 +45,7 @@ def test_add_backend_to_job(db, monkeypatch):
     ],
 )
 def test_add_backend_to_job_confirmation(db, monkeypatch, response, expected_backend):
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy_backend")
+    monkeypatch.setattr("agent.config.BACKEND", "dummy_backend")
     # job with a backend already set
     job1 = job_factory(backend="test")
     job2 = job_factory(job_request=job_request_factory_raw(backend=None), backend=None)
@@ -57,7 +57,7 @@ def test_add_backend_to_job_confirmation(db, monkeypatch, response, expected_bac
 
 
 def test_add_backend_to_job_nothing_to_do(db, monkeypatch, capsys):
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy_backend")
+    monkeypatch.setattr("agent.config.BACKEND", "dummy_backend")
     # job with a backend already set
     job1 = job_factory(backend="test")
 

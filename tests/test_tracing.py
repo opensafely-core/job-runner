@@ -7,9 +7,9 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
+from common import config as common_config
 from controller import models
 from jobrunner import tracing
-from jobrunner.config import common as common_config
 from tests.conftest import get_trace
 from tests.factories import job_factory, job_request_factory, job_task_results_factory
 

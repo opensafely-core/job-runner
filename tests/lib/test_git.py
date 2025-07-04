@@ -279,9 +279,9 @@ def test_commit_fetch_retry_unexpected_error(tmp_path):
     ],
 )
 def test_add_access_token_and_proxy(repo_url, token, backend, expected, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.common.GITHUB_PROXY_DOMAIN", "proxy.com")
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", backend)
-    monkeypatch.setattr("jobrunner.config.common.PRIVATE_REPO_ACCESS_TOKEN", token)
+    monkeypatch.setattr("common.config.GITHUB_PROXY_DOMAIN", "proxy.com")
+    monkeypatch.setattr("agent.config.BACKEND", backend)
+    monkeypatch.setattr("common.config.PRIVATE_REPO_ACCESS_TOKEN", token)
 
     assert add_access_token_and_proxy(repo_url) == expected
 
@@ -334,7 +334,7 @@ def test_add_access_token_and_proxy(repo_url, token, backend, expected, monkeypa
 def test_redact_token_from_exception(
     token, exc_cmd, exc_output, exc_stderr, exp_cmd, exp_output, exp_sterr, monkeypatch
 ):
-    monkeypatch.setattr("jobrunner.config.common.PRIVATE_REPO_ACCESS_TOKEN", token)
+    monkeypatch.setattr("common.config.PRIVATE_REPO_ACCESS_TOKEN", token)
     exception = CalledProcessError(
         1,
         cmd=exc_cmd,
@@ -348,7 +348,7 @@ def test_redact_token_from_exception(
 
 
 def test_redact_token_from_exception_unhandled_type(monkeypatch):
-    monkeypatch.setattr("jobrunner.config.common.PRIVATE_REPO_ACCESS_TOKEN", "token")
+    monkeypatch.setattr("common.config.PRIVATE_REPO_ACCESS_TOKEN", "token")
     exception = CalledProcessError(
         1,
         cmd=["do", 1],
