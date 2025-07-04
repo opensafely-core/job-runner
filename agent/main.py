@@ -8,10 +8,10 @@ from opentelemetry import trace
 from agent import config, task_api, tracing
 from agent.executors import get_executor_api
 from common import config as common_config
-from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
+from common.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
+from common.schema import TaskType
 from jobrunner.lib.docker import docker, get_network_config_args
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.schema import TaskType
 
 
 log = logging.getLogger(__name__)

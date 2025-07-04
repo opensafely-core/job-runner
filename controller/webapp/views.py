@@ -9,10 +9,10 @@ from django.views.decorators.http import require_POST
 from opentelemetry import trace
 
 from common import config as common_config
+from common.schema import AgentTask
 from controller import config
 from controller.queries import set_flag
 from controller.task_api import get_active_tasks, handle_task_update
-from jobrunner.schema import AgentTask
 from jobrunner.tracing import set_span_attributes
 
 

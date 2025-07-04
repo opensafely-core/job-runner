@@ -1,8 +1,8 @@
 import time
 from collections import defaultdict
 
-from jobrunner.job_executor import ExecutorState, JobDefinition, JobStatus
-from jobrunner.schema import AgentTask
+from common.job_executor import ExecutorState, JobDefinition, JobStatus
+from common.schema import AgentTask
 from tests.factories import (
     canceljob_db_task_factory,
     job_factory,

@@ -1,7 +1,7 @@
 import logging
 
-from jobrunner.job_executor import JobDefinition
-from jobrunner.schema import AgentTask
+from common.job_executor import JobDefinition
+from common.schema import AgentTask
 from jobrunner.tracing import backwards_compatible_job_attrs, set_span_attributes
 
 

@@ -14,6 +14,11 @@ import time
 from opentelemetry import trace
 
 from common import config as common_config
+from common.job_executor import (
+    JobDefinition,
+    Study,
+)
+from common.schema import JobTaskResults
 from controller import config
 from controller.models import Job, State, StatusCode, Task, TaskType
 from controller.queries import (
@@ -23,10 +28,6 @@ from controller.queries import (
 )
 from controller.task_api import insert_task, mark_task_inactive
 from jobrunner import tracing
-from jobrunner.job_executor import (
-    JobDefinition,
-    Study,
-)
 from jobrunner.lib import ns_timestamp_to_datetime
 from jobrunner.lib.database import (
     exists_where,
@@ -37,7 +38,6 @@ from jobrunner.lib.database import (
     update_where,
 )
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.schema import JobTaskResults
 
 
 log = logging.getLogger(__name__)

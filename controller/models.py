@@ -17,9 +17,9 @@ import shlex
 from enum import Enum
 from functools import cached_property, total_ordering
 
+from common.schema import TaskType
 from jobrunner.lib.database import databaseclass, migration
 from jobrunner.lib.string_utils import slugify
-from jobrunner.schema import TaskType
 
 
 # this is the overall high level state the job-runner uses to decide how to

@@ -5,8 +5,8 @@ import requests
 from responses import matchers
 
 from agent import config, task_api
+from common.schema import AgentTask
 from controller import task_api as controller_api
-from jobrunner.schema import AgentTask
 from tests.factories import runjob_db_task_factory
 
 
