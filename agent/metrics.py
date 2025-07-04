@@ -14,7 +14,7 @@ from pathlib import Path
 
 from opentelemetry import trace
 
-from jobrunner.agent import task_api, tracing
+from agent import task_api, tracing
 from jobrunner.config import agent as config
 from jobrunner.job_executor import JobDefinition
 from jobrunner.lib.docker_stats import get_job_stats

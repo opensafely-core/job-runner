@@ -1,6 +1,6 @@
+from controller.models import Flag
 from jobrunner.config import agent as config
 from jobrunner.lib.database import find_where, update
-from jobrunner.models import Flag
 
 
 def main():

@@ -2,10 +2,10 @@ import time
 
 import pytest
 
-from jobrunner import queries
+from controller import queries
+from controller.models import timestamp_to_isoformat
 from jobrunner.cli.controller import flags
 from jobrunner.lib import database
-from jobrunner.models import timestamp_to_isoformat
 
 
 # use a fixed time for these tests

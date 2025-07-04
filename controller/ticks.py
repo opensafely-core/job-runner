@@ -8,7 +8,8 @@ import time
 
 from opentelemetry import trace
 
-from jobrunner import models, tracing
+from controller import models
+from jobrunner import tracing
 from jobrunner.config import controller as config
 from jobrunner.lib import database
 from jobrunner.lib.log_utils import configure_logging

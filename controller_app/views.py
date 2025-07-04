@@ -8,10 +8,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from opentelemetry import trace
 
+from controller.queries import set_flag
+from controller.task_api import get_active_tasks, handle_task_update
 from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
-from jobrunner.controller.task_api import get_active_tasks, handle_task_update
-from jobrunner.queries import set_flag
 from jobrunner.schema import AgentTask
 from jobrunner.tracing import set_span_attributes
 

@@ -1,5 +1,5 @@
-from jobrunner.models import State
-from jobrunner.queries import calculate_workspace_state
+from controller.models import State
+from controller.queries import calculate_workspace_state
 from tests.conftest import get_trace
 from tests.factories import job_factory
 

@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from jobrunner.create_or_update_jobs import (
+from controller.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
     StaleCodelistError,
@@ -14,11 +14,14 @@ from jobrunner.create_or_update_jobs import (
     create_or_update_jobs,
     validate_job_request,
 )
+from controller.models import Job, JobRequest, State, StatusCode
 from jobrunner.lib.database import count_where, find_one, find_where, update_where
 from jobrunner.lib.github_validators import GithubValidationError
-from jobrunner.models import Job, JobRequest, State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import job_request_factory_raw
+
+
+FIXTURES_PATH = Path(__file__).parent.parent.resolve() / "fixtures"
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +31,7 @@ def disable_github_org_checking(monkeypatch):
 
 # Basic smoketest to test the full execution path
 def test_create_or_update_jobs(tmp_work_dir, db):
-    repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+    repo_url = str(FIXTURES_PATH / "git-repo")
     job_request = JobRequest(
         id="123",
         repo_url=repo_url,
@@ -73,7 +76,7 @@ def test_create_or_update_jobs(tmp_work_dir, db):
 
 # Basic smoketest to test the error path
 def test_create_or_update_jobs_with_git_error(tmp_work_dir):
-    repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+    repo_url = str(FIXTURES_PATH / "git-repo")
     bad_commit = "0" * 40
     job_request = JobRequest(
         id="123",
@@ -110,9 +113,11 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
     )
 
 
-@mock.patch("jobrunner.create_or_update_jobs.create_jobs", side_effect=Exception("unk"))
+@mock.patch(
+    "controller.create_or_update_jobs.create_jobs", side_effect=Exception("unk")
+)
 def test_create_or_update_jobs_with_unhandled_error(tmp_work_dir, db):
-    repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+    repo_url = str(FIXTURES_PATH / "git-repo")
     job_request = JobRequest(
         id="123",
         repo_url=repo_url,
@@ -355,7 +360,7 @@ def test_validate_job_request(patch_config, params, exc_msg, exc_cls, monkeypatc
             monkeypatch.setattr(
                 f"jobrunner.config.{config_type}.{config_key}", config_value
             )
-    repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
+    repo_url = str(FIXTURES_PATH / "git-repo")
     kwargs = dict(
         id="123",
         repo_url=repo_url,
@@ -471,7 +476,7 @@ def test_create_jobs_reruns_failed_dependencies(db, tmp_work_dir):
 
 
 def create_jobs_with_project_file(job_request, project_file):
-    with mock.patch("jobrunner.create_or_update_jobs.get_project_file") as f:
+    with mock.patch("controller.create_or_update_jobs.get_project_file") as f:
         f.return_value = project_file
         return create_jobs(job_request)
 

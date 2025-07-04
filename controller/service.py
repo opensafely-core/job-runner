@@ -5,11 +5,12 @@ Script runs all controller flows in a single process.
 import logging
 import threading
 
-from jobrunner import sync, tracing
+from controller import sync
+from controller.main import main as controller_main
+from controller.ticks import main as ticks_main
+from jobrunner import tracing
 from jobrunner.config import agent as agent_config
 from jobrunner.config import controller as config
-from jobrunner.controller.main import main as controller_main
-from jobrunner.controller.ticks import main as ticks_main
 from jobrunner.lib.database import ensure_valid_db
 from jobrunner.lib.log_utils import configure_logging
 from jobrunner.lib.service_utils import ThreadWrapper

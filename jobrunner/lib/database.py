@@ -241,7 +241,7 @@ def db_status(filename):
 
 def ensure_valid_db(filename=None, migrations=MIGRATIONS):
     # we store migrations in models, so make sure this has been imported to collect them
-    import jobrunner.models  # noqa: F401
+    import controller.models  # noqa: F401
 
     filename = filename_or_get_default(filename)
 
@@ -266,7 +266,7 @@ def ensure_db(filename=None, migrations=MIGRATIONS, verbose=False):
     Will create new tables, or migrate the exisiting ones as needed.
     """
     # we store migrations in models, so make sure this has been imported to collect them
-    import jobrunner.models  # noqa: F401
+    import controller.models  # noqa: F401
 
     filename = filename_or_get_default(filename)
 

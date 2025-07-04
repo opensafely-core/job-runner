@@ -10,14 +10,14 @@ import time
 
 import requests
 
-from jobrunner import queries
+from controller import queries
+from controller.create_or_update_jobs import create_or_update_jobs
+from controller.main import get_task_for_job
+from controller.models import Job, JobRequest, State
 from jobrunner.config import common as common_config
 from jobrunner.config import controller as config
-from jobrunner.controller.main import get_task_for_job
-from jobrunner.create_or_update_jobs import create_or_update_jobs
 from jobrunner.lib.database import find_where, select_values
 from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.models import Job, JobRequest, State
 
 
 session = requests.Session()

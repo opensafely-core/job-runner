@@ -5,9 +5,9 @@ Script runs all agent flows in a single process.
 import logging
 import threading
 
+from agent.main import main as agent_main
+from agent.metrics import main as metrics_main
 from jobrunner import tracing
-from jobrunner.agent.main import main as agent_main
-from jobrunner.agent.metrics import main as metrics_main
 from jobrunner.config import agent as agent_config
 from jobrunner.lib.log_utils import configure_logging
 from jobrunner.lib.service_utils import ThreadWrapper
