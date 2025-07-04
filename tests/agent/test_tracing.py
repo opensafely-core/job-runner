@@ -13,7 +13,7 @@ from agent.tracing import (
     trace_task_attributes,
 )
 from common.job_executor import ExecutorState
-from jobrunner.tracing import OTEL_ATTR_TYPES
+from common.tracing import OTEL_ATTR_TYPES
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
 from tests.factories import job_definition_factory, runjob_db_task_factory

@@ -21,7 +21,7 @@ from common.job_executor import (
 from common.lib import ns_timestamp_to_datetime
 from common.lib.log_utils import configure_logging, set_log_context
 from common.schema import JobTaskResults
-from controller import config
+from controller import config, tracing
 from controller.lib.database import (
     exists_where,
     find_where,
@@ -37,7 +37,6 @@ from controller.queries import (
     get_saved_job_request,
 )
 from controller.task_api import insert_task, mark_task_inactive
-from jobrunner import tracing
 
 
 log = logging.getLogger(__name__)

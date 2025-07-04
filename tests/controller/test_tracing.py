@@ -2,68 +2,12 @@ import os
 import time
 from unittest.mock import patch
 
-import opentelemetry.exporter.otlp.proto.http.trace_exporter
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
 from common import config as common_config
-from controller import models
-from jobrunner import tracing
+from controller import models, tracing
 from tests.conftest import get_trace
 from tests.factories import job_factory, job_request_factory, job_task_results_factory
-
-
-def test_setup_default_tracing_empty_env(monkeypatch):
-    env = {}
-    monkeypatch.setattr(os, "environ", env)
-    provider = tracing.setup_default_tracing(set_global=False)
-    assert provider._active_span_processor._span_processors == ()
-
-
-def test_setup_default_tracing_console(monkeypatch):
-    env = {"OTEL_EXPORTER_CONSOLE": "1"}
-    monkeypatch.setattr(os, "environ", env)
-    provider = tracing.setup_default_tracing(set_global=False)
-
-    processor = provider._active_span_processor._span_processors[0]
-    assert isinstance(processor.span_exporter, ConsoleSpanExporter)
-
-
-def test_setup_default_tracing_otlp_defaults(monkeypatch):
-    env = {"OTEL_EXPORTER_OTLP_HEADERS": "'foo=bar'"}
-    monkeypatch.setattr(os, "environ", env)
-    monkeypatch.setattr(
-        opentelemetry.exporter.otlp.proto.http.trace_exporter, "environ", env
-    )
-    provider = tracing.setup_default_tracing(set_global=False)
-    assert provider.resource.attributes["service.name"] == "jobrunner"
-
-    exporter = provider._active_span_processor._span_processors[0].span_exporter
-    assert isinstance(exporter, OTLPSpanExporter)
-    assert exporter._endpoint == "https://api.honeycomb.io/v1/traces"
-    assert exporter._headers == {"foo": "bar"}
-    assert env["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://api.honeycomb.io"
-
-
-def test_setup_default_tracing_otlp_with_env(monkeypatch):
-    env = {
-        "OTEL_EXPORTER_OTLP_HEADERS": "foo=bar",
-        "OTEL_SERVICE_NAME": "service",
-        "OTEL_EXPORTER_OTLP_ENDPOINT": "https://endpoint",
-    }
-    monkeypatch.setattr(os, "environ", env)
-    monkeypatch.setattr(
-        opentelemetry.exporter.otlp.proto.http.trace_exporter, "environ", env
-    )
-    provider = tracing.setup_default_tracing(set_global=False)
-    assert provider.resource.attributes["service.name"] == "service"
-
-    exporter = provider._active_span_processor._span_processors[0].span_exporter
-
-    assert isinstance(exporter, OTLPSpanExporter)
-    assert exporter._endpoint == "https://endpoint/v1/traces"
-    assert exporter._headers == {"foo": "bar"}
 
 
 def test_trace_attributes(db):
@@ -432,7 +376,7 @@ def test_set_span_job_metadata_tracing_errors_do_not_raise(db, caplog):
 
     span = tracer.start_span("test")
     # mock Exception raised in function called by set_span_job_metadata
-    with patch("jobrunner.tracing.trace_attributes", side_effect=Exception("foo")):
+    with patch("controller.tracing.trace_attributes", side_effect=Exception("foo")):
         tracing.set_span_job_metadata(span, job)
 
     assert f"failed to trace job {job.id}" in caplog.text
@@ -443,7 +387,7 @@ def test_record_final_job_state_tracing_errors_do_not_raise(db, caplog):
     ts = int(time.time() * 1e9)
     results = job_task_results_factory()
     # mock Exception raised in function called by set_span_job_metadata
-    with patch("jobrunner.tracing.complete_job", side_effect=Exception("foo")):
+    with patch("controller.tracing.complete_job", side_effect=Exception("foo")):
         tracing.record_final_job_state(job, ts, results=results)
 
     assert f"failed to trace state for {job.id}" in caplog.text
@@ -454,7 +398,7 @@ def test_finish_current_job_state_tracing_errors_do_not_raise(db, caplog):
     ts = int(time.time() * 1e9)
     results = job_task_results_factory()
     # mock Exception raised in function called by set_span_job_metadata
-    with patch("jobrunner.tracing.record_job_span", side_effect=Exception("foo")):
+    with patch("controller.tracing.record_job_span", side_effect=Exception("foo")):
         tracing.finish_current_job_state(job, ts, results=results)
 
     assert f"failed to trace state for {job.id}" in caplog.text

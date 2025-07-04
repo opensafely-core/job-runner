@@ -1,6 +1,6 @@
 import os
 
-import jobrunner.tracing as tracing
+from common import tracing
 
 
 # Where to log to (stdout and stderr)

@@ -10,10 +10,10 @@ from opentelemetry import trace
 
 from common import config as common_config
 from common.schema import AgentTask
+from common.tracing import set_span_attributes
 from controller import config
 from controller.queries import set_flag
 from controller.task_api import get_active_tasks, handle_task_update
-from jobrunner.tracing import set_span_attributes
 
 
 log = logging.getLogger(__name__)

@@ -2,7 +2,7 @@ import logging
 
 from common.job_executor import JobDefinition
 from common.schema import AgentTask
-from jobrunner.tracing import backwards_compatible_job_attrs, set_span_attributes
+from common.tracing import backwards_compatible_job_attrs, set_span_attributes
 
 
 logger = logging.getLogger(__name__)

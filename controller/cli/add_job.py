@@ -11,6 +11,7 @@ import textwrap
 from pathlib import Path
 from urllib.parse import urlparse
 
+from common import tracing
 from common.lib.git import get_sha_from_remote_ref
 from common.lib.log_utils import configure_logging
 from controller.cli.utils import add_backend_argument
@@ -18,7 +19,6 @@ from controller.create_or_update_jobs import create_or_update_jobs
 from controller.lib.database import find_where
 from controller.models import Job, random_id
 from controller.sync import job_request_from_remote_format
-from jobrunner import tracing
 
 
 def main(
