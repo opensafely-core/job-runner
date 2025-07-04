@@ -28,7 +28,7 @@ Source = "https://github.com/opensafely-core/job-runner"
 [tool.coverage.run]
 branch = true
 dynamic_context = "test_function"
-source = ["agent", "controller", "controller_app"]
+source = ["agent", "controller"]
 omit = [
     # These are covered by subprocess tests which aren't tracked properly
     "agent/service.py",
@@ -43,8 +43,8 @@ omit = [
     "jobrunner/cli/migrate.py",
     "jobrunner/cli/prepare_for_reboot.py",
     # django app
-    "controller_app/asgi.py",
-    "controller_app/wsgi.py",
+    "controller/webapp/asgi.py",
+    "controller/webapp/wsgi.py",
 ]
 
 [tool.coverage.report]
@@ -90,7 +90,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:pytest_responses:9",
     "ignore:.*dynamic_context.*:pytest_cov.CentralCovContextWarning",
 ]
-DJANGO_SETTINGS_MODULE = "controller_app.settings"
+DJANGO_SETTINGS_MODULE = "controller.webapp.settings"
 
 [tool.setuptools.packages.find]
 include = ["jobrunner*"]

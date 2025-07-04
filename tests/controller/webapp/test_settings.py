@@ -1,7 +1,7 @@
 import pytest
 from django.conf import settings
 
-from controller_app import settings as settings_funcs
+from controller.webapp import settings as settings_funcs
 
 
 def test_secret_key():

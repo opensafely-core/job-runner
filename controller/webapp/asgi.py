@@ -1,5 +1,5 @@
 """
-ASGI config for controller_app project.
+ASGI config for controller.webapp project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -12,6 +12,6 @@ import os
 from django.core.asgi import get_asgi_application
 
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "controller_app.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "controller.webapp.settings")
 
 application = get_asgi_application()
