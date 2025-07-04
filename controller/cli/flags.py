@@ -6,9 +6,9 @@ import argparse
 import sqlite3
 import sys
 
+from controller.cli.utils import add_backend_argument
 from controller.models import Flag
 from controller.queries import get_current_flags, get_flag, set_flag
-from jobrunner.cli.controller.utils import add_backend_argument
 from jobrunner.lib.database import create_table, get_connection
 
 

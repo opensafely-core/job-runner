@@ -9,8 +9,8 @@ from django.core.management import call_command
 from controller import queries
 from controller.models import Job, State, StatusCode, Task, TaskType
 from jobrunner.lib import database
-from tests.cli.controller.test_flags import TEST_DATESTR, TEST_TIME
-from tests.cli.controller.test_prepare_for_reboot import pause_backend
+from tests.controller.cli.test_flags import TEST_DATESTR, TEST_TIME
+from tests.controller.cli.test_prepare_for_reboot import pause_backend
 from tests.factories import job_factory, runjob_db_task_factory
 
 

@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from jobrunner.cli.controller import prepare_for_reboot
+from controller.cli import prepare_for_reboot
 
 
 class Command(BaseCommand):

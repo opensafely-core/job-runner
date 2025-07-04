@@ -34,7 +34,7 @@ JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 # Note: both agent and controller need to checkout git repos locally
 # Agent: for repos, results and logs
 # Controller: for db files and repos
-default_work_dir = Path(__file__) / "../../../workdir"
+default_work_dir = Path(__file__).parents[1] / "workdir"
 WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()
 GIT_REPO_DIR = WORKDIR / "repos"
 

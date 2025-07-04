@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from jobrunner.cli.controller import add_job
+from controller.cli import add_job
 
 
 class Command(BaseCommand):
