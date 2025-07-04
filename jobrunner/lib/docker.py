@@ -10,7 +10,7 @@ import socket
 import subprocess
 import urllib.parse
 
-from jobrunner.config import common as common_config
+from common import config as common_config
 from jobrunner.lib import atomic_writer
 
 

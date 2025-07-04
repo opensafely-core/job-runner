@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-from jobrunner.config import agent as config
+from agent import config
 from jobrunner.lib import atomic_writer
 
 

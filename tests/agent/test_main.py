@@ -2,8 +2,7 @@ from unittest.mock import ANY, patch
 
 import pytest
 
-from agent import main
-from jobrunner.config import agent as config
+from agent import config, main
 from jobrunner.job_executor import ExecutorState, JobStatus
 from tests.factories import job_definition_factory, runjob_db_task_factory
 

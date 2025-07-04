@@ -20,7 +20,7 @@ from pathlib import Path
 
 from opentelemetry import trace
 
-from jobrunner.config import controller as config
+from controller import config
 
 
 log = logging.getLogger(__name__)

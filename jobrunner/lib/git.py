@@ -9,8 +9,8 @@ import time
 from pathlib import Path, PurePath
 from urllib.parse import urlparse, urlunparse
 
-from jobrunner.config import agent as agent_config
-from jobrunner.config import common as config
+from agent import config as agent_config
+from common import config as common_config
 from jobrunner.lib.string_utils import project_name_from_url
 
 
@@ -191,7 +191,7 @@ def get_local_repo_dir(repo_url):
     # But it's probably more operationally convenient to split them up like
     # this.
     repo_name = project_name_from_url(repo_url)
-    return config.GIT_REPO_DIR / Path(repo_name).with_suffix(".git")
+    return common_config.GIT_REPO_DIR / Path(repo_name).with_suffix(".git")
 
 
 def ensure_commit_fetched(repo_dir, repo_url, commit_sha):
@@ -324,16 +324,16 @@ def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
 
 def add_access_token_and_proxy(repo_url):
     # We've already validated that the repo url starts with https://github.com
-    repo_url = repo_url.replace("github.com", config.GITHUB_PROXY_DOMAIN)
+    repo_url = repo_url.replace("github.com", common_config.GITHUB_PROXY_DOMAIN)
     # We previously did a complicated thing involving the GIT_ASKPASS
     # executable which worked OK on Linux but not on Windows or macOS, so we're
     # doing the more reliable thing of just sticking the token in the URL
-    token = config.PRIVATE_REPO_ACCESS_TOKEN
+    token = common_config.PRIVATE_REPO_ACCESS_TOKEN
     if not token:
         return repo_url
     # Ensure we only ever send our token to github.com over https
     parsed = urlparse(repo_url)
-    if parsed.hostname != config.GITHUB_PROXY_DOMAIN or parsed.scheme != "https":
+    if parsed.hostname != common_config.GITHUB_PROXY_DOMAIN or parsed.scheme != "https":
         return repo_url
     # Don't overwrite existing auth details (not sure why they'd be there but
     # seems polite)
@@ -353,7 +353,7 @@ def redact_token_from_exception(exception):
     # access to the token in any case; and all it provides is read-only access
     # to some private git repos which will eventually become public in any
     # case.
-    token = config.PRIVATE_REPO_ACCESS_TOKEN
+    token = common_config.PRIVATE_REPO_ACCESS_TOKEN
     if not token:
         return
     if isinstance(exception.cmd, list):

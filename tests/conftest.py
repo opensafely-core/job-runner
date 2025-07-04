@@ -10,10 +10,10 @@ import pytest
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from agent import config as agent_config
 from agent import metrics
+from controller import config as controller_config
 from jobrunner import tracing
-from jobrunner.config import agent as agent_config
-from jobrunner.config import controller as controller_config
 from jobrunner.job_executor import Study
 from jobrunner.lib import database
 
@@ -49,10 +49,8 @@ def get_trace(tracer=None):
 
 
 def set_tmp_workdir_config(monkeypatch, tmp_path):
-    monkeypatch.setattr("jobrunner.config.common.WORKDIR", tmp_path)
-    monkeypatch.setattr(
-        "jobrunner.config.controller.DATABASE_FILE", tmp_path / "db.sqlite"
-    )
+    monkeypatch.setattr("common.config.WORKDIR", tmp_path)
+    monkeypatch.setattr("controller.config.DATABASE_FILE", tmp_path / "db.sqlite")
     config_vars = {
         "common": ["GIT_REPO_DIR"],
         "agent": [
@@ -68,9 +66,7 @@ def set_tmp_workdir_config(monkeypatch, tmp_path):
     }
     for config_type, conf_vars in config_vars.items():
         for var in conf_vars:
-            monkeypatch.setattr(
-                f"jobrunner.config.{config_type}.{var}", tmp_path / var.lower()
-            )
+            monkeypatch.setattr(f"{config_type}.config.{var}", tmp_path / var.lower())
 
 
 @pytest.fixture
@@ -117,7 +113,7 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
         )
         host_volume_path = pytest_host_tmp / tmp_path.relative_to(basetemp)
         monkeypatch.setattr(
-            "jobrunner.config.agent.DOCKER_HOST_VOLUME_DIR",
+            "agent.config.DOCKER_HOST_VOLUME_DIR",
             host_volume_path / "high_privacy_volume_dir".lower(),
         )
 

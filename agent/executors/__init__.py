@@ -1,6 +1,6 @@
 import importlib
 
-from jobrunner.config import agent as config
+from agent import config
 
 
 def get_executor_api():

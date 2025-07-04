@@ -74,7 +74,7 @@ def test_migrate(tmp_path, caplog):
 
 
 def test_pause(db, freezer, capsys, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test", "test1"])
+    monkeypatch.setattr("common.config.BACKENDS", ["test", "test1"])
     freezer.move_to(TEST_DATESTR)
     # pause test backend
     call_command("pause", "on", "test")

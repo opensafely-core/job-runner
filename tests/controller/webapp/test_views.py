@@ -39,9 +39,7 @@ def test_active_tasks_view(db, client, monkeypatch, freezer):
     mock_now = datetime(2025, 6, 1, 10, 30, tzinfo=timezone.utc)
     freezer.move_to(mock_now)
 
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
     headers = {"Authorization": "test_token"}
 
     assert get_flag_value("last-seen-at", "test") is None
@@ -73,16 +71,16 @@ def test_active_tasks_view(db, client, monkeypatch, freezer):
 
 
 def test_active_tasks_view_multiple_backends(db, client, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test", "foo"])
+    monkeypatch.setattr("common.config.BACKENDS", ["test", "foo"])
     monkeypatch.setattr(
-        "jobrunner.config.controller.DEFAULT_JOB_CPU_COUNT", {"test": 1.0, "foo": 1.0}
+        "controller.config.DEFAULT_JOB_CPU_COUNT", {"test": 1.0, "foo": 1.0}
     )
     monkeypatch.setattr(
-        "jobrunner.config.controller.DEFAULT_JOB_MEMORY_LIMIT",
+        "controller.config.DEFAULT_JOB_MEMORY_LIMIT",
         {"test": "1G", "foo": "1G"},
     )
     monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS",
+        "controller.config.JOB_SERVER_TOKENS",
         {"test": "test_token", "foo": "foo_token"},
     )
 
@@ -125,7 +123,7 @@ def test_no_auth_token(db, client):
 
 def test_auth_token_invalid(db, client, monkeypatch):
     monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS",
+        "controller.config.JOB_SERVER_TOKENS",
         {"test": "test_token", "foo": "foo_token"},
     )
     # headers with valid token, but for wrong backend
@@ -137,9 +135,7 @@ def test_auth_token_invalid(db, client, monkeypatch):
 
 
 def test_update_task(db, client, monkeypatch):
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
 
     make_task = runjob_db_task_factory(backend="test")
 
@@ -170,9 +166,7 @@ def test_update_task(db, client, monkeypatch):
 
 
 def test_update_task_with_timestamp(db, client, monkeypatch):
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
     make_task = runjob_db_task_factory(backend="test")
 
     assert make_task.agent_stage is None
@@ -201,9 +195,7 @@ def test_update_task_with_timestamp(db, client, monkeypatch):
 
 
 def test_update_task_no_matching_task(db, client, monkeypatch):
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
 
     post_data = {
         "task_id": "unknown-task-id",
@@ -224,9 +216,7 @@ def test_update_task_no_matching_task(db, client, monkeypatch):
 
 
 def test_active_tasks_view_tracing(db, client, monkeypatch):
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
     headers = {"Authorization": "test_token"}
 
     setup_auto_tracing()
@@ -242,9 +232,7 @@ def test_active_tasks_view_tracing(db, client, monkeypatch):
 
 
 def test_update_task_view_tracing(db, client, monkeypatch):
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
     headers = {"Authorization": "test_token"}
 
     setup_auto_tracing()

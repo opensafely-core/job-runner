@@ -1,4 +1,4 @@
-from jobrunner.config import common as common_config
+from common import config as common_config
 
 
 def add_backend_argument(parser, helptext=None):

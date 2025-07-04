@@ -5,8 +5,8 @@ from unittest import mock
 
 import pytest
 
+from agent import config
 from agent.executors import local, volumes
-from jobrunner.config import agent as config
 from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from jobrunner.lib import datestr_to_ns_timestamp, docker
 from tests.factories import ensure_docker_images_present, metrics_factory

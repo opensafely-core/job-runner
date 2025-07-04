@@ -4,8 +4,7 @@ import time
 
 import pytest
 
-from agent import metrics
-from jobrunner.config import agent as config
+from agent import config, metrics
 from jobrunner.job_executor import ExecutorState
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
@@ -60,7 +59,7 @@ def test_read_write_job_metrics():
 def test_record_metrics_tick_trace(
     db, freezer, monkeypatch, live_server, responses, task_present
 ):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     mb = 1024 * 1024
@@ -144,7 +143,7 @@ def test_record_metrics_tick_trace(
 def test_record_metrics_tick_trace_stats_timeout(
     db, freezer, live_server, responses, monkeypatch
 ):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     def timeout():
@@ -174,7 +173,7 @@ def test_record_metrics_tick_trace_stats_timeout(
 def test_record_metrics_tick_trace_stats_error(
     db, freezer, monkeypatch, live_server, responses
 ):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     def error():

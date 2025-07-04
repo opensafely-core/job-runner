@@ -25,11 +25,11 @@ log = logging.getLogger(__name__)
 
 def set_agent_config(monkeypatch, tmp_work_dir):
     # set agent config
-    monkeypatch.setattr("jobrunner.config.agent.USING_DUMMY_DATA_BACKEND", True)
+    monkeypatch.setattr("agent.config.USING_DUMMY_DATA_BACKEND", True)
     # Note that as we are running ehrql actions in this test, we need to set
     # the backend to a value that ehrql will accept
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "test")
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_TOKEN", "test_token")
+    monkeypatch.setattr("agent.config.BACKEND", "test")
+    monkeypatch.setattr("agent.config.TASK_API_TOKEN", "test_token")
     # set all the tmp workdir config as we remove it for the controller phase
     set_tmp_workdir_config(monkeypatch, tmp_work_dir)
 
@@ -38,38 +38,34 @@ def set_agent_config(monkeypatch, tmp_work_dir):
     # e.g. MAX_WORKERS is based on BACKENDS so will always be populated for each
     # backend, with the default value. We set it explicitly here to confirm that it
     # doesn't trigger any errors if it is invalid for the agent i.e. it's not used)
-    monkeypatch.setattr("jobrunner.config.controller.JOB_SERVER_ENDPOINT", None)
-    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
-    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", None)
+    monkeypatch.setattr("controller.config.JOB_SERVER_ENDPOINT", None)
+    monkeypatch.setattr("controller.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("controller.config.MAX_WORKERS", None)
 
     # This is controller config, but we need it to be set during the agent part of the
     # test, as the agent will call the controller app
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
 
 
 def set_controller_config(monkeypatch):
     # set controller config
     monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+        "controller.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "token"})
     # Disable repo URL checking so we can run using a local test repo
-    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("controller.config.ALLOWED_GITHUB_ORGS", None)
     # Ensure that we have enough workers to start the jobs we expect in the test
     # (CI may have fewer actual available workers than this)
-    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", {"test": 4})
+    monkeypatch.setattr("controller.config.MAX_WORKERS", {"test": 4})
 
     # disable agent config
     # (note some of these will be set in prod because they are based on shared config
     # e.g. HIGH_PRIVACY_STORAGE_BASE is based on WORKDIR which is a common config. We
     # set it explicitly here to confirm that it doesn't trigger any errors if it is
     # invalid for the controller i.e. it's not used.)
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", None)
-    monkeypatch.setattr("jobrunner.config.agent.USING_DUMMY_DATA_BACKEND", False)
+    monkeypatch.setattr("agent.config.BACKEND", None)
+    monkeypatch.setattr("agent.config.USING_DUMMY_DATA_BACKEND", False)
 
     config_vars = [
         "TMP_DIR",
@@ -84,7 +80,7 @@ def set_controller_config(monkeypatch):
     ]
 
     for config_var in config_vars:
-        monkeypatch.setattr(f"jobrunner.config.agent.{config_var}", None)
+        monkeypatch.setattr(f"agent.config.{config_var}", None)
 
 
 @pytest.mark.slow_test
@@ -93,12 +89,12 @@ def test_integration(
     live_server, tmp_work_dir, docker_cleanup, monkeypatch, test_repo, responses
 ):
     api = get_executor_api()
-    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test"])
-    monkeypatch.setattr("jobrunner.config.common.JOB_LOOP_INTERVAL", 0)
+    monkeypatch.setattr("common.config.BACKENDS", ["test"])
+    monkeypatch.setattr("common.config.JOB_LOOP_INTERVAL", 0)
 
     # Use the live_server url for our task api endpoint, so we can test the
     # agent calls to the django app endpoints
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     ensure_docker_images_present("ehrql:v1", "python")

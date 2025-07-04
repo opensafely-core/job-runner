@@ -5,10 +5,9 @@ import traceback
 
 from opentelemetry import trace
 
-from agent import task_api, tracing
+from agent import config, task_api, tracing
 from agent.executors import get_executor_api
-from jobrunner.config import agent as config
-from jobrunner.config import common as common_config
+from common import config as common_config
 from jobrunner.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from jobrunner.lib.docker import docker, get_network_config_args
 from jobrunner.lib.log_utils import configure_logging, set_log_context

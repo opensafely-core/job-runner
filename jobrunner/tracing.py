@@ -11,9 +11,9 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 from opentelemetry.trace import propagation
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
+from common import config as common_config
 from controller.models import Job, State, StatusCode
 from controller.queries import get_saved_job_request
-from jobrunner.config import common as common_config
 from jobrunner.lib import warn_assertions
 
 

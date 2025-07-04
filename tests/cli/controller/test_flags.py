@@ -15,7 +15,7 @@ TEST_DATESTR = timestamp_to_isoformat(TEST_TIME)
 
 @pytest.fixture(autouse=True)
 def configure_backends(monkeypatch):
-    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test_backend"])
+    monkeypatch.setattr("common.config.BACKENDS", ["test_backend"])
 
 
 def test_get_no_args(capsys, tmp_work_dir):

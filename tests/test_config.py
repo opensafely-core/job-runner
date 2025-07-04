@@ -5,11 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from jobrunner.config.agent import database_urls_from_env
+from agent.config import database_urls_from_env
 
 
 script = """
-from jobrunner.config import agent, common, controller
+from agent import config as agent
+from common import config as common
+from controller import config as controller
 cfg = {}
 for module in [agent, common, controller]:
     cfg.update({k: str(v) for k, v in vars(module).items() if k.isupper()})

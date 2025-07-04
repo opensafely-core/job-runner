@@ -26,7 +26,7 @@ FIXTURES_PATH = Path(__file__).parent.parent.resolve() / "fixtures"
 
 @pytest.fixture(autouse=True)
 def disable_github_org_checking(monkeypatch):
-    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("controller.config.ALLOWED_GITHUB_ORGS", None)
 
 
 # Basic smoketest to test the full execution path
@@ -214,7 +214,7 @@ def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_
 def test_existing_active_jobs_for_other_backends_are_ignored_when_checking_dependencies(
     tmp_work_dir, monkeypatch
 ):
-    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["foo", "bar"])
+    monkeypatch.setattr("common.config.BACKENDS", ["foo", "bar"])
     # Schedule the same job on 2 backends
     create_jobs_with_project_file(
         make_job_request(action="analyse_data", backend="foo"), TEST_PROJECT
@@ -357,9 +357,7 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
 def test_validate_job_request(patch_config, params, exc_msg, exc_cls, monkeypatch):
     for config_type, config_items in patch_config.items():
         for config_key, config_value in config_items.items():
-            monkeypatch.setattr(
-                f"jobrunner.config.{config_type}.{config_key}", config_value
-            )
+            monkeypatch.setattr(f"{config_type}.config.{config_key}", config_value)
     repo_url = str(FIXTURES_PATH / "git-repo")
     kwargs = dict(
         id="123",

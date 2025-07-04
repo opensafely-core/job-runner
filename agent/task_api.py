@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 
 import requests
 
-from jobrunner.config import agent as config
+from agent import config
 from jobrunner.schema import AgentTask
 
 

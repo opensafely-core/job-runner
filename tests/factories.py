@@ -5,11 +5,11 @@ import time
 from copy import deepcopy
 
 from agent import metrics
+from common import config as common_config
 from controller import task_api
 from controller.main import create_task_for_job, job_to_job_definition
 from controller.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
 from jobrunner import tracing
-from jobrunner.config import common as common_config
 from jobrunner.lib import docker
 from jobrunner.lib.database import count_where, insert, update
 from jobrunner.schema import JobTaskResults, TaskType
