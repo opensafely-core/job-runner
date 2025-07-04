@@ -11,7 +11,7 @@ import subprocess
 import urllib.parse
 
 from common import config as common_config
-from jobrunner.lib import atomic_writer
+from common.lib import atomic_writer
 
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from jobrunner.lib.git import (
+from common.lib.git import (
     GitError,
     GitFileNotFoundError,
     GitRepoNotReachableError,
@@ -22,7 +22,7 @@ from jobrunner.lib.git import (
 )
 
 
-REPO_FIXTURE = str(Path(__file__).parents[1].resolve() / "fixtures/git-repo")
+REPO_FIXTURE = str(Path(__file__).parents[2].resolve() / "fixtures/git-repo")
 
 
 @pytest.mark.slow_test
@@ -184,7 +184,7 @@ def test_commit_already_fetched(tmp_path):
     assert commit_already_fetched(repo_dir, commit_sha)
 
 
-@mock.patch("jobrunner.lib.git.time.sleep")
+@mock.patch("common.lib.git.time.sleep")
 def test_commit_fetch_retry(mock_sleep, tmp_path):
     commit_sha = "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
     repo_dir = tmp_path / "repo"
@@ -192,7 +192,7 @@ def test_commit_fetch_retry(mock_sleep, tmp_path):
     assert not commit_already_fetched(repo_dir, commit_sha)
 
     with mock.patch(
-        "jobrunner.lib.git.subprocess.run",
+        "common.lib.git.subprocess.run",
         side_effect=[
             # 5 retries are allowed; mock a caught exception for the first 4
             CalledProcessError(returncode=1, cmd="git", stderr=b"GnuTLS recv error"),
@@ -212,7 +212,7 @@ def test_commit_fetch_retry(mock_sleep, tmp_path):
         fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
 
 
-@mock.patch("jobrunner.lib.git.time.sleep")
+@mock.patch("common.lib.git.time.sleep")
 def test_commit_fetch_retry_max_attempts(mock_sleep, tmp_path):
     commit_sha = "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
     repo_dir = tmp_path / "repo"
@@ -220,7 +220,7 @@ def test_commit_fetch_retry_max_attempts(mock_sleep, tmp_path):
     assert not commit_already_fetched(repo_dir, commit_sha)
 
     with mock.patch(
-        "jobrunner.lib.git.subprocess.run",
+        "common.lib.git.subprocess.run",
         side_effect=[
             CalledProcessError(returncode=1, cmd="git", stderr=b"GnuTLS recv error"),
         ]
@@ -239,7 +239,7 @@ def test_commit_fetch_retry_unexpected_error(tmp_path):
     assert not commit_already_fetched(repo_dir, commit_sha)
 
     with mock.patch(
-        "jobrunner.lib.git.subprocess.run",
+        "common.lib.git.subprocess.run",
         side_effect=[
             CalledProcessError(returncode=1, cmd="git", stderr=b"Unknown error"),
         ],

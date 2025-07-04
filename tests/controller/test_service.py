@@ -3,7 +3,7 @@ import subprocess
 import sys
 import time
 
-from jobrunner.lib import database
+from controller.lib import database
 
 
 def test_service_main(tmp_path):

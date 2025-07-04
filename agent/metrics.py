@@ -15,9 +15,9 @@ from pathlib import Path
 from opentelemetry import trace
 
 from agent import config, task_api, tracing
+from agent.lib.docker_stats import get_job_stats
 from common.job_executor import JobDefinition
-from jobrunner.lib.docker_stats import get_job_stats
-from jobrunner.lib.log_utils import configure_logging
+from common.lib.log_utils import configure_logging
 
 
 log = logging.getLogger(__name__)

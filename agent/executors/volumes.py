@@ -5,7 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from agent import config
-from jobrunner.lib import atomic_writer
+from common.lib import atomic_writer
 
 
 logger = logging.getLogger(__name__)

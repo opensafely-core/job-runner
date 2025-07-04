@@ -4,14 +4,14 @@ import textwrap
 
 from pipeline.models import is_database_action
 
-from controller import config
-from jobrunner.lib import git
-from jobrunner.lib.github_validators import (
+from common.lib import git
+from common.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,
 )
-from jobrunner.lib.yaml_utils import YAMLError, parse_yaml
+from common.lib.yaml_utils import YAMLError, parse_yaml
+from controller import config
 
 
 class ReusableActionError(Exception):

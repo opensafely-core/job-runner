@@ -8,10 +8,10 @@ import time
 
 from opentelemetry import trace
 
+from common.lib.log_utils import configure_logging
 from controller import config, models
+from controller.lib import database
 from jobrunner import tracing
-from jobrunner.lib import database
-from jobrunner.lib.log_utils import configure_logging
 
 
 log = logging.getLogger(__name__)

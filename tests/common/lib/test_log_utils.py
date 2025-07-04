@@ -7,9 +7,9 @@ from datetime import datetime
 import pytest
 
 from common.job_executor import JobDefinition
+from common.lib import log_utils
 from common.schema import AgentTask
 from controller.models import Job, JobRequest, TaskType
-from jobrunner.lib import log_utils
 
 
 FROZEN_TIMESTAMP = 1608568119.1467905

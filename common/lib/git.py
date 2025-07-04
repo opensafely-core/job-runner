@@ -11,7 +11,7 @@ from urllib.parse import urlparse, urlunparse
 
 from agent import config as agent_config
 from common import config as common_config
-from jobrunner.lib.string_utils import project_name_from_url
+from common.lib.string_utils import project_name_from_url
 
 
 log = logging.getLogger(__name__)

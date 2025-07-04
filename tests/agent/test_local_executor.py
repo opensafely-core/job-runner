@@ -7,8 +7,9 @@ import pytest
 
 from agent import config
 from agent.executors import local, volumes
+from agent.lib import docker
 from common.job_executor import ExecutorState, JobDefinition, Privacy, Study
-from jobrunner.lib import datestr_to_ns_timestamp, docker
+from common.lib import datestr_to_ns_timestamp
 from tests.factories import ensure_docker_images_present, metrics_factory
 
 

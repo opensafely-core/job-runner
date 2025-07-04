@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 from django.http import JsonResponse
 from django.urls import reverse
 
+from controller.lib import database
 from controller.models import Task
 from controller.queries import get_flag_value
-from jobrunner.lib import database
 from tests.conftest import get_trace
 from tests.factories import (
     canceljob_db_task_factory,

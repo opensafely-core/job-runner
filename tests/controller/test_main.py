@@ -10,9 +10,9 @@ from agent import config as agent_config
 from agent import main as agent_main
 from common import config as common_config
 from controller import config, main, task_api
+from controller.lib import database
 from controller.models import Job, State, StatusCode, Task, TaskType
 from controller.queries import get_flag_value, set_flag
-from jobrunner.lib import database
 from tests.conftest import get_trace
 from tests.factories import (
     job_factory,

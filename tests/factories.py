@@ -5,14 +5,14 @@ import time
 from copy import deepcopy
 
 from agent import metrics
+from agent.lib import docker
 from common import config as common_config
 from common.schema import JobTaskResults, TaskType
 from controller import task_api
+from controller.lib.database import count_where, insert, update
 from controller.main import create_task_for_job, job_to_job_definition
 from controller.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
 from jobrunner import tracing
-from jobrunner.lib import docker
-from jobrunner.lib.database import count_where, insert, update
 from tests.conftest import test_exporter
 
 

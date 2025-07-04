@@ -4,8 +4,8 @@ import pytest
 
 from controller import queries
 from controller.cli import flags
+from controller.lib import database
 from controller.models import timestamp_to_isoformat
-from jobrunner.lib import database
 
 
 # use a fixed time for these tests
