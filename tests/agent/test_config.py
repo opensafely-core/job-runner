@@ -1,39 +1,21 @@
-import ast
 import subprocess
-import sys
-from pathlib import Path
 
 import pytest
 
 from agent.config import database_urls_from_env
+from tests.conftest import import_cfg as import_config_from_script
 
 
 script = """
-from agent import config as agent
-from common import config as common
-from controller import config as controller
+from agent import config
 cfg = {}
-for module in [agent, common, controller]:
-    cfg.update({k: str(v) for k, v in vars(module).items() if k.isupper()})
+cfg.update({k: str(v) for k, v in vars(config).items() if k.isupper()})
 print(repr(cfg))
 """
 
 
 def import_cfg(env, raises=None):
-    try:
-        ps = subprocess.run(
-            [sys.executable, "-c", script],
-            env=env,
-            text=True,
-            check=True,
-            capture_output=True,
-        )
-    except subprocess.CalledProcessError as err:
-        print(err.stderr)
-        raise
-
-    print(ps.stdout)
-    return ast.literal_eval(ps.stdout)
+    return import_config_from_script(env, script, raises=None)
 
 
 def test_config_imports_with_clean_env():
@@ -130,19 +112,3 @@ def test_database_urls_from_env():
         "default": "mssql://localhost/db1",
         "include_t1oo": "mssql://localhost/db2",
     }
-
-
-def test_version_missing():
-    cfg = import_cfg({})
-    assert cfg["VERSION"] == "unknown"
-
-
-def test_version_file():
-    cfg = import_cfg(
-        {
-            "JOBRUNNER_VERSION_FILE_PATH": str(
-                Path(__file__).parent / "fixtures/version.txt"
-            )
-        }
-    )
-    assert cfg["VERSION"] == "abc1234"

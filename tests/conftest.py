@@ -1,5 +1,7 @@
+import ast
 import os
 import subprocess
+import sys
 import tempfile
 from collections import deque
 from dataclasses import dataclass, field
@@ -253,3 +255,20 @@ def mock_subprocess_run():
     assert len(stub.calls) == 0, (
         f"subprocess.run expected the following calls: {stub.calls}"
     )
+
+
+def import_cfg(env, script, raises=None):
+    try:
+        ps = subprocess.run(
+            [sys.executable, "-c", script],
+            env=env,
+            text=True,
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as err:
+        print(err.stderr)
+        raise
+
+    print(ps.stdout)
+    return ast.literal_eval(ps.stdout)
