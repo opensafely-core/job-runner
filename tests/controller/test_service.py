@@ -3,7 +3,7 @@ import subprocess
 import sys
 import time
 
-from jobrunner.lib import database
+from controller.lib import database
 
 
 def test_service_main(tmp_path):
@@ -14,7 +14,7 @@ def test_service_main(tmp_path):
     database.ensure_db(db)
 
     p = subprocess.Popen(
-        [sys.executable, "-m", "jobrunner.controller.service"],
+        [sys.executable, "-m", "controller.service"],
         # For the purposes of this test we don't care if we can actually talk
         # to the job-server endpoint, so to avoid spamming the real job-server
         # we just point it to a "reserved for future use" IP4 block which hangs

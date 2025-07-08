@@ -9,7 +9,7 @@ def test_service_main(tmp_path):
     Test that the service module handles SIGINT and exits cleanly
     """
     p = subprocess.Popen(
-        [sys.executable, "-m", "jobrunner.agent.service"],
+        [sys.executable, "-m", "agent.service"],
         # For the purposes of this test we don't care if we can actually talk to the
         # task endpoint, so we just point it to a "reserved for future use" IP4 block
         # which hangs nicely as we want

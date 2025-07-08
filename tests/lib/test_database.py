@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from jobrunner.lib.database import (
+from controller.lib.database import (
     CONNECTION_CACHE,
     MigrationNeeded,
     count_where,
@@ -22,7 +22,7 @@ from jobrunner.lib.database import (
     update,
     upsert,
 )
-from jobrunner.models import Flag, Job, State
+from controller.models import Flag, Job, State
 from tests.conftest import get_trace
 from tests.factories import job_factory
 

@@ -5,12 +5,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from jobrunner.agent import main, task_api
-from jobrunner.config import agent as config
-from jobrunner.controller import task_api as controller_task_api
-from jobrunner.job_executor import ExecutorState, JobDefinition
-from jobrunner.lib.database import update_where
-from jobrunner.models import Task, TaskType
+from agent import config, main, task_api
+from common.job_executor import ExecutorState, JobDefinition
+from controller import task_api as controller_task_api
+from controller.lib.database import update_where
+from controller.models import Task, TaskType
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
 
@@ -29,7 +28,7 @@ def assert_state_change_logs(caplog, state_changes):
 
 
 def test_handle_tasks_error(db, caplog, responses, live_server, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     api = StubExecutorAPI()
@@ -56,7 +55,7 @@ def test_handle_tasks_error(db, caplog, responses, live_server, monkeypatch):
 def test_handle_job_full_execution(
     db, freezer, caplog, responses, live_server, monkeypatch
 ):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     caplog.set_level(logging.INFO)
@@ -165,7 +164,7 @@ def test_handle_job_stable_states(db, executor_state):
     job = JobDefinition.from_dict(task.definition)
 
     with patch(
-        "jobrunner.agent.task_api.update_controller", spec=task_api.update_controller
+        "agent.task_api.update_controller", spec=task_api.update_controller
     ) as mock_update_controller:
         main.handle_single_task(task, api)
 
@@ -192,7 +191,7 @@ def test_handle_job_stable_states(db, executor_state):
     assert spans[0].attributes["final_job_status"] == executor_state.name
 
 
-@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_job_requires_db_has_secrets(mock_update_controller, db, monkeypatch):
     api = StubExecutorAPI()
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
@@ -210,7 +209,7 @@ def test_handle_job_requires_db_has_secrets(mock_update_controller, db, monkeypa
     assert mock_update_controller.call_count == 1
 
 
-@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_runjob_with_fatal_error(mock_update_controller, db):
     api = StubExecutorAPI()
 
@@ -264,7 +263,7 @@ def test_handle_runjob_with_fatal_error(mock_update_controller, db):
         AssertionError("a bad thing"),
     ],
 )
-@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_runjob_with_not_fatal_error(mock_update_controller, db, exc):
     api = StubExecutorAPI()
 
@@ -288,7 +287,7 @@ def test_handle_runjob_with_not_fatal_error(mock_update_controller, db, exc):
     assert spans[0].attributes["fatal_task_error"] is False
 
 
-@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_canceljob_with_fatal_error(mock_update_controller, db):
     api = StubExecutorAPI()
 
@@ -355,7 +354,7 @@ def test_handle_cancel_job(
     responses,
     live_server,
 ):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     caplog.set_level(logging.INFO)
@@ -395,8 +394,8 @@ def test_handle_cancel_job(
     assert span.attributes["final_job_status"] == ExecutorState.FINALIZED.name
 
 
-@patch("jobrunner.agent.main.docker", autospec=True)
-@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+@patch("agent.main.docker", autospec=True)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_db_status_job(mock_update_controller, mock_docker, monkeypatch):
     monkeypatch.setattr(
         config, "DATABASE_URLS", {"default": "database://localhost:1234"}
@@ -442,7 +441,7 @@ def test_handle_db_status_job(mock_update_controller, mock_docker, monkeypatch):
     )
 
 
-@patch("jobrunner.agent.task_api.update_controller", spec=task_api.update_controller)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_db_status_job_with_error(mock_update_controller):
     task = Task(
         id="test_id",
@@ -465,7 +464,7 @@ def test_handle_db_status_job_with_error(mock_update_controller):
     )
 
 
-@patch("jobrunner.agent.main.docker", autospec=True)
+@patch("agent.main.docker", autospec=True)
 def test_db_status_task_rejects_unexpected_status(mock_docker, monkeypatch):
     monkeypatch.setattr(
         config, "DATABASE_URLS", {"default": "database://localhost:1234"}
@@ -479,7 +478,7 @@ def test_db_status_task_rejects_unexpected_status(mock_docker, monkeypatch):
 def test_handle_job_no_task_id_in_definition(
     db, freezer, caplog, responses, live_server, monkeypatch
 ):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     caplog.set_level(logging.INFO)

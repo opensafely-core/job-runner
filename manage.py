@@ -4,13 +4,13 @@
 import os
 import sys
 
-import jobrunner.tracing as tracing
-from jobrunner.lib.log_utils import configure_logging
+from common import tracing
+from common.lib.log_utils import configure_logging
 
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "controller_app.settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "controller.webapp.settings")
     tracing.setup_default_tracing()
     configure_logging()
 

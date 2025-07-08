@@ -1,6 +1,6 @@
 import os
 
-import jobrunner.tracing as tracing
+from common import tracing
 
 
 # Where to log to (stdout and stderr)
@@ -27,6 +27,6 @@ accesslog = None
 # https://opentelemetry-python.readthedocs.io/en/latest/examples/fork-process-model/README.html
 def post_fork(server, worker):
     # opentelemetry initialisation needs this, so ensure its set
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "controller_app.settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "controller.webapp.settings")
     server.log.info("Worker spawned (pid: %s)", worker.pid)
     tracing.setup_default_tracing()

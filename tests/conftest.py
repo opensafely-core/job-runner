@@ -1,5 +1,7 @@
+import ast
 import os
 import subprocess
+import sys
 import tempfile
 from collections import deque
 from dataclasses import dataclass, field
@@ -7,22 +9,23 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from opentelemetry import trace
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from jobrunner import tracing
-from jobrunner.agent import metrics
-from jobrunner.config import agent as agent_config
-from jobrunner.config import controller as controller_config
-from jobrunner.job_executor import Study
-from jobrunner.lib import database
+from agent import config as agent_config
+from agent import metrics
+from common.job_executor import Study
+from common.tracing import add_exporter, get_provider
+from controller import config as controller_config
+from controller.lib import database
 
 
 # set up test tracing
-provider = tracing.get_provider()
-tracing.trace.set_tracer_provider(provider)
+provider = get_provider()
+trace.set_tracer_provider(provider)
 test_exporter = InMemorySpanExporter()
-tracing.add_exporter(provider, test_exporter, processor=SimpleSpanProcessor)
+add_exporter(provider, test_exporter, processor=SimpleSpanProcessor)
 
 
 def pytest_configure(config):
@@ -49,10 +52,8 @@ def get_trace(tracer=None):
 
 
 def set_tmp_workdir_config(monkeypatch, tmp_path):
-    monkeypatch.setattr("jobrunner.config.common.WORKDIR", tmp_path)
-    monkeypatch.setattr(
-        "jobrunner.config.controller.DATABASE_FILE", tmp_path / "db.sqlite"
-    )
+    monkeypatch.setattr("common.config.WORKDIR", tmp_path)
+    monkeypatch.setattr("controller.config.DATABASE_FILE", tmp_path / "db.sqlite")
     config_vars = {
         "common": ["GIT_REPO_DIR"],
         "agent": [
@@ -68,9 +69,7 @@ def set_tmp_workdir_config(monkeypatch, tmp_path):
     }
     for config_type, conf_vars in config_vars.items():
         for var in conf_vars:
-            monkeypatch.setattr(
-                f"jobrunner.config.{config_type}.{var}", tmp_path / var.lower()
-            )
+            monkeypatch.setattr(f"{config_type}.config.{var}", tmp_path / var.lower())
 
 
 @pytest.fixture
@@ -117,7 +116,7 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
         )
         host_volume_path = pytest_host_tmp / tmp_path.relative_to(basetemp)
         monkeypatch.setattr(
-            "jobrunner.config.agent.DOCKER_HOST_VOLUME_DIR",
+            "agent.config.DOCKER_HOST_VOLUME_DIR",
             host_volume_path / "high_privacy_volume_dir".lower(),
         )
 
@@ -127,8 +126,8 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
 @pytest.fixture
 def docker_cleanup(monkeypatch):
     label_for_tests = "jobrunner-pytest"
-    monkeypatch.setattr("jobrunner.lib.docker.LABEL", label_for_tests)
-    monkeypatch.setattr("jobrunner.executors.local.LABEL", label_for_tests)
+    monkeypatch.setattr("agent.lib.docker.LABEL", label_for_tests)
+    monkeypatch.setattr("agent.executors.local.LABEL", label_for_tests)
     yield
     delete_docker_entities("container", label_for_tests)
     delete_docker_entities("volume", label_for_tests)
@@ -257,3 +256,20 @@ def mock_subprocess_run():
     assert len(stub.calls) == 0, (
         f"subprocess.run expected the following calls: {stub.calls}"
     )
+
+
+def import_cfg(env, script, raises=None):
+    try:
+        ps = subprocess.run(
+            [sys.executable, "-c", script],
+            env=env,
+            text=True,
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as err:
+        print(err.stderr)
+        raise
+
+    print(ps.stdout)
+    return ast.literal_eval(ps.stdout)

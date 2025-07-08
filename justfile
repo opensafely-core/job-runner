@@ -172,10 +172,10 @@ migrate:
 
 # Run the dev project
 run-agent: devenv
-    $BIN/python -m jobrunner.agent.main
+    $BIN/python -m agent.main
 
 run-controller: devenv
-    $BIN/python -m jobrunner.controller.main
+    $BIN/python -m controller.main
 
 run-app: devenv
     just manage runserver

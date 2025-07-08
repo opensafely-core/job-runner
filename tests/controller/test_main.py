@@ -6,14 +6,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from jobrunner.agent import main as agent_main
-from jobrunner.config import agent as agent_config
-from jobrunner.config import common as common_config
-from jobrunner.config import controller as config
-from jobrunner.controller import main, task_api
-from jobrunner.lib import database
-from jobrunner.models import Job, State, StatusCode, Task, TaskType
-from jobrunner.queries import get_flag_value, set_flag
+from agent import config as agent_config
+from agent import main as agent_main
+from common import config as common_config
+from controller import config, main, task_api
+from controller.lib import database
+from controller.models import Job, State, StatusCode, Task, TaskType
+from controller.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
 from tests.factories import (
     job_factory,
@@ -868,7 +867,7 @@ def test_job_definition_ehrql_event_level_access(db, monkeypatch, repo_url, expe
         assert "EHRQL_ENABLE_EVENT_LEVEL_QUERIES" not in job_definition.env
 
 
-@patch("jobrunner.controller.main.handle_job")
+@patch("controller.main.handle_job")
 def test_handle_error(patched_handle_job, db, monkeypatch):
     monkeypatch.setattr(common_config, "JOB_LOOP_INTERVAL", 0)
 
@@ -899,7 +898,7 @@ def test_handle_error(patched_handle_job, db, monkeypatch):
         AssertionError("a bad thing"),
     ],
 )
-@patch("jobrunner.controller.main.handle_job")
+@patch("controller.main.handle_job")
 def test_handle_non_fatal_error(patched_handle_job, db, monkeypatch, exc):
     monkeypatch.setattr(common_config, "JOB_LOOP_INTERVAL", 0)
 
@@ -981,7 +980,7 @@ def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
 # rather than just a test of `handle_task_update_dbstatus()`. But I feel more confident
 # in the code by exercising both elements, and there didn't feel like an obvious
 # alternative place to put this test.
-@patch("jobrunner.agent.main.docker", autospec=True)
+@patch("agent.main.docker", autospec=True)
 def test_handle_task_update_dbstatus(
     mock_docker, monkeypatch, db, freezer, responses, live_server
 ):
@@ -991,12 +990,10 @@ def test_handle_task_update_dbstatus(
     monkeypatch.setattr(agent_config, "BACKEND", backend)
     monkeypatch.setattr(agent_config, "DATABASE_URLS", {"default": "mssql://localhost"})
     # Use the live_server url for our task api endpoint, for the agent to call in`run_agent_loop_once`
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     # Ensure we have correct auth for the task api
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_TOKEN", "test_token")
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
-    )
+    monkeypatch.setattr("agent.config.TASK_API_TOKEN", "test_token")
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
 
     # We start not in maintenance mode
     assert not get_flag_value("mode", backend=backend)
