@@ -106,12 +106,15 @@ def update_where(itemclass, update_dict, **query_params):
 
 
 def find_where(itemclass, **query_params):
-    table = itemclass.__tablename__
-    fields = dataclasses.fields(itemclass)
-    where, params = query_params_to_sql(query_params)
-    sql = f"SELECT * FROM {escape(table)} WHERE {where}"
-    cursor = get_connection().execute(sql, params)
-    return [itemclass(*decode_field_values(fields, row)) for row in cursor]
+    with tracer.start_as_current_span("find_where_db"):
+        table = itemclass.__tablename__
+        fields = dataclasses.fields(itemclass)
+        where, params = query_params_to_sql(query_params)
+        sql = f"SELECT * FROM {escape(table)} WHERE {where}"
+        cursor = get_connection().execute(sql, params)
+    with tracer.start_as_current_span("find_where_decode"):
+        results = [itemclass(*decode_field_values(fields, row)) for row in cursor]
+    return results
 
 
 def find_all(itemclass):  # pragma: nocover
