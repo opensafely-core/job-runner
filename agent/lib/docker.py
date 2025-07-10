@@ -38,14 +38,6 @@ LABEL = "job-runner"
 DEFAULT_TIMEOUT = 5 * 60
 
 
-class DockerPullError(Exception):
-    pass
-
-
-class DockerAuthError(DockerPullError):
-    pass
-
-
 class DockerTimeoutError(Exception):
     pass
 
