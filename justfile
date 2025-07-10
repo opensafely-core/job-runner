@@ -178,4 +178,10 @@ run-controller: devenv
     $BIN/python -m controller.main
 
 run-app: devenv
-    just manage runserver
+    just manage runserver 3000
+
+run-agent-service: devenv
+    $BIN/python -m agent.service
+
+run-controller-service: devenv
+    $BIN/python -m controller.service
