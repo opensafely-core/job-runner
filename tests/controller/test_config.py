@@ -18,7 +18,8 @@ def test_config_imports_with_clean_env():
     import_cfg({})
 
 
-def test_job_limits_from_env():
+def test_job_limits_from_env(monkeypatch):
+    monkeypatch.setattr("common.config.BACKENDS", ["tpp", "test", "emis"])
     env = {
         "DEFAULT_FOO_LIMIT": "4",
         "TPP_FOO_LIMIT": "10",
