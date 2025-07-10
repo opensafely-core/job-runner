@@ -4,7 +4,12 @@
 # They may be different on agent/controller
 
 # Comma separated list of known backends; default if unset: test,tpp,emis
-# BACKENDS=test
+# NOTE: If using a local job-server, BACKENDS must be a list of backends that are
+# valid on the local job-server AND <BACKEND>_JOB_SERVER_TOKEN must be set
+# for each of them.
+# Here we're assuming we only have one backend, 'test'. Add more depending on your
+# local job-server setup.
+BACKENDS=test
 
 # A Github developer token that has read access to private repos
 PRIVATE_REPO_ACCESS_TOKEN=
@@ -31,19 +36,24 @@ DEFAULT_DATABASE_URL=mssql+pyodbc://xxxx
 TEMP_DATABASE_NAME=OPENCoronaTempTables
 
 # Token for authenticating with the controller task api
+# This should be the same as TEST_JOB_SERVER_TOKEN (assuming
+# the backend for this Agent is "test")
 CONTROLLER_TASK_API_TOKEN=pass
 
 # URL for controller task api
-CONTROLLER_TASK_API_ENDPOINT=http://localhost:8000/
+CONTROLLER_TASK_API_ENDPOINT=http://localhost:3000/
 
 
 # USED BY CONTROLLER ONLY
 #########################
 # The endpoint to poll for jobs
-JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/jobs/
+# JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/api/v2/
+# If using a local job-server, running on port 8000
+JOB_SERVER_ENDPOINT=https://localhost:8000/api/v2/
 
-# Credentials for logging into the job server
+# Credentials for authenticating with job server
 # Note this variable is per-backend i.e. <BACKEND>_JOB_SERVER_TOKEN for each backend
+# If using a local jobserver, obtain the token from http://localhost:8000/staff/backends
 TEST_JOB_SERVER_TOKEN=pass
 
 # Change this to reduce parallelism (per backend)
