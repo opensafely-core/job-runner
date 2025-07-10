@@ -422,6 +422,78 @@ Outputs and logs from the job can be found at `workdir/high_privacy` and `workdi
 Note that `add-job` adds a job with a workspace named `test` by default, so e.g. high privacy
 outputs will be found in `workdir/high_privacy/workspaces/test`.
 
+### Running locally with a local job-server
+
+To run a more complete system locally, you can connect your local agent and controller components to
+a locally running job-server.
+
+#### Setup and run job-server locally
+Setup a local job-server as described in the [job-server docs](https://github.com/opensafely-core/job-server/blob/main/DEVELOPERS.md#local-development).
+
+If using a [fresh install](https://github.com/opensafely-core/job-server/blob/main/DEVELOPERS.md#setting-up-a-fresh-install) ensure that you have a backend called "test" (others can be set up and
+configured later). Run the local server and go to http://localhost:8000/staff/backends to find the
+token for this backend - we'll need it shortly. Also make sure you have at least one project/workspace
+set up.
+
+Make sure that your `.env` file has a valid PAT (a classic PAT with repo scope) for the `JOBSERVER_GITHUB_TOKEN`.
+
+#### Configure job-runner settings
+
+Ensure that the following variables are set in your `.env` file:
+
+```
+# These must be obtained from your local job-server and must be the same
+# CONTROLLER_TASK_API_TOKEN is used by the Agent to authenticate with the Controller API
+# We currently reuse job-server's backend tokens for this
+# TEST_JOB_SERVER_TOKEN is used by the Controller when communicating with job-server
+CONTROLLER_TASK_API_TOKEN=<token obtained from local job-server for the test backend>
+TEST_JOB_SERVER_TOKEN=<token obtained from local job-server for the test backend>
+
+# These are all set by default in dotenv-sample
+BACKENDS=test
+BACKEND=test
+CONTROLLER_TASK_API_ENDPOINT=http://localhost:3000/
+JOB_SERVER_ENDPOINT=https://localhost:8000/api/v2/
+```
+
+#### Run all the things
+
+In 4 (yes, 4!) terminal windows, run:
+
+In job-server repo:
+1) Run the server: `just run`
+
+In job-runner repo:
+2) Run web app: `just run-app`
+3) Run agent service (main and metrics loops): `just run-agent-service` (or `just run-agent` to run without metrics)
+4) Run controller service (main and sync loops): `just run-controller-service`
+
+In your terminals you should see:
+1) job-server: /api/v2/job-requests is called repeatedly (by the controller sync loop)
+2) controller web app: /test/tasks/ is called every 2 seconds (by the agent)
+3) & 4) Agent and Controller don't report any activity after start up
+
+
+#### Submit a job
+Go to your local job-server at http://localhost:8000 and submit a job for the workspace
+you set up earlier.  In your terminals you should see the job request be submitted on
+job-server, picked up by the controller service and jobs created, executed on the agent,
+and updated via the controller web app.
+
+
+#### Simulating multiple backends
+
+To add another backend, "foo":
+1) Setup the backend on your local job-server
+2) in .env:
+   - Add FOO_JOB_SERVER_TOKEN with the backend token from job-server
+   - set BACKENDS=test,foo
+
+The controller will now check for jobs for both backends ("test" and "foo"). Locally we can
+only pretend to be one backend's Agent, so only "test" jobs will be picked up and executed by the
+agent. To execute "foo" jobs, set `BACKEND=foo`. Remember to restart all the things to pick up the
+new environment variables everywhere.
+
 
 ## Running jobs on the test backend
 
