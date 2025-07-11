@@ -31,7 +31,7 @@ def main(
     database,
     force_run_dependencies,
 ):
-    tracing.setup_default_tracing()
+    tracing.setup_default_tracing("controller")
     # Make paths to local repos absolute
     parsed = urlparse(repo_url)
     if not parsed.scheme and not parsed.netloc:  # pragma: no cover
