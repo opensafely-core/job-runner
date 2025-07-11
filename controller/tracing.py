@@ -282,7 +282,7 @@ if __name__ == "__main__":
     from common.tracing import setup_default_tracing
     from controller.main import set_code
 
-    setup_default_tracing()
+    setup_default_tracing("controller")
 
     timestamp = int(time.time())
     job = Job(

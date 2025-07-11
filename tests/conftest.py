@@ -22,7 +22,7 @@ from controller.lib import database
 
 
 # set up test tracing
-provider = get_provider()
+provider = get_provider("test")
 trace.set_tracer_provider(provider)
 test_exporter = InMemorySpanExporter()
 add_exporter(provider, test_exporter, processor=SimpleSpanProcessor)

@@ -27,7 +27,7 @@ def main():
     threading.current_thread().name = "agnt"
     fmt = "{asctime} {threadName} {message} {tags}"
     configure_logging(fmt)
-    tracing.setup_default_tracing()
+    tracing.setup_default_tracing("agent")
 
     try:
         log.info("agent.service started")

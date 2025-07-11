@@ -29,7 +29,7 @@ def main():
     threading.current_thread().name = "ctrl"
     fmt = "{asctime} {threadName} {message} {tags}"
     configure_logging(fmt)
-    tracing.setup_default_tracing()
+    tracing.setup_default_tracing("controller")
 
     # check db is present and up to date, or else error
     ensure_valid_db()

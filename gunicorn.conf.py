@@ -29,4 +29,4 @@ def post_fork(server, worker):
     # opentelemetry initialisation needs this, so ensure its set
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "controller.webapp.settings")
     server.log.info("Worker spawned (pid: %s)", worker.pid)
-    tracing.setup_default_tracing()
+    tracing.setup_default_tracing("controller")
