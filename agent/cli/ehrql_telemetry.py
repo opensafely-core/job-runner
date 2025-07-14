@@ -13,8 +13,15 @@ from common.tracing import setup_default_tracing
 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description="db_telemetry")
-    parser.add_argument("dataset", help="Honeycomb dataset to emit telemetry to")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Emit an ehrql job's query data as telemetry."
+            "Reads the job's log file, and converts the query timing to otel, and sends them out."
+        )
+    )
+    parser.add_argument(
+        "dataset", help="Temporary Honeycomb dataset to emit telemetry to."
+    )
     parser.add_argument(
         "job", help="job to emit telemetry for. Either job id or path to job log dir."
     )
