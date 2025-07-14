@@ -13,7 +13,7 @@ from common import config as common_config
 logger = logging.getLogger(__name__)
 
 
-def get_provider():
+def get_provider(service):
     # https://github.com/open-telemetry/semantic-conventions/tree/main/docs/resource#service
     resource = Resource.create(
         attributes={
@@ -21,6 +21,8 @@ def get_provider():
             # Note this will be set in the agent only
             "service.namespace": os.environ.get("BACKEND", "unknown"),
             "service.version": common_config.VERSION,
+            "rap.service": service,
+            "rap.backend": os.environ.get("BACKEND", "unknown"),
         }
     )
     return TracerProvider(resource=resource)
@@ -40,10 +42,10 @@ def add_exporter(provider, exporter, processor=BatchSpanProcessor):
     provider.add_span_processor(processor(exporter))
 
 
-def setup_default_tracing(set_global=True):
+def setup_default_tracing(service, set_global=True):
     """Inspect environment variables and set up exporters accordingly."""
 
-    provider = get_provider()
+    provider = get_provider(service)
 
     if "OTEL_EXPORTER_OTLP_HEADERS" in os.environ:
         # workaround for env file parsing issues
