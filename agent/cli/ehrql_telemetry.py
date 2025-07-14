@@ -96,8 +96,11 @@ def convert_ehrql_logs(logfile_path):  # pragma: nocover
     process = subprocess.run(
         [
             "docker",
-            "run--rm",
-            "ghcr.io/opensafely-core/ehrql:v1/app/scripts/parse_logs.py",
+            "run",
+            "--rm",
+            "--interactive",
+            "ghcr.io/opensafely-core/ehrql:v1",
+            "/app/scripts/parse_logs.py",
         ],
         input=logfile_path.read_text(),
         capture_output=True,
