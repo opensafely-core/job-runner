@@ -54,7 +54,7 @@ def main(argv):
 
     # force our name to be used as dataset
     os.environ["OTEL_SERVICE_NAME"] = args.dataset
-    setup_default_tracing()
+    setup_default_tracing("agent")
 
     run(metadata, logs)
 
