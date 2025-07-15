@@ -24,9 +24,13 @@ def calculate_workspace_state(backend, workspace):
             Job, workspace=workspace, cancelled=False, backend=backend
         )
         span.set_attribute("job_count", len(all_jobs))
+        span.set_attribute("job.workspace", workspace)
+        span.set_attribute("job.backend", backend)
 
     with tracer.start_as_current_span("calculate_workspace_state_python") as span:
         span.set_attribute("job_count", len(all_jobs))
+        span.set_attribute("job.workspace", workspace)
+        span.set_attribute("job.backend", backend)
         latest_jobs = []
         for action, jobs in group_by(all_jobs, attrgetter("action")):
             if action == "__error__":

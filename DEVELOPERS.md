@@ -1,8 +1,22 @@
 # Developer notes
 
+- [Local development](#local-development)
+  - [Pre-requisites](#prerequisites-for-local-development)
+  - [Getting started](#getting-started)
+  - [Running jobs locally](#running-jobs-locally)
+  - [Running jobs with a local job-server](#running-locally-with-a-local-job-server)
+  - [Testing](#testing)
+- [Operating Principles](#operating-principles)
+- [Architecture](#architecture)
+- [Running jobs on the test backend](#running-jobs-on-the-test-backend)
+- [job-runner docker image](#job-runner-docker-image)
+- [Database schema and migrations](#database-schema-and-migrations)
+- [Deployment](#deploying)
 
 
-## Prerequisites for local development
+## Local development
+
+### Prerequisites for local development
 
 ### Just
 
@@ -35,7 +49,7 @@ You'll need an appropriate version of Python on your PATH. Check the
 You will also need an up-to-date version of Docker Compose. Instructions to install it are [here](https://docs.docker.com/compose/install/).
 
 
-## Getting started
+### Getting started
 
 Set up a local development environment with:
 ```
@@ -61,6 +75,157 @@ This is not required in order to run the project locally, unless you wish to tes
 running jobs from private GitHub repos, and/or you want to exercise the full test
 suite (some tests in `tests/lib/test_git.py` are skipped if this environment variable
 is missing).
+
+### Running jobs locally
+
+Adding jobs locally is most easily done with the `just add-job` command, which
+calls `jobrunner.cli.controller.add_job` with a study repo, an action to run, and
+a backend to run it on e.g.
+```
+just add-job https://github.com/opensafely/test-age-distribution run_all --backend test
+```
+
+As well as URLs this will accept paths to local git repos e.g.
+```
+just add-job ../test-age-distribution run_all --backend test
+```
+
+In order to pick up and execute the job, you need to run the three job-runner
+components. In separate terminal windows, run:
+
+```
+# Controller service
+just run-controller
+
+# Controller django app
+just run-app
+
+# Agent service
+just run-agent
+```
+
+You should see the controller pick up the new job and create a RUNJOB task for it.
+In the controller app terminal, you'll see the agent poll for new tasks every second or so.
+Then the agent will receive the new task, execute the job, and call the controller app
+to update the controller after each step.
+
+See the full set of options `add-job` will accept with:
+```
+just add_job --help
+```
+Outputs and logs from the job can be found at `workdir/high_privacy` and `workdir/medium_privacy`.
+Note that `add-job` adds a job with a workspace named `test` by default, so e.g. high privacy
+outputs will be found in `workdir/high_privacy/workspaces/test`.
+
+### Running locally with a local job-server
+
+To run a more complete system locally, you can connect your local agent and controller components to
+a locally running job-server.
+
+#### Setup and run job-server locally
+Setup a local job-server as described in the [job-server docs](https://github.com/opensafely-core/job-server/blob/main/DEVELOPERS.md#local-development).
+
+If using a [fresh install](https://github.com/opensafely-core/job-server/blob/main/DEVELOPERS.md#setting-up-a-fresh-install) ensure that you have a backend called "test" (others can be set up and
+configured later). Run the local server and go to http://localhost:8000/staff/backends to find the
+token for this backend - we'll need it shortly. Also make sure you have at least one project/workspace
+set up.
+
+Make sure that your `.env` file has a valid PAT (a classic PAT with repo scope) for the `JOBSERVER_GITHUB_TOKEN`.
+
+#### Configure job-runner settings
+
+Ensure that the following variables are set in your `.env` file:
+
+```
+# These must be obtained from your local job-server and must be the same
+# CONTROLLER_TASK_API_TOKEN is used by the Agent to authenticate with the Controller API
+# We currently reuse job-server's backend tokens for this
+# TEST_JOB_SERVER_TOKEN is used by the Controller when communicating with job-server
+CONTROLLER_TASK_API_TOKEN=<token obtained from local job-server for the test backend>
+TEST_JOB_SERVER_TOKEN=<token obtained from local job-server for the test backend>
+
+# These are all set by default in dotenv-sample
+BACKENDS=test
+BACKEND=test
+CONTROLLER_TASK_API_ENDPOINT=http://localhost:3000/
+JOB_SERVER_ENDPOINT=https://localhost:8000/api/v2/
+```
+
+#### Run all the things
+
+In 4 (yes, 4!) terminal windows, run:
+
+In job-server repo:
+1) Run the server: `just run`
+
+In job-runner repo:
+2) Run web app: `just run-app`
+3) Run agent service (main and metrics loops): `just run-agent-service` (or `just run-agent` to run without metrics)
+4) Run controller service (main and sync loops): `just run-controller-service`
+
+In your terminals you should see:
+1) job-server: /api/v2/job-requests is called repeatedly (by the controller sync loop)
+2) controller web app: /test/tasks/ is called every 2 seconds (by the agent)
+3) & 4) Agent and Controller don't report any activity after start up
+
+
+#### Submit a job
+Go to your local job-server at http://localhost:8000 and submit a job for the workspace
+you set up earlier.  In your terminals you should see the job request be submitted on
+job-server, picked up by the controller service and jobs created, executed on the agent,
+and updated via the controller web app.
+
+
+#### Simulating multiple backends
+
+To add another backend, "foo":
+1) Setup the backend on your local job-server
+2) in .env:
+   - Add FOO_JOB_SERVER_TOKEN with the backend token from job-server
+   - set BACKENDS=test,foo
+
+The controller will now check for jobs for both backends ("test" and "foo"). Locally we can
+only pretend to be one backend's Agent, so only "test" jobs will be picked up and executed by the
+agent. To execute "foo" jobs, set `BACKEND=foo`. Remember to restart all the things to pick up the
+new environment variables everywhere.
+
+
+### Testing
+
+
+Tests can be run with:
+
+    just test
+
+Some of these tests involve talking to GitHub and there is a big fat
+integration test which takes a while to run. You can run just the fast
+tests with:
+
+    just test-fast
+
+The big integration test takes several seconds to run.
+If you want to know what it's up to you can get pytest to show the log output with:
+
+    just test-verbose
+
+#### Testing in docker
+
+To run tests in docker, simply run:
+
+    just docker/test
+
+This will build the docker image and run tests.
+
+You can run a command inside the docker image with:
+
+    just docker/run ARGS=command  # bash by default
+
+
+There is also a functional test that runs in docker. This runs the controller and agent
+in separate docker containers, and adds and runs a job.
+
+    just docker/functional-test
+
 
 ## Operating principles
 
@@ -343,85 +508,6 @@ Additional state diagrams including notes on the state of docker containers and 
 - [Agent state diagram](docs/agent_state_diagram.md)
 
 There are also
-
-## Testing
-
-
-Tests can be run with:
-
-    just test
-
-Some of these tests involve talking to GitHub and there is a big fat
-integration test which takes a while to run. You can run just the fast
-tests with:
-
-    just test-fast
-
-The big integration test takes several seconds to run.
-If you want to know what it's up to you can get pytest to show the log output with:
-
-    just test-verbose
-
-### Testing in docker
-
-To run tests in docker, simply run:
-
-    just docker/test
-
-This will build the docker image and run tests.
-
-You can run a command inside the docker image with:
-
-    just docker/run ARGS=command  # bash by default
-
-
-There is also a functional test that runs in docker. This runs the controller and agent
-in separate docker containers, and adds and runs a job.
-
-    just docker/functional-test
-
-
-## Running jobs locally
-
-Adding jobs locally is most easily done with the `just add-job` command, which
-calls `jobrunner.cli.controller.add_job` with a study repo, an action to run, and
-a backend to run it on e.g.
-```
-just add-job https://github.com/opensafely/test-age-distribution run_all --backend test
-```
-
-As well as URLs this will accept paths to local git repos e.g.
-```
-just add-job ../test-age-distribution run_all --backend test
-```
-
-In order to pick up and execute the job, you need to run the three job-runner
-components. In separate terminal windows, run:
-
-```
-# Controller service
-just run-controller
-
-# Controller django app
-just run-app
-
-# Agent service
-just run-agent
-```
-
-You should see the controller pick up the new job and create a RUNJOB task for it.
-In the controller app terminal, you'll see the agent poll for new tasks every second or so.
-Then the agent will receive the new task, execute the job, and call the controller app
-to update the controller after each step.
-
-See the full set of options `add-job` will accept with:
-```
-just add_job --help
-```
-Outputs and logs from the job can be found at `workdir/high_privacy` and `workdir/medium_privacy`.
-Note that `add-job` adds a job with a workspace named `test` by default, so e.g. high privacy
-outputs will be found in `workdir/high_privacy/workspaces/test`.
-
 
 ## Running jobs on the test backend
 
