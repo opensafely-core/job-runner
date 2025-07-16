@@ -11,7 +11,7 @@ from common.lib.log_utils import configure_logging
 def main():
     """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "controller.webapp.settings")
-    tracing.setup_default_tracing()
+    tracing.setup_default_tracing("manage")
     configure_logging()
 
     try:
