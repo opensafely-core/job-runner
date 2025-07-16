@@ -185,3 +185,6 @@ run-agent-service: devenv
 
 run-controller-service: devenv
     $BIN/python -m controller.service
+
+run:
+    { just run-app & just run-agent-service & just run-controller-service; }
