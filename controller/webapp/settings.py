@@ -102,7 +102,7 @@ WSGI_APPLICATION = "controller.webapp.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
+        "NAME": "workdir/db.sqlite",
     }
 }
 
