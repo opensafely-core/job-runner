@@ -47,7 +47,7 @@ CONTROLLER_TASK_API_ENDPOINT=http://localhost:3000/
 # USED BY CONTROLLER ONLY
 #########################
 # The endpoint to poll for jobs
-# JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/api/v2/
+# JOB_SERVER_ENDPOINT=http://jobs.opensafely.org/api/v2/
 # If using a local job-server, running on port 8000
 JOB_SERVER_ENDPOINT=https://localhost:8000/api/v2/
 
