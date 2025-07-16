@@ -101,11 +101,14 @@ def update_task(request, backend):
 def create_rap(request):
     fixtures_path = Path(__file__).parent.parent.parent.resolve() / "tests" / "fixtures"
     rap = RAP(
+        id="1234",
         repo_url=str(fixtures_path / "git-repo"),
-        commit="cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
-        branch="v1",
-        requested_actions="...",
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        # TODO: rename default branch in fixture
+        branch="master",
+        requested_actions=["generate_dataset"],
         workspace="test",
+        codelists_ok=True,
         backend="test",
         database_name="default",
     )

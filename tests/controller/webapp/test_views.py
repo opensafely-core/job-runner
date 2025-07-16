@@ -266,3 +266,10 @@ def test_create_rap(db, client, monkeypatch):
     response = client.post(reverse("create_rap"))
 
     assert response.status_code == 200
+
+
+def test_create_rap_rerun(db, client):
+    # create a `generate_dataset` action which has run then this should fail
+    # because `force_run_dependencies` is missing from our dataclass
+    response = client.post(reverse("create_rap"))
+    assert response.status_code == 200
