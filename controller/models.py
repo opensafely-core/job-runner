@@ -138,6 +138,17 @@ class JobRequest:
     original: dict = None
 
 
+@dataclasses.dataclass
+class RAP:
+    repo_url: str
+    commit: str
+    branch: str
+    requested_actions: list
+    workspace: str
+    database_name: str
+    backend: str
+
+
 # This stores the original JobRequest as received from the job-server. Once
 # we've created the relevant Jobs we have no real need for the JobRequest
 # object, but elements from the original JSON data from job-server can be

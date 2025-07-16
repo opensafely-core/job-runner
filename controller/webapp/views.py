@@ -1,6 +1,7 @@
 import json
 import logging
 from functools import wraps
+from pathlib import Path
 
 from django.http import JsonResponse
 from django.utils import timezone
@@ -12,6 +13,8 @@ from common import config as common_config
 from common.schema import AgentTask
 from common.tracing import set_span_attributes
 from controller import config
+from controller.create_or_update_jobs import create_jobs
+from controller.models import RAP
 from controller.queries import set_flag
 from controller.task_api import get_active_tasks, handle_task_update
 
@@ -93,3 +96,18 @@ def update_task(request, backend):
         return JsonResponse({"error": "Error updating task"}, status=500)
 
     return JsonResponse({"response": "Update successful"}, status=200)
+
+
+def create_rap(request):
+    fixtures_path = Path(__file__).parent.parent.parent.resolve() / "tests" / "fixtures"
+    rap = RAP(
+        repo_url=str(fixtures_path / "git-repo"),
+        commit="cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
+        branch="v1",
+        requested_actions="...",
+        workspace="test",
+        backend="test",
+        database_name="default",
+    )
+    create_jobs(rap)
+    return JsonResponse({"response": "Nothing"}, status=200)
