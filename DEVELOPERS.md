@@ -67,7 +67,20 @@ and *controller* components of the system; in production these components are de
 separately and will only require a subset of the variables set. See comments in the
 file for information on which components require each variable.
 
+Before running any of the components, migrate your database with:
+```
+just migrate
+```
+
+This will apply the required schema and prepare the database for use by the
+components. If the components are run and attempt to access it before this step
+has been done the database may end up ina bad state that can't be recovered
+with `just migrate` and need to be removed.
+
 ### Optional
+
+#### GitHub PAT
+
 Update `.env` to add a value for `PRIVATE_REPO_ACCESS_TOKEN`; this should be a
 developer [GitHub PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#about-personal-access-tokens) with `repo` scope.
 
@@ -75,6 +88,18 @@ This is not required in order to run the project locally, unless you wish to tes
 running jobs from private GitHub repos, and/or you want to exercise the full test
 suite (some tests in `tests/lib/test_git.py` are skipped if this environment variable
 is missing).
+
+#### Docker images
+
+Pull docker images used by the agent for some types of task. If these aren't
+present when needed the agent will raise an exception which mentions which
+image it needs.
+
+```
+docker pull ghcr.io/opensafely-core/ehrql:v1
+docker pull ghcr.io/opensafely-core/python:latest
+docker pull ghcr.io/opensafely-core/r:latest
+```
 
 ### Running jobs locally
 
@@ -87,6 +112,7 @@ just add-job https://github.com/opensafely/test-age-distribution run_all --backe
 
 As well as URLs this will accept paths to local git repos e.g.
 ```
+git clone git@github.com:opensafely/test-age-distribution.git ../test-age-distribution
 just add-job ../test-age-distribution run_all --backend test
 ```
 
@@ -381,7 +407,7 @@ together as a [service](./agent/service.py).
 
 The RAP Controller has two main entrypoints:
 
-- [controller.main](./controller/main.py) polls the database for
+- [controller.main](./controller/main.py) polls its database for
     active jobs and takes appropriate action. This involves creating RUNJOB tasks for
     new jobs, creating CANCELJOB tasks for jobs which have been cancelled, retrieving
     associated tasks for running jobs and updating their status.
@@ -389,7 +415,7 @@ The RAP Controller has two main entrypoints:
 The bulk of the work here is done by the
 [create_or_update_jobs](./controller/create_or_update_jobs.py) module.
 
-Only the Controller has access to the database of Jobs and Tasks.
+Only the Controller has access to its database of Jobs and Tasks.
 
 ### The RAP Controller API
 
