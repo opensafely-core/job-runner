@@ -349,8 +349,9 @@ def job_to_job_definition(job, task_id):
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
     input_job_ids = []
+    workspace_state = calculate_workspace_state(job.backend, job.workspace)
     for action in job.requires_outputs_from:
-        if previous_job_id := job_id_from_action(job.backend, job.workspace, action):
+        if previous_job_id := job_id_from_action(workspace_state, action):
             input_job_ids.append(previous_job_id)
 
     outputs = {}
@@ -547,8 +548,8 @@ def get_reason_job_not_started(job):
             )
 
 
-def job_id_from_action(backend, workspace, action):
-    for job in calculate_workspace_state(backend, workspace):
+def job_id_from_action(workspace_state, action):
+    for job in workspace_state:
         if job.action == action:
             return job.id
 
