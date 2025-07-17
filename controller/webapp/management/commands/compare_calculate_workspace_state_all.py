@@ -33,22 +33,24 @@ def calculate_workspace_state_qs(backend, workspace):
 class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("backend")
-        parser.add_argument("workspace")
 
     def handle(self, *args, **options):
         backend = options["backend"]
-        workspace = options["workspace"]
 
-        # Compare `calculate_workspace_state` performance.
-        (all_jobs, old_jobs), old_time = time_func(
-            calculate_workspace_state, backend, workspace
-        )
-        new_jobs, new_time = time_func(calculate_workspace_state_qs, backend, workspace)
-        self.stdout.write(f"Original: {len(old_jobs)} jobs, {old_time:.4f} sec")
-        self.stdout.write(f"Queryset: {len(new_jobs)} jobs, {new_time:.4f} sec")
-        self.stdout.write(f"ratio: {old_time / new_time:.1f}")
+        workspaces = {j.workspace for j in Job.objects.all()}
+        for workspace in workspaces:
+            # Compare `calculate_workspace_state` performance.
+            (all_jobs, old_jobs), old_time = time_func(
+                calculate_workspace_state, backend, workspace
+            )
+            new_jobs, new_time = time_func(
+                calculate_workspace_state_qs, backend, workspace
+            )
+            self.stdout.write(
+                f"{workspace},{len(all_jobs)}, {len(old_jobs)},{old_time:.6f}, {new_time:.6f}, {old_time / new_time:.1f}"
+            )
 
-        # Check we actually get same results.
-        old_ids = {job.id for job in old_jobs}
-        new_ids = {job.id for job in new_jobs}
-        assert old_ids == new_ids
+            # Check we actually get same results.
+            old_ids = {job.id for job in old_jobs}
+            new_ids = {job.id for job in new_jobs}
+            assert old_ids == new_ids
