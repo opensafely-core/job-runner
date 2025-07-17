@@ -31,6 +31,7 @@ from controller.lib.database import (
     update_where,
 )
 from controller.models import Job, State, StatusCode, Task, TaskType
+from controller.permissions import datasets
 from controller.queries import (
     calculate_workspace_state,
     get_flag_value,
@@ -339,8 +340,13 @@ def job_to_job_definition(job, task_id):
     if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 
-    if job.requires_db and job.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
-        env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] = "True"
+    if job.requires_db:
+        if job.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
+            env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] = "True"
+        job_request = get_saved_job_request(job)
+        env["EHRQL_PERMITTED_TABLES"] = ",".join(
+            datasets.PERMISSIONS.get(job_request["project"], [])
+        )
 
     # Jobs which are running reusable actions pull their code from the reusable
     # action repo, all other jobs pull their code from the study repo
