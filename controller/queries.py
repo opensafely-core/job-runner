@@ -38,7 +38,7 @@ def calculate_workspace_state(backend, workspace):
             ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
             latest_jobs.append(ordered_jobs[0])
 
-    return latest_jobs
+    return (all_jobs, latest_jobs)
 
 
 def group_by(iterable, key):
