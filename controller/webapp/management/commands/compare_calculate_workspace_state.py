@@ -37,13 +37,14 @@ class Command(BaseCommand):
         backend = options["backend"]
         workspace = options["workspace"]
 
+        # Compare `calculate_workspace_state` performance.
         old_jobs, old_time = time_func(calculate_workspace_state, backend, workspace)
         new_jobs, new_time = time_func(calculate_workspace_state_qs, backend, workspace)
-
         self.stdout.write(f"Original: {len(old_jobs)} jobs, {old_time:.4f} sec")
-        self.stdout.write(f"Queryset: {len(new_jobs)}  jobs, {new_time:.4f} sec")
+        self.stdout.write(f"Queryset: {len(new_jobs)} jobs, {new_time:.4f} sec")
         self.stdout.write(f"ratio: {old_time / new_time:.1f}")
 
+        # Check we actually get same results.
         old_ids = {job.id for job in old_jobs}
         new_ids = {job.id for job in new_jobs}
         if old_ids == new_ids:
