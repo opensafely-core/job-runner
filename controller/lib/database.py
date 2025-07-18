@@ -109,7 +109,7 @@ def update_where(itemclass, update_dict, **query_params):
 
 
 def fast_find_where(itemclass, **query_params):
-    table = itemclass.__tablename__
+    table = "job"
     fields = dataclasses.fields(itemclass)
     where, params = query_params_to_sql(query_params)
     sql = f"SELECT * FROM {escape(table)} WHERE {where}"
@@ -437,21 +437,19 @@ def fast_decode_field_values(fields, row, itemclass):
         action=row["action"],  # str
         action_repo_url=row["action_repo_url"],  # str
         action_commit=row["action_commit"],  # str
-        requires_outputs_from=json.loads(row["requires_outputs_from"])
+        requires_outputs_from=(row["requires_outputs_from"])
         if row["requires_outputs_from"] is not None
         else None,  # list
-        wait_for_job_ids=json.loads(row["wait_for_job_ids"])
+        wait_for_job_ids=(row["wait_for_job_ids"])
         if row["wait_for_job_ids"] is not None
         else None,  # list
         run_command=row["run_command"],  # str
         image_id=row["image_id"],  # str
-        output_spec=json.loads(row["output_spec"])
+        output_spec=(row["output_spec"])
         if row["output_spec"] is not None
         else None,  # dict
-        outputs=json.loads(row["outputs"])
-        if row["outputs"] is not None
-        else None,  # dict
-        unmatched_outputs=json.loads(row["unmatched_outputs"])
+        outputs=(row["outputs"]) if row["outputs"] is not None else None,  # dict
+        unmatched_outputs=(row["unmatched_outputs"])
         if row["unmatched_outputs"] is not None
         else None,  # list
         status_message=row["status_message"],  # str
@@ -464,10 +462,10 @@ def fast_decode_field_values(fields, row, itemclass):
         started_at=row["started_at"],  # int
         completed_at=row["completed_at"],  # int
         status_code_updated_at=row["status_code_updated_at"],  # int
-        trace_context=json.loads(row["trace_context"])
+        trace_context=(row["trace_context"])
         if row["trace_context"] is not None
         else None,  # dict
-        level4_excluded_files=json.loads(row["level4_excluded_files"])
+        level4_excluded_files=(row["level4_excluded_files"])
         if row["level4_excluded_files"] is not None
         else None,  # dict
         requires_db=bool(row["requires_db"]),  # bool
