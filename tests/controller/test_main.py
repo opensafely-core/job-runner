@@ -873,6 +873,7 @@ def test_job_definition_defaults(db):
         "memory_limit": "4G",
         "output_spec": {},
         "study": {
+            "branch": "main",
             "commit": None,
             "git_repo_url": "opensafely/study",
         },

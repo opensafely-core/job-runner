@@ -29,6 +29,12 @@ JOB_REQUEST_DEFAULTS = {
         "project": "project",
         "orgs": ["org1", "org2"],
         "backend": "test",
+        "workspace": {
+            "name": "workspace",
+            "repo": "repo_url",
+            "commit": "commit",
+            "branch": "main",
+        },
     },
 }
 
