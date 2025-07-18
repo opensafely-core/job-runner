@@ -54,6 +54,7 @@ class JobDefinition:
 
     @classmethod
     def from_dict(cls, data: dict):
+        data = data.copy()
         # Create the nested Study instance
         study_data = data.pop("study", {})
         study = Study(
