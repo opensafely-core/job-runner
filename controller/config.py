@@ -92,10 +92,6 @@ STATA_LICENSE = os.environ.get("STATA_LICENSE")
 ACTIONS_GITHUB_ORG = "opensafely-actions"
 ACTIONS_GITHUB_ORG_URL = f"https://github.com/{ACTIONS_GITHUB_ORG}"
 
-ALLOWED_GITHUB_ORGS = (
-    os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely").strip().split(",")
-)
-
 
 def parse_job_resource_weights(config_file_template):
     """
