@@ -1,12 +1,11 @@
 import sqlite3
 import time
 from itertools import groupby
-from operator import attrgetter
 
 from opentelemetry import trace
 
-from controller.lib.database import find_one, find_where, upsert
-from controller.models import Flag, Job, SavedJobRequest
+from controller.lib.database import fast_find_where, find_one, find_where, upsert
+from controller.models import Flag, SavedJobRequest, TestJob
 
 
 tracer = trace.get_tracer("db")
@@ -20,8 +19,8 @@ def calculate_workspace_state(backend, workspace):
     create_or_update_jobs.create_failed_job()).
     """
     with tracer.start_as_current_span("calculate_workspace_state_db") as span:
-        all_jobs = find_where(
-            Job, workspace=workspace, cancelled=False, backend=backend
+        all_jobs = fast_find_where(
+            TestJob, workspace=workspace, cancelled=False, backend=backend
         )
         span.set_attribute("job_count", len(all_jobs))
         span.set_attribute("job.workspace", workspace)
@@ -31,14 +30,14 @@ def calculate_workspace_state(backend, workspace):
         span.set_attribute("job_count", len(all_jobs))
         span.set_attribute("job.workspace", workspace)
         span.set_attribute("job.backend", backend)
-        latest_jobs = []
-        for action, jobs in group_by(all_jobs, attrgetter("action")):
-            if action == "__error__":
-                continue
-            ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
-            latest_jobs.append(ordered_jobs[0])
+        latest_jobs = all_jobs
+        # for action, jobs in group_by(all_jobs, attrgetter("action")):
+        #     if action == "__error__":
+        #         continue
+        #     ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
+        #     latest_jobs.append(ordered_jobs[0])
 
-    return latest_jobs
+    return (all_jobs, latest_jobs)
 
 
 def group_by(iterable, key):
