@@ -164,33 +164,33 @@ class SavedJobRequest:
 class TestJob:
     id: str
     job_request_id: str
-    state: str
-    repo_url: str
-    commit: str
-    workspace: str
-    database_name: str
+    # state: str
+    # repo_url: str
+    # commit: str
+    # workspace: str
+    # database_name: str
     action: str
-    action_repo_url: str
-    action_commit: str
-    requires_outputs_from: str
-    wait_for_job_ids: str
-    run_command: str
-    image_id: str
-    output_spec: str
-    outputs: str
-    unmatched_outputs: str
-    status_message: str
-    status_code: str
-    cancelled: bool
+    # action_repo_url: str
+    # action_commit: str
+    # requires_outputs_from: str
+    # wait_for_job_ids: str
+    # run_command: str
+    # image_id: str
+    # output_spec: str
+    # outputs: str
+    # unmatched_outputs: str
+    # status_message: str
+    # status_code: str
+    # cancelled: bool
     created_at: int
-    updated_at: int
-    started_at: int
-    completed_at: int
-    trace_context: str
-    status_code_updated_at: int
-    level4_excluded_files: str
-    requires_db: bool
-    backend: str
+    # updated_at: int
+    # started_at: int
+    # completed_at: int
+    # trace_context: str
+    # status_code_updated_at: int
+    # level4_excluded_files: str
+    # requires_db: bool
+    # backend: str
 
 
 @databaseclass

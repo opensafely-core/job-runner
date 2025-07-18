@@ -426,51 +426,37 @@ def fast_decode_field_values(fields, row, itemclass):
     #     values.append(value)
     # breakpoint()
 
-    return itemclass(
-        id=row["id"],
-        job_request_id=row["job_request_id"],  # str
-        state=fields[2].type(row["state"]),  # - <enum 'State'>
-        repo_url=row["repo_url"],  # str
-        commit=row["commit"],  # str
-        workspace=row["workspace"],  # str
-        database_name=row["database_name"],  # str
-        action=row["action"],  # str
-        action_repo_url=row["action_repo_url"],  # str
-        action_commit=row["action_commit"],  # str
-        requires_outputs_from=(row["requires_outputs_from"])
-        if row["requires_outputs_from"] is not None
-        else None,  # list
-        wait_for_job_ids=(row["wait_for_job_ids"])
-        if row["wait_for_job_ids"] is not None
-        else None,  # list
-        run_command=row["run_command"],  # str
-        image_id=row["image_id"],  # str
-        output_spec=(row["output_spec"])
-        if row["output_spec"] is not None
-        else None,  # dict
-        outputs=(row["outputs"]) if row["outputs"] is not None else None,  # dict
-        unmatched_outputs=(row["unmatched_outputs"])
-        if row["unmatched_outputs"] is not None
-        else None,  # list
-        status_message=row["status_message"],  # str
-        status_code=fields[18].type(row["status_code"])
-        if row["status_code"] is not None
-        else None,  # - <enum 'StatusCode'>
-        cancelled=bool(row["cancelled"]),  # bool
-        created_at=row["created_at"],  # int
-        updated_at=row["updated_at"],  # int
-        started_at=row["started_at"],  # int
-        completed_at=row["completed_at"],  # int
-        status_code_updated_at=row["status_code_updated_at"],  # int
-        trace_context=(row["trace_context"])
-        if row["trace_context"] is not None
-        else None,  # dict
-        level4_excluded_files=(row["level4_excluded_files"])
-        if row["level4_excluded_files"] is not None
-        else None,  # dict
-        requires_db=bool(row["requires_db"]),  # bool
-        backend=row["backend"],  # str
-    )
+    return {
+        "id": row["id"],
+        "job_request_id": row["job_request_id"],  # str
+        # state=fields[2].type(row["state"]),  # - <enum 'State'>
+        # 'repo_url': row["repo_url"],  # str
+        # 'commit': row["commit"],  # str
+        # 'workspace': row["workspace"],  # str
+        # 'database_name': row["database_name"],  # str
+        "action": row["action"],  # str
+        # action_repo_url': row["action_repo_url"],  # str
+        # action_commit': row["action_commit"],  # str
+        # requires_outputs_from': row["requires_outputs_from"],  # list
+        # 'wait_for_job_ids': row["wait_for_job_ids"],  # list
+        # 'run_command': row["run_command"],  # str
+        # 'image_id': row["image_id"],  # str
+        # 'output_spec': row["output_spec"],  # dict
+        # 'outputs': row["outputs"],  # dict
+        # 'unmatched_outputs': row["unmatched_outputs"],  # list
+        # 'status_message': row["status_message"],  # str
+        # status_code=fields[18].type(row["status_code"]),  # - <enum 'StatusCode'>
+        # cancelled=bool(row["cancelled"]),  # bool
+        "created_at": row["created_at"],  # int
+        # 'updated_at': row["updated_at"],  # int
+        # 'started_at': row["started_at"],  # int
+        # 'completed_at': row["completed_at"],  # int
+        # 'status_code_updated_at': row["status_code_updated_at"],  # int
+        # 'trace_context': row["trace_context"],  # dict
+        # 'level4_excluded_files': row["level4_excluded_files"],  # dict
+        # requires_db=bool(row["requires_db"]),  # bool
+        # 'backend': row["backend"],  # str
+    }
     # return values
 
 

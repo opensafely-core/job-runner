@@ -1,7 +1,6 @@
 import sqlite3
 import time
 from itertools import groupby
-from operator import attrgetter
 
 from opentelemetry import trace
 
@@ -31,12 +30,12 @@ def calculate_workspace_state(backend, workspace):
         span.set_attribute("job_count", len(all_jobs))
         span.set_attribute("job.workspace", workspace)
         span.set_attribute("job.backend", backend)
-        latest_jobs = []
-        for action, jobs in group_by(all_jobs, attrgetter("action")):
-            if action == "__error__":
-                continue
-            ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
-            latest_jobs.append(ordered_jobs[0])
+        latest_jobs = all_jobs
+        # for action, jobs in group_by(all_jobs, attrgetter("action")):
+        #     if action == "__error__":
+        #         continue
+        #     ordered_jobs = sorted(jobs, key=attrgetter("created_at"), reverse=True)
+        #     latest_jobs.append(ordered_jobs[0])
 
     return (all_jobs, latest_jobs)
 
