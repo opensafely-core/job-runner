@@ -831,6 +831,58 @@ def test_status_code_updated_from_task_timestamp(db, freezer):
     assert job.status_code_updated_at == datetime_to_ns(prepared_at)
 
 
+def test_job_definition_defaults(db):
+    import time
+
+    ts = int(time.time())
+    job_request = job_request_factory(id="test_job_request")
+    job = job_factory(id="test_job", job_request=job_request, created_at=ts)
+    definition = main.job_to_job_definition(job, task_id="task_id")
+
+    assert definition.to_dict() == {
+        "action": "action_name",
+        "allow_database_access": False,
+        "args": [
+            "myscript.py",
+        ],
+        "cpu_count": 2.0,
+        "created_at": ts,
+        "database_name": None,
+        "env": {
+            "OPENSAFELY_BACKEND": "test",
+        },
+        "id": "test_job",
+        "image": "ghcr.io/opensafely-core/python",
+        "input_job_ids": [],
+        "inputs": [],
+        "job_request_id": "test_job_request",
+        "level4_file_types": [
+            ".csv",
+            ".html",
+            ".jpeg",
+            ".jpg",
+            ".json",
+            ".log",
+            ".md",
+            ".png",
+            ".svg",
+            ".svgz",
+            ".txt",
+        ],
+        "level4_max_csv_rows": 5000,
+        "level4_max_filesize": 16777216,
+        "memory_limit": "4G",
+        "output_spec": {},
+        "study": {
+            "branch": "main",
+            "commit": "commit",
+            "git_repo_url": "repo",
+        },
+        "task_id": "task_id",
+        "workspace": "workspace",
+    }
+
+
 @pytest.mark.parametrize(
     "run_command,expect_env",
     [
