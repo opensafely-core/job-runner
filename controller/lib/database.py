@@ -112,7 +112,7 @@ def fast_find_where(itemclass, **query_params):
     table = "job"
     fields = dataclasses.fields(itemclass)
     where, params = query_params_to_sql(query_params)
-    sql = f"SELECT * FROM {escape(table)} WHERE {where}"
+    sql = f"SELECT id, job_request_id, action, created_at FROM {escape(table)} WHERE {where}"
     cursor = get_connection().execute(sql, params)
     return [fast_decode_field_values(fields, row, itemclass) for row in cursor]
     # return [itemclass(*decode_field_values(fields, row)) for row in cursor]
