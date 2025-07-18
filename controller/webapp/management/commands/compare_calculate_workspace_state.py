@@ -26,7 +26,8 @@ def calculate_workspace_state_qs(backend, workspace):
             order_by=F("created_at").desc(),
         )
     ).filter(pk=F("latest_pk"))
-    # breakpoint()
+
+    len(ret)
     return ret
 
 
