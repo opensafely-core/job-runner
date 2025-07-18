@@ -26,7 +26,7 @@ FIXTURES_PATH = Path(__file__).parent.parent.resolve() / "fixtures"
 
 @pytest.fixture(autouse=True)
 def disable_github_org_checking(monkeypatch):
-    monkeypatch.setattr("controller.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("common.config.ALLOWED_GITHUB_ORGS", None)
 
 
 # Basic smoketest to test the full execution path
@@ -341,13 +341,13 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
             JobRequestError,
         ),
         (
-            {"controller": {"ALLOWED_GITHUB_ORGS": ["test"]}},
+            {"common": {"ALLOWED_GITHUB_ORGS": ["test"]}},
             {"repo_url": "https://not-gihub.com/invalid"},
             "must start https://github.com",
             GithubValidationError,
         ),
         (
-            {"controller": {"ALLOWED_GITHUB_ORGS": ["test"]}},
+            {"common": {"ALLOWED_GITHUB_ORGS": ["test"]}},
             {"repo_url": "https://github.com/test"},
             "Repository URL was not of the expected format",
             GithubValidationError,
