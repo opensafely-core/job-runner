@@ -36,6 +36,7 @@ JOB_REQUEST_DEFAULTS = {
             "name": "workspace",
             "repo": DEFAULT_REPO,
             "commit": DEFAULT_COMMIT,
+            "branch": "main",
         },
     },
 }

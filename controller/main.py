@@ -348,9 +348,14 @@ def job_to_job_definition(job, task_id):
             datasets.PERMISSIONS.get(job_request["project"], [])
         )
 
+    original_job_request = get_saved_job_request(job)
     # Jobs which are running reusable actions pull their code from the reusable
     # action repo, all other jobs pull their code from the study repo
-    study = Study(job.action_repo_url or job.repo_url, job.action_commit or job.commit)
+    study = Study(
+        job.action_repo_url or job.repo_url,
+        job.action_commit or job.commit,
+        original_job_request["workspace"]["branch"],
+    )
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
