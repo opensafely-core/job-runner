@@ -16,6 +16,7 @@ from controller.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
 from tests.factories import (
     job_factory,
+    job_request_factory,
     job_task_results_factory,
     runjob_db_task_factory,
 )
@@ -827,6 +828,58 @@ def test_status_code_updated_from_task_timestamp(db, freezer):
     # Updated at has changes, status_code_updated_at remains at the prepared time
     assert job.updated_at == int(mock_now1.timestamp())
     assert job.status_code_updated_at == datetime_to_ns(prepared_at)
+
+
+def test_job_definition_defaults(db):
+    import time
+
+    ts = int(time.time())
+    job_request = job_request_factory(id="test_job_request")
+    job = job_factory(id="test_job", job_request=job_request, created_at=ts)
+    definition = main.job_to_job_definition(job, task_id="task_id")
+
+    assert definition.to_dict() == {
+        "action": "action_name",
+        "allow_database_access": False,
+        "args": [
+            "myscript.py",
+        ],
+        "cpu_count": 2.0,
+        "created_at": ts,
+        "database_name": None,
+        "env": {
+            "OPENSAFELY_BACKEND": "test",
+        },
+        "id": "test_job",
+        "image": "ghcr.io/opensafely-core/python",
+        "input_job_ids": [],
+        "inputs": [],
+        "job_request_id": "test_job_request",
+        "level4_file_types": [
+            ".csv",
+            ".html",
+            ".jpeg",
+            ".jpg",
+            ".json",
+            ".log",
+            ".md",
+            ".png",
+            ".svg",
+            ".svgz",
+            ".txt",
+        ],
+        "level4_max_csv_rows": 5000,
+        "level4_max_filesize": 16777216,
+        "memory_limit": "4G",
+        "output_spec": {},
+        "study": {
+            "branch": "main",
+            "commit": None,
+            "git_repo_url": "opensafely/study",
+        },
+        "task_id": "task_id",
+        "workspace": "workspace",
+    }
 
 
 @pytest.mark.parametrize(

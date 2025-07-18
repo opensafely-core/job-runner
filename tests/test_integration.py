@@ -39,7 +39,7 @@ def set_agent_config(monkeypatch, tmp_work_dir):
     # backend, with the default value. We set it explicitly here to confirm that it
     # doesn't trigger any errors if it is invalid for the agent i.e. it's not used)
     monkeypatch.setattr("controller.config.JOB_SERVER_ENDPOINT", None)
-    monkeypatch.setattr("controller.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("common.config.ALLOWED_GITHUB_ORGS", None)
     monkeypatch.setattr("controller.config.MAX_WORKERS", None)
 
     # This is controller config, but we need it to be set during the agent part of the
@@ -54,7 +54,7 @@ def set_controller_config(monkeypatch):
     )
     monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "token"})
     # Disable repo URL checking so we can run using a local test repo
-    monkeypatch.setattr("controller.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("common.config.ALLOWED_GITHUB_ORGS", None)
     # Ensure that we have enough workers to start the jobs we expect in the test
     # (CI may have fewer actual available workers than this)
     monkeypatch.setattr("controller.config.MAX_WORKERS", {"test": 4})

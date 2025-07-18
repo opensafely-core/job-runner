@@ -13,6 +13,7 @@ class Privacy(Enum):
 class Study:
     git_repo_url: str
     commit: str
+    branch: str
 
 
 @dataclass
@@ -56,7 +57,9 @@ class JobDefinition:
         # Create the nested Study instance
         study_data = data.pop("study", {})
         study = Study(
-            git_repo_url=study_data.get("git_repo_url"), commit=study_data.get("commit")
+            git_repo_url=study_data.get("git_repo_url"),
+            commit=study_data.get("commit"),
+            branch=study_data.get("branch"),
         )
         # Ensure any dict used to construct a JobDefinition has a task_id key
         if "task_id" not in data:

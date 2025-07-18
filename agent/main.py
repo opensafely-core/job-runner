@@ -202,7 +202,7 @@ def handle_run_job_task(task, api):
                 update_job_task(task, job_status, previous_status=job_status)
 
             case ExecutorState.UNKNOWN:
-                # a new job
+                # a new job, check it is valid, mainly for security
                 # prepare is synchronous, which means set our code to PREPARING
                 # before calling  api.prepare(), and we expect it to be PREPARED
                 # when finished

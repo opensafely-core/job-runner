@@ -278,7 +278,9 @@ def test_prepare_archived(ext, job_definition):
 
 @pytest.mark.needs_docker
 def test_prepare_job_bad_commit(docker_cleanup, job_definition, test_repo):
-    job_definition.study = Study(git_repo_url=str(test_repo.path), commit="bad-commit")
+    job_definition.study = Study(
+        git_repo_url=str(test_repo.path), commit="bad-commit", branch="main"
+    )
 
     with pytest.raises(local.LocalDockerError) as exc_info:
         local.prepare_job(job_definition)

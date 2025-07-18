@@ -7,6 +7,13 @@ class GithubValidationError(Exception):
     pass
 
 
+def validate_repo_and_commit(allowed_gitub_orgs, repo_url, commit, branch):
+    # just validating http prefix allows local git repos, useful for tests
+    if repo_url.startswith("http"):
+        validate_repo_url(repo_url, allowed_gitub_orgs)
+    validate_branch_and_commit(repo_url, commit, branch)
+
+
 def validate_repo_url(repo_url, allowed_gitub_orgs):
     parsed_url = urlparse(repo_url)
     if parsed_url.scheme != "https" or parsed_url.netloc != "github.com":
