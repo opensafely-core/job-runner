@@ -5,7 +5,7 @@ from operator import attrgetter
 
 from opentelemetry import trace
 
-from controller.lib.database import find_one, find_where, upsert
+from controller.lib.database import fast_find_where, find_one, find_where, upsert
 from controller.models import Flag, Job, SavedJobRequest
 
 
@@ -20,7 +20,7 @@ def calculate_workspace_state(backend, workspace):
     create_or_update_jobs.create_failed_job()).
     """
     with tracer.start_as_current_span("calculate_workspace_state_db") as span:
-        all_jobs = find_where(
+        all_jobs = fast_find_where(
             Job, workspace=workspace, cancelled=False, backend=backend
         )
         span.set_attribute("job_count", len(all_jobs))
