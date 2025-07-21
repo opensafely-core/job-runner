@@ -12,6 +12,7 @@ from controller.lib.database import update_where
 from controller.models import Task, TaskType
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
+from tests.factories import job_request_factory
 
 
 def assert_state_change_logs(caplog, state_changes):
@@ -27,7 +28,7 @@ def assert_state_change_logs(caplog, state_changes):
         ]
 
 
-def test_handle_tasks_error(db, caplog, responses, live_server, monkeypatch):
+def test_handle_tasks_executor_error(db, caplog, responses, live_server, monkeypatch):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
@@ -50,6 +51,42 @@ def test_handle_tasks_error(db, caplog, responses, live_server, monkeypatch):
     assert spans[1].attributes["errored_tasks"] == 1
 
     assert caplog.records[0].msg == "task error"
+
+
+@pytest.mark.parametrize(
+    "repo,commit,exc_msg",
+    [
+        (
+            "https://github.com/otherorg/documentation",
+            "doesnotmatter",
+            "Repositories must belong to one of the following Github organisations",
+        ),
+        (
+            "https://github.com/opensafely/documentation",
+            "doesnotexist",
+            "Could not find commit on branch 'main': doesnotexist",
+        ),
+    ],
+)
+def test_handle_tasks_github_validation(
+    db, caplog, responses, live_server, monkeypatch, repo, commit, exc_msg
+):
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
+    responses.add_passthru(live_server.url)
+
+    api = StubExecutorAPI()
+
+    job_request = job_request_factory(repo_url=repo, commit=commit)
+
+    task, job_id = api.add_test_runjob_task(
+        ExecutorState.UNKNOWN, job_request=job_request
+    )
+
+    msg = "Some tasks failed, restarting agent loop"
+    with pytest.raises(Exception, match=msg):
+        main.handle_tasks(api)
+
+    assert exc_msg in str(caplog.records[0].exc_info[1])
 
 
 def test_handle_job_full_execution(
