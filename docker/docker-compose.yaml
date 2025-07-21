@@ -31,10 +31,14 @@ services:
     group_add: ["${DOCKER_HOST_GROUPID}"]
     # paths are relative to docker-compose.yaml
     volumes:
+      # use the default dev workdir, but do not create it
+      - type: bind
+        source: ../workdir
+        target: /workdir
+        bind:
+          create_host_path: false
       # docker control
       - /var/run/docker.sock:/var/run/docker.sock
-      # use the default dev workdir
-      - ../workdir:/workdir
       # used to avoid ugly uid/gid lookup failures, but not strictly required
       - /etc/group:/etc/group:ro
       - /etc/passwd:/etc/passwd:ro

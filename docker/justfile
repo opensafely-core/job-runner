@@ -46,8 +46,12 @@ docker-compose-env:
     USING_DUMMY_DATA_BACKEND=True
     EOF
 
+# ensure workdir exists
+_workdir:
+    mkdir -p ../workdir/repos
+
 # run tests in docker container
-test *args: build
+test *args: build _workdir
     #!/bin/bash
     docker compose run --rm test {{ args }}
 
@@ -77,11 +81,11 @@ functional-test: (build 'prod')
     docker logs -n 10 $container |& grep "Completed successfully"
 
 # run command in dev container
-run env="dev" *args="": (build env)
+run env="dev" *args="": (build env) _workdir
     docker compose run --rm {{ env }} {{ args }}
 
 # exec command in existing dev container
-exec *args="bash":
+exec *args="bash": _workdir
     docker compose exec dev {{ args }}
 
 clean:
