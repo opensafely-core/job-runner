@@ -69,7 +69,7 @@ def test_handle_tasks_executor_error(db, caplog, responses, live_server, monkeyp
     ],
 )
 def test_handle_tasks_github_validation(
-    db, caplog, responses, live_server, monkeypatch, repo, commit, exc_msg
+    db, caplog, responses, live_server, monkeypatch, tmp_work_dir, repo, commit, exc_msg
 ):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
