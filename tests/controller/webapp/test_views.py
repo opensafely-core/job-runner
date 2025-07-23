@@ -260,3 +260,16 @@ def test_update_task_view_tracing(db, client, monkeypatch):
     # custom attributes
     assert last_trace.attributes["backend"] == "test"
     assert last_trace.attributes["task_id"] == task.id
+
+
+def test_create_rap(db, client, monkeypatch):
+    response = client.post(reverse("create_rap"))
+
+    assert response.status_code == 200
+
+
+def test_create_rap_rerun(db, client):
+    # create a `generate_dataset` action which has run then this should fail
+    # because `force_run_dependencies` is missing from our dataclass
+    response = client.post(reverse("create_rap"))
+    assert response.status_code == 200
