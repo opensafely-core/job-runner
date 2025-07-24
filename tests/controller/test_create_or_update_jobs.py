@@ -479,6 +479,13 @@ def create_jobs_with_project_file(job_request, project_file):
         return create_jobs(job_request)
 
 
+def test_create_jobs_tracing(db, tmp_work_dir):
+    create_jobs_with_project_file(
+        make_job_request(action="prepare_data_1"), TEST_PROJECT
+    )
+    get_trace("create_jobs")
+
+
 def test_create_job_from_exception(db):
     job_request = job_request_factory_raw()
 
