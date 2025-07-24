@@ -49,5 +49,7 @@ VALID_DATABASE_NAMES = ["default", "include_t1oo"]
 
 # What github organisations we are allowed to checkout code from
 ALLOWED_GITHUB_ORGS = (
-    os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely").strip().split(",")
+    os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely,opensafely-actions")
+    .strip()
+    .split(",")
 )

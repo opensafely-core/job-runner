@@ -59,7 +59,7 @@ def test_handle_tasks_executor_error(db, caplog, responses, live_server, monkeyp
         (
             "https://github.com/otherorg/documentation",
             "doesnotmatter",
-            "Repositories must belong to one of the following Github organisations",
+            "does not belong to one of the following Github organisations",
         ),
         (
             "https://github.com/opensafely/documentation",
