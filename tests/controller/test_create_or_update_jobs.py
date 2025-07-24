@@ -482,9 +482,12 @@ def create_jobs_with_project_file(job_request, project_file):
 def test_create_jobs_tracing(db, tmp_work_dir):
     assert count_where(Job) == 0
 
-    create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1"), TEST_PROJECT
-    )
+    with mock.patch.object(
+        JobRequest, "get_tracing_span_attributes", return_value={"foo": "bar"}
+    ):
+        create_jobs_with_project_file(
+            make_job_request(action="prepare_data_1"), TEST_PROJECT
+        )
     spans = get_trace("controller.create_or_update_jobs")
 
     assert {span.name for span in spans} == {
@@ -497,8 +500,7 @@ def test_create_jobs_tracing(db, tmp_work_dir):
     }
 
     assert spans[-1].name == "create_jobs"
-    assert spans[-1].attributes["backend"] == "test"
-    assert spans[-1].attributes["workspace"] == "1"
+    assert spans[-1].attributes["foo"] == "bar"  # patched
     assert spans[-1].attributes["len_latest_jobs"] == 0
     assert spans[-1].attributes["len_new_jobs"] == 2
 

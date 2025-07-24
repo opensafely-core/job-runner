@@ -85,11 +85,11 @@ def create_or_update_jobs(job_request):
 
 
 def create_jobs(job_request):
-    with tracer.start_as_current_span("create_jobs") as span:
+    with tracer.start_as_current_span(
+        "create_jobs", attributes=job_request.get_tracing_span_attributes()
+    ) as span:
         validate_job_request(job_request)
         project_file = get_project_file(job_request)
-        span.set_attribute("backend", job_request.backend)
-        span.set_attribute("workspace", job_request.workspace)
 
         with tracer.start_as_current_span("create_jobs.load_pipeline"):
             pipeline_config = load_pipeline(project_file)
