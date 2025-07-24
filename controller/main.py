@@ -348,6 +348,10 @@ def job_to_job_definition(job, task_id):
             datasets.PERMISSIONS.get(job_request["project"], [])
         )
 
+    # we need branch information, which is currently only in the original job
+    # request data. We are trying to avoid changing the db schema whilst RAP
+    # API step 2 work is going on, so we just grab the original request. In
+    # future, I expect rewriting the OPM to use django will fix this.
     original_job_request = get_saved_job_request(job)
     # Jobs which are running reusable actions pull their code from the reusable
     # action repo, all other jobs pull their code from the study repo
