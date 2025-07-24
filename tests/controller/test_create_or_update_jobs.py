@@ -480,18 +480,29 @@ def create_jobs_with_project_file(job_request, project_file):
 
 
 def test_create_jobs_tracing(db, tmp_work_dir):
+    assert count_where(Job) == 0
+
     create_jobs_with_project_file(
         make_job_request(action="prepare_data_1"), TEST_PROJECT
     )
     spans = get_trace("create_jobs")
 
-    assert len(spans) == 1
+    assert {span.name for span in spans} == {
+        "create_jobs.load_pipeline",
+        "create_jobs.get_latest_jobs",
+        "create_jobs.get_new_jobs",
+        "create_jobs.resolve_refs",
+        "create_jobs.insert_into_database",
+        "create_jobs",
+    }
 
-    assert spans[0].name == "create_jobs"
-    assert spans[0].attributes["backend"] == "test"
-    assert spans[0].attributes["workspace"] == "1"
-    assert spans[0].attributes["len_latest_jobs"] == 0
-    assert spans[0].attributes["len_new_jobs"] == 2
+    assert spans[-1].name == "create_jobs"
+    assert spans[-1].attributes["backend"] == "test"
+    assert spans[-1].attributes["workspace"] == "1"
+    assert spans[-1].attributes["len_latest_jobs"] == 0
+    assert spans[-1].attributes["len_new_jobs"] == 2
+
+    assert count_where(Job) == 2
 
 
 def test_create_job_from_exception(db):

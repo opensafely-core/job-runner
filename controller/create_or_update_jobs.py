@@ -91,15 +91,20 @@ def create_jobs(job_request):
         span.set_attribute("backend", job_request.backend)
         span.set_attribute("workspace", job_request.workspace)
 
-        pipeline_config = load_pipeline(project_file)
-        latest_jobs = get_latest_jobs_for_actions_in_project(
-            job_request.backend, job_request.workspace, pipeline_config
-        )
+        with tracer.start_as_current_span("create_jobs.load_pipeline"):
+            pipeline_config = load_pipeline(project_file)
+
+        with tracer.start_as_current_span("create_jobs.get_latest_jobs"):
+            latest_jobs = get_latest_jobs_for_actions_in_project(
+                job_request.backend, job_request.workspace, pipeline_config
+            )
         span.set_attribute("len_latest_jobs", len(latest_jobs))
 
-        new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
+        with tracer.start_as_current_span("create_jobs.get_new_jobs"):
+            new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
         assert_new_jobs_created(job_request, new_jobs, latest_jobs)
-        resolve_reusable_action_references(new_jobs)
+        with tracer.start_as_current_span("create_jobs.resolve_refs"):
+            resolve_reusable_action_references(new_jobs)
 
         # check for database actions in the new jobs, and raise an exception if
         # codelists are out of date
@@ -119,10 +124,11 @@ def create_jobs(job_request):
         # (It is also possible that someone could delete files off disk that are
         # needed by a particular job, but there's not much we can do about that
         # other than fail gracefully when trying to start the job.)
-        insert_into_database(job_request, new_jobs)
+        with tracer.start_as_current_span("create_jobs.insert_into_database"):
+            insert_into_database(job_request, new_jobs)
+
         len_new_jobs = len(new_jobs)
         span.set_attribute("len_new_jobs", len_new_jobs)
-
         return len_new_jobs
 
 
