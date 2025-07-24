@@ -483,7 +483,15 @@ def test_create_jobs_tracing(db, tmp_work_dir):
     create_jobs_with_project_file(
         make_job_request(action="prepare_data_1"), TEST_PROJECT
     )
-    get_trace("create_jobs")
+    spans = get_trace("create_jobs")
+
+    assert len(spans) == 1
+
+    assert spans[0].name == "create_jobs"
+    assert spans[0].attributes["backend"] == "test"
+    assert spans[0].attributes["workspace"] == "1"
+    assert spans[0].attributes["len_latest_jobs"] == 0
+    assert spans[0].attributes["len_new_jobs"] == 2
 
 
 def test_create_job_from_exception(db):

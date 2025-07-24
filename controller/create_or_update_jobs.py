@@ -85,13 +85,18 @@ def create_or_update_jobs(job_request):
 
 def create_jobs(job_request):
     tracer = trace.get_tracer("create_jobs")
-    with tracer.start_as_current_span("create_jobs"):
+    with tracer.start_as_current_span("create_jobs") as span:
         validate_job_request(job_request)
         project_file = get_project_file(job_request)
+        span.set_attribute("backend", job_request.backend)
+        span.set_attribute("workspace", job_request.workspace)
+
         pipeline_config = load_pipeline(project_file)
         latest_jobs = get_latest_jobs_for_actions_in_project(
             job_request.backend, job_request.workspace, pipeline_config
         )
+        span.set_attribute("len_latest_jobs", len(latest_jobs))
+
         new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
         assert_new_jobs_created(job_request, new_jobs, latest_jobs)
         resolve_reusable_action_references(new_jobs)
@@ -115,7 +120,10 @@ def create_jobs(job_request):
         # needed by a particular job, but there's not much we can do about that
         # other than fail gracefully when trying to start the job.)
         insert_into_database(job_request, new_jobs)
-        return len(new_jobs)
+        len_new_jobs = len(new_jobs)
+        span.set_attribute("len_new_jobs", len_new_jobs)
+
+        return len_new_jobs
 
 
 def validate_job_request(job_request):
