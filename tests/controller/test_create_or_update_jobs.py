@@ -491,20 +491,22 @@ def test_create_jobs_tracing(db, tmp_work_dir):
     spans = get_trace("controller.create_or_update_jobs")
 
     assert {span.name for span in spans} == {
-        "create_jobs.load_pipeline",
-        "create_jobs.get_latest_jobs",
-        "create_jobs.get_new_jobs",
-        "create_jobs.resolve_refs",
-        "create_jobs.insert_into_database",
         "create_jobs",
     }
 
-    assert spans[-1].name == "create_jobs"
-    assert spans[-1].attributes["foo"] == "bar"  # patched
-    assert spans[-1].attributes["len_latest_jobs"] == 0
-    assert spans[-1].attributes["len_new_jobs"] == 2
+    assert spans[0].name == "create_jobs"
+    assert spans[0].attributes["foo"] == "bar"  # patched
+    assert spans[0].attributes["len_latest_jobs"] == 0
+    assert spans[0].attributes["len_new_jobs"] == 2
 
     assert count_where(Job) == 2
+
+    # time_for_span attributes.
+    assert spans[0].attributes["duration_ms.load_pipeline"]
+    assert spans[0].attributes["duration_ms.get_latest_jobs"]
+    assert spans[0].attributes["duration_ms.get_new_jobs"]
+    assert spans[0].attributes["duration_ms.resolve_refs"]
+    assert spans[0].attributes["duration_ms.insert_into_database"]
 
 
 def test_create_job_from_exception(db):
