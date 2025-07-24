@@ -1,10 +1,16 @@
 import os
+import time
 
 import opentelemetry.exporter.otlp.proto.http.trace_exporter
+from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
-from common.tracing import setup_default_tracing
+from common.tracing import setup_default_tracing, time_for_span
+from tests.conftest import test_exporter
+
+
+tracer = trace.get_tracer(__name__)
 
 
 def test_setup_default_tracing_empty_env(monkeypatch):
@@ -57,3 +63,28 @@ def test_setup_default_tracing_otlp_with_env(monkeypatch):
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == "https://endpoint/v1/traces"
     assert exporter._headers == {"foo": "bar"}
+
+
+def test_time_for_span_explicit_span():
+    with tracer.start_as_current_span("test_span") as span:
+        with time_for_span("block_duration_ms", span):
+            time.sleep(0.01)
+
+    spans = test_exporter.get_finished_spans()
+    outer = next(s for s in spans if s.name == "test_span")
+    assert "block_duration_ms" in outer.attributes
+    # Attached time should be closed to the time we slept for.
+    assert 0.02 >= outer.attributes["block_duration_ms"] >= 0.01
+
+
+def test_time_for_span_current_span():
+    with tracer.start_as_current_span("test_span"):
+        # We don't pass span in explicitly, should default to it as current.
+        with time_for_span("block_duration_ms"):
+            time.sleep(0.01)
+
+    spans = test_exporter.get_finished_spans()
+    outer = next(s for s in spans if s.name == "test_span")
+    assert "block_duration_ms" in outer.attributes
+    # Attached time should be closed to the time we slept for.
+    assert 0.02 >= outer.attributes["block_duration_ms"] >= 0.01
