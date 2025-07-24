@@ -33,6 +33,7 @@ from controller.reusable_actions import (
 
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 class JobRequestError(Exception):
@@ -84,7 +85,6 @@ def create_or_update_jobs(job_request):
 
 
 def create_jobs(job_request):
-    tracer = trace.get_tracer("create_jobs")
     with tracer.start_as_current_span("create_jobs") as span:
         validate_job_request(job_request)
         project_file = get_project_file(job_request)
