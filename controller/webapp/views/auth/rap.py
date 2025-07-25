@@ -9,7 +9,7 @@ from controller import config
 def require_client_token_backend_authentication(view_fn):
     """
     Ensure a valid client authentication token was received
-    and nsure the token is valid for the specified backend
+    and ensure the token is valid for the specified backend
     """
 
     @wraps(view_fn)

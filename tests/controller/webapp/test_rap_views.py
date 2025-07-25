@@ -113,7 +113,7 @@ def test_backends_status_view(db, client, monkeypatch, freezer):
     )
     headers = {"Authorization": "test_token"}
 
-    # set flag for unauthorsised backend
+    # set flag for unauthorised backend
     set_flag("foo", "bar", "test_other_backend")
     # set flag for authorised backends
     set_flag("foo", "bar1", "test_backend1")
