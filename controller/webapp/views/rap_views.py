@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 from controller.queries import get_current_flags
-from controller.webapp.views.auth import require_client_token_backend_authentication
+from controller.webapp.views.auth.rap import require_client_token_backend_authentication
 from controller.webapp.views.tracing import trace_attributes
 
 

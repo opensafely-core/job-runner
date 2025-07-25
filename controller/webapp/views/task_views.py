@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from common.schema import AgentTask
 from controller.queries import set_flag
 from controller.task_api import get_active_tasks, handle_task_update
-from controller.webapp.views.auth import require_backend_authentication
+from controller.webapp.views.auth.task import require_backend_authentication
 from controller.webapp.views.tracing import trace_attributes
 
 
