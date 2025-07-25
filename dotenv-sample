@@ -56,6 +56,13 @@ JOB_SERVER_ENDPOINT=https://localhost:8000/api/v2/
 # If using a local jobserver, obtain the token from http://localhost:8000/staff/backends
 TEST_JOB_SERVER_TOKEN=pass
 
+# Credentials for clients (e.g. job-server) to authenticate with the controller APIs
+# This variable is PER BACKEND i.e. <BACKEND>_CLIENT_TOKEN for each backend
+# and is a comma-separated list of client tokens that are allowed to access information
+# about this backend. These may be duplicated for clients that can request information about
+# multiple backends.
+TEST_CLIENT_TOKENS=token
+
 # Change this to reduce parallelism (per backend)
 # Note this variable is per-backend i.e. <BACKEND>_MAX_WORKERS for each backend
 # TEST_MAX_WORKERS=
