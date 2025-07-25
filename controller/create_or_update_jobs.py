@@ -11,6 +11,7 @@ import logging
 import re
 import time
 
+from opentelemetry import trace
 from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
 from common import config as common_config
@@ -20,6 +21,7 @@ from common.lib.github_validators import (
     validate_branch_and_commit,
     validate_repo_url,
 )
+from common.tracing import duration_ms_as_span_attr
 from controller import config, tracing
 from controller.actions import get_action_specification
 from controller.lib.database import exists_where, insert, transaction, update_where
@@ -32,6 +34,7 @@ from controller.reusable_actions import (
 
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer("create_or_update_jobs")
 
 
 class JobRequestError(Exception):
@@ -83,36 +86,51 @@ def create_or_update_jobs(job_request):
 
 
 def create_jobs(job_request):
-    validate_job_request(job_request)
-    project_file = get_project_file(job_request)
-    pipeline_config = load_pipeline(project_file)
-    latest_jobs = get_latest_jobs_for_actions_in_project(
-        job_request.backend, job_request.workspace, pipeline_config
-    )
-    new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
-    assert_new_jobs_created(job_request, new_jobs, latest_jobs)
-    resolve_reusable_action_references(new_jobs)
+    with tracer.start_as_current_span(
+        "create_jobs", attributes=job_request.get_tracing_span_attributes()
+    ) as span:
+        validate_job_request(job_request)
+        project_file = get_project_file(job_request)
 
-    # check for database actions in the new jobs, and raise an exception if
-    # codelists are out of date
-    assert_codelists_ok(job_request, new_jobs)
+        with duration_ms_as_span_attr("load_pipeline.duration_ms", span):
+            pipeline_config = load_pipeline(project_file)
 
-    # There is a delay between getting the current jobs (which we fetch from
-    # the database and the disk) and inserting our new jobs below. This means
-    # the state of the world may have changed in the meantime. Why is this OK?
-    #
-    # Because we're single threaded and because this function is the only place
-    # jobs are created, we can guarantee that no *new* jobs were created. So
-    # the only state change that's possible is that some active jobs might have
-    # completed. That's unproblematic: any new jobs which are waiting on these
-    # now-already-completed jobs will see they have completed the first time
-    # they check and then proceed as normal.
-    #
-    # (It is also possible that someone could delete files off disk that are
-    # needed by a particular job, but there's not much we can do about that
-    # other than fail gracefully when trying to start the job.)
-    insert_into_database(job_request, new_jobs)
-    return len(new_jobs)
+        with duration_ms_as_span_attr("get_latest_jobs.duration_ms", span):
+            latest_jobs = get_latest_jobs_for_actions_in_project(
+                job_request.backend, job_request.workspace, pipeline_config
+            )
+        span.set_attribute("len_latest_jobs", len(latest_jobs))
+
+        with duration_ms_as_span_attr("get_new_jobs.duration_ms", span):
+            new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
+        assert_new_jobs_created(job_request, new_jobs, latest_jobs)
+        with duration_ms_as_span_attr("resolve_refs.duration_ms", span):
+            resolve_reusable_action_references(new_jobs)
+
+        # check for database actions in the new jobs, and raise an exception if
+        # codelists are out of date
+        assert_codelists_ok(job_request, new_jobs)
+
+        # There is a delay between getting the current jobs (which we fetch from
+        # the database and the disk) and inserting our new jobs below. This means
+        # the state of the world may have changed in the meantime. Why is this OK?
+        #
+        # Because we're single threaded and because this function is the only place
+        # jobs are created, we can guarantee that no *new* jobs were created. So
+        # the only state change that's possible is that some active jobs might have
+        # completed. That's unproblematic: any new jobs which are waiting on these
+        # now-already-completed jobs will see they have completed the first time
+        # they check and then proceed as normal.
+        #
+        # (It is also possible that someone could delete files off disk that are
+        # needed by a particular job, but there's not much we can do about that
+        # other than fail gracefully when trying to start the job.)
+        with duration_ms_as_span_attr("insert_into_database.duration_ms", span):
+            insert_into_database(job_request, new_jobs)
+
+        len_new_jobs = len(new_jobs)
+        span.set_attribute("len_new_jobs", len_new_jobs)
+        return len_new_jobs
 
 
 def validate_job_request(job_request):

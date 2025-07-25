@@ -137,6 +137,17 @@ class JobRequest:
     backend: str = None
     original: dict = None
 
+    def get_tracing_span_attributes(self) -> dict:
+        """Provide useful attributes for telemetry suitable for passing
+        as the `attributes` parameter to `start_as_current_span`."""
+        return {
+            "backend": self.backend,
+            "workspace": self.workspace,
+            "user": self.original["created_by"],
+            "project": self.original["project"],
+            "orgs": self.original["orgs"],
+        }
+
 
 # This stores the original JobRequest as received from the job-server. Once
 # we've created the relevant Jobs we have no real need for the JobRequest
