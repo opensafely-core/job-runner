@@ -488,7 +488,7 @@ def test_create_jobs_tracing(db, tmp_work_dir):
         create_jobs_with_project_file(
             make_job_request(action="prepare_data_1"), TEST_PROJECT
         )
-    spans = get_trace("controller.create_or_update_jobs")
+    spans = get_trace("create_or_update_jobs")
 
     assert {span.name for span in spans} == {
         "create_jobs",

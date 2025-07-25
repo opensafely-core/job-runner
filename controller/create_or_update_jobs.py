@@ -34,7 +34,7 @@ from controller.reusable_actions import (
 
 
 log = logging.getLogger(__name__)
-tracer = trace.get_tracer(__name__)
+tracer = trace.get_tracer("create_or_update_jobs")
 
 
 class JobRequestError(Exception):
