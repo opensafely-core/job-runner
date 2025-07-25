@@ -10,8 +10,8 @@ from common.lib.github_validators import (
     validate_branch_and_commit,
     validate_repo_url,
 )
-from common.lib.yaml_utils import YAMLError, parse_yaml
 from controller import config
+from controller.lib.yaml_utils import YAMLError, parse_yaml
 
 
 class ReusableActionError(Exception):
