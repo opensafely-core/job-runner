@@ -21,7 +21,7 @@ from common.lib.github_validators import (
     validate_branch_and_commit,
     validate_repo_url,
 )
-from common.tracing import time_for_span
+from common.tracing import duration_ms_as_span_attr
 from controller import config, tracing
 from controller.actions import get_action_specification
 from controller.lib.database import exists_where, insert, transaction, update_where
@@ -92,19 +92,19 @@ def create_jobs(job_request):
         validate_job_request(job_request)
         project_file = get_project_file(job_request)
 
-        with time_for_span("duration_ms.load_pipeline", span):
+        with duration_ms_as_span_attr("duration_ms.load_pipeline", span):
             pipeline_config = load_pipeline(project_file)
 
-        with time_for_span("duration_ms.get_latest_jobs", span):
+        with duration_ms_as_span_attr("duration_ms.get_latest_jobs", span):
             latest_jobs = get_latest_jobs_for_actions_in_project(
                 job_request.backend, job_request.workspace, pipeline_config
             )
         span.set_attribute("len_latest_jobs", len(latest_jobs))
 
-        with time_for_span("duration_ms.get_new_jobs", span):
+        with duration_ms_as_span_attr("duration_ms.get_new_jobs", span):
             new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
         assert_new_jobs_created(job_request, new_jobs, latest_jobs)
-        with time_for_span("duration_ms.resolve_refs", span):
+        with duration_ms_as_span_attr("duration_ms.resolve_refs", span):
             resolve_reusable_action_references(new_jobs)
 
         # check for database actions in the new jobs, and raise an exception if
@@ -125,7 +125,7 @@ def create_jobs(job_request):
         # (It is also possible that someone could delete files off disk that are
         # needed by a particular job, but there's not much we can do about that
         # other than fail gracefully when trying to start the job.)
-        with time_for_span("duration_ms.insert_into_database", span):
+        with duration_ms_as_span_attr("duration_ms.insert_into_database", span):
             insert_into_database(job_request, new_jobs)
 
         len_new_jobs = len(new_jobs)

@@ -501,12 +501,17 @@ def test_create_jobs_tracing(db, tmp_work_dir):
 
     assert count_where(Job) == 2
 
-    # time_for_span attributes.
-    assert spans[0].attributes["duration_ms.load_pipeline"]
-    assert spans[0].attributes["duration_ms.get_latest_jobs"]
-    assert spans[0].attributes["duration_ms.get_new_jobs"]
-    assert spans[0].attributes["duration_ms.resolve_refs"]
-    assert spans[0].attributes["duration_ms.insert_into_database"]
+    # test that expected duration_ms_as_span_attr attributes are present.
+    # These are in ms, rounded to the nearest int(), so in this test, they're
+    # likely to be 0. Actual timing is tested in tests/common/test_tracing.py
+    for attribute in [
+        "duration_ms.load_pipeline",
+        "duration_ms.get_latest_jobs",
+        "duration_ms.get_new_jobs",
+        "duration_ms.resolve_refs",
+        "duration_ms.insert_into_database",
+    ]:
+        assert attribute in spans[0].attributes
 
 
 def test_create_job_from_exception(db):

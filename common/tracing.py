@@ -123,7 +123,7 @@ def set_span_attributes(span, attributes):
 
 
 @contextmanager
-def time_for_span(attribute_name: str, span=None):
+def duration_ms_as_span_attr(attribute_name: str, span=None):
     """
     Context manager to time an operation and add it as an attribute to a span.
 
@@ -134,10 +134,11 @@ def time_for_span(attribute_name: str, span=None):
     if span is None:
         span = trace.get_current_span()
 
-    start_time = time.perf_counter()
+    start_time = time.perf_counter_ns()
     try:
         yield
     finally:
-        end_time = time.perf_counter()
-        duration = end_time - start_time
-        span.set_attribute(attribute_name, duration)
+        end_time = time.perf_counter_ns()
+        # Convert duration to milliseconds
+        duration_ms = int((end_time - start_time) / 1e6)
+        span.set_attribute(attribute_name, duration_ms)
