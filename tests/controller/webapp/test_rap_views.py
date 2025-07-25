@@ -20,7 +20,7 @@ def setup_auto_tracing():
 
 def test_backend_status_view(db, client, monkeypatch, freezer):
     freezer.move_to(TEST_DATESTR)
-    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
     # set flag for different backend
@@ -38,7 +38,9 @@ def test_backend_status_view(db, client, monkeypatch, freezer):
 
 
 def test_backend_status_view_no_flags(db, client, monkeypatch):
-    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
+    monkeypatch.setattr(
+        "controller.config.CLIENT_TOKENS", {"test_token": ["test", "foo"]}
+    )
     headers = {"Authorization": "test_token"}
 
     response = client.get(reverse("backend_status", args=("test",)), headers=headers)
@@ -47,7 +49,9 @@ def test_backend_status_view_no_flags(db, client, monkeypatch):
 
 
 def test_backend_status_view_tracing(db, client, monkeypatch):
-    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
+    monkeypatch.setattr(
+        "controller.config.CLIENT_TOKENS", {"test_token": ["test", "foo"]}
+    )
     headers = {"Authorization": "test_token"}
     setup_auto_tracing()
     client.get(reverse("backend_status", args=("test",)), headers=headers)
@@ -60,3 +64,42 @@ def test_backend_status_view_tracing(db, client, monkeypatch):
     assert last_trace.attributes["http.status_code"] == 200
     # custom attributes
     assert last_trace.attributes["backend"] == "test"
+
+
+def test_backend_status_no_token(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    response = client.get(reverse("backend_status", args=("test",)))
+    assert response.status_code == 401
+    response_json = response.json()
+    assert response_json == {"error": "Unauthorized", "details": "No token provided"}
+
+
+def test_backend_status_invalid_backend(db, client, monkeypatch, freezer):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+    response = client.get(reverse("backend_status", args=("foo",)), headers=headers)
+    assert response.status_code == 404
+    response_json = response.json()
+    assert response_json == {"error": "Not found", "details": "Backend 'foo' not found"}
+
+
+def test_backend_status_invalid_backend_for_token(db, client, monkeypatch, freezer):
+    monkeypatch.setattr("common.config.BACKENDS", ["test", "foo"])
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+    response = client.get(reverse("backend_status", args=("foo",)), headers=headers)
+    assert response.status_code == 401
+    response_json = response.json()
+    assert response_json == {
+        "error": "Unauthorized",
+        "details": "Invalid token for backend 'foo'",
+    }
+
+
+def test_backend_status_invalid_token(db, client, monkeypatch, freezer):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "unknown_token"}
+    response = client.get(reverse("backend_status", args=("test",)), headers=headers)
+    assert response.status_code == 401
+    response_json = response.json()
+    assert response_json == {"error": "Unauthorized", "details": "Invalid token"}
