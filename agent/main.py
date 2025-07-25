@@ -10,6 +10,9 @@ from agent.executors import get_executor_api
 from agent.lib.docker import docker, get_network_config_args
 from common import config as common_config
 from common.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
+from common.lib.github_validators import (
+    validate_repo_and_commit,
+)
 from common.lib.log_utils import configure_logging, set_log_context
 from common.schema import TaskType
 
@@ -203,6 +206,13 @@ def handle_run_job_task(task, api):
 
             case ExecutorState.UNKNOWN:
                 # a new job
+                # check the repo and commit are valid as a security measure
+                validate_repo_and_commit(
+                    common_config.ALLOWED_GITHUB_ORGS,
+                    job.study.git_repo_url,
+                    job.study.commit,
+                    job.study.branch,
+                )
                 # prepare is synchronous, which means set our code to PREPARING
                 # before calling  api.prepare(), and we expect it to be PREPARED
                 # when finished

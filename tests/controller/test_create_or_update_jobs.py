@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 
+import common.config
 from common.lib.github_validators import GithubValidationError
 from controller.create_or_update_jobs import (
     JobRequestError,
@@ -24,9 +25,9 @@ from tests.factories import job_request_factory_raw
 FIXTURES_PATH = Path(__file__).parent.parent.resolve() / "fixtures"
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def disable_github_org_checking(monkeypatch):
-    monkeypatch.setattr("controller.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("common.config.ALLOWED_GITHUB_ORGS", None)
 
 
 # Basic smoketest to test the full execution path
@@ -328,36 +329,20 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
 
 
 @pytest.mark.parametrize(
-    "patch_config,params,exc_msg,exc_cls",
+    "params,exc_msg,exc_cls",
     [
-        ({}, {"workspace": None}, "Workspace name cannot be blank", JobRequestError),
-        ({}, {"workspace": "$%#"}, "Invalid workspace", JobRequestError),
-        ({}, {"database_name": "invalid"}, "Invalid database name", JobRequestError),
-        ({}, {"backend": "foo"}, "Invalid backend", JobRequestError),
+        ({"workspace": None}, "Workspace name cannot be blank", JobRequestError),
+        ({"workspace": "$%#"}, "Invalid workspace", JobRequestError),
+        ({"database_name": "invalid"}, "Invalid database name", JobRequestError),
+        ({"backend": "foo"}, "Invalid backend", JobRequestError),
         (
-            {},
             {"requested_actions": []},
             "At least one action must be supplied",
             JobRequestError,
         ),
-        (
-            {"controller": {"ALLOWED_GITHUB_ORGS": ["test"]}},
-            {"repo_url": "https://not-gihub.com/invalid"},
-            "must start https://github.com",
-            GithubValidationError,
-        ),
-        (
-            {"controller": {"ALLOWED_GITHUB_ORGS": ["test"]}},
-            {"repo_url": "https://github.com/test"},
-            "Repository URL was not of the expected format",
-            GithubValidationError,
-        ),
     ],
 )
-def test_validate_job_request(patch_config, params, exc_msg, exc_cls, monkeypatch):
-    for config_type, config_items in patch_config.items():
-        for config_key, config_value in config_items.items():
-            monkeypatch.setattr(f"{config_type}.config.{config_key}", config_value)
+def test_validate_job_request(params, exc_msg, exc_cls, monkeypatch):
     repo_url = str(FIXTURES_PATH / "git-repo")
     kwargs = dict(
         id="123",
@@ -384,6 +369,46 @@ def test_validate_job_request(patch_config, params, exc_msg, exc_cls, monkeypatc
         validate_job_request(job_request)
 
 
+@pytest.mark.parametrize(
+    "repo_url,exc_msg,exc_cls",
+    [
+        (
+            "https://not-gihub.com/invalid",
+            "does not start with https://github.com",
+            GithubValidationError,
+        ),
+        (
+            "https://github.com/test",
+            "not of the expected format",
+            GithubValidationError,
+        ),
+    ],
+)
+def test_validate_job_request_repos(repo_url, exc_msg, exc_cls, monkeypatch):
+    monkeypatch.setattr(common.config, "ALLOWED_GITHUB_ORGS", ["test"])
+    kwargs = dict(
+        id="123",
+        repo_url=repo_url,
+        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        branch="v1",
+        requested_actions=["generate_dataset"],
+        cancelled_actions=[],
+        workspace="1",
+        codelists_ok=True,
+        database_name="default",  # note db from from job-server is 'default',
+        backend="test",
+        original=dict(
+            created_by="user",
+            project="project",
+            orgs=["org1", "org2"],
+        ),
+    )
+    job_request = JobRequest(**kwargs)
+
+    with pytest.raises(exc_cls, match=exc_msg):
+        validate_job_request(job_request)
+
+
 def make_job_request(action=None, actions=None, **kwargs):
     assert not (actions and action)
     if not actions:
@@ -393,7 +418,8 @@ def make_job_request(action=None, actions=None, **kwargs):
             actions = ["generate_dataset"]
     job_request = JobRequest(
         id=str(uuid.uuid4()),
-        repo_url="https://example.com/repo.git",
+        # do not use a http url so we bypass repo validation
+        repo_url="/some/url/repo",
         commit="abcdef0123456789",
         workspace="1",
         codelists_ok=True,

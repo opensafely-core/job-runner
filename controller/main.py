@@ -348,9 +348,18 @@ def job_to_job_definition(job, task_id):
             datasets.PERMISSIONS.get(job_request["project"], [])
         )
 
+    # we need branch information, which is currently only in the original job
+    # request data. We are trying to avoid changing the db schema whilst RAP
+    # API step 2 work is going on, so we just grab the original request. In
+    # future, I expect rewriting the ORM to use django will fix this.
+    original_job_request = get_saved_job_request(job)
     # Jobs which are running reusable actions pull their code from the reusable
     # action repo, all other jobs pull their code from the study repo
-    study = Study(job.action_repo_url or job.repo_url, job.action_commit or job.commit)
+    study = Study(
+        job.action_repo_url or job.repo_url,
+        job.action_commit or job.commit,
+        original_job_request["workspace"]["branch"],
+    )
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
@@ -387,7 +396,7 @@ def job_to_job_definition(job, task_id):
         memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT[job.backend],
         level4_max_filesize=config.LEVEL4_MAX_FILESIZE,
         level4_max_csv_rows=config.LEVEL4_MAX_CSV_ROWS,
-        level4_file_types=list(config.LEVEL4_FILE_TYPES),
+        level4_file_types=config.LEVEL4_FILE_TYPES,
     )
 
 

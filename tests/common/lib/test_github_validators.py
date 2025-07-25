@@ -17,7 +17,7 @@ def test_validate_repo_url():
 def test_validate_repo_url_reject():
     with pytest.raises(
         GithubValidationError,
-        match="must belong to one of the following Github organisations",
+        match="does not belong to one of the following Github organisations",
     ):
         validate_repo_url(
             "https://github.com/not-os/test-private-repository.git",
@@ -28,7 +28,7 @@ def test_validate_repo_url_reject():
 def test_validate_repo_url_reject_root_url():
     with pytest.raises(
         GithubValidationError,
-        match="must start https://github.com",
+        match="does not start with https://github.com",
     ):
         validate_repo_url(
             "https://not-github.com/opensafely-core/test-private-repository.git",

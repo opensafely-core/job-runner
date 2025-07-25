@@ -205,6 +205,7 @@ def ensure_commit_fetched(repo_dir, repo_url, commit_sha):
 
 def ensure_git_init(repo_dir):
     if not os.path.exists(repo_dir / "config"):
+        repo_dir.parent.mkdir(exist_ok=True)
         subprocess.run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
 
 
