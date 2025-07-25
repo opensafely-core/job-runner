@@ -942,6 +942,12 @@ def test_job_definition_ehrql_permitted_tables(db, monkeypatch, project, expecte
             "project": project,
             "orgs": ["org1", "org2"],
             "backend": "test",
+            "workspace": {
+                "name": "workspace",
+                "repo": "repo",
+                "commit": "commit",
+                "branch": "main",
+            },
         }
     )
 
