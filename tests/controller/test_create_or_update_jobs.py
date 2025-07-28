@@ -479,6 +479,41 @@ def create_jobs_with_project_file(job_request, project_file):
         return create_jobs(job_request)
 
 
+def test_create_jobs_tracing(db, tmp_work_dir):
+    assert count_where(Job) == 0
+
+    with mock.patch.object(
+        JobRequest, "get_tracing_span_attributes", return_value={"foo": "bar"}
+    ):
+        create_jobs_with_project_file(
+            make_job_request(action="prepare_data_1"), TEST_PROJECT
+        )
+    spans = get_trace("create_or_update_jobs")
+
+    assert {span.name for span in spans} == {
+        "create_jobs",
+    }
+
+    assert spans[0].name == "create_jobs"
+    assert spans[0].attributes["foo"] == "bar"  # patched
+    assert spans[0].attributes["len_latest_jobs"] == 0
+    assert spans[0].attributes["len_new_jobs"] == 2
+
+    assert count_where(Job) == 2
+
+    # test that expected duration_ms_as_span_attr attributes are present.
+    # These are in ms, rounded to the nearest int(), so in this test, they're
+    # likely to be 0. Actual timing is tested in tests/common/test_tracing.py
+    for attribute in [
+        "load_pipeline.duration_ms",
+        "get_latest_jobs.duration_ms",
+        "get_new_jobs.duration_ms",
+        "resolve_refs.duration_ms",
+        "insert_into_database.duration_ms",
+    ]:
+        assert attribute in spans[0].attributes
+
+
 def test_create_job_from_exception(db):
     job_request = job_request_factory_raw()
 

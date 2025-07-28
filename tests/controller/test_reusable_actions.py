@@ -4,8 +4,8 @@ from unittest import mock
 import pytest
 
 from common.lib import git, github_validators
-from common.lib.yaml_utils import YAMLError
 from controller import reusable_actions
+from controller.lib.yaml_utils import YAMLError
 from controller.models import Job
 from controller.reusable_actions import ReusableAction
 from tests.factories import JOB_DEFAULTS

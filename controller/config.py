@@ -23,6 +23,29 @@ JOB_SERVER_TOKENS = {
     for backend in common_config.BACKENDS
 }
 
+
+# Build a dict of backends which each client token is allowed to request information for
+def client_tokens_from_env(env):
+    tokens_per_backend = {}
+    for backend in common_config.BACKENDS:
+        client_tokens = env.get(f"{backend.upper()}_CLIENT_TOKENS")
+        if client_tokens:
+            tokens_per_backend[backend] = [
+                client_token for client_token in client_tokens.split(",")
+            ]
+        else:
+            tokens_per_backend[backend] = []
+
+    backends_per_client_token = {}
+    for backend, client_tokens in tokens_per_backend.items():
+        for client_token in client_tokens:
+            backends_per_client_token.setdefault(client_token, []).append(backend)
+    return backends_per_client_token
+
+
+CLIENT_TOKENS = client_tokens_from_env(os.environ)
+
+
 # API poll
 POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
 

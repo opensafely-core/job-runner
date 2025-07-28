@@ -1,5 +1,7 @@
 import logging
 import os
+import time
+from contextlib import contextmanager
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -118,3 +120,25 @@ def set_span_attributes(span, attributes):
         clean_attrs[k] = v
 
     span.set_attributes(clean_attrs)
+
+
+@contextmanager
+def duration_ms_as_span_attr(attribute_name: str, span=None):
+    """
+    Context manager to time an operation and add it as an attribute to a span.
+
+    Args:
+        attribute_name: Name of the attribute to set on the span
+        span: Optional span to add attribute to. If None, uses current span.
+    """
+    if span is None:
+        span = trace.get_current_span()
+
+    start_time = time.perf_counter_ns()
+    try:
+        yield
+    finally:
+        end_time = time.perf_counter_ns()
+        # Convert duration to milliseconds
+        duration_ms = int((end_time - start_time) / 1e6)
+        span.set_attribute(attribute_name, duration_ms)
