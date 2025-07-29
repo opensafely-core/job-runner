@@ -206,7 +206,8 @@ def get_new_jobs_to_run(job_request, pipeline_config, current_jobs):
         recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
 
     # Pick out the new jobs we've added and return them
-    return [job for job in jobs_by_action.values() if job not in current_jobs]
+    current_job_ids = {job.id for job in current_jobs}
+    return [job for job in jobs_by_action.values() if job.id not in current_job_ids]
 
 
 def get_actions_to_run(job_request, pipeline_config):
