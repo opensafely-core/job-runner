@@ -505,10 +505,14 @@ def test_create_jobs_tracing(db, tmp_work_dir):
     # These are in ms, rounded to the nearest int(), so in this test, they're
     # likely to be 0. Actual timing is tested in tests/common/test_tracing.py
     for attribute in [
+        "validate_job_request.duration_ms",
+        "get_project_file.duration_ms",
         "load_pipeline.duration_ms",
         "get_latest_jobs.duration_ms",
         "get_new_jobs.duration_ms",
+        "assert_new_jobs_created.duration_ms",
         "resolve_refs.duration_ms",
+        "assert_codelists_ok.duration_ms",
         "insert_into_database.duration_ms",
     ]:
         assert attribute in spans[0].attributes
