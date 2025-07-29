@@ -12,6 +12,10 @@
 - [job-runner docker image](#job-runner-docker-image)
 - [Database schema and migrations](#database-schema-and-migrations)
 - [Deployment](#deploying)
+- [Running controller commands in production](running-controller-commands-in-production)
+  - [Turn manual database maintenance mode on/off](#turn-manual-database-maintenance-mode-onoff-on-a-specific-backend)
+  - [Pause a backend](#pause-a-backend)
+  - [Prepare for reboot](#prepare-for-reboot)
 
 
 ## Local development
@@ -632,3 +636,72 @@ just migrate
 
 Deployment is handled automatically on merge to main. See the [DEPLOY](./DEPLOY.md)
 documentation for more details.
+
+
+## Running commands in production
+
+Certain actions can be run in production via controller manage commands.
+
+In dokku4:
+
+```
+dokku run rap-controller python manage.py <command>
+```
+
+### Turn manual database maintenance mode on/off on a specific backend
+
+Maintenance mode is triggered automatically, but in some circumstances we may need to
+manually enable or disable it. Enabling db maintenance mode will cancel any running jobs.
+
+```
+dokku run rap-controller python manage.py db_maintenance <on/off> <backend name>
+
+# i.e. to turn maintenance mode on for the tpp backend
+dokku run rap-controller python manage.py db_maintenance on tpp
+```
+
+### Pause a backend
+
+Pausing a backend prevents the controller from scheduling new run-job tasks. Existing scheduled
+tasks and running jobs will not be interrupted.
+
+```
+dokku run rap-controller python manage.py pause <on/off> <backend name>
+
+# i.e. to pause the test backend
+dokku run rap-controller python manage.py pause on test
+```
+
+### Prepare for reboot
+
+Prepare for a backend reboot. This will cancel all running jobs and reset them to PENDING so they will be
+automatically re-run after a reboot.
+
+First [pause the backend](#pause-a-backend).
+
+Then run:
+```
+dokku run rap-controller python manage.py prepare_for_reboot --backend <backend name>
+```
+
+This will list all running jobs for the backend and ask for confirmation before cancelling them.
+
+To report on the status of jobs:
+
+```
+dokku run rap-controller python manage.py prepare_for_reboot --backend <backend name> --status
+```
+
+Once all jobs have been successfully cancelled, the status report will indicate that it is now
+safe to reboot.
+
+```
+$dokku4 dokku run rap-controller python manage.py prepare_for_reboot --backend test --status
+
+== PREPARING FOR REBOOT ==
+1) backend 'test' is paused
+2) 0 job(s) are running
+
+== READY TO REBOOT ==
+Safe to reboot now
+```
