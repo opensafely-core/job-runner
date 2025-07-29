@@ -1,4 +1,4 @@
-from ruyaml import YAML, error
+from ruamel.yaml import YAML, error
 
 
 class YAMLError(Exception):
