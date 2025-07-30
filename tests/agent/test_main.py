@@ -2,9 +2,8 @@ from unittest.mock import ANY, patch
 
 import pytest
 
-from jobrunner.agent import main
-from jobrunner.config import agent as config
-from jobrunner.job_executor import ExecutorState, JobStatus
+from agent import config, main
+from common.job_executor import ExecutorState, JobStatus
 from tests.factories import job_definition_factory, runjob_db_task_factory
 
 
@@ -69,8 +68,8 @@ def test_inject_db_secrets_invalid_db_name(monkeypatch, db):
         main.inject_db_secrets(definition)
 
 
-@patch("jobrunner.agent.tracing.set_job_results_metadata")
-@patch("jobrunner.agent.task_api.update_controller")
+@patch("agent.tracing.set_job_results_metadata")
+@patch("agent.task_api.update_controller")
 @pytest.mark.parametrize(
     "output_results,expected_redacted_results",
     [

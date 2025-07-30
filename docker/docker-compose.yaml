@@ -118,9 +118,9 @@ services:
   test-controller-web:
     extends:
         service: test-controller
-    command: gunicorn --config gunicorn.conf.py controller_app.wsgi
+    command: gunicorn --config gunicorn.conf.py controller.webapp.wsgi
 
   test-controller-service:
     extends:
         service: test-controller
-    command: python -m jobrunner.controller.service
+    command: python -m controller.service

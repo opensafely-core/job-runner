@@ -1,8 +1,26 @@
 # Developer notes
 
+- [Local development](#local-development)
+  - [Pre-requisites](#prerequisites-for-local-development)
+  - [Getting started](#getting-started)
+  - [Running jobs locally](#running-jobs-locally)
+  - [Running jobs with a local job-server](#running-locally-with-a-local-job-server)
+  - [Testing](#testing)
+- [Operating Principles](#operating-principles)
+- [Architecture](#architecture)
+- [Running jobs on the test backend](#running-jobs-on-the-test-backend)
+- [job-runner docker image](#job-runner-docker-image)
+- [Database schema and migrations](#database-schema-and-migrations)
+- [Deployment](#deploying)
+- [Running controller commands in production](running-controller-commands-in-production)
+  - [Turn manual database maintenance mode on/off](#turn-manual-database-maintenance-mode-onoff-on-a-specific-backend)
+  - [Pause a backend](#pause-a-backend)
+  - [Prepare for reboot](#prepare-for-reboot)
 
 
-## Prerequisites for local development
+## Local development
+
+### Prerequisites for local development
 
 ### Just
 
@@ -35,7 +53,7 @@ You'll need an appropriate version of Python on your PATH. Check the
 You will also need an up-to-date version of Docker Compose. Instructions to install it are [here](https://docs.docker.com/compose/install/).
 
 
-## Getting started
+### Getting started
 
 Set up a local development environment with:
 ```
@@ -53,7 +71,20 @@ and *controller* components of the system; in production these components are de
 separately and will only require a subset of the variables set. See comments in the
 file for information on which components require each variable.
 
+Before running any of the components, migrate your database with:
+```
+just migrate
+```
+
+This will apply the required schema and prepare the database for use by the
+components. If the components are run and attempt to access it before this step
+has been done the database may end up ina bad state that can't be recovered
+with `just migrate` and need to be removed.
+
 ### Optional
+
+#### GitHub PAT
+
 Update `.env` to add a value for `PRIVATE_REPO_ACCESS_TOKEN`; this should be a
 developer [GitHub PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#about-personal-access-tokens) with `repo` scope.
 
@@ -61,6 +92,170 @@ This is not required in order to run the project locally, unless you wish to tes
 running jobs from private GitHub repos, and/or you want to exercise the full test
 suite (some tests in `tests/lib/test_git.py` are skipped if this environment variable
 is missing).
+
+#### Docker images
+
+Pull docker images used by the agent for some types of task. If these aren't
+present when needed the agent will raise an exception which mentions which
+image it needs.
+
+```
+docker pull ghcr.io/opensafely-core/ehrql:v1
+docker pull ghcr.io/opensafely-core/python:latest
+docker pull ghcr.io/opensafely-core/r:latest
+```
+
+### Running jobs locally
+
+Adding jobs locally is most easily done with the `just add-job` command, which
+calls `jobrunner.cli.controller.add_job` with a study repo, an action to run, and
+a backend to run it on e.g.
+```
+just add-job https://github.com/opensafely/test-age-distribution run_all --backend test
+```
+
+As well as URLs this will accept paths to local git repos e.g.
+```
+git clone git@github.com:opensafely/test-age-distribution.git ../test-age-distribution
+just add-job ../test-age-distribution run_all --backend test
+```
+
+In order to pick up and execute the job, you need to run the three job-runner
+components. In separate terminal windows, run:
+
+```
+# Controller service
+just run-controller
+
+# Controller django app
+just run-app
+
+# Agent service
+just run-agent
+```
+
+You should see the controller pick up the new job and create a RUNJOB task for it.
+In the controller app terminal, you'll see the agent poll for new tasks every second or so.
+Then the agent will receive the new task, execute the job, and call the controller app
+to update the controller after each step.
+
+See the full set of options `add-job` will accept with:
+```
+just add_job --help
+```
+Outputs and logs from the job can be found at `workdir/high_privacy` and `workdir/medium_privacy`.
+Note that `add-job` adds a job with a workspace named `test` by default, so e.g. high privacy
+outputs will be found in `workdir/high_privacy/workspaces/test`.
+
+### Running locally with a local job-server
+
+To run a more complete system locally, you can connect your local agent and controller components to
+a locally running job-server.
+
+#### Setup and run job-server locally
+Setup a local job-server as described in the [job-server docs](https://github.com/opensafely-core/job-server/blob/main/DEVELOPERS.md#local-development).
+
+If using a [fresh install](https://github.com/opensafely-core/job-server/blob/main/DEVELOPERS.md#setting-up-a-fresh-install) ensure that you have a backend called "test" (others can be set up and
+configured later). Run the local server and go to http://localhost:8000/staff/backends to find the
+token for this backend - we'll need it shortly. Also make sure you have at least one project/workspace
+set up.
+
+Make sure that your `.env` file has a valid PAT (a classic PAT with repo scope) for the `JOBSERVER_GITHUB_TOKEN`.
+
+#### Configure job-runner settings
+
+Ensure that the following variables are set in your `.env` file:
+
+```
+# These must be obtained from your local job-server and must be the same
+# CONTROLLER_TASK_API_TOKEN is used by the Agent to authenticate with the Controller API
+# We currently reuse job-server's backend tokens for this
+# TEST_JOB_SERVER_TOKEN is used by the Controller when communicating with job-server
+CONTROLLER_TASK_API_TOKEN=<token obtained from local job-server for the test backend>
+TEST_JOB_SERVER_TOKEN=<token obtained from local job-server for the test backend>
+
+# These are all set by default in dotenv-sample
+BACKENDS=test
+BACKEND=test
+CONTROLLER_TASK_API_ENDPOINT=http://localhost:3000/
+JOB_SERVER_ENDPOINT=https://localhost:8000/api/v2/
+```
+
+#### Run all the things
+
+In 4 (yes, 4!) terminal windows, run:
+
+In job-server repo:
+1) Run the server: `just run`
+
+In job-runner repo:
+2) Run web app: `just run-app`
+3) Run agent service (main and metrics loops): `just run-agent-service` (or `just run-agent` to run without metrics)
+4) Run controller service (main and sync loops): `just run-controller-service`
+
+In your terminals you should see:
+1) job-server: /api/v2/job-requests is called repeatedly (by the controller sync loop)
+2) controller web app: /test/tasks/ is called every 2 seconds (by the agent)
+3) & 4) Agent and Controller don't report any activity after start up
+
+
+#### Submit a job
+Go to your local job-server at http://localhost:8000 and submit a job for the workspace
+you set up earlier.  In your terminals you should see the job request be submitted on
+job-server, picked up by the controller service and jobs created, executed on the agent,
+and updated via the controller web app.
+
+
+#### Simulating multiple backends
+
+To add another backend, "foo":
+1) Setup the backend on your local job-server
+2) in .env:
+   - Add FOO_JOB_SERVER_TOKEN with the backend token from job-server
+   - set BACKENDS=test,foo
+
+The controller will now check for jobs for both backends ("test" and "foo"). Locally we can
+only pretend to be one backend's Agent, so only "test" jobs will be picked up and executed by the
+agent. To execute "foo" jobs, set `BACKEND=foo`. Remember to restart all the things to pick up the
+new environment variables everywhere.
+
+
+### Testing
+
+
+Tests can be run with:
+
+    just test
+
+Some of these tests involve talking to GitHub and there is a big fat
+integration test which takes a while to run. You can run just the fast
+tests with:
+
+    just test-fast
+
+The big integration test takes several seconds to run.
+If you want to know what it's up to you can get pytest to show the log output with:
+
+    just test-verbose
+
+#### Testing in docker
+
+To run tests in docker, simply run:
+
+    just docker/test
+
+This will build the docker image and run tests.
+
+You can run a command inside the docker image with:
+
+    just docker/run ARGS=command  # bash by default
+
+
+There is also a functional test that runs in docker. This runs the controller and agent
+in separate docker containers, and adds and runs a job.
+
+    just docker/functional-test
+
 
 ## Operating principles
 
@@ -100,7 +295,7 @@ later versions of job-runner do not provide `local_run`, see
 ### Job structure
 
 The job server serves jobs as JSON. See the [job-server serializer](https://github.com/opensafely-core/job-server/blob/5f490d55ad1e6fd187d6da37d0907200550052ce/jobserver/api/jobs.py#L227)
-and the [job-runner converter](https://github.com/opensafely-core/job-runner/blob/main/jobrunner/sync.py#L127) for more details.
+and the [job-runner converter](https://github.com/opensafely-core/job-runner/blob/main/controller/sync.py#L126) for more details.
 
 Some important fields include:
 
@@ -186,10 +381,10 @@ The `project.yaml` format is described in the [OpenSAFELY Action Pipelines docum
 ## Architecture
 
 The project consists of two main components which are intended to run entirely separately:
-- the **RAP [agent](jobrunner/agent/)**: executes tasks
-- the **RAP [controller](jobrunner/controller/)**:  schedules tasks
+- the **RAP [agent](agent/)**: executes tasks
+- the **RAP [controller](controller/)**:  schedules tasks
 
-The RAP agent communicates with the RAP controller via an [http API (a Django app)](controller_app/).
+The RAP agent communicates with the RAP controller via an [http API (a Django app)](controller.webapp/).
 
 A *task* is an activity that the controller schedules and the agent executes.
 Tasks can (currently) take 3 forms:
@@ -201,39 +396,39 @@ it is already running.
 ### The RAP Agent
 
 The RAP Agent has two main entrypoints:
-- [jobrunner.agent.main]./(jobrunner/agent/main.py) polls the Controller API for
+- [agent.main]./(agent/main.py) polls the Controller API for
     active tasks. For jobs, it runs docker containers to execute the required actions.
-    The bulk of the work here is done by the [local Docker executor](./jobrunner/executors/local.py) implementation module which starts new Docker containers and stores the appropriate job metadata and outputs when they finish. It updates the Controller
+    The bulk of the work here is done by the [local Docker executor](./agent/executors/local.py) implementation module which starts new Docker containers and stores the appropriate job metadata and outputs when they finish. It updates the Controller
     about the progress of tasks by calling the Controller API.
-- [jobrunner.agent.metrics](./jobrunner/agent/metrics.py) records and logs docker and
+- [agent.metrics](./agent/metrics.py) records and logs docker and
     system stats for running jobs.
 
 Both are  implemented as infinite loop with fixed sleep periods and are designed to be run
-together as a [service](./jobrunner/agent/service.py).
+together as a [service](./agent/service.py).
 
 
 ### The RAP Controller
 
 The RAP Controller has two main entrypoints:
 
-- [jobrunner.controller.main](./jobrunner/controller/main.py) polls the database for
+- [controller.main](./controller/main.py) polls its database for
     active jobs and takes appropriate action. This involves creating RUNJOB tasks for
     new jobs, creating CANCELJOB tasks for jobs which have been cancelled, retrieving
     associated tasks for running jobs and updating their status.
-- [jobrunner.sync](./jobrunner/sync.py) handles all communication between the job-server and the RAP Controller. It polls the job-server for active JobRequests, updates its local Jobs table accordingly, and then posts back the details of all Jobs associated with the active JobRequests it received.
+- [controller.sync](./controller/sync.py) handles all communication between the job-server and the RAP Controller. It polls the job-server for active JobRequests, updates its local Jobs table accordingly, and then posts back the details of all Jobs associated with the active JobRequests it received.
 The bulk of the work here is done by the
-[create_or_update_jobs](./jobrunner/create_or_update_jobs.py) module.
+[create_or_update_jobs](./controller/create_or_update_jobs.py) module.
 
-Only the Controller has access to the database of Jobs and Tasks.
+Only the Controller has access to its database of Jobs and Tasks.
 
 ### The RAP Controller API
 
-This is a very simple [Django application](./controller_app/) that allows external
+This is a very simple [Django application](./controller.webapp/) that allows external
 applications and users (currently just the Agent) to communicate with the Controller.
 
 It has two endpoints, and uses the same backend-specific token from job-server to
 authenticate. These endpoints are essentially view wrappers around methods in the
-controller's [tasks api module](./jobrunner/controller/task_api.py):
+controller's [tasks api module](./controller/task_api.py):
 
 - `/<backend>/tasks/`: returns all active tasks for <backend>
 - `/<backend>/task/update/`: receives information about a task and updates the controller database
@@ -253,7 +448,7 @@ module. Config is split into:
 Jobs move through a defined set of `StatusCode`s as the Controller manages them and the
 Agent prepares and executes them.
 
-These are defined in `jobrunner/models.py`.
+These are defined in `controller/models.py`.
 
 The diagram below shows the transitions, but all states have an implicit transition to
 `INTERNAL_ERROR` or `CANCELLED_BY_USER`, which is not shown. Jobs can also
@@ -344,85 +539,6 @@ Additional state diagrams including notes on the state of docker containers and 
 
 There are also
 
-## Testing
-
-
-Tests can be run with:
-
-    just test
-
-Some of these tests involve talking to GitHub and there is a big fat
-integration test which takes a while to run. You can run just the fast
-tests with:
-
-    just test-fast
-
-The big integration test takes several seconds to run.
-If you want to know what it's up to you can get pytest to show the log output with:
-
-    just test-verbose
-
-### Testing in docker
-
-To run tests in docker, simply run:
-
-    just docker/test
-
-This will build the docker image and run tests.
-
-You can run a command inside the docker image with:
-
-    just docker/run ARGS=command  # bash by default
-
-
-There is also a functional test that runs in docker. This runs the controller and agent
-in separate docker containers, and adds and runs a job.
-
-    just docker/functional-test
-
-
-## Running jobs locally
-
-Adding jobs locally is most easily done with the `just add-job` command, which
-calls `jobrunner.cli.controller.add_job` with a study repo, an action to run, and
-a backend to run it on e.g.
-```
-just add-job https://github.com/opensafely/test-age-distribution run_all --backend test
-```
-
-As well as URLs this will accept paths to local git repos e.g.
-```
-just add-job ../test-age-distribution run_all --backend test
-```
-
-In order to pick up and execute the job, you need to run the three job-runner
-components. In separate terminal windows, run:
-
-```
-# Controller service
-just run-controller
-
-# Controller django app
-just run-app
-
-# Agent service
-just run-agent
-```
-
-You should see the controller pick up the new job and create a RUNJOB task for it.
-In the controller app terminal, you'll see the agent poll for new tasks every second or so.
-Then the agent will receive the new task, execute the job, and call the controller app
-to update the controller after each step.
-
-See the full set of options `add-job` will accept with:
-```
-just add_job --help
-```
-Outputs and logs from the job can be found at `workdir/high_privacy` and `workdir/medium_privacy`.
-Note that `add-job` adds a job with a workspace named `test` by default, so e.g. high privacy
-outputs will be found in `workdir/high_privacy/workspaces/test`.
-
-
 ## Running jobs on the test backend
 
 The [test backend](https://github.com/opensafely-core/backend-server/tree/main/backends/test) is
@@ -431,28 +547,30 @@ schedule and run jobs in a production-like environment.
 
 ### Using the CLI
 
-You will need ssh access to test.opensafely.org in order to add jobs using the CLI. This
-currently requires the same permissions as any non-test backend; see the
+You will need ssh access to dokku4 in order to add jobs using the CLI.
+
+To view the logs of the jobs, you will also need ssh access to test.opensafely.org.
+This currently requires the same permissions as any non-test backend; see the
 [developer permissions documentation](https://bennett.wiki/products/developer-permissions-log/#platform-developerstesters) for further details.
 
+To add a job, ssh to dokku4 and run:
 ```
-ssh <your-username>@test.opensafely.org
-sudo su - opensafely
-
-just jobrunner/add-job https://github.com/opensafely/test-age-distribution run_all --backend test
+dokku run rap-controller python manage.py add-job https://github.com/opensafely/test-age-distribution run_all --backend test
 ```
 
 You will see the output of the newly created job (note that if it returns `'state': 'succeeded'`
 in the displayed json, the job has already run successfully on the test backend. Use `-f` to
 force dependencies to re-run).
 
+
 The jobrunner services are already running in the background on the test backend, so
 jobs should be picked up and run automatically. Check the job logs to see the progress of your
 job. From the output of `just add-job`, find the new job's `id` value.
 
 Now check the logs for this job:
-
 ```
+ssh <your-username>@test.opensafely.org
+sudo su - opensafely
 just jobrunner/logs-id <your-job-id>
 ```
 
@@ -484,7 +602,7 @@ needed in those cases.
 However, we also occasionally need to apply changes to this schema in
 production, or in a user's local opensafely-cli database.
 
-To do this, we track migrations in `jobrunner/models.py`. Add a migration like so:
+To do this, we track migrations in `controller/models.py`. Add a migration like so:
 
 ```python
 database.migration(1, """
@@ -518,3 +636,72 @@ just migrate
 
 Deployment is handled automatically on merge to main. See the [DEPLOY](./DEPLOY.md)
 documentation for more details.
+
+
+## Running commands in production
+
+Certain actions can be run in production via controller manage commands.
+
+In dokku4:
+
+```
+dokku run rap-controller python manage.py <command>
+```
+
+### Turn manual database maintenance mode on/off on a specific backend
+
+Maintenance mode is triggered automatically, but in some circumstances we may need to
+manually enable or disable it. Enabling db maintenance mode will cancel any running jobs.
+
+```
+dokku run rap-controller python manage.py db_maintenance <on/off> <backend name>
+
+# i.e. to turn maintenance mode on for the tpp backend
+dokku run rap-controller python manage.py db_maintenance on tpp
+```
+
+### Pause a backend
+
+Pausing a backend prevents the controller from scheduling new run-job tasks. Existing scheduled
+tasks and running jobs will not be interrupted.
+
+```
+dokku run rap-controller python manage.py pause <on/off> <backend name>
+
+# i.e. to pause the test backend
+dokku run rap-controller python manage.py pause on test
+```
+
+### Prepare for reboot
+
+Prepare for a backend reboot. This will cancel all running jobs and reset them to PENDING so they will be
+automatically re-run after a reboot.
+
+First [pause the backend](#pause-a-backend).
+
+Then run:
+```
+dokku run rap-controller python manage.py prepare_for_reboot --backend <backend name>
+```
+
+This will list all running jobs for the backend and ask for confirmation before cancelling them.
+
+To report on the status of jobs:
+
+```
+dokku run rap-controller python manage.py prepare_for_reboot --backend <backend name> --status
+```
+
+Once all jobs have been successfully cancelled, the status report will indicate that it is now
+safe to reboot.
+
+```
+$dokku4 dokku run rap-controller python manage.py prepare_for_reboot --backend test --status
+
+== PREPARING FOR REBOOT ==
+1) backend 'test' is paused
+2) 0 job(s) are running
+
+== READY TO REBOOT ==
+Safe to reboot now
+```

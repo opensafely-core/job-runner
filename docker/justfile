@@ -56,9 +56,9 @@ functional-test: (build 'prod')
     export TMP_WORKDIR="$(mktemp -d)"
     container=job-runner-test-controller-service-1
     trap 'rm -rf "$TMP_WORKDIR" && docker compose kill test-controller-web test-controller-service test-agent' EXIT
-    docker compose run --rm test-controller-service python3 -m jobrunner.cli.controller.migrate
+    docker compose run --rm test-controller-service python3 -m controller.cli.migrate
     docker compose up -d test-controller-service test-controller-web
-    docker compose exec test-controller-service python3 -m jobrunner.cli.controller.add_job https://github.com/opensafely/research-template generate_dataset --backend test
+    docker compose exec test-controller-service python3 -m controller.cli.add_job https://github.com/opensafely/research-template generate_dataset --backend test
     docker compose up -d test-agent
     attempts=""
     # use docker logs rather than docker compose logs, as those will include previous run's logs

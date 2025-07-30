@@ -4,17 +4,16 @@ import pytest
 import requests
 from responses import matchers
 
-from jobrunner.agent import task_api
-from jobrunner.config import agent as config
-from jobrunner.controller import task_api as controller_api
-from jobrunner.schema import AgentTask
+from agent import config, task_api
+from common.schema import AgentTask
+from controller import task_api as controller_api
 from tests.factories import runjob_db_task_factory
 
 
 @pytest.fixture(autouse=True)
 def setup_config(monkeypatch):
     monkeypatch.setattr(
-        "jobrunner.config.controller.DEFAULT_JOB_CPU_COUNT",
+        "controller.config.DEFAULT_JOB_CPU_COUNT",
         {
             "test": 2,
             "dummy": 2,
@@ -22,13 +21,13 @@ def setup_config(monkeypatch):
         },
     )
     monkeypatch.setattr(
-        "jobrunner.config.controller.DEFAULT_JOB_MEMORY_LIMIT",
+        "controller.config.DEFAULT_JOB_MEMORY_LIMIT",
         {"test": "4G", "dummy": "4G", "another": "4G"},
     )
 
 
 def test_get_active_tasks(db, monkeypatch, responses):
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy")
+    monkeypatch.setattr("agent.config.BACKEND", "dummy")
 
     task1 = runjob_db_task_factory(backend="dummy")
     task2 = runjob_db_task_factory(backend="dummy")
@@ -54,7 +53,7 @@ def test_get_active_tasks(db, monkeypatch, responses):
     assert len(active) == 1
     assert active[0].id == task1.id
 
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "another")
+    monkeypatch.setattr("agent.config.BACKEND", "another")
 
     active = task_api.get_active_tasks()
     assert len(active) == 1
@@ -62,7 +61,7 @@ def test_get_active_tasks(db, monkeypatch, responses):
 
 
 def test_get_active_tasks_api_error(db, monkeypatch, responses):
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "dummy")
+    monkeypatch.setattr("agent.config.BACKEND", "dummy")
 
     runjob_db_task_factory(backend="dummy")
 
@@ -78,7 +77,7 @@ def test_get_active_tasks_api_error(db, monkeypatch, responses):
 
 
 def test_update_controller(db, monkeypatch, responses, live_server):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     task = runjob_db_task_factory(backend="test")
@@ -98,7 +97,7 @@ def test_update_controller(db, monkeypatch, responses, live_server):
 
 
 def test_update_controller_with_timestamp(db, monkeypatch, responses, live_server):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     task = runjob_db_task_factory(backend="dummy")
@@ -120,7 +119,7 @@ def test_update_controller_with_timestamp(db, monkeypatch, responses, live_serve
 
 
 def test_full_job_stages(db, responses, monkeypatch, live_server):
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
     task = runjob_db_task_factory(backend="dummy")
 

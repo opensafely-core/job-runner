@@ -1,5 +1,5 @@
-from jobrunner.controller import ticks
-from jobrunner.models import State, StatusCode
+from controller import ticks
+from controller.models import State, StatusCode
 from tests.conftest import get_trace
 from tests.factories import job_factory
 

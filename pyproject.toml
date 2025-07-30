@@ -11,8 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
     "Django",
     "gunicorn",
-    "opensafely-pipeline@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip",
-    "ruyaml",
+    "opensafely-pipeline[fastparser]@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip",
     "requests",
     "opentelemetry-exporter-otlp-proto-http",
     "opentelemetry-instrumentation-django",
@@ -28,23 +27,16 @@ Source = "https://github.com/opensafely-core/job-runner"
 [tool.coverage.run]
 branch = true
 dynamic_context = "test_function"
-source = ["jobrunner", "controller_app"]
+source = ["agent", "controller"]
 omit = [
     # These are covered by subprocess tests which aren't tracked properly
-    "jobrunner/agent/service.py",
-    "jobrunner/controller/service.py",
+    "agent/service.py",
+    "controller/service.py",
     # This is covered in the functional test set up
-    "jobrunner/cli/controller/migrate.py",
-    # These are temporary wrappers for backwards compatibility and will be removed soon
-    "jobrunner/cli/add_backend_to_flags.py",
-    "jobrunner/cli/add_backend_to_job.py",
-    "jobrunner/cli/add_job.py",
-    "jobrunner/cli/flags.py",
-    "jobrunner/cli/migrate.py",
-    "jobrunner/cli/prepare_for_reboot.py",
+    "controller/cli/migrate.py",
     # django app
-    "controller_app/asgi.py",
-    "controller_app/wsgi.py",
+    "controller/webapp/asgi.py",
+    "controller/webapp/wsgi.py",
 ]
 
 [tool.coverage.report]
@@ -90,7 +82,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:pytest_responses:9",
     "ignore:.*dynamic_context.*:pytest_cov.CentralCovContextWarning",
 ]
-DJANGO_SETTINGS_MODULE = "controller_app.settings"
+DJANGO_SETTINGS_MODULE = "controller.webapp.settings"
 
 [tool.setuptools.packages.find]
 include = ["jobrunner*"]

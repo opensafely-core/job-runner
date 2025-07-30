@@ -9,13 +9,13 @@ import logging
 
 import pytest
 
-import jobrunner.agent.main
-import jobrunner.controller.main
-import jobrunner.sync
-from jobrunner.executors import get_executor_api
-from jobrunner.lib.database import find_where
-from jobrunner.models import Task
-from jobrunner.schema import TaskType
+import agent.main
+import controller.main
+import controller.sync
+from agent.executors import get_executor_api
+from common.schema import TaskType
+from controller.lib.database import find_where
+from controller.models import Task
 from tests.conftest import get_trace, set_tmp_workdir_config
 from tests.factories import ensure_docker_images_present
 
@@ -25,11 +25,11 @@ log = logging.getLogger(__name__)
 
 def set_agent_config(monkeypatch, tmp_work_dir):
     # set agent config
-    monkeypatch.setattr("jobrunner.config.agent.USING_DUMMY_DATA_BACKEND", True)
+    monkeypatch.setattr("agent.config.USING_DUMMY_DATA_BACKEND", True)
     # Note that as we are running ehrql actions in this test, we need to set
     # the backend to a value that ehrql will accept
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", "test")
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_TOKEN", "test_token")
+    monkeypatch.setattr("agent.config.BACKEND", "test")
+    monkeypatch.setattr("agent.config.TASK_API_TOKEN", "test_token")
     # set all the tmp workdir config as we remove it for the controller phase
     set_tmp_workdir_config(monkeypatch, tmp_work_dir)
 
@@ -38,38 +38,34 @@ def set_agent_config(monkeypatch, tmp_work_dir):
     # e.g. MAX_WORKERS is based on BACKENDS so will always be populated for each
     # backend, with the default value. We set it explicitly here to confirm that it
     # doesn't trigger any errors if it is invalid for the agent i.e. it's not used)
-    monkeypatch.setattr("jobrunner.config.controller.JOB_SERVER_ENDPOINT", None)
-    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
-    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", None)
+    monkeypatch.setattr("controller.config.JOB_SERVER_ENDPOINT", None)
+    monkeypatch.setattr("controller.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("controller.config.MAX_WORKERS", None)
 
     # This is controller config, but we need it to be set during the agent part of the
     # test, as the agent will call the controller app
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "test_token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
 
 
 def set_controller_config(monkeypatch):
     # set controller config
     monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+        "controller.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
-    monkeypatch.setattr(
-        "jobrunner.config.controller.JOB_SERVER_TOKENS", {"test": "token"}
-    )
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "token"})
     # Disable repo URL checking so we can run using a local test repo
-    monkeypatch.setattr("jobrunner.config.controller.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("controller.config.ALLOWED_GITHUB_ORGS", None)
     # Ensure that we have enough workers to start the jobs we expect in the test
     # (CI may have fewer actual available workers than this)
-    monkeypatch.setattr("jobrunner.config.controller.MAX_WORKERS", {"test": 4})
+    monkeypatch.setattr("controller.config.MAX_WORKERS", {"test": 4})
 
     # disable agent config
     # (note some of these will be set in prod because they are based on shared config
     # e.g. HIGH_PRIVACY_STORAGE_BASE is based on WORKDIR which is a common config. We
     # set it explicitly here to confirm that it doesn't trigger any errors if it is
     # invalid for the controller i.e. it's not used.)
-    monkeypatch.setattr("jobrunner.config.agent.BACKEND", None)
-    monkeypatch.setattr("jobrunner.config.agent.USING_DUMMY_DATA_BACKEND", False)
+    monkeypatch.setattr("agent.config.BACKEND", None)
+    monkeypatch.setattr("agent.config.USING_DUMMY_DATA_BACKEND", False)
 
     config_vars = [
         "TMP_DIR",
@@ -84,7 +80,7 @@ def set_controller_config(monkeypatch):
     ]
 
     for config_var in config_vars:
-        monkeypatch.setattr(f"jobrunner.config.agent.{config_var}", None)
+        monkeypatch.setattr(f"agent.config.{config_var}", None)
 
 
 @pytest.mark.slow_test
@@ -93,12 +89,12 @@ def test_integration(
     live_server, tmp_work_dir, docker_cleanup, monkeypatch, test_repo, responses
 ):
     api = get_executor_api()
-    monkeypatch.setattr("jobrunner.config.common.BACKENDS", ["test"])
-    monkeypatch.setattr("jobrunner.config.common.JOB_LOOP_INTERVAL", 0)
+    monkeypatch.setattr("common.config.BACKENDS", ["test"])
+    monkeypatch.setattr("common.config.JOB_LOOP_INTERVAL", 0)
 
     # Use the live_server url for our task api endpoint, so we can test the
     # agent calls to the django app endpoints
-    monkeypatch.setattr("jobrunner.config.agent.TASK_API_ENDPOINT", live_server.url)
+    monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     ensure_docker_images_present("ehrql:v1", "python")
@@ -141,7 +137,7 @@ def test_integration(
     # START ON CONTROLLER; set up the expected controller config (and remove agent config)
     set_controller_config(monkeypatch)
     # Run sync to grab the JobRequest from the mocked job-server
-    jobrunner.sync.sync()
+    controller.sync.sync()
     # Check that expected number of pending jobs are created
     jobs = get_posted_jobs(responses)
     for job in jobs.values():
@@ -155,7 +151,7 @@ def test_integration(
     # Execute one tick of the controller run loop and then sync
     # The controller creates one runjob task, for the one action that has no
     # dependencies, and marks that job as running
-    jobrunner.controller.main.handle_jobs()
+    controller.main.handle_jobs()
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 1
     assert active_tasks[0].type == TaskType.RUNJOB
@@ -163,7 +159,7 @@ def test_integration(
     # stage is None before the task has been picked up by the agent
     assert active_tasks[0].agent_stage is None
 
-    jobrunner.sync.sync()
+    controller.sync.sync()
 
     # We should now have one running (initiated, i.e. task created) job and all others waiting on dependencies
     jobs = get_posted_jobs(responses)
@@ -191,7 +187,7 @@ def test_integration(
     set_agent_config(monkeypatch, tmp_work_dir)
     # Execute one tick of the agent run loop to pick up the runjob task
     # After one tick, the task should have moved to the PREPARED stage
-    jobrunner.agent.main.handle_tasks(api)
+    agent.main.handle_tasks(api)
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 1
     assert active_tasks[0].agent_stage == "prepared"
@@ -199,9 +195,9 @@ def test_integration(
     # CONTROLLER
     set_controller_config(monkeypatch)
     # Run the controller loop again to update the job status code
-    jobrunner.controller.main.handle_jobs()
+    controller.main.handle_jobs()
     # sync again
-    jobrunner.sync.sync()
+    controller.sync.sync()
     # still one running job (now prepared) and all others waiting on dependencies
     jobs = get_posted_jobs(responses)
     assert_generate_dataset_dependency_running(jobs, "prepared")
@@ -209,7 +205,7 @@ def test_integration(
     # AGENT
     set_agent_config(monkeypatch, tmp_work_dir)
     # After one tick of the agent loop, the task should have moved to EXECUTING status
-    jobrunner.agent.main.handle_tasks(api)
+    agent.main.handle_tasks(api)
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 1
     assert active_tasks[0].agent_stage == "executing"
@@ -217,9 +213,9 @@ def test_integration(
     # CONTROLLER
     set_controller_config(monkeypatch)
     # Run the controller loop again to update the job status code
-    jobrunner.controller.main.handle_jobs()
+    controller.main.handle_jobs()
     # sync again
-    jobrunner.sync.sync()
+    controller.sync.sync()
     # still one running job (now executing) and all others waiting on dependencies
     jobs = get_posted_jobs(responses)
     assert_generate_dataset_dependency_running(jobs, "executing")
@@ -254,7 +250,7 @@ def test_integration(
         json={"results": [job_request_1, job_request_2]},
     )
 
-    jobrunner.sync.sync()
+    controller.sync.sync()
 
     # Execute one tick of the controller run loop again to pick up the
     # cancelled job and the second job request and then sync
@@ -263,7 +259,7 @@ def test_integration(
     # The cancelled job is now marked as cancelled, but no CANCELJOB task is created,
     # because no RUNJOB task had been created for it
     # The others are waiting on dependencies, so no tasks have been created for them yet
-    jobrunner.controller.main.handle_jobs()
+    controller.main.handle_jobs()
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 2
     assert active_tasks[0].agent_stage == "executing"
@@ -271,7 +267,7 @@ def test_integration(
     assert active_tasks[1].agent_stage is None
 
     # sync to confirm updated jobs have been posted back to job-server
-    jobrunner.sync.sync()
+    controller.sync.sync()
     jobs = get_posted_jobs(responses)
     assert jobs["generate_dataset"]["status"] == "running"
     assert jobs["generate_dataset"]["status_code"] == "executing"
@@ -294,7 +290,7 @@ def test_integration(
     # AGENT
     set_agent_config(monkeypatch, tmp_work_dir)
     # Run the agent loop until there are no active tasks left; the generate_dataset jobs should be done
-    jobrunner.agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
+    agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
 
     # CONTROLLER
     set_controller_config(monkeypatch)
@@ -302,7 +298,7 @@ def test_integration(
     # - pick up the completed task and mark generate_dataset as succeeded
     # - add RUNJOB tasks for the 4 jobs that depend on generate_dataset and set the Job state to running
     # - the analyse_data job is still pending
-    jobrunner.controller.main.handle_jobs()
+    controller.main.handle_jobs()
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 4
     task_ids = sorted(task.id for task in active_tasks)
@@ -318,7 +314,7 @@ def test_integration(
     for task_id, job_id in zip(task_ids, expected_job_ids):
         assert task_id.startswith(job_id)
 
-    jobrunner.sync.sync()
+    controller.sync.sync()
     jobs = get_posted_jobs(responses)
     for action in ["generate_dataset", "generate_dataset_with_dummy_data"]:
         assert jobs[action]["status"] == "succeeded"
@@ -337,7 +333,7 @@ def test_integration(
     set_agent_config(monkeypatch, tmp_work_dir)
     # Run the agent loop until there are no active tasks left; the 4 running jobs
     # are now done
-    jobrunner.agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
+    agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
 
     # CONTROLLER
     set_controller_config(monkeypatch)
@@ -345,12 +341,12 @@ def test_integration(
     # identify that their tasks are completed, and mark them as succeeded
     # And it will start a new task for the analyse_data action now that its
     # dependencies have succeeded
-    jobrunner.controller.main.handle_jobs()
+    controller.main.handle_jobs()
 
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 1
 
-    jobrunner.sync.sync()
+    controller.sync.sync()
     jobs = get_posted_jobs(responses)
     assert jobs["analyse_data_ehrql"]["status"] == "running"
     for action in [
@@ -365,16 +361,16 @@ def test_integration(
     # succeeded
     # AGENT
     set_agent_config(monkeypatch, tmp_work_dir)
-    jobrunner.agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
+    agent.main.main(exit_callback=lambda active_tasks: len(active_tasks) == 0)
     # CONTROLLER
     set_controller_config(monkeypatch)
-    jobrunner.controller.main.handle_jobs()
+    controller.main.handle_jobs()
 
     # no tasks left to do
     active_tasks = get_active_db_tasks()
     assert not len(active_tasks)
 
-    jobrunner.sync.sync()
+    controller.sync.sync()
     jobs = get_posted_jobs(responses)
     cancellation_job = jobs.pop("test_cancellation_ehrql")
     for job in jobs.values():
