@@ -182,10 +182,11 @@ def get_project_file(job_request):
 
 
 def get_latest_jobs_for_actions_in_project(backend, workspace, pipeline_config):
+    pipeline_actions = {action for action in pipeline_config.all_actions}
     return [
         job
         for job in calculate_workspace_state(backend, workspace)
-        if job.action in pipeline_config.all_actions
+        if job.action in pipeline_actions
     ]
 
 
