@@ -188,3 +188,12 @@ run-controller-service: devenv
 
 run:
     { just run-app & just run-agent-service & just run-controller-service; }
+
+schemathesis:
+    $BIN/schemathesis --config-file controller/webapp/api_spec/schemathesis.toml run controller/webapp/api_spec/openapi.yaml --url http://localhost:3000
+
+test-api-spec:
+    { just run-app & just schemathesis; }
+
+generate-api-docs:
+    npx @redocly/cli build-docs controller/webapp/api_spec/openapi.yaml --output controller/webapp/api_spec/api_docs.html
