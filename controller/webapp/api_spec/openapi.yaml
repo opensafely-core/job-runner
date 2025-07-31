@@ -1,0 +1,84 @@
+openapi: 3.1.0
+
+info:
+  title: RAP API OpenAPI Description
+  version: "v1"
+
+paths:
+  /{backend}/backend/status/:
+    get:
+      description: |
+        Get the status (flags) for a specific backend.
+      parameters:
+        - name: backend
+          in: path
+          description: name of backend
+          required: true
+          schema:
+            type: string
+            pattern: ^[A-Za-z0-9].+$
+            enum:
+              - test
+              - tpp
+              - emis
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flags:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        v:
+                          type: string
+                          nullable: true
+                          description: flag value
+                        ts:
+                          type: string
+                          description: timestamp
+              examples:
+                ex1:
+                  value:
+                    flags:
+                      paused:
+                        v: on
+                        ts: 2025-07-29T16:12:28.216609Z
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  details:
+                    type: string
+              examples:
+                ex1:
+                  value:
+                    error: "Unauthorized"
+                    details: "Invalid token"
+        404:
+          description: unknown backend
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  details:
+                    type: string
+              examples:
+                ex1:
+                  value:
+                    error: "Not found"
+                    details: "Backend 'foo' not found"
+        5XX:
+          description: unknown error
