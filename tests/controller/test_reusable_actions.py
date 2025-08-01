@@ -167,8 +167,10 @@ class TestHandleReusableAction:
 
         jobs = [Job(**job1_data), Job(**job2_data)]
 
+        reusable_actions.resolve_reusable_action_references(jobs[:1])
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.resolve_reusable_action_references(jobs)
+            # Fail due to mocked side_effect.
+            reusable_actions.resolve_reusable_action_references(jobs[-1:])
 
         # job1 is OK, resolved
         assert (

@@ -46,9 +46,12 @@ def resolve_reusable_action_references(jobs):
     Raises:
         ReusableActionError
     """
+    reusable_action_cache = dict()
     for job in jobs:
         try:
-            run_command, repo_url, commit = handle_reusable_action(job.run_command)
+            run_command, repo_url, commit = handle_reusable_action(
+                job.run_command, reusable_action_cache
+            )
         except ReusableActionError as e:
             # Annotate the exception with the context of the action in which it
             # occured
@@ -59,7 +62,7 @@ def resolve_reusable_action_references(jobs):
         job.action_commit = commit
 
 
-def handle_reusable_action(run_command):
+def handle_reusable_action(run_command, reusable_action_cache=None):
     """
     If `run_command` refers to a reusable action then rewrite it appropriately
     and return it along with the repo_url and commit of the reusable action.
@@ -76,14 +79,22 @@ def handle_reusable_action(run_command):
     Raises:
         ReusableActionError: Something was wrong with the reusable action
     """
+    if reusable_action_cache is None:
+        reusable_action_cache = {}
+
     run_args = shlex.split(run_command)
     image, tag = run_args[0].split(":")
 
     if image in config.ALLOWED_IMAGES:
         # This isn't a reusable action, nothing to do
         return run_command, None, None
+    try:
+        reusable_action = reusable_action_cache[(image, tag)]
+    except KeyError:
+        # First time seeing this reusable action
+        reusable_action = fetch_reusable_action(image, tag)
+        reusable_action_cache[(image, tag)] = reusable_action
 
-    reusable_action = fetch_reusable_action(image, tag)
     new_run_args = apply_reusable_action(run_args, reusable_action)
     new_run_command = shlex.join(new_run_args)
     return new_run_command, reusable_action.repo_url, reusable_action.commit
