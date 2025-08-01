@@ -16,7 +16,6 @@ paths:
           required: true
           schema:
             type: string
-            pattern: ^[A-Za-z0-9].+$
             enum:
               - test
               - tpp
