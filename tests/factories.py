@@ -15,9 +15,12 @@ from controller.models import Job, JobRequest, SavedJobRequest, State, StatusCod
 from tests.conftest import test_exporter
 
 
+DEFAULT_COMMIT = "commit"
+DEFAULT_REPO = "repo"
+
 JOB_REQUEST_DEFAULTS = {
-    "repo_url": "repo",
-    "commit": "commit",
+    "repo_url": DEFAULT_REPO,
+    "commit": DEFAULT_COMMIT,
     "requested_actions": ["action"],
     "cancelled_actions": [],
     "workspace": "workspace",
@@ -29,6 +32,12 @@ JOB_REQUEST_DEFAULTS = {
         "project": "project",
         "orgs": ["org1", "org2"],
         "backend": "test",
+        "workspace": {
+            "name": "workspace",
+            "repo": DEFAULT_REPO,
+            "commit": DEFAULT_COMMIT,
+            "branch": "main",
+        },
     },
 }
 
@@ -36,8 +45,6 @@ JOB_REQUEST_DEFAULTS = {
 JOB_DEFAULTS = {
     "state": State.PENDING,
     "action": "action_name",
-    "repo_url": "opensafely/study",
-    "workspace": "workspace",
     "requires_outputs_from": ["some-earlier-action"],
     "run_command": "python myscript.py",
     "output_spec": {},
@@ -82,6 +89,10 @@ def job_factory(job_request=None, **kwargs):
         job_request = job_request_factory(**job_request_kwargs)
 
     values = deepcopy(JOB_DEFAULTS)
+    values["workspace"] = job_request.workspace
+    values["repo_url"] = job_request.repo_url
+    values["commit"] = job_request.commit
+
     # default times
     timestamp = time.time()
     if "created_at" not in kwargs:
@@ -96,6 +107,7 @@ def job_factory(job_request=None, **kwargs):
 
     if "status_code_updated_at" not in kwargs:
         values["status_code_updated_at"] = int(timestamp * 1e9)
+
     values.update(kwargs)
 
     values["job_request_id"] = job_request.id

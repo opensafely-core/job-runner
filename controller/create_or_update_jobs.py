@@ -16,13 +16,9 @@ from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
 from common import config as common_config
 from common.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
-from common.lib.github_validators import (
-    GithubValidationError,
-    validate_branch_and_commit,
-    validate_repo_url,
-)
+from common.lib.github_validators import GithubValidationError, validate_repo_and_commit
 from common.tracing import duration_ms_as_span_attr
-from controller import config, tracing
+from controller import tracing
 from controller.actions import get_action_specification
 from controller.lib.database import exists_where, insert, transaction, update_where
 from controller.models import Job, SavedJobRequest, State, StatusCode
@@ -138,9 +134,6 @@ def create_jobs(job_request):
 
 
 def validate_job_request(job_request):
-    # http prefix allows local git repos, useful for tests
-    if job_request.repo_url.startswith("http") and config.ALLOWED_GITHUB_ORGS:
-        validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
     if not job_request.requested_actions:
         raise JobRequestError("At least one action must be supplied")
     if not job_request.workspace:
@@ -162,14 +155,14 @@ def validate_job_request(job_request):
             + ", ".join(common_config.VALID_DATABASE_NAMES)
         )
 
-    # If we're not restricting to specific Github organisations then there's no
-    # point in checking the provenance of the supplied commit
-    if config.ALLOWED_GITHUB_ORGS:  # pragma: no cover
-        # As this involves talking to the remote git server we only do it at
-        # the end once all other checks have passed
-        validate_branch_and_commit(
-            job_request.repo_url, job_request.commit, job_request.branch
-        )
+    # As this check may involve talking to the remote git server we only do it at
+    # the end once all other checks have passed
+    validate_repo_and_commit(
+        common_config.ALLOWED_GITHUB_ORGS,
+        job_request.repo_url,
+        job_request.commit,
+        job_request.branch,
+    )
 
 
 def get_project_file(job_request):
