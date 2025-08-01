@@ -11,6 +11,8 @@ urlpatterns = [
     path("<str:backend>/task/update/", task_views.update_task, name="update_task"),
     # RAP API endpoints
     # backend status for a specific backend
+    path("api-docs/", rap_views.api_docs),
+    path("api_spec.json", rap_views.api_spec),
     path(
         "<str:backend>/backend/status/", rap_views.backend_status, name="backend_status"
     ),
