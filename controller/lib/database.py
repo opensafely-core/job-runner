@@ -23,6 +23,9 @@ from opentelemetry import trace
 from controller import config
 
 
+# from controller.models import State, StatusCode
+
+
 log = logging.getLogger(__name__)
 
 CONNECTION_CACHE = threading.local()
@@ -103,6 +106,16 @@ def update_where(itemclass, update_dict, **query_params):
         f"UPDATE {escape(table)} SET {updates} WHERE {where}",
         update_params + where_params,
     )
+
+
+def fast_find_where(itemclass, **query_params):
+    table = "job"
+    fields = dataclasses.fields(itemclass)
+    where, params = query_params_to_sql(query_params)
+    sql = f"SELECT id, job_request_id, action, created_at FROM {escape(table)} WHERE {where}"
+    cursor = get_connection().execute(sql, params)
+    return [fast_decode_field_values(fields, row, itemclass) for row in cursor]
+    # return [itemclass(*decode_field_values(fields, row)) for row in cursor]
 
 
 def find_where(itemclass, **query_params):
@@ -388,6 +401,63 @@ def encode_field_values(fields, item):
             value = value.value
         values.append(value)
     return values
+
+
+def fast_decode_field_values(fields, row, itemclass):
+    """
+    Takes a list of dataclass fields and a SQLite row (or any dict-like) and
+    returns field values as a list with the appropriate conversions applied
+    """
+    # values = []
+    # breakpoint()
+    # for field in fields:
+    #     # print(f"{field.name} - {field.type}")
+    #     value = row[field.name]
+    #     # # Dicts and lists get decoded from JSON
+    #     if field.type in (list, dict) and value is not None:
+    #         value = json.loads(value)
+    #     # # Enums get transformed back from their string/int values
+    #     elif issubclass(field.type, Enum) and value is not None:
+    #         value = field.type(value)
+    #     # Bools get converted from int to True/False
+    #     # None values are not converted to False, as None may be semantically different to False
+    #     elif field.type is bool and value is not None:
+    #         value = field.type(value)
+    #     values.append(value)
+    # breakpoint()
+
+    return {
+        "id": row["id"],
+        "job_request_id": row["job_request_id"],  # str
+        # state=fields[2].type(row["state"]),  # - <enum 'State'>
+        # 'repo_url': row["repo_url"],  # str
+        # 'commit': row["commit"],  # str
+        # 'workspace': row["workspace"],  # str
+        # 'database_name': row["database_name"],  # str
+        "action": row["action"],  # str
+        # action_repo_url': row["action_repo_url"],  # str
+        # action_commit': row["action_commit"],  # str
+        # requires_outputs_from': row["requires_outputs_from"],  # list
+        # 'wait_for_job_ids': row["wait_for_job_ids"],  # list
+        # 'run_command': row["run_command"],  # str
+        # 'image_id': row["image_id"],  # str
+        # 'output_spec': row["output_spec"],  # dict
+        # 'outputs': row["outputs"],  # dict
+        # 'unmatched_outputs': row["unmatched_outputs"],  # list
+        # 'status_message': row["status_message"],  # str
+        # status_code=fields[18].type(row["status_code"]),  # - <enum 'StatusCode'>
+        # cancelled=bool(row["cancelled"]),  # bool
+        "created_at": row["created_at"],  # int
+        # 'updated_at': row["updated_at"],  # int
+        # 'started_at': row["started_at"],  # int
+        # 'completed_at': row["completed_at"],  # int
+        # 'status_code_updated_at': row["status_code_updated_at"],  # int
+        # 'trace_context': row["trace_context"],  # dict
+        # 'level4_excluded_files': row["level4_excluded_files"],  # dict
+        # requires_db=bool(row["requires_db"]),  # bool
+        # 'backend': row["backend"],  # str
+    }
+    # return values
 
 
 def decode_field_values(fields, row):
