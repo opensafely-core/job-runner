@@ -189,6 +189,9 @@ run-controller-service: devenv
 run:
     { just run-app & just run-agent-service & just run-controller-service; }
 
+validate-api-spec:
+    $BIN/openapi-spec-validator controller/webapp/api_spec/openapi.yaml
+
 schemathesis:
     $BIN/schemathesis --config-file controller/webapp/api_spec/schemathesis.toml run controller/webapp/api_spec/openapi.yaml --url http://localhost:3000
 
