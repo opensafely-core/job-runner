@@ -16,6 +16,7 @@ repos:
     rev: v5.0.0
     hooks:
     - id: trailing-whitespace
+      exclude: api_docs.html
     - id: end-of-file-fixer
     - id: debug-statements
     - id: check-ast

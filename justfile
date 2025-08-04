@@ -189,7 +189,7 @@ run-controller-service: devenv
 run:
     { just run-app & just run-agent-service & just run-controller-service; }
 
-validate-api-spec:
+validate-api-spec: devenv
     $BIN/openapi-spec-validator controller/webapp/api_spec/openapi.yaml
 
 schemathesis:
@@ -200,3 +200,15 @@ test-api-spec:
 
 generate-api-docs:
     npx @redocly/cli build-docs controller/webapp/api_spec/openapi.yaml --output controller/webapp/api_spec/api_docs.html
+
+check-api-docs: generate-api-docs
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [[ -z $(git status --porcelain ./controller/webapp/api_spec/api_docs.html) ]]
+    then
+      echo "Generated docs are current."
+    else
+      echo "Generated docs are out of date."
+      exit 1
+    fi
