@@ -27,14 +27,19 @@ class ReusableAction:
     repo_url: str
     commit: str
     action_file: bytes
+    _action_run_args: list[str] | None = dataclasses.field(
+        default=None, init=False, repr=False
+    )
 
     def rewrite_run_args(self, run_args):
         """
         Rewrite a list of "run" arguments to run the code specifed by the supplied
-        `ReusableAction` instance.
+        `ReusableAction` instance. That means changing replacing the first
+        argument with argument from the action configuration. For example:
+
+            ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
 
         Args:
-            self: A ReusableAction instance
             run_args: Action's run command as a list of string arguments
 
         Returns:
@@ -43,6 +48,8 @@ class ReusableAction:
         Raises:
             ReusableActionError: An error occurred when accessing the reusable action.
         """
+        if self._action_run_args:
+            return self._action_run_args + run_args[1:]
         try:
             # If there's a problem, then it relates to the reusable action. The study
             # developer didn't make an error; the reusable action developer did.
@@ -65,7 +72,7 @@ class ReusableAction:
                 f"{formatted_error}"
             )
 
-        # ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
+        self._action_run_args = action_run_args
         return action_run_args + run_args[1:]
 
 
