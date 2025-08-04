@@ -27,6 +27,53 @@ class ReusableAction:
     repo_url: str
     commit: str
     action_file: bytes
+    _action_run_args: list[str] | None = dataclasses.field(
+        default=None, init=False, repr=False
+    )
+
+    def rewrite_run_args(self, run_args):
+        """
+        Rewrite a list of "run" arguments to run the code specifed by the supplied
+        `ReusableAction` instance. That means changing replacing the first
+        argument with argument from the action configuration. For example:
+
+            ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
+
+        Args:
+            run_args: Action's run command as a list of string arguments
+
+        Returns:
+            The modified run arguments as a list
+
+        Raises:
+            ReusableActionError: An error occurred when accessing the reusable action.
+        """
+        if self._action_run_args:
+            return self._action_run_args + run_args[1:]
+        try:
+            # If there's a problem, then it relates to the reusable action. The study
+            # developer didn't make an error; the reusable action developer did.
+            action_config = parse_yaml(self.action_file, name="action.yaml")
+            if "run" not in action_config:
+                raise ReusableActionError("Missing `run` key in 'action.yaml'")
+            action_run_args = shlex.split(action_config["run"])
+            action_image, action_tag = action_run_args[0].split(":")
+            if action_image not in config.ALLOWED_IMAGES:
+                raise ReusableActionError(f"Unrecognised runtime: {action_image}")
+            if is_database_action(action_run_args):
+                raise ReusableActionError(
+                    "Re-usable actions cannot run commands which access the database"
+                )
+        except (YAMLError, ReusableActionError) as e:
+            formatted_error = textwrap.indent(f"{type(e).__name__}: {e}", "  ")
+            raise ReusableActionError(
+                f"invalid action, please open an issue on "
+                f"{self.repo_url}/issues\n\n"
+                f"{formatted_error}"
+            )
+
+        self._action_run_args = action_run_args
+        return action_run_args + run_args[1:]
 
 
 def resolve_reusable_action_references(jobs):
@@ -46,9 +93,12 @@ def resolve_reusable_action_references(jobs):
     Raises:
         ReusableActionError
     """
+    reusable_action_cache = dict()
     for job in jobs:
         try:
-            run_command, repo_url, commit = handle_reusable_action(job.run_command)
+            run_command, repo_url, commit = handle_reusable_action(
+                job.run_command, reusable_action_cache
+            )
         except ReusableActionError as e:
             # Annotate the exception with the context of the action in which it
             # occured
@@ -59,7 +109,7 @@ def resolve_reusable_action_references(jobs):
         job.action_commit = commit
 
 
-def handle_reusable_action(run_command):
+def handle_reusable_action(run_command, reusable_action_cache=None):
     """
     If `run_command` refers to a reusable action then rewrite it appropriately
     and return it along with the repo_url and commit of the reusable action.
@@ -70,21 +120,29 @@ def handle_reusable_action(run_command):
 
     Returns: tuple consisting of
         - rewritten_run_command: string
-        - resuable_action_repo_url: string or None if not a reusable action
+        - reusable_action_repo_url: string or None if not a reusable action
         - reusable_action_commit: string or None if not a reusable action
 
     Raises:
         ReusableActionError: Something was wrong with the reusable action
     """
+    if reusable_action_cache is None:
+        reusable_action_cache = {}
+
     run_args = shlex.split(run_command)
     image, tag = run_args[0].split(":")
 
     if image in config.ALLOWED_IMAGES:
         # This isn't a reusable action, nothing to do
         return run_command, None, None
+    try:
+        reusable_action = reusable_action_cache[(image, tag)]
+    except KeyError:
+        # First time seeing this reusable action
+        reusable_action = fetch_reusable_action(image, tag)
+        reusable_action_cache[(image, tag)] = reusable_action
 
-    reusable_action = fetch_reusable_action(image, tag)
-    new_run_args = apply_reusable_action(run_args, reusable_action)
+    new_run_args = reusable_action.rewrite_run_args(run_args)
     new_run_command = shlex.join(new_run_args)
     return new_run_command, reusable_action.repo_url, reusable_action.commit
 
@@ -156,44 +214,3 @@ def fetch_reusable_action(image, tag):
         raise ReusableActionError(f"error reading '{commit}' from {repo_url}")
 
     return ReusableAction(repo_url=repo_url, commit=commit, action_file=action_file)
-
-
-def apply_reusable_action(run_args, reusable_action):
-    """
-    Rewrite a list of "run" arguments to run the code specifed by the supplied
-    `ReusableAction` instance.
-
-    Args:
-        run_args: Action's run command as a list of string arguments
-        reusable_action: A ReusableAction instance
-
-    Returns:
-        The modified run arguments as a list
-
-    Raises:
-        ReusableActionError: An error occurred when accessing the reusable action.
-    """
-    try:
-        # If there's a problem, then it relates to the reusable action. The study
-        # developer didn't make an error; the reusable action developer did.
-        action_config = parse_yaml(reusable_action.action_file, name="action.yaml")
-        if "run" not in action_config:
-            raise ReusableActionError("Missing `run` key in 'action.yaml'")
-        action_run_args = shlex.split(action_config["run"])
-        action_image, action_tag = action_run_args[0].split(":")
-        if action_image not in config.ALLOWED_IMAGES:
-            raise ReusableActionError(f"Unrecognised runtime: {action_image}")
-        if is_database_action(action_run_args):
-            raise ReusableActionError(
-                "Re-usable actions cannot run commands which access the database"
-            )
-    except (YAMLError, ReusableActionError) as e:
-        formatted_error = textwrap.indent(f"{type(e).__name__}: {e}", "  ")
-        raise ReusableActionError(
-            f"invalid action, please open an issue on "
-            f"{reusable_action.repo_url}/issues\n\n"
-            f"{formatted_error}"
-        )
-
-    # ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
-    return action_run_args + run_args[1:]

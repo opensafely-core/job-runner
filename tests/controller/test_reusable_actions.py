@@ -128,7 +128,7 @@ class TestHandleReusableAction:
             repo_url="foo", commit="bar", action_file=f"run: {action}".encode("ascii")
         )
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.apply_reusable_action(["foo:v1"], reusable_action)
+            reusable_action.rewrite_run_args(["foo:v1"])
 
     @mock.patch(
         "controller.reusable_actions.parse_yaml",
@@ -167,8 +167,10 @@ class TestHandleReusableAction:
 
         jobs = [Job(**job1_data), Job(**job2_data)]
 
+        reusable_actions.resolve_reusable_action_references(jobs[:1])
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.resolve_reusable_action_references(jobs)
+            # Fail due to mocked side_effect.
+            reusable_actions.resolve_reusable_action_references(jobs[-1:])
 
         # job1 is OK, resolved
         assert (
@@ -177,3 +179,34 @@ class TestHandleReusableAction:
         )
         # job2 raised exception, not resolved
         assert jobs[1].run_command == "reusable-action:latest --output-format=png"
+
+    @mock.patch(
+        "controller.reusable_actions.parse_yaml",
+        return_value={"run": "python:latest python reusable_action/main.py"},
+    )
+    def test_caching(self, mock_parse_yaml, *args, **kwargs):
+        job1_data = deepcopy(JOB_DEFAULTS)
+        job1_data["run_command"] = "reusable-action:latest --output-format=jpg"
+
+        job2_data = deepcopy(JOB_DEFAULTS)
+        job2_data["run_command"] = "reusable-action:latest --output-format=png"
+
+        jobs = [Job(**job1_data), Job(**job2_data)]
+
+        reusable_actions.resolve_reusable_action_references(jobs)
+
+        # job1 is OK, resolved
+        assert (
+            jobs[0].run_command
+            == "python:latest python reusable_action/main.py --output-format=jpg"
+        )
+        # job2 is OK, resolved
+        assert (
+            jobs[1].run_command
+            == "python:latest python reusable_action/main.py --output-format=png"
+        )
+
+        # Mocked parse_yaml was only called once, so there is only one call to
+        # ReusableAction.rewrite_run_args that does the work of parsing the
+        # mocked value. That also implies there is only one ReusableAction.
+        assert mock_parse_yaml.call_count == 1
