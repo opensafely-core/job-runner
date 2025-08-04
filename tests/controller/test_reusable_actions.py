@@ -128,7 +128,7 @@ class TestHandleReusableAction:
             repo_url="foo", commit="bar", action_file=f"run: {action}".encode("ascii")
         )
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.apply_reusable_action(["foo:v1"], reusable_action)
+            reusable_action.rewrite_run_args(["foo:v1"])
 
     @mock.patch(
         "controller.reusable_actions.parse_yaml",
