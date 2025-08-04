@@ -88,3 +88,8 @@ def call_and_validate(case, recorder):
     response = case.call()
     recorder.record_status_code(case.path, response.status_code)
     case.validate_response(response)
+
+
+def test_api_docs(client):
+    response = client.get("/api-docs/")
+    assert response.status_code == 200
