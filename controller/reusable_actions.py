@@ -113,7 +113,7 @@ def handle_reusable_action(run_command, reusable_action_cache=None):
 
     Returns: tuple consisting of
         - rewritten_run_command: string
-        - resuable_action_repo_url: string or None if not a reusable action
+        - reusable_action_repo_url: string or None if not a reusable action
         - reusable_action_commit: string or None if not a reusable action
 
     Raises:
