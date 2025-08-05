@@ -53,7 +53,7 @@ def validator(dataclass: RequestBody):
                 obj = dataclass.from_request(post_data)
             except APIValidationError as e:
                 return JsonResponse(
-                    {"error": "Validation error", "details": str(e)}, status=400
+                    {"error": "Validation error", "details": e.args[0]}, status=400
                 )
 
             backend = post_data.get("backend")

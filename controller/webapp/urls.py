@@ -18,4 +18,6 @@ urlpatterns = [
     ),
     # backend status for a all backends (allowed by token)
     path("backend/status/", rap_views.backends_status, name="backends_status"),
+    # Cancel one or more actions
+    path("rap/cancel/", rap_views.cancel, name="cancel"),
 ]
