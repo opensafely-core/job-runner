@@ -1,10 +1,13 @@
+import json
 import time
 
 from django.urls import reverse
 
-from controller.models import timestamp_to_isoformat
+from controller.lib.database import find_one
+from controller.models import Job, State, timestamp_to_isoformat
 from controller.queries import set_flag
 from tests.conftest import get_trace
+from tests.factories import job_factory
 
 
 # use a fixed time for these tests
@@ -176,3 +179,42 @@ def test_backends_status_invalid_token(db, client, monkeypatch, freezer):
     assert response.status_code == 401
     response_json = response.json()
     assert response_json == {"error": "Unauthorized", "details": "Invalid token"}
+
+
+def test_cancel_view(db, client, monkeypatch, freezer):
+    freezer.move_to(TEST_DATESTR)
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job = job_factory(state=State.PENDING, action="action1")
+    assert not job.cancelled
+    post_data = {"job_request_id": job.job_request_id, "actions": ["action1"]}
+    response = client.post(
+        reverse("cancel", args=("test",)),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    response = response.json()
+    assert response == {"success": "ok", "details": "1 actions cancelled"}, response
+    job = find_one(Job, id=job.id)
+    assert job.cancelled
+
+
+def test_cancel_view_no_jobs(db, client, monkeypatch, freezer):
+    freezer.move_to(TEST_DATESTR)
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    post_data = {"job_request_id": "id1", "actions": ["action1"]}
+    response = client.post(
+        reverse("cancel", args=("test",)),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    response = response.json()
+    assert response == {
+        "error": "jobs not found",
+        "details": "Jobs matching requested cancelled actions could not be found: action1",
+    }
