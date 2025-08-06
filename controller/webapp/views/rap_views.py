@@ -43,6 +43,7 @@ def backend_status(request, backend):
     return JsonResponse({"flags": flags}, json_dumps_params={"separators": (",", ":")})
 
 
+@csrf_exempt
 @require_GET
 @get_backends_for_client_token
 def backends_status(request, backends):

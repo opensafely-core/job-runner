@@ -38,6 +38,9 @@ class Recorder:
 
 @pytest.fixture(scope="module")
 def recorder(request):
+    default_expected_status_codes = {200, 401, 405}
+    expected_status_codes_by_path = {"/{backend}/backend/status/": {200, 401, 404, 405}}
+
     recorder_ = Recorder()
 
     yield recorder_
@@ -47,8 +50,10 @@ def recorder(request):
     # (the CLI tests will catch this)
     # So, we record all status codes seen for each path and ensure we've seen all the expected ones
     # and haven't seen any we didn't expect
-    expected_status_codes = {200, 401, 404, 405}
     for path, status_codes in recorder_.status_codes.items():
+        expected_status_codes = expected_status_codes_by_path.get(
+            path, default_expected_status_codes
+        )
         missed_codes = expected_status_codes - status_codes
         assert not missed_codes, (
             f"Expected status codes not tested for path {path}: {missed_codes}"
