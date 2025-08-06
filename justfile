@@ -188,3 +188,34 @@ run-controller-service: devenv
 
 run:
     { just run-app & just run-agent-service & just run-controller-service; }
+
+validate-api-spec: devenv
+    $BIN/openapi-spec-validator controller/webapp/api_spec/openapi.yaml
+
+schemathesis url='http://localhost:3000': devenv
+    $BIN/schemathesis --config-file controller/webapp/api_spec/schemathesis.toml run controller/webapp/api_spec/openapi.yaml --url {{ url }}
+
+test-api-spec:
+    #!/bin/bash
+    # Run webapp only in container (publishing port 3030) and kill on exit
+    trap 'cd docker && docker compose kill test-controller-web-dev' EXIT
+    just docker/run-detached-webapp
+    # Give it long enough to be able to contact the server; if we do this too quickly, we
+    # get a ConnectionResetError
+    sleep 1
+    just schemathesis 'http://localhost:3030'
+
+generate-api-docs:
+    npx @redocly/cli build-docs controller/webapp/api_spec/openapi.yaml --output controller/webapp/api_spec/api_docs.html
+
+check-api-docs: generate-api-docs
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [[ -z $(git status --porcelain ./controller/webapp/api_spec/api_docs.html) ]]
+    then
+      echo "Generated docs are current."
+    else
+      echo "Generated docs are out of date."
+      exit 1
+    fi

@@ -1,0 +1,3 @@
+# Run more tests for better coverage
+generation.max-examples = 400
+headers = { Authorization = "token" }

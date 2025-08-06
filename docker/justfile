@@ -84,6 +84,11 @@ functional-test: (build 'prod')
 run env="dev" *args="": (build env) _workdir
     docker compose run --rm {{ env }} {{ args }}
 
+# run dev webapp in detached container
+run-detached-webapp: (build 'dev') _workdir
+    #!/bin/bash
+    docker compose run --rm -d --publish 3030:8000 test-controller-web-dev
+
 # exec command in existing dev container
 exec *args="bash": _workdir
     docker compose exec dev {{ args }}

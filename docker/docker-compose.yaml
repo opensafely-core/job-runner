@@ -128,3 +128,8 @@ services:
     extends:
         service: test-controller
     command: python -m controller.service
+
+  test-controller-web-dev:
+    extends:
+        service: dev
+    command: python manage.py runserver 0.0.0.0:8000

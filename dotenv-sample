@@ -73,3 +73,11 @@ TEST_CLIENT_TOKENS=token
 DJANGO_CONTROLLER_SECRET_KEY=secret
 DJANGO_CONTROLLER_ALLOWED_HOSTS=*
 DJANGO_DEBUG=True
+
+# Telementry #
+##############
+# Uncomment to see telemetry output in the console (warning: noisy!)
+# OTEL_EXPORTER_CONSOLE=1
+# Use stable http semantic conventions
+# https://github.com/open-telemetry/semantic-conventions/tree/v1.23.0/docs/http
+OTEL_SEMCONV_STABILITY_OPT_IN="http"
