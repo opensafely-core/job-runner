@@ -50,21 +50,7 @@ paths:
                         v: on
                         ts: 2025-07-29T16:12:28.216609Z
         401:
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  details:
-                    type: string
-              examples:
-                ex1:
-                  value:
-                    error: "Unauthorized"
-                    details: "Invalid token"
+          $ref: "#/components/responses/401Unauthorized"
         404:
           description: unknown backend
           content:
@@ -120,21 +106,7 @@ paths:
                           v: on
                           ts: 2025-07-29T16:12:28.216609Z
         401:
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  details:
-                    type: string
-              examples:
-                ex1:
-                  value:
-                    error: "Unauthorized"
-                    details: "Invalid token"
+          $ref: "#/components/responses/401Unauthorized"
 
 
 components:
@@ -143,6 +115,25 @@ components:
       type: http
       scheme: bearer
       bearerFormat: token
+
+  responses:
+    401Unauthorized:
+      # Can be referenced as '#/components/responses/401Unauthorized'
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: string
+          examples:
+            ex1:
+              value:
+                error: "Unauthorized"
+                details: "Invalid token"
 
 security:
   - bearerAuth: [] # <-- use the same name here
