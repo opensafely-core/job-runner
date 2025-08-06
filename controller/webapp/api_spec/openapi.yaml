@@ -7,6 +7,8 @@ info:
 paths:
   /{backend}/backend/status/:
     get:
+      security:
+        - bearerAuth: []
       description: |
         Get the status (flags) for a specific backend.
       parameters:
@@ -83,6 +85,8 @@ paths:
 
   /backend/status/:
     get:
+      security:
+        - bearerAuth: []
       description: |
         Get the status (flags) for all backends.
       responses:
@@ -131,3 +135,14 @@ paths:
                   value:
                     error: "Unauthorized"
                     details: "Invalid token"
+
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+
+security:
+  - bearerAuth: [] # <-- use the same name here
