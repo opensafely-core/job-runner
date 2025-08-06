@@ -16,13 +16,13 @@ def test_add_job(monkeypatch, tmp_work_dir, db, test_repo):
     assert db_jobs[0].action == "generate_dataset"
 
 
-def test_add_job_with_bad_commit(monkeypatch, tmp_work_dir, db, test_repo):
+def test_add_job_with_bad_commit(monkeypatch, tmp_work_dir, db):
     _, jobs = add_job.run(
         [
-            str(test_repo.path),
+            "https://github.com/opensafely/documentation",
             "generate_dataset",
             "--commit",
-            "abc",
+            "doesnotexist",
             "--backend",
             "test",
         ]

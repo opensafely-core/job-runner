@@ -52,7 +52,6 @@ class StubExecutorAPI:
         """Create and track a db job object."""
         job = job_factory(**kwargs)
         task = AgentTask.from_task(runjob_db_task_factory(job=job))
-        job = JobDefinition.from_dict(task.definition)
         self.set_job_status(job.id, executor_state, timestamp_ns)
         return task, job.id
 

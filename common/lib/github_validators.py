@@ -7,20 +7,29 @@ class GithubValidationError(Exception):
     pass
 
 
+def validate_repo_and_commit(allowed_gitub_orgs, repo_url, commit, branch):
+    # just validating http prefix allows local git repos, useful for tests
+    if repo_url.startswith("http"):
+        validate_repo_url(repo_url, allowed_gitub_orgs)
+        validate_branch_and_commit(repo_url, commit, branch)
+
+
 def validate_repo_url(repo_url, allowed_gitub_orgs):
     parsed_url = urlparse(repo_url)
     if parsed_url.scheme != "https" or parsed_url.netloc != "github.com":
-        raise GithubValidationError("Repository URLs must start https://github.com")
+        raise GithubValidationError(
+            f"Repository URL {repo_url} does not start with https://github.com"
+        )
     path = parsed_url.path.strip("/").split("/")
     if not path or path[0] not in allowed_gitub_orgs:
         raise GithubValidationError(
-            f"Repositories must belong to one of the following Github "
+            f"Repository {repo_url} does not belong to one of the following Github "
             f"organisations: {' '.join(allowed_gitub_orgs)}"
         )
     expected_url = f"https://github.com/{'/'.join(path[:2])}"
     if repo_url.rstrip("/") != expected_url or len(path) != 2:
         raise GithubValidationError(
-            "Repository URL was not of the expected format: "
+            f"Repository {repo_url} was not of the expected format: "
             "https://github.com/[organisation]/[project-name]"
         )
 

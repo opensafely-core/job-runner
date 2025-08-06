@@ -190,7 +190,7 @@ def test_repo(tmp_work_dir):
         source=directory,
         path=repo_path,
         commit=commit,
-        study=Study(git_repo_url=str(repo_path), commit=commit),
+        study=Study(git_repo_url=str(repo_path), commit=commit, branch="main"),
     )
 
 
