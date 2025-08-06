@@ -79,5 +79,3 @@ paths:
                   value:
                     error: "Not found"
                     details: "Backend 'foo' not found"
-        5XX:
-          description: unknown error

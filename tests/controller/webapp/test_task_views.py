@@ -224,9 +224,9 @@ def test_active_tasks_view_tracing(db, client, monkeypatch):
     traces = get_trace()
     last_trace = traces[-1]
     # default django attributes
-    assert last_trace.attributes["http.method"] == "GET"
-    assert last_trace.attributes["http.url"].endswith("/test/tasks/")
-    assert last_trace.attributes["http.status_code"] == 200
+    assert last_trace.attributes["http.request.method"] == "GET"
+    assert last_trace.attributes["http.route"] == ("<str:backend>/tasks/")
+    assert last_trace.attributes["http.response.status_code"] == 200
     # custom attributes
     assert last_trace.attributes["backend"] == "test"
 
@@ -254,9 +254,9 @@ def test_update_task_view_tracing(db, client, monkeypatch):
     traces = get_trace()
     last_trace = traces[-1]
     # default django attributes
-    assert last_trace.attributes["http.method"] == "POST"
-    assert last_trace.attributes["http.url"].endswith("/test/task/update/")
-    assert last_trace.attributes["http.status_code"] == 200
+    assert last_trace.attributes["http.request.method"] == "POST"
+    assert last_trace.attributes["http.route"] == ("<str:backend>/task/update/")
+    assert last_trace.attributes["http.response.status_code"] == 200
     # custom attributes
     assert last_trace.attributes["backend"] == "test"
     assert last_trace.attributes["task_id"] == task.id

@@ -47,8 +47,6 @@ def recorder(request):
     # (the CLI tests will catch this)
     # So, we record all status codes seen for each path and ensure we've seen all the expected ones
     # and haven't seen any we didn't expect
-    # Note that currently the schemathesis.toml ignores 500 checks due to opentelemetry-django issue
-    # with certain unicode characters
     expected_status_codes = {200, 401, 404, 405}
     for path, status_codes in recorder_.status_codes.items():
         missed_codes = expected_status_codes - status_codes

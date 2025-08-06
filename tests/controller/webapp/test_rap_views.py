@@ -59,9 +59,10 @@ def test_backend_status_view_tracing(db, client, monkeypatch):
     traces = get_trace()
     last_trace = traces[-1]
     # default django attributes
-    assert last_trace.attributes["http.method"] == "GET"
-    assert last_trace.attributes["http.url"].endswith("/backend/status/")
-    assert last_trace.attributes["http.status_code"] == 200
+    assert last_trace.attributes["http.request.method"] == "GET"
+    assert last_trace.attributes["http.route"] == ("<str:backend>/backend/status/")
+    assert last_trace.attributes["http.response.status_code"] == 200
+
     # custom attributes
     assert last_trace.attributes["backend"] == "test"
 
@@ -155,9 +156,9 @@ def test_backends_status_view_tracing(db, client, monkeypatch):
     traces = get_trace()
     last_trace = traces[-1]
     # default django attributes
-    assert last_trace.attributes["http.method"] == "GET"
-    assert last_trace.attributes["http.url"].endswith("/backend/status/")
-    assert last_trace.attributes["http.status_code"] == 200
+    assert last_trace.attributes["http.request.method"] == "GET"
+    assert last_trace.attributes["http.route"] == ("backend/status/")
+    assert last_trace.attributes["http.response.status_code"] == 200
 
 
 def test_backends_status_no_token(db, client, monkeypatch):

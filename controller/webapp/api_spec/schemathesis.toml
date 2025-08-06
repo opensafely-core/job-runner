@@ -1,9 +1,3 @@
 # Run more tests for better coverage
-generation.max-examples = 100
-
+generation.max-examples = 200
 headers = { Authorization = "token" }
-
-[[operations]]
-# ignore 500 errors (otel middleware errors when backend is bad unicode)
-include-path = "/{backend}/backend/status/"
-checks.not_a_server_error.enabled = false
