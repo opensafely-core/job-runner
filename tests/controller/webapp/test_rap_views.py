@@ -218,3 +218,21 @@ def test_cancel_view_no_jobs(db, client, monkeypatch, freezer):
         "error": "jobs not found",
         "details": "Jobs matching requested cancelled actions could not be found: action1",
     }
+
+
+def test_cancel_view_bad_json(db, client, monkeypatch, freezer):
+    freezer.move_to(TEST_DATESTR)
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    response = client.post(
+        reverse("cancel", args=("test",)),
+        "foo",
+        headers=headers,
+        content_type="application/json",
+    )
+    response = response.json()
+    assert response == {
+        "error": "Validation error",
+        "details": "could not parse JSON from request body",
+    }
