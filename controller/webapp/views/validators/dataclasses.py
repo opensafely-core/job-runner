@@ -1,8 +1,6 @@
 import abc
 from dataclasses import dataclass
 
-from django.http.request import QueryDict
-
 
 @dataclass
 class RequestBody(abc.ABC):
@@ -14,4 +12,4 @@ class RequestBody(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_request(cls, post_data: QueryDict): ...
+    def from_request(cls, post_data: dict): ...
