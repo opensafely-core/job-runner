@@ -12,16 +12,7 @@ paths:
       description: |
         Get the status (flags) for a specific backend.
       parameters:
-        - name: backend
-          in: path
-          description: name of backend
-          required: true
-          schema:
-            type: string
-            enum:
-              - test
-              - tpp
-              - emis
+      - $ref: "#/components/parameters/backendParam"
       responses:
         200:
           description: OK
@@ -52,22 +43,7 @@ paths:
         401:
           $ref: "#/components/responses/401Unauthorized"
         404:
-          description: unknown backend
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  details:
-                    type: string
-              examples:
-                ex1:
-                  value:
-                    error: "Not found"
-                    details: "Backend 'foo' not found"
-
+          $ref: "#/components/responses/404UnknownBackend"
 
   /backend/status/:
     get:
@@ -116,6 +92,20 @@ components:
       scheme: bearer
       bearerFormat: token
 
+  parameters:
+    backendParam:
+      name: backend
+      in: path
+      description: name of backend
+      required: true
+      schema:
+        type: string
+        enum:
+        - test
+        - tpp
+        - emis
+        example: test
+
   responses:
     401Unauthorized:
       # Can be referenced as '#/components/responses/401Unauthorized'
@@ -134,6 +124,23 @@ components:
               value:
                 error: "Unauthorized"
                 details: "Invalid token"
+    404UnknownBackend:
+      # Can be referenced as '#/components/responses/404UnknownBackend'
+      description: unknown backend
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: string
+          examples:
+            ex1:
+              value:
+                error: "Not found"
+                details: "Backend 'foo' not found"
 
 security:
-  - bearerAuth: [] # <-- use the same name here
+  - bearerAuth: []
