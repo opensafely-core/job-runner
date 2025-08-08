@@ -4,12 +4,12 @@ from pathlib import Path
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
-from ruamel.yaml import YAML
 
 from controller.create_or_update_jobs import set_cancelled_flag_for_actions
 from controller.lib.database import find_where
 from controller.models import Job
 from controller.queries import get_current_flags
+from controller.webapp.api_spec.utils import api_spec_json
 from controller.webapp.views.auth.rap import (
     get_backends_for_client_token,
     require_client_token_backend_authentication,
@@ -23,10 +23,7 @@ log = logging.getLogger(__name__)
 
 
 def api_spec(request):
-    yaml = YAML()
-    return JsonResponse(
-        yaml.load(Path(__file__).parents[1] / "api_spec" / "openapi.yaml")
-    )
+    return JsonResponse(api_spec_json)
 
 
 def api_docs(request):
