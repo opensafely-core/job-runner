@@ -211,7 +211,7 @@ def test_cancel_view_no_jobs(db, client, monkeypatch, freezer):
 
     post_data = {
         "backend": "test",
-        "job_request_id": "id1",
+        "job_request_id": "abcdefgh12345678",
         "actions": ["action1"],
     }
     response = client.post(
@@ -234,7 +234,7 @@ def test_cancel_view_no_access_to_backend(db, client, monkeypatch):
 
     post_data = {
         "backend": "foo",
-        "job_request_id": "id1",
+        "job_request_id": "abcdefgh12345678",
         "actions": ["action1"],
     }
     response = client.post(

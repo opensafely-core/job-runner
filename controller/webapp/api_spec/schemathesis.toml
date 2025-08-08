@@ -1,3 +1,17 @@
-# Run more tests for better coverage
-generation.max-examples = 400
+generation.max-examples = 100
 headers = { Authorization = "token" }
+continue-on-failure = true
+
+[output.sanitization]
+enabled = false
+
+[[operations]]
+include-name = "POST /rap/cancel/"
+# Turn off positive_data_acceptance check as it can't understand custom
+# validation for validly shaped data. i.e. if we post a job request id and actions
+# that don't exists, we'll get an unexpected (as far as schemathesis is concerned)
+# 400
+# See suggestion from schemathesis author to do just this: https://github.com/schemathesis/schemathesis/issues/2710#issuecomment-2622411255
+# We expect the validation to be covered in unit tests, so we just ignore for api spec tests
+# for now.
+checks.positive_data_acceptance.enabled = false

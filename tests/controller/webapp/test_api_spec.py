@@ -1,10 +1,13 @@
 from collections import defaultdict
 from pathlib import Path
 
-import hypothesis as hyp
 import pytest
 import responses
 import schemathesis
+
+from controller.lib import database
+from controller.models import Job, State
+from tests.factories import job_factory, job_request_factory
 
 
 @pytest.fixture
@@ -39,7 +42,10 @@ class Recorder:
 @pytest.fixture(scope="module")
 def recorder(request):
     default_expected_status_codes = {200, 401, 405}
-    expected_status_codes_by_path = {"/{backend}/backend/status/": {200, 401, 404, 405}}
+    expected_status_codes_by_path = {
+        "/{backend}/backend/status/": {200, 401, 404, 405},
+        "/rap/cancel/": {200, 400, 401, 403, 404, 405},
+    }
 
     recorder_ = Recorder()
 
@@ -68,19 +74,20 @@ def recorder(request):
 schema = schemathesis.pytest.from_fixture("api_schema")
 
 
+@pytest.fixture(autouse=True)
+def setup_job(db):
+    # Set up a job that matches the example request body for the /cancel
+    # endpoint in the api spec; this allows us to hit the 200 response
+    if not database.exists_where(Job, job_request_id="a1b2c3d4e5f6g7h8"):
+        job_req = job_request_factory(id="a1b2c3d4e5f6g7h8")
+        job_factory(state=State.PENDING, action="foo", job_request=job_req)
+
+
 @schema.parametrize()
 def test_api_with_auth(db, case, recorder):
+    # We pass good headers; schemathesis will typically generate a test case
+    # with bad auth too, so the 401 status is covered
     case.headers = {"Authorization": "token"}
-    call_and_validate(case, recorder)
-
-
-@schema.parametrize()
-@schema.given(
-    auth_token=hyp.strategies.sampled_from(["bad-token", None]),
-)
-def test_api_with_bad_auth(db, auth_token, case, recorder):
-    if auth_token is not None:
-        case.headers = {"Authorization": auth_token}
     call_and_validate(case, recorder)
 
 
