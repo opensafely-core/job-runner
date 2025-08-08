@@ -149,8 +149,9 @@ paths:
                 examples:
                   ex1:
                     value:
+                      description: Missing job_request_id
                       error: Validation error
-                      details": No actions provided
+                      details": "Invalid request body received: 'job_request_id' is a required property"
           401:
             $ref: "#/components/responses/401Unauthorized"
           404:
