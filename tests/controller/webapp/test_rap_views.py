@@ -206,7 +206,7 @@ def test_cancel_view_no_jobs(db, client, monkeypatch, freezer):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    post_data = {"job_request_id": "id1", "actions": ["action1"]}
+    post_data = {"job_request_id": "abcdefgh12345678", "actions": ["action1"]}
     response = client.post(
         reverse("cancel", args=("test",)),
         json.dumps(post_data),
