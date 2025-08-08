@@ -244,3 +244,20 @@ def test_cancel_view_no_access_to_backend(db, client, monkeypatch):
         content_type="application/json",
     )
     assert response.status_code == 403
+
+
+def test_cancel_view_bad_json(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    response = client.post(
+        reverse("cancel"),
+        "foo",
+        headers=headers,
+        content_type="application/json",
+    )
+    response = response.json()
+    assert response == {
+        "error": "Validation error",
+        "details": "could not parse JSON from request body",
+    }
