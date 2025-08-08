@@ -1,7 +1,15 @@
 import abc
+import logging
 from dataclasses import dataclass
 
+import jsonschema
+
+from controller.webapp.api_spec.utils import api_spec_json
 from controller.webapp.views.validators.exceptions import APIValidationError
+
+
+log = logging.getLogger(__name__)
+
 
 @dataclass
 class RequestBody(abc.ABC):
@@ -28,16 +36,18 @@ class CancelRequest(RequestBody):
 
     @classmethod
     def from_request(cls, post_data: dict):
-        errors = []
-        job_request_id = post_data.get("job_request_id")
-        if not job_request_id:
-            errors.append("job_request_id not provided")
-        actions = post_data.get("actions")
-        if not actions:
-            errors.append("No actions provided")
+        schema = api_spec_json["paths"]["/{backend}/cancel/"]["post"]["requestBody"][
+            "content"
+        ]["application/json"]["schema"]
+        try:
+            jsonschema.validate(instance=post_data, schema=schema)
+        except jsonschema.exceptions.ValidationError as err:
+            log.error(err)
+            raise APIValidationError(f"Invalid request body received: {err.message}")
 
-        if errors:
-            raise APIValidationError(", ".join(errors))
+        job_request_id = post_data["job_request_id"]
+        actions = post_data["actions"]
+
         return cls(
             job_request_id=job_request_id,
             actions=actions,
