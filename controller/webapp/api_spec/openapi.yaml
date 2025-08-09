@@ -1,7 +1,7 @@
 openapi: 3.1.0
 
 info:
-  title: RAP API OpenAPI Description
+  title: RAP API
   version: "v1"
 
 paths:
@@ -11,6 +11,8 @@ paths:
         - bearerAuth: []
       description: |
         Get the status (flags) for a specific backend.
+      tags:
+        - backends
       parameters:
       - $ref: "#/components/parameters/backendParam"
       responses:
@@ -51,6 +53,8 @@ paths:
         - bearerAuth: []
       description: |
         Get the status (flags) for all backends.
+      tags:
+        - backends
       responses:
         200:
           description: OK
@@ -240,3 +244,11 @@ components:
 
 security:
   - bearerAuth: []
+
+tags:
+  - name: backends
+    x-displayName: Backend status
+    description: Endpoints that provide information about backend status.
+  - name: rap_operations
+    x-displayName: RAP Operations
+    description: Endpoints that perform operations on RAPs
