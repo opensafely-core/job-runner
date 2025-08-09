@@ -36,9 +36,7 @@ class CancelRequest(RequestBody):
 
     @classmethod
     def from_request(cls, post_data: dict):
-        schema = api_spec_json["paths"]["/rap/cancel/"]["post"]["requestBody"][
-            "content"
-        ]["application/json"]["schema"]
+        schema = api_spec_json["components"]["schemas"]["cancelRequestBody"]
         try:
             jsonschema.validate(instance=post_data, schema=schema)
         except jsonschema.exceptions.ValidationError as err:

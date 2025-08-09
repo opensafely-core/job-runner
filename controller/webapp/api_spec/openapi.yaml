@@ -175,6 +175,29 @@ components:
       scheme: bearer
       bearerFormat: token
 
+  schemas:
+    cancelRequestBody:
+      type: object
+      required:
+        - backend
+        - job_request_id
+        - actions
+      properties:
+        backend:
+          type: string
+          examples:
+            - test
+            - tpp
+            - emis
+        job_request_id:
+          type: string
+          pattern: "^[a-z0-9]{16}$"
+        actions:
+          type: array
+          minItems: 1
+          items:
+            type: string
+
   parameters:
     backendParam:
       name: backend
@@ -183,6 +206,7 @@ components:
       required: true
       schema:
         type: string
+        maxLength: 4
         enum:
         - test
         - tpp

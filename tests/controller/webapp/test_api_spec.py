@@ -27,7 +27,10 @@ def api_schema(live_server):
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    monkeypatch.setattr("common.config.BACKENDS", ["test"])
+    # Schemathesis will use the example values we include in the api spec (test, tpp, emis)
+    # set up config so this token has access to one known backend (test), is not allowed to
+    # access one known backend (tpp) and one example is an unknown backend (emis)
+    monkeypatch.setattr("common.config.BACKENDS", ["test", "tpp"])
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"token": ["test"]})
 
 
