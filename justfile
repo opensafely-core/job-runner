@@ -192,10 +192,10 @@ run:
 validate-api-spec: devenv
     $BIN/openapi-spec-validator controller/webapp/api_spec/openapi.yaml
 
-schemathesis url='http://localhost:3000': devenv
-    $BIN/schemathesis --config-file controller/webapp/api_spec/schemathesis.toml run controller/webapp/api_spec/openapi.yaml --url {{ url }}
+schemathesis *ARGS="--url='http://localhost:3000'": devenv
+    $BIN/schemathesis --config-file controller/webapp/api_spec/schemathesis.toml run controller/webapp/api_spec/openapi.yaml {{ ARGS }}
 
-test-api-spec:
+test-api-spec *ARGS:
     #!/bin/bash
     # Run webapp only in container (publishing port 3030) and kill on exit
     trap 'cd docker && docker compose kill test-controller-web-dev' EXIT
@@ -203,7 +203,7 @@ test-api-spec:
     # Give it long enough to be able to contact the server; if we do this too quickly, we
     # get a ConnectionResetError
     sleep 1
-    just schemathesis 'http://localhost:3030'
+    just schemathesis --url='http://localhost:3030' {{ ARGS }}
 
 generate-api-docs:
     npx @redocly/cli build-docs controller/webapp/api_spec/openapi.yaml --output controller/webapp/api_spec/api_docs.html
