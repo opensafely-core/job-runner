@@ -1,6 +1,5 @@
 generation.max-examples = 100
 headers = { Authorization = "token" }
-continue-on-failure = true
 
 [output.sanitization]
 enabled = false
