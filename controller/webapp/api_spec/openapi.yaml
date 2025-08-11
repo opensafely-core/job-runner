@@ -95,11 +95,17 @@ paths:
                     details:
                       type: string
                 examples:
-                  ex1:
+                  validator_error:
                     value:
                       description: Missing job_request_id
                       error: Validation error
                       details": "Invalid request body received: 'job_request_id' is a required property"
+                  data_derror:
+                    value:
+                      description: Jobs matching requested cancel actions are not found
+                      error: Validation error
+                      details": "Jobs matching requested cancelled actions could not be found: action1"
+
           401:
             $ref: "#/components/responses/401Unauthorized"
           403:
