@@ -37,8 +37,9 @@ def test_backends_status_view(db, client, monkeypatch, freezer):
     set_flag("pause", "false", "test_backend2")
 
     response = client.get(reverse("backends_status"), headers=headers)
-    response = response.json()
-    assert response["flags"] == {
+    assert response.status_code == 200
+    response_json = response.json()
+    assert response_json["flags"] == {
         "test_backend1": {
             "foo": {"v": "bar1", "ts": TEST_DATESTR},
             "pause": {"v": "true", "ts": TEST_DATESTR},
@@ -56,8 +57,9 @@ def test_backends_status_view_no_flags(db, client, monkeypatch):
     headers = {"Authorization": "test_token"}
 
     response = client.get(reverse("backends_status"), headers=headers)
-    response = response.json()
-    assert response["flags"] == {"test": {}, "foo": {}}
+    assert response.status_code == 200
+    response_json = response.json()
+    assert response_json["flags"] == {"test": {}, "foo": {}}
 
 
 def test_backends_status_view_tracing(db, client, monkeypatch):
@@ -93,14 +95,38 @@ def test_cancel_view(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    response = response.json()
-    assert response == {"success": "ok", "details": "1 actions cancelled"}, response
+    assert response.status_code == 200
+    response_json = response.json()
+    assert response_json == {"success": "ok", "details": "1 actions cancelled"}, (
+        response
+    )
     job = find_one(Job, id=job.id)
     assert job.cancelled
 
 
-def test_cancel_view_no_jobs(db, client, monkeypatch, freezer):
-    freezer.move_to(TEST_DATESTR)
+def test_cancel_view_validation_error(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    post_data = {
+        "backend": "test",
+        "actions": ["action1"],
+    }
+    response = client.post(
+        reverse("cancel"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
+        "error": "Validation error",
+        "details": "Invalid request body received: 'job_request_id' is a required property",
+    }
+
+
+def test_cancel_view_no_jobs(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
@@ -115,8 +141,9 @@ def test_cancel_view_no_jobs(db, client, monkeypatch, freezer):
         headers=headers,
         content_type="application/json",
     )
-    response = response.json()
-    assert response == {
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
         "error": "jobs not found",
         "details": "Jobs matching requested cancelled actions could not be found: action1",
     }
