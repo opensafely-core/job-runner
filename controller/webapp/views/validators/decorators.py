@@ -16,6 +16,16 @@ def validate_request_body(dataclass: RequestBody):
     and is called with positional args `request` and `backends`, where `backends`
     is a list of backends that this client token has access to.
 
+    Note: order of decorators is important; `get_backends_for_client_token` must
+    come before `validate_request_body` so that the `backends` argument has been
+    populated.
+
+    @require_POST
+    @get_backends_for_client_token
+    @validate_request_body(RequestBody)
+    def my_view(request, backends, request_obj: RequestBody):
+        ...
+
     Args:
         dataclass: A dataclass, with a `from_request` method.
 
@@ -31,8 +41,13 @@ def validate_request_body(dataclass: RequestBody):
     def decorator(func):
         def wrapper(*args, **kwargs):
             request = args[0]
-            backends = args[1]
 
+            assert "backends" in kwargs, (
+                "`backends` keyword argument not found; ensure that the @get_backends_for_client_token "
+                "decorator is before the @validate_request_body on this function"
+            )
+
+            backends = kwargs.get("backends")
             # Django's request.POST is only populated from form data (i.e. content type
             # application/x-www-form-urlencoded). If we post with content type
             # application/json, the data will only be in the request body. Since we're
@@ -57,6 +72,17 @@ def validate_request_body(dataclass: RequestBody):
                 )
 
             backend = body_data.get("backend")
+            if backend is None:
+                # Note: typically we'd expect dataclasses to validate against an
+                # api spec that includes backend as a required parameter. In case that was omitted, we
+                # explicitly check for None here
+                return JsonResponse(
+                    {
+                        "error": "Validation error",
+                        "details": "`backend` parameter expected in body data",
+                    },
+                    status=400,
+                )
             if backend not in config.BACKENDS:
                 return JsonResponse(
                     {"error": "Not found", "details": f"Backend '{backend}' not found"},

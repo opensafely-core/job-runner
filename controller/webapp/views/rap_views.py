@@ -33,7 +33,7 @@ def api_docs(request):
 @csrf_exempt
 @require_GET
 @get_backends_for_client_token
-def backends_status(request, backends):
+def backends_status(request, *, backends):
     flags = {backend: flags_for_backend(backend) for backend in backends}
     return JsonResponse({"flags": flags}, json_dumps_params={"separators": (",", ":")})
 
@@ -49,7 +49,7 @@ def flags_for_backend(backend):
 @require_POST
 @get_backends_for_client_token
 @validate_request_body(CancelRequest)
-def cancel(request, backends, request_obj: CancelRequest):
+def cancel(request, *, backends, request_obj: CancelRequest):
     """
     Cancel jobs for one or more actions associated with a job_request_id.
 

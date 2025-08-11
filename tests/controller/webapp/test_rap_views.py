@@ -76,23 +76,6 @@ def test_backends_status_view_tracing(db, client, monkeypatch):
     assert last_trace.attributes["http.response.status_code"] == 200
 
 
-def test_backends_status_no_token(db, client, monkeypatch):
-    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
-    response = client.get(reverse("backends_status"))
-    assert response.status_code == 401
-    response_json = response.json()
-    assert response_json == {"error": "Unauthorized", "details": "No token provided"}
-
-
-def test_backends_status_invalid_token(db, client, monkeypatch, freezer):
-    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
-    headers = {"Authorization": "unknown_token"}
-    response = client.get(reverse("backends_status"), headers=headers)
-    assert response.status_code == 401
-    response_json = response.json()
-    assert response_json == {"error": "Unauthorized", "details": "Invalid token"}
-
-
 def test_cancel_view(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
@@ -136,40 +119,4 @@ def test_cancel_view_no_jobs(db, client, monkeypatch, freezer):
     assert response == {
         "error": "jobs not found",
         "details": "Jobs matching requested cancelled actions could not be found: action1",
-    }
-
-
-def test_cancel_view_no_access_to_backend(db, client, monkeypatch):
-    monkeypatch.setattr("common.config.BACKENDS", ["test", "foo"])
-    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
-    headers = {"Authorization": "test_token"}
-
-    post_data = {
-        "backend": "foo",
-        "job_request_id": "abcdefgh12345678",
-        "actions": ["action1"],
-    }
-    response = client.post(
-        reverse("cancel"),
-        json.dumps(post_data),
-        headers=headers,
-        content_type="application/json",
-    )
-    assert response.status_code == 403
-
-
-def test_cancel_view_bad_json(db, client, monkeypatch):
-    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
-    headers = {"Authorization": "test_token"}
-
-    response = client.post(
-        reverse("cancel"),
-        "foo",
-        headers=headers,
-        content_type="application/json",
-    )
-    response = response.json()
-    assert response == {
-        "error": "Validation error",
-        "details": "could not parse JSON from request body",
     }

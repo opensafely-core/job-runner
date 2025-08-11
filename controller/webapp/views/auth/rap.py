@@ -12,7 +12,7 @@ def get_backends_for_client_token(view_fn):
     """
 
     @wraps(view_fn)
-    def wrapped_view(request):
+    def wrapped_view(request, *args, **kwargs):
         token = request.headers.get("Authorization")
         error = None
         if not token:
@@ -24,7 +24,7 @@ def get_backends_for_client_token(view_fn):
 
         if error:
             return JsonResponse({"error": "Unauthorized", "details": error}, status=401)
-
-        return view_fn(request, token_backends)
+        kwargs["backends"] = token_backends
+        return view_fn(request, *args, **kwargs)
 
     return wrapped_view
