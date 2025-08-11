@@ -61,11 +61,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/cancelRequestBody"
               examples:
-                ex1:
+                test_backend:
                   value:
                     backend: test
                     job_request_id: a1b2c3d4e5f6g7h8
                     actions: ["foo"]
+                tpp_backend:
+                  value:
+                    backend: tpp
+                    job_request_id: a1b2c3d4e5f6g7h8
+                    actions: ["action1"]
+                emis_backend:
+                  value:
+                    backend: emis
+                    job_request_id: a1b2c3d4e5f6g7h8
+                    actions: ["action1", "action2"]
         responses:
           200:
             description: OK
@@ -82,7 +92,8 @@ paths:
                       description: Number of actions cancelled
                       type: integer
                 examples:
-                  ex1:
+                  success:
+                    description: 2 actions successfully cancelled
                     value:
                       success: ok
                       details: 2 actions cancelled
@@ -110,20 +121,20 @@ paths:
                       items:
                         type: string
                 examples:
-                  validator_error:
+                  validation_error:
+                    description: Missing job_request_id
                     value:
-                      description: Missing job_request_id
                       error: Validation error
                       details": "Invalid request body received: 'job_request_id' is a required property"
                   data_error1:
+                    description: No jobs found matching job_request_id
                     value:
-                      description: No jobs found matching job_request_id
                       error: job request not found
                       details": No jobs found for job_request_id abcdefgh12345678
                       job_request_id: abcdefgh12345678
                   data_error2:
+                    description: Jobs matching requested cancel actions are not found
                     value:
-                      description: Jobs matching requested cancel actions are not found
                       error: Jobs not found
                       details": "Jobs matching requested cancelled actions could not be found: action1,action2"
                       job_request_id: abcdefgh12345678
@@ -153,10 +164,6 @@ components:
       properties:
         backend:
           type: string
-          examples:
-            - test
-            - tpp
-            - emis
         job_request_id:
           type: string
           pattern: "^[a-z0-9]{16}$"
@@ -180,7 +187,7 @@ components:
               details:
                 type: string
           examples:
-            ex1:
+            invalid_token:
               value:
                 error: "Unauthorized"
                 details: "Invalid token"
@@ -197,7 +204,7 @@ components:
               details:
                 type: string
           examples:
-            ex1:
+            not_allowed_for_backend:
               value:
                 error: "Not allowed"
                 details: "Not allowed for backend 'foo'"
@@ -214,7 +221,7 @@ components:
               details:
                 type: string
           examples:
-            ex1:
+            backend_not_found:
               value:
                 error: "Not found"
                 details: "Backend 'foo' not found"
