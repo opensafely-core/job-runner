@@ -16,6 +16,7 @@
   - [Turn manual database maintenance mode on/off](#turn-manual-database-maintenance-mode-onoff-on-a-specific-backend)
   - [Pause a backend](#pause-a-backend)
   - [Prepare for reboot](#prepare-for-reboot)
+- [RAP API](#rap-api)
 
 
 ## Local development
@@ -705,3 +706,8 @@ $dokku4 dokku run rap-controller python manage.py prepare_for_reboot --backend t
 == READY TO REBOOT ==
 Safe to reboot now
 ```
+
+## RAP API
+
+The RAP API is used by non-agent clients to communicate with the RAP Controller. We use the
+OpenAPI specification to describe the API. See the [RAP API](./controller/webapp/api_spec/RAP_API_DEVELOPERS.md) documentation for more details.
