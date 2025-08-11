@@ -14,7 +14,7 @@ from controller.webapp.views.auth.rap import (
     get_backends_for_client_token,
 )
 from controller.webapp.views.validators.dataclasses import CancelRequest
-from controller.webapp.views.validators.decorators import validator
+from controller.webapp.views.validators.decorators import validate_request_body
 
 
 log = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ def flags_for_backend(backend):
 @csrf_exempt
 @require_POST
 @get_backends_for_client_token
-@validator(CancelRequest)
+@validate_request_body(CancelRequest)
 def cancel(request, backends, request_obj: CancelRequest):
     """
     Cancel jobs for one or more actions associated with a job_request_id.

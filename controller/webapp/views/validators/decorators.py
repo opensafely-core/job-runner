@@ -8,7 +8,7 @@ from controller.webapp.views.validators.dataclasses import RequestBody
 from controller.webapp.views.validators.exceptions import APIValidationError
 
 
-def validator(dataclass: RequestBody):
+def validate_request_body(dataclass: RequestBody):
     """
     Decorator to validate request body against a given dataclass.
 
@@ -36,10 +36,10 @@ def validator(dataclass: RequestBody):
             # Django's request.POST is only populated from form data (i.e. content type
             # application/x-www-form-urlencoded). If we post with content type
             # application/json, the data will only be in the request body. Since we're
-            # only expected these endpoints to be called with json data, we use the
+            # only expecting these endpoints to be called with json data, we use the
             # request.body
             try:
-                post_data = json.loads(request.body.decode())
+                body_data = json.loads(request.body.decode())
             except json.JSONDecodeError:
                 return JsonResponse(
                     {
@@ -50,13 +50,13 @@ def validator(dataclass: RequestBody):
                 )
 
             try:
-                obj = dataclass.from_request(post_data)
+                obj = dataclass.from_request(body_data)
             except APIValidationError as e:
                 return JsonResponse(
                     {"error": "Validation error", "details": e.args[0]}, status=400
                 )
 
-            backend = post_data.get("backend")
+            backend = body_data.get("backend")
             if backend not in config.BACKENDS:
                 return JsonResponse(
                     {"error": "Not found", "details": f"Backend '{backend}' not found"},

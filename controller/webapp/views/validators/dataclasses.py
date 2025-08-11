@@ -35,16 +35,16 @@ class CancelRequest(RequestBody):
     actions: list[str]
 
     @classmethod
-    def from_request(cls, post_data: dict):
+    def from_request(cls, body_data: dict):
         schema = api_spec_json["components"]["schemas"]["cancelRequestBody"]
         try:
-            jsonschema.validate(instance=post_data, schema=schema)
+            jsonschema.validate(instance=body_data, schema=schema)
         except jsonschema.exceptions.ValidationError as err:
             log.error(err)
             raise APIValidationError(f"Invalid request body received: {err.message}")
 
-        job_request_id = post_data["job_request_id"]
-        actions = post_data["actions"]
+        job_request_id = body_data["job_request_id"]
+        actions = body_data["actions"]
 
         return cls(
             job_request_id=job_request_id,
