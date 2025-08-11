@@ -5,48 +5,6 @@ info:
   version: "v1"
 
 paths:
-  /{backend}/backend/status/:
-    get:
-      security:
-        - bearerAuth: []
-      description: |
-        Get the status (flags) for a specific backend.
-      tags:
-        - backends
-      parameters:
-      - $ref: "#/components/parameters/backendParam"
-      responses:
-        200:
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  flags:
-                    type: object
-                    additionalProperties:
-                      type: object
-                      properties:
-                        v:
-                          type: string
-                          nullable: true
-                          description: flag value
-                        ts:
-                          type: string
-                          description: timestamp
-              examples:
-                ex1:
-                  value:
-                    flags:
-                      paused:
-                        v: on
-                        ts: 2025-07-29T16:12:28.216609Z
-        401:
-          $ref: "#/components/responses/401Unauthorized"
-        404:
-          $ref: "#/components/responses/404UnknownBackend"
-
   /backend/status/:
     get:
       security:
@@ -197,21 +155,6 @@ components:
           minItems: 1
           items:
             type: string
-
-  parameters:
-    backendParam:
-      name: backend
-      in: path
-      description: name of backend
-      required: true
-      schema:
-        type: string
-        maxLength: 4
-        enum:
-        - test
-        - tpp
-        - emis
-        example: test
 
   responses:
     401Unauthorized:

@@ -13,9 +13,6 @@ urlpatterns = [
     # backend status for a specific backend
     path("api-docs/", rap_views.api_docs),
     path("api_spec.json", rap_views.api_spec),
-    path(
-        "<str:backend>/backend/status/", rap_views.backend_status, name="backend_status"
-    ),
     # backend status for a all backends (allowed by token)
     path("backend/status/", rap_views.backends_status, name="backends_status"),
     # Cancel one or more actions
