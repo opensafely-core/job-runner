@@ -94,7 +94,7 @@ def cancel(request, *, backends, request_obj: CancelRequest):
             },
             status=400,
         )
-    log.debug(
+    log.info(
         "Cancelling actions for job_request %s: %s",
         request_obj.job_request_id,
         request_obj.actions,
