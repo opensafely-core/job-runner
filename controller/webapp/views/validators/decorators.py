@@ -72,6 +72,7 @@ def validate_request_body(dataclass: RequestBody):
                 )
 
             backend = body_data.get("backend")
+            print(backend)
             if backend is None:
                 # Note: typically we'd expect dataclasses to validate against an
                 # api spec that includes backend as a required parameter. In case that was omitted, we

@@ -97,9 +97,11 @@ def test_cancel_view(db, client, monkeypatch):
     )
     assert response.status_code == 200
     response_json = response.json()
-    assert response_json == {"success": "ok", "details": "1 actions cancelled"}, (
-        response
-    )
+    assert response_json == {
+        "success": "ok",
+        "details": "1 actions cancelled",
+        "count": 1,
+    }, response
     job = find_one(Job, id=job.id)
     assert job.cancelled
 
@@ -126,7 +128,7 @@ def test_cancel_view_validation_error(db, client, monkeypatch):
     }
 
 
-def test_cancel_view_no_jobs(db, client, monkeypatch):
+def test_cancel_view_no_jobs_for_job_request_id(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
@@ -144,6 +146,34 @@ def test_cancel_view_no_jobs(db, client, monkeypatch):
     assert response.status_code == 400
     response_json = response.json()
     assert response_json == {
+        "error": "job request not found",
+        "details": "No jobs found for job_request_id abcdefgh12345678",
+        "job_request_id": "abcdefgh12345678",
+    }
+
+
+def test_cancel_view_actions_not_found(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job = job_factory(state=State.PENDING, action="action1")
+
+    post_data = {
+        "backend": "test",
+        "job_request_id": job.job_request_id,
+        "actions": ["action2", "action3"],
+    }
+    response = client.post(
+        reverse("cancel"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
         "error": "jobs not found",
-        "details": "Jobs matching requested cancelled actions could not be found: action1",
+        "details": "Jobs matching requested cancelled actions could not be found: action2,action3",
+        "job_request_id": job.job_request_id,
+        "not_found": ["action2", "action3"],
     }

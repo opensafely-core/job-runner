@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from controller.create_or_update_jobs import set_cancelled_flag_for_actions
-from controller.lib.database import find_where
+from controller.lib.database import exists_where, find_where
 from controller.models import Job
 from controller.queries import get_current_flags
 from controller.webapp.api_spec.utils import api_spec_json
@@ -64,11 +64,22 @@ def cancel(request, *, backends, request_obj: CancelRequest):
     # Ensure that jobs exist for all requested cancel actions
     # We don't care about the state of the job (i.e. if it's already been cancelled), only
     # that it exists at all
+    if not exists_where(Job, job_request_id=request_obj.job_request_id):
+        return JsonResponse(
+            {
+                "error": "job request not found",
+                "details": f"No jobs found for job_request_id {request_obj.job_request_id}",
+                "job_request_id": request_obj.job_request_id,
+            },
+            status=400,
+        )
+
     jobs = find_where(
         Job, job_request_id=request_obj.job_request_id, action__in=request_obj.actions
     )
     actions_to_cancel = {job.action for job in jobs}
     if not_found := set(request_obj.actions) - actions_to_cancel:
+        not_found = sorted(not_found)
         not_found_actions = ",".join(not_found)
         log.error(
             "Jobs matching requested cancelled actions could not be found: %s",
@@ -78,6 +89,8 @@ def cancel(request, *, backends, request_obj: CancelRequest):
             {
                 "error": "jobs not found",
                 "details": f"Jobs matching requested cancelled actions could not be found: {not_found_actions}",
+                "job_request_id": request_obj.job_request_id,
+                "not_found": list(not_found),
             },
             status=400,
         )
@@ -88,7 +101,12 @@ def cancel(request, *, backends, request_obj: CancelRequest):
     )
 
     set_cancelled_flag_for_actions(request_obj.job_request_id, request_obj.actions)
+    cancelled_count = len(request_obj.actions)
     return JsonResponse(
-        {"success": "ok", "details": f"{len(request_obj.actions)} actions cancelled"},
+        {
+            "success": "ok",
+            "details": f"{len(request_obj.actions)} actions cancelled",
+            "count": cancelled_count,
+        },
         status=200,
     )
