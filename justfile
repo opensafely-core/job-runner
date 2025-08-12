@@ -205,8 +205,22 @@ test-api-spec *ARGS:
     sleep 1
     just schemathesis --url='http://localhost:3030' {{ ARGS }}
 
-generate-api-docs:
-    npx @redocly/cli build-docs controller/webapp/api_spec/openapi.yaml --output controller/webapp/api_spec/api_docs.html
+# Install the Node.js dependencies
+
+# (only used for api docs generation, not required in production)
+assets-install *args="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # exit if lock file has not changed since we installed them. -nt == "newer than",
+    # but we negate with || to avoid error exit code
+    test package-lock.json -nt node_modules/.written || exit 0
+
+    npm ci {{ args }}
+    touch node_modules/.written
+
+generate-api-docs: assets-install
+    npm run build-docs
 
 check-api-docs: generate-api-docs
     #!/usr/bin/env bash
