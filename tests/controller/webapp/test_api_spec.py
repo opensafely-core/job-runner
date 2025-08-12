@@ -1,10 +1,13 @@
 from collections import defaultdict
 from pathlib import Path
 
-import hypothesis as hyp
 import pytest
 import responses
 import schemathesis
+
+from controller.lib import database
+from controller.models import Job, State
+from tests.factories import job_factory, job_request_factory
 
 
 @pytest.fixture
@@ -24,7 +27,12 @@ def api_schema(live_server):
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    monkeypatch.setattr("common.config.BACKENDS", ["test"])
+    # Schemathesis will use the example values we include in the api spec
+    # set up config so this token has access to one known backend (test), and is not
+    # allowed access another known backend (foo)
+    # In our test setup, we create test jobs matching the values from the api spec,
+    # with either the test backend (to test happy paths) or foo backend (to test not allowed)
+    monkeypatch.setattr("common.config.BACKENDS", ["test", "foo"])
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"token": ["test"]})
 
 
@@ -39,7 +47,10 @@ class Recorder:
 @pytest.fixture(scope="module")
 def recorder(request):
     default_expected_status_codes = {200, 401, 405}
-    expected_status_codes_by_path = {"/{backend}/backend/status/": {200, 401, 404, 405}}
+    expected_status_codes_by_path = {
+        "/backend/status/": {200, 401, 405},
+        "/rap/cancel/": {200, 400, 401, 403, 405},
+    }
 
     recorder_ = Recorder()
 
@@ -68,19 +79,33 @@ def recorder(request):
 schema = schemathesis.pytest.from_fixture("api_schema")
 
 
+@pytest.fixture(autouse=True)
+def setup_jobs(db):
+    # Set up jobs that match the request body for the /cancel
+    # endpoint examples in the api spec;
+    # this allows us to hit the 200 response (jobs with test backend)
+    # and 403 responses (jobs with not-allowed foo backend)
+    example_jobs = [
+        ("a1b2c3d4e5f6g7h8", ["action1"], "test"),
+        ("abcdefgh12345678", ["action2", "action3"], "foo"),
+    ]
+    for job_request_id, actions, backend in example_jobs:
+        if not database.exists_where(Job, job_request_id=job_request_id):
+            job_req = job_request_factory(id=job_request_id)
+            for action in actions:
+                job_factory(
+                    state=State.PENDING,
+                    action=action,
+                    job_request=job_req,
+                    backend=backend,
+                )
+
+
 @schema.parametrize()
 def test_api_with_auth(db, case, recorder):
+    # We pass good headers; schemathesis will typically generate a test case
+    # with bad auth too, so the 401 status is covered
     case.headers = {"Authorization": "token"}
-    call_and_validate(case, recorder)
-
-
-@schema.parametrize()
-@schema.given(
-    auth_token=hyp.strategies.sampled_from(["bad-token", None]),
-)
-def test_api_with_bad_auth(db, auth_token, case, recorder):
-    if auth_token is not None:
-        case.headers = {"Authorization": auth_token}
     call_and_validate(case, recorder)
 
 

@@ -1,80 +1,18 @@
 openapi: 3.1.0
 
 info:
-  title: RAP API OpenAPI Description
+  title: RAP API
   version: "v1"
 
 paths:
-  /{backend}/backend/status/:
-    get:
-      security:
-        - bearerAuth: []
-      description: |
-        Get the status (flags) for a specific backend.
-      parameters:
-        - name: backend
-          in: path
-          description: name of backend
-          required: true
-          schema:
-            type: string
-            enum:
-              - test
-              - tpp
-              - emis
-      responses:
-        200:
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  flags:
-                    type: object
-                    additionalProperties:
-                      type: object
-                      properties:
-                        v:
-                          type: string
-                          nullable: true
-                          description: flag value
-                        ts:
-                          type: string
-                          description: timestamp
-              examples:
-                ex1:
-                  value:
-                    flags:
-                      paused:
-                        v: on
-                        ts: 2025-07-29T16:12:28.216609Z
-        401:
-          $ref: "#/components/responses/401Unauthorized"
-        404:
-          description: unknown backend
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  details:
-                    type: string
-              examples:
-                ex1:
-                  value:
-                    error: "Not found"
-                    details: "Backend 'foo' not found"
-
-
   /backend/status/:
     get:
       security:
         - bearerAuth: []
       description: |
         Get the status (flags) for all backends.
+      tags:
+        - backends
       responses:
         200:
           description: OK
@@ -108,6 +46,96 @@ paths:
         401:
           $ref: "#/components/responses/401Unauthorized"
 
+  /rap/cancel/:
+      post:
+        security:
+          - bearerAuth: []
+        description: |
+          Cancel one or more actions.
+        tags:
+        - rap_operations
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/cancelRequestBody"
+              examples:
+                example1:
+                  value:
+                    job_request_id: a1b2c3d4e5f6g7h8
+                    actions: ["action1"]
+                example2:
+                  value:
+                    job_request_id: abcdefgh12345678
+                    actions: ["action2", "action3"]
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    success:
+                      type: string
+                    details:
+                      type: string
+                    count:
+                      description: Number of actions cancelled
+                      type: integer
+                examples:
+                  success:
+                    description: 2 actions successfully cancelled
+                    value:
+                      success: ok
+                      details: 2 actions cancelled
+                      count: 2
+          400:
+            description: Bad response
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                   - error
+                   - details
+                  properties:
+                    error:
+                      type: string
+                    details:
+                      type: string
+                    job_request_id:
+                      description: job_request_id parameter
+                      type: string
+                    not_found:
+                      description: actions requested for cancellation that do not exist for the requested job_request_id
+                      type: array
+                      items:
+                        type: string
+                examples:
+                  validation_error:
+                    description: Missing job_request_id
+                    value:
+                      error: Validation error
+                      details: "Invalid request body received: 'job_request_id' is a required property"
+                  data_error1:
+                    description: No jobs found matching job_request_id
+                    value:
+                      error: job request not found
+                      details: No jobs found for job_request_id abcdefgh12345678
+                      job_request_id: abcdefgh12345678
+                  data_error2:
+                    description: Jobs matching requested cancel actions are not found
+                    value:
+                      error: Jobs not found
+                      details: "Jobs matching requested cancelled actions could not be found: action1,action2"
+                      job_request_id: abcdefgh12345678
+                      not_found: ["action1", "action2"]
+          401:
+            $ref: "#/components/responses/401Unauthorized"
+          403:
+            $ref: "#/components/responses/403NotAllowedBackend"
 
 components:
   securitySchemes:
@@ -115,6 +143,23 @@ components:
       type: http
       scheme: bearer
       bearerFormat: token
+
+  schemas:
+    cancelRequestBody:
+      # Can be referenced as '#/components/schemas/cancelRequestBody'
+      type: object
+      required:
+        - job_request_id
+        - actions
+      properties:
+        job_request_id:
+          type: string
+          pattern: "^[a-z0-9]{16}$"
+        actions:
+          type: array
+          minItems: 1
+          items:
+            type: string
 
   responses:
     401Unauthorized:
@@ -130,10 +175,35 @@ components:
               details:
                 type: string
           examples:
-            ex1:
+            invalid_token:
               value:
                 error: "Unauthorized"
                 details: "Invalid token"
+    403NotAllowedBackend:
+      # Can be referenced as '#/components/responses/404UnknownBackend'
+      description: unknown backend
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: string
+          examples:
+            not_allowed_for_backend:
+              value:
+                error: "Not allowed"
+                details: "Not allowed for backend 'foo'"
 
 security:
-  - bearerAuth: [] # <-- use the same name here
+  - bearerAuth: []
+
+tags:
+  - name: backends
+    x-displayName: Backend status
+    description: Endpoints that provide information about backend status.
+  - name: rap_operations
+    x-displayName: RAP Operations
+    description: Endpoints that perform operations on RAPs
