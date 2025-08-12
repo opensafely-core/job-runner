@@ -33,8 +33,16 @@ def api_docs(request):
 @csrf_exempt
 @require_GET
 @get_backends_for_client_token
-def backends_status(request, *, backends):
-    flags = {backend: flags_for_backend(backend) for backend in backends}
+def backends_status(request, *, token_backends):
+    """
+    Get status flags for all allowed backends.
+
+    token_backends: a list of backends that the client token (provided in the
+    request's Authorization header) has access to. Added by the
+    get_backends_for_client_token decorator.
+    """
+
+    flags = {backend: flags_for_backend(backend) for backend in token_backends}
     return JsonResponse({"flags": flags}, json_dumps_params={"separators": (",", ":")})
 
 
@@ -49,9 +57,13 @@ def flags_for_backend(backend):
 @require_POST
 @get_backends_for_client_token
 @validate_request_body(CancelRequest)
-def cancel(request, *, backends, request_obj: CancelRequest):
+def cancel(request, *, token_backends, request_obj: CancelRequest):
     """
     Cancel jobs for one or more actions associated with a job_request_id.
+
+    token_backends: a list of backends that the client token (provided in the
+    request's Authorization header) has access to. Added by the
+    get_backends_for_client_token decorator.
 
     The request should provide data in the format:
 

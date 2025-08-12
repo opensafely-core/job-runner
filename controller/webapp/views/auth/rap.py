@@ -24,7 +24,7 @@ def get_backends_for_client_token(view_fn):
 
         if error:
             return JsonResponse({"error": "Unauthorized", "details": error}, status=401)
-        kwargs["backends"] = token_backends
+        kwargs["token_backends"] = token_backends
         return view_fn(request, *args, **kwargs)
 
     return wrapped_view

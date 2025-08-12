@@ -13,8 +13,8 @@ def setup(monkeypatch):
 
 
 @get_backends_for_client_token
-def view(request, *, backends):
-    return JsonResponse({"result": backends})
+def view(request, *, token_backends):
+    return JsonResponse({"result": token_backends})
 
 
 def test_get_backends_for_client_token(rf):

@@ -29,7 +29,7 @@ class DummyRequestBody(RequestBody):
 
 @get_backends_for_client_token
 @validate_request_body(DummyRequestBody)
-def view(request, *, backends, request_obj: DummyRequestBody):
+def view(request, *, token_backends, request_obj: DummyRequestBody):
     return JsonResponse({"result": request_obj.foo})
 
 
@@ -124,7 +124,9 @@ def test_validate_request_body_bad_json(rf):
 
 @validate_request_body(DummyRequestBody)
 @get_backends_for_client_token
-def view_with_bad_decorator_order(request, *, backends, request_obj: DummyRequestBody):
+def view_with_bad_decorator_order(
+    request, *, token_backends, request_obj: DummyRequestBody
+):
     return JsonResponse({"result": request_obj.foo})
 
 
@@ -138,7 +140,7 @@ def test_bad_decorator_order(rf):
     with pytest.raises(
         AssertionError,
         match=(
-            "`backends` keyword argument not found; ensure that the @get_backends_for_client_token "
+            "`token_backends` keyword argument not found; ensure that the @get_backends_for_client_token "
             "decorator is before the @validate_request_body on this function"
         ),
     ):
