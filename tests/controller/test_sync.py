@@ -6,6 +6,7 @@ from responses import matchers
 from controller import config, queries, sync
 from controller.lib.database import find_where
 from controller.models import Job, JobRequest, State
+from tests.conftest import get_trace
 from tests.factories import job_factory, runjob_db_task_factory
 
 
@@ -203,3 +204,85 @@ def test_sync_no_token(db, monkeypatch):
     )
     with pytest.raises(sync.SyncAPIError, match="No api token found"):
         sync.sync()
+
+
+def test_sync_telemetry(db, monkeypatch, responses, test_repo):
+    # Fake endpoints to contact.
+    monkeypatch.setattr("common.config.BACKENDS", ["test"])
+    monkeypatch.setattr(
+        "controller.config.JOB_SERVER_TOKENS",
+        {"test": "token-foo"},
+    )
+    monkeypatch.setattr(
+        "controller.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+    )
+
+    # Fake Job Server /job-requests API response.
+    job_request = {
+        "identifier": 1,
+        "requested_actions": [
+            "analyse_data_ehrql",
+            "test_reusable_action_ehrql",
+            "test_cancellation_ehrql",
+        ],
+        "cancelled_actions": [],
+        "force_run_dependencies": False,
+        "workspace": {
+            "name": "testing",
+            "repo": str(test_repo.path),
+            "branch": "main",
+        },
+        "codelists_ok": True,
+        "database_name": "default",
+        "sha": test_repo.commit,
+        "created_by": "user",
+        "project": "project",
+        "orgs": ["org"],
+        "backend": "test",
+    }
+    responses.add(
+        method="GET",
+        status=200,
+        url="http://testserver/api/v2/job-requests/",
+        json={
+            "results": [job_request],
+        },
+    )
+
+    # Fake Job Server /jobs API response.
+    responses.add(
+        method="POST",
+        status=200,
+        url="http://testserver/api/v2/jobs/",
+        json={},
+    )
+
+    # Patch this as it can be slow.
+    monkeypatch.setattr(
+        "controller.sync.create_or_update_jobs", lambda *args, **kwargs: None
+    )
+
+    # Do the work.
+    sync.sync()
+
+    # Test there is one sync span (as one configured backend). With attributes set.
+    spans = get_trace("sync")
+    assert len(spans) == 1
+    span = spans[0]
+    assert span.name == "sync_backend"
+    assert span.attributes["backend"] == "test"
+
+    # Test that expected duration_ms_as_span_attr attributes are present.
+    # These are in ms, rounded to the nearest int(), so in this test, they're
+    # likely to be 0. Actual timing is tested in tests/common/test_tracing.py
+    for attribute in [
+        "api_get.duration_ms",
+        "parse_requests.duration_ms",
+        "find_ids.duration_ms",
+        "create.duration_ms",
+        "find_more_ids.duration_ms",
+        "find_where.duration_ms",
+        "encode_jobs.duration_ms",
+        "api_post.duration_ms",
+    ]:
+        assert attribute in span.attributes

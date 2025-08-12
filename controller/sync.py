@@ -9,9 +9,11 @@ import sys
 import time
 
 import requests
+from opentelemetry import trace
 
 from common import config as common_config
 from common.lib.log_utils import configure_logging, set_log_context
+from common.tracing import duration_ms_as_span_attr
 from controller import config, queries
 from controller.create_or_update_jobs import create_or_update_jobs
 from controller.lib.database import find_where, select_values
@@ -21,6 +23,7 @@ from controller.models import Job, JobRequest, State
 
 session = requests.Session()
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer("sync")
 
 
 class SyncAPIError(Exception):
@@ -43,39 +46,53 @@ def sync():
 
 
 def sync_backend(backend):
-    response = api_get(
-        "job-requests",
-        backend=backend,
-        # We're deliberately not paginating here on the assumption that the set
-        # of active jobs is always going to be small enough that we can fetch
-        # them in a single request and we don't need the extra complexity
-    )
-    job_requests = [job_request_from_remote_format(i) for i in response["results"]]
+    with tracer.start_as_current_span(
+        "sync_backend", attributes={"backend": backend}
+    ) as span:
+        with duration_ms_as_span_attr("api_get.duration_ms", span):
+            response = api_get(
+                "job-requests",
+                backend=backend,
+                # We're deliberately not paginating here on the assumption that the set
+                # of active jobs is always going to be small enough that we can fetch
+                # them in a single request and we don't need the extra complexity
+            )
+        with duration_ms_as_span_attr("parse_requests.duration_ms", span):
+            job_requests = [
+                job_request_from_remote_format(i) for i in response["results"]
+            ]
 
-    # Bail early if there's nothing to do
-    if not job_requests:
-        return
+        # Bail early if there's nothing to do
+        if not job_requests:
+            return
 
-    job_request_ids = [i.id for i in job_requests]
-    for job_request in job_requests:
-        with set_log_context(job_request=job_request):
-            create_or_update_jobs(job_request)
+        with duration_ms_as_span_attr("find_ids.duration_ms", span):
+            job_request_ids = [i.id for i in job_requests]
 
-    # `job_request_ids` contains all the JobRequests which job-server thinks are
-    # active; this query gets all those which _we_ think are active
-    active_job_request_ids = select_values(
-        Job, "job_request_id", state__in=[State.PENDING, State.RUNNING]
-    )
-    # We sync all jobs belonging to either set (using `dict.fromkeys` to preserve order
-    # for easier testing)
-    job_request_ids_to_sync = list(
-        dict.fromkeys(job_request_ids + active_job_request_ids)
-    )
-    jobs = find_where(Job, job_request_id__in=job_request_ids_to_sync)
-    jobs_data = [job_to_remote_format(i) for i in jobs]
-    log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
+        with duration_ms_as_span_attr("create.duration_ms", span):
+            for job_request in job_requests:
+                with set_log_context(job_request=job_request):
+                    create_or_update_jobs(job_request)
 
-    api_post("jobs", backend=backend, json=jobs_data)
+        # `job_request_ids` contains all the JobRequests which job-server thinks are
+        # active; this query gets all those which _we_ think are active
+        with duration_ms_as_span_attr("find_more_ids.duration_ms", span):
+            active_job_request_ids = select_values(
+                Job, "job_request_id", state__in=[State.PENDING, State.RUNNING]
+            )
+            # We sync all jobs belonging to either set (using `dict.fromkeys` to preserve order
+            # for easier testing)
+            job_request_ids_to_sync = list(
+                dict.fromkeys(job_request_ids + active_job_request_ids)
+            )
+        with duration_ms_as_span_attr("find_where.duration_ms", span):
+            jobs = find_where(Job, job_request_id__in=job_request_ids_to_sync)
+        with duration_ms_as_span_attr("encode_jobs.duration_ms", span):
+            jobs_data = [job_to_remote_format(i) for i in jobs]
+        log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
+
+        with duration_ms_as_span_attr("api_post.duration_ms", span):
+            api_post("jobs", backend=backend, json=jobs_data)
 
 
 def api_get(*args, backend, **kwargs):
