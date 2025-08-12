@@ -60,53 +60,6 @@ def test_validate_request_body_validation_error(rf):
     }
 
 
-def test_validate_request_body_not_allowed_for_backend(rf):
-    request = rf.post(
-        "/",
-        {"foo": "bar", "backend": "foo"},
-        headers={"Authorization": "test_token"},
-        content_type="application/json",
-    )
-    response = view(request)
-    response.status_code == 403
-    assert json.loads(response.content.decode()) == {
-        "error": "Not allowed",
-        "details": "Not allowed for backend 'foo'",
-    }
-
-
-def test_validate_request_body_unknown_backend(rf):
-    request = rf.post(
-        "/",
-        {"foo": "bar", "backend": "unk"},
-        headers={"Authorization": "test_token"},
-        content_type="application/json",
-    )
-    response = view(request)
-    response.status_code == 403
-    assert json.loads(response.content.decode()) == {
-        "error": "Not found",
-        "details": "Backend 'unk' not found",
-    }
-
-
-def test_validate_request_body_no_backend(rf):
-    request = rf.post(
-        "/",
-        {"foo": "bar"},
-        headers={"Authorization": "test_token"},
-        content_type="application/json",
-    )
-    response = view(request)
-    response.status_code == 400
-    # Note: typically we'd expect dataclasses to validate against an
-    # api spec that includes backend as a required parameter
-    assert json.loads(response.content.decode()) == {
-        "error": "Validation error",
-        "details": "`backend` parameter expected in body data",
-    }
-
-
 def test_validate_request_body_bad_json(rf):
     request = rf.post(
         "/",

@@ -2,8 +2,6 @@ import json
 
 from django.http import JsonResponse
 
-from common import config
-from controller.webapp.views.tracing import trace_attributes
 from controller.webapp.views.validators.dataclasses import RequestBody
 from controller.webapp.views.validators.exceptions import APIValidationError
 
@@ -41,13 +39,19 @@ def validate_request_body(dataclass: RequestBody):
     def decorator(func):
         def wrapper(*args, **kwargs):
             request = args[0]
+            # Ensure that the token backends have been added to the view's kwargs. This verifies
+            # that any view has the appropriate decorators applied in the correct order.
 
+            # If the token_backends kwarg is present, the token has been authenticated and is valid
+            # for at least one backend.
+            # The RequestBody dataclass or the view itself is responsible for checking that the
+            # client has access to the appropriate backend for the requested operation as
+            # necessary
             assert "token_backends" in kwargs, (
                 "`token_backends` keyword argument not found; ensure that the @get_backends_for_client_token "
                 "decorator is before the @validate_request_body on this function"
             )
 
-            token_backends = kwargs.get("token_backends")
             # Django's request.POST is only populated from form data (i.e. content type
             # application/x-www-form-urlencoded). If we post with content type
             # application/json, the data will only be in the request body. Since we're
@@ -70,34 +74,6 @@ def validate_request_body(dataclass: RequestBody):
                 return JsonResponse(
                     {"error": "Validation error", "details": e.args[0]}, status=400
                 )
-
-            backend = body_data.get("backend")
-            if backend is None:
-                # Note: typically we'd expect dataclasses to validate against an
-                # api spec that includes backend as a required parameter. In case that was omitted, we
-                # explicitly check for None here
-                return JsonResponse(
-                    {
-                        "error": "Validation error",
-                        "details": "`backend` parameter expected in body data",
-                    },
-                    status=400,
-                )
-            if backend not in config.BACKENDS:
-                return JsonResponse(
-                    {"error": "Not found", "details": f"Backend '{backend}' not found"},
-                    status=404,
-                )
-            if backend not in token_backends:
-                return JsonResponse(
-                    {
-                        "error": "Not allowed",
-                        "details": f"Not allowed for backend '{backend}'",
-                    },
-                    status=403,
-                )
-
-            trace_attributes(backend=backend)
 
             kwargs["request_obj"] = obj
             return func(*args, **kwargs)
