@@ -82,10 +82,9 @@ def test_cancel_view(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    job = job_factory(state=State.PENDING, action="action1")
+    job = job_factory(state=State.PENDING, action="action1", backend="test")
     assert not job.cancelled
     post_data = {
-        "backend": "test",
         "job_request_id": job.job_request_id,
         "actions": ["action1"],
     }
@@ -111,7 +110,6 @@ def test_cancel_view_validation_error(db, client, monkeypatch):
     headers = {"Authorization": "test_token"}
 
     post_data = {
-        "backend": "test",
         "actions": ["action1"],
     }
     response = client.post(
@@ -133,7 +131,6 @@ def test_cancel_view_no_jobs_for_job_request_id(db, client, monkeypatch):
     headers = {"Authorization": "test_token"}
 
     post_data = {
-        "backend": "test",
         "job_request_id": "abcdefgh12345678",
         "actions": ["action1"],
     }
@@ -156,10 +153,9 @@ def test_cancel_view_actions_not_found(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    job = job_factory(state=State.PENDING, action="action1")
+    job = job_factory(state=State.PENDING, action="action1", backend="test")
 
     post_data = {
-        "backend": "test",
         "job_request_id": job.job_request_id,
         "actions": ["action2", "action3"],
     }
@@ -176,4 +172,28 @@ def test_cancel_view_actions_not_found(db, client, monkeypatch):
         "details": "Jobs matching requested cancelled actions could not be found: action2,action3",
         "job_request_id": job.job_request_id,
         "not_found": ["action2", "action3"],
+    }
+
+
+def test_cancel_view_not_allowed_for_backend(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job = job_factory(state=State.PENDING, action="action1", backend="foo")
+
+    post_data = {
+        "job_request_id": job.job_request_id,
+        "actions": ["action1"],
+    }
+    response = client.post(
+        reverse("cancel"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 403
+    response_json = response.json()
+    assert response_json == {
+        "error": "Not allowed",
+        "details": "Not allowed for backend 'foo'",
     }

@@ -68,7 +68,6 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
     The request should provide data in the format:
 
         {
-            "backend": "<backend_name>"
             "job_request_id": "<id>",
             "actions": ["action1", "action2", ...]
         }
@@ -89,6 +88,7 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
     jobs = find_where(
         Job, job_request_id=request_obj.job_request_id, action__in=request_obj.actions
     )
+
     actions_to_cancel = {job.action for job in jobs}
     if not_found := set(request_obj.actions) - actions_to_cancel:
         not_found = sorted(not_found)
@@ -106,6 +106,22 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
             },
             status=400,
         )
+
+    # Ensure that the client has access to the backend for this job-request.
+    # Jobs for the same job-request will always have the same backend, so we can just check the
+    # first one.
+    # We could check for this prior to retrieving jobs for the requested actions, but it's unlikely
+    # that a client would send a job_request ID for a backend it doesn't know about, so we avoid an
+    # extra database query by checking it here instead.
+    if jobs[0].backend not in token_backends:
+        return JsonResponse(
+            {
+                "error": "Not allowed",
+                "details": f"Not allowed for backend '{jobs[0].backend}'",
+            },
+            status=403,
+        )
+
     log.info(
         "Cancelling actions for job_request %s: %s",
         request_obj.job_request_id,

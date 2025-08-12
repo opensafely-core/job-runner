@@ -61,21 +61,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/cancelRequestBody"
               examples:
-                test_backend:
+                example1:
                   value:
-                    backend: test
-                    job_request_id: a1b2c3d4e5f6g7h8
-                    actions: ["foo"]
-                tpp_backend:
-                  value:
-                    backend: tpp
                     job_request_id: a1b2c3d4e5f6g7h8
                     actions: ["action1"]
-                emis_backend:
+                example2:
                   value:
-                    backend: emis
-                    job_request_id: a1b2c3d4e5f6g7h8
-                    actions: ["action1", "action2"]
+                    job_request_id: abcdefgh12345678
+                    actions: ["action2", "action3"]
         responses:
           200:
             description: OK
@@ -143,8 +136,6 @@ paths:
             $ref: "#/components/responses/401Unauthorized"
           403:
             $ref: "#/components/responses/403NotAllowedBackend"
-          404:
-            $ref: "#/components/responses/404UnknownBackend"
 
 components:
   securitySchemes:
@@ -158,12 +149,9 @@ components:
       # Can be referenced as '#/components/schemas/cancelRequestBody'
       type: object
       required:
-        - backend
         - job_request_id
         - actions
       properties:
-        backend:
-          type: string
         job_request_id:
           type: string
           pattern: "^[a-z0-9]{16}$"
@@ -208,23 +196,6 @@ components:
               value:
                 error: "Not allowed"
                 details: "Not allowed for backend 'foo'"
-    404UnknownBackend:
-      # Can be referenced as '#/components/responses/404UnknownBackend'
-      description: unknown backend
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: string
-              details:
-                type: string
-          examples:
-            backend_not_found:
-              value:
-                error: "Not found"
-                details: "Backend 'foo' not found"
 
 security:
   - bearerAuth: []

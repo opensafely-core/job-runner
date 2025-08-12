@@ -27,10 +27,12 @@ def api_schema(live_server):
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    # Schemathesis will use the example values we include in the api spec (test, tpp, emis)
-    # set up config so this token has access to one known backend (test), is not allowed to
-    # access one known backend (tpp) and one example is an unknown backend (emis)
-    monkeypatch.setattr("common.config.BACKENDS", ["test", "tpp"])
+    # Schemathesis will use the example values we include in the api spec
+    # set up config so this token has access to one known backend (test), and is not
+    # allowed access another known backend (foo)
+    # In our test setup, we create test jobs matching the values from the api spec,
+    # with either the test backend (to test happy paths) or foo backend (to test not allowed)
+    monkeypatch.setattr("common.config.BACKENDS", ["test", "foo"])
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"token": ["test"]})
 
 
@@ -47,7 +49,7 @@ def recorder(request):
     default_expected_status_codes = {200, 401, 405}
     expected_status_codes_by_path = {
         "/backend/status/": {200, 401, 405},
-        "/rap/cancel/": {200, 400, 401, 403, 404, 405},
+        "/rap/cancel/": {200, 400, 401, 403, 405},
     }
 
     recorder_ = Recorder()
@@ -78,12 +80,25 @@ schema = schemathesis.pytest.from_fixture("api_schema")
 
 
 @pytest.fixture(autouse=True)
-def setup_job(db):
-    # Set up a job that matches the example request body for the /cancel
-    # endpoint in the api spec; this allows us to hit the 200 response
-    if not database.exists_where(Job, job_request_id="a1b2c3d4e5f6g7h8"):
-        job_req = job_request_factory(id="a1b2c3d4e5f6g7h8")
-        job_factory(state=State.PENDING, action="foo", job_request=job_req)
+def setup_jobs(db):
+    # Set up jobs that match the request body for the /cancel
+    # endpoint examples in the api spec;
+    # this allows us to hit the 200 response (jobs with test backend)
+    # and 403 responses (jobs with not-allowed foo backend)
+    example_jobs = [
+        ("a1b2c3d4e5f6g7h8", ["action1"], "test"),
+        ("abcdefgh12345678", ["action2", "action3"], "foo"),
+    ]
+    for job_request_id, actions, backend in example_jobs:
+        if not database.exists_where(Job, job_request_id=job_request_id):
+            job_req = job_request_factory(id=job_request_id)
+            for action in actions:
+                job_factory(
+                    state=State.PENDING,
+                    action=action,
+                    job_request=job_req,
+                    backend=backend,
+                )
 
 
 @schema.parametrize()
