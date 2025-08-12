@@ -118,12 +118,12 @@ paths:
                     description: Missing job_request_id
                     value:
                       error: Validation error
-                      details": "Invalid request body received: 'job_request_id' is a required property"
+                      details: "Invalid request body received: 'job_request_id' is a required property"
                   data_error1:
                     description: No jobs found matching job_request_id
                     value:
                       error: job request not found
-                      details": No jobs found for job_request_id abcdefgh12345678
+                      details: No jobs found for job_request_id abcdefgh12345678
                       job_request_id: abcdefgh12345678
                   data_error2:
                     description: Jobs matching requested cancel actions are not found
