@@ -30,3 +30,4 @@ venv
 .venv
 workdir
 /lib
+/node_modules

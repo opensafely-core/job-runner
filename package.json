@@ -1,0 +1,11 @@
+{
+  "name": "controller",
+  "version": "1.0.0",
+  "scripts": {
+    "build-docs": "redocly build-docs controller/webapp/api_spec/openapi.yaml --output controller/webapp/api_spec/api_docs.html"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@redocly/cli": "^2.0.3"
+  }
+}
