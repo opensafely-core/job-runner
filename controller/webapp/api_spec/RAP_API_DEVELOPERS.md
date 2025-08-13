@@ -28,7 +28,7 @@ will show an error for the first line.) The editor also lets you visualise docum
 
 The spec can be viewed as json at `/api_spec.json`
 
-<https://controller.opensafely.org/api_spec.json>
+<https://controller.opensafely.org/controller/v1/api_spec.json>
 
 
 ### Using examples
@@ -160,9 +160,9 @@ To view docs locally, run the dev server:
 just run-app
 ```
 
-And then navigate to http://localhost:3000/api-docs/
+And then navigate to http://localhost:3000/controller/v1/api-docs/
 
-Production docs can be found at: https://controller.opensafely.org/api-docs/
+Production docs can be found at: https://controller.opensafely.org/controller/v1/api-docs/
 
 
 ### Regenerating docs

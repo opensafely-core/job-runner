@@ -8,5 +8,5 @@ urlpatterns = [
     # task-related endpoints, called by Agents
     path("", include(tasks_urls)),
     # RAP API endpoints
-    path("", include(rap_urls)),
+    path("controller/v1/", include(rap_urls)),
 ]

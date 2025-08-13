@@ -21,7 +21,7 @@ def api_schema(live_server):
         / "schemathesis.toml"
     )
     return schemathesis.openapi.from_url(
-        f"{live_server.url}/api_spec.json", config=config
+        f"{live_server.url}/controller/v1/api_spec.json", config=config
     )
 
 
@@ -119,5 +119,5 @@ def call_and_validate(case, recorder):
 
 
 def test_api_docs(client):
-    response = client.get("/api-docs/")
+    response = client.get("/controller/v1/api-docs/")
     assert response.status_code == 200
