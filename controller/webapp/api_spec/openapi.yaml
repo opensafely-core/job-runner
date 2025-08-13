@@ -24,29 +24,27 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - backends
                 properties:
-                  flags:
-                    type: object
-                    additionalProperties:
+                  backends:
+                    type: array
+                    items:
                       type: object
-                      additionalProperties:
-                        type: object
-                        properties:
-                          v:
-                            type: string
-                            nullable: true
-                            description: flag value
-                          ts:
-                            type: string
-                            description: timestamp
+                      required:
+                       - name
+                      properties:
+                        name:
+                         type: string
+                         description: Name of backend
+
+
               examples:
                 ex1:
                   value:
-                    flags:
-                      test:
-                        paused:
-                          v: on
-                          ts: 2025-07-29T16:12:28.216609Z
+                    backends:
+                      - name: test
+
         401:
           $ref: "#/components/responses/401Unauthorized"
 
