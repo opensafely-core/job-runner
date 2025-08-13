@@ -74,7 +74,7 @@ def test_backends_status_view_tracing(db, client, monkeypatch):
     last_trace = traces[-1]
     # default django attributes
     assert last_trace.attributes["http.request.method"] == "GET"
-    assert last_trace.attributes["http.route"] == ("backend/status/")
+    assert last_trace.attributes["http.route"] == ("controller/v1/backend/status/")
     assert last_trace.attributes["http.response.status_code"] == 200
 
 
