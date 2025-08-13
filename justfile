@@ -192,8 +192,11 @@ run:
 validate-api-spec: devenv
     $BIN/openapi-spec-validator controller/webapp/api_spec/openapi.yaml
 
-schemathesis *ARGS="--url='http://localhost:3000'": devenv
+_schemathesis *ARGS: devenv
     $BIN/schemathesis --config-file controller/webapp/api_spec/schemathesis.toml run controller/webapp/api_spec/openapi.yaml {{ ARGS }}
+
+schemathesis *ARGS:
+    just _schemathesis --url http://localhost:3000/controller/v1 {{ ARGS }}
 
 test-api-spec *ARGS:
     #!/bin/bash
@@ -203,7 +206,7 @@ test-api-spec *ARGS:
     # Give it long enough to be able to contact the server; if we do this too quickly, we
     # get a ConnectionResetError
     sleep 1
-    just schemathesis --url='http://localhost:3030' {{ ARGS }}
+    just _schemathesis --url http://localhost:3030/controller/v1 {{ ARGS }}
 
 # Install the Node.js dependencies
 
