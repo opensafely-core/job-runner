@@ -46,15 +46,47 @@ def backends_status(request, *, token_backends):
     get_backends_for_client_token decorator.
     """
 
-    flags = {backend: flags_for_backend(backend) for backend in token_backends}
-    return JsonResponse({"flags": flags}, json_dumps_params={"separators": (",", ":")})
+    backends = [flags_for_backend(backend) for backend in token_backends]
+
+    return JsonResponse(
+        {"backends": backends}, json_dumps_params={"separators": (",", ":")}
+    )
 
 
 def flags_for_backend(backend):
-    return {
-        f.id: {"v": f.value, "ts": f.timestamp_isoformat}
-        for f in get_current_flags(backend=backend)
+    flags_dict = {
+        # operating normally, paused and db maintenance never set
+        "name": backend,
+        "last_seen": {"since": None},
+        "paused": {
+            "status": "off",  # on/off
+            "since": None,
+        },
+        "db_maintenance": {
+            "status": "off",
+            "since": None,
+            "type": None,  # scheduled/manual/None
+        },
     }
+    for f in get_current_flags(backend=backend):
+        match f.id:
+            case "last-seen-at":
+                flags_dict["last_seen"]["since"] = f.timestamp_isoformat
+            case "paused":
+                flags_dict["paused"]["since"] = f.timestamp_isoformat
+                if f.value == "true":
+                    flags_dict["paused"]["status"] = "on"
+            case "mode":
+                flags_dict["db_maintenance"]["since"] = f.timestamp_isoformat
+                if f.value == "db-maintenance":
+                    flags_dict["db_maintenance"]["status"] = "on"
+                    if flags_dict["db_maintenance"]["type"] is None:
+                        flags_dict["db_maintenance"]["type"] = "scheduled"
+            case "manual-db-maintenance":
+                if f.value == "on":
+                    flags_dict["db_maintenance"]["type"] = "manual"
+
+    return flags_dict
 
 
 @csrf_exempt

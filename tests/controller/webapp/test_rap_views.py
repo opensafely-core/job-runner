@@ -32,22 +32,31 @@ def test_backends_status_view(db, client, monkeypatch, freezer):
     # set flag for unauthorised backend
     set_flag("foo", "bar", "test_other_backend")
     # set flag for authorised backends
-    set_flag("foo", "bar1", "test_backend1")
-    set_flag("pause", "true", "test_backend1")
-    set_flag("pause", "false", "test_backend2")
+    set_flag("paused", "true", "test_backend1")
+    set_flag("mode", "db-maintenance", "test_backend1")
+    set_flag("paused", "false", "test_backend2")
 
     response = client.get(reverse("backends_status"), headers=headers)
     assert response.status_code == 200
     response_json = response.json()
-    assert response_json["flags"] == {
-        "test_backend1": {
-            "foo": {"v": "bar1", "ts": TEST_DATESTR},
-            "pause": {"v": "true", "ts": TEST_DATESTR},
+    assert response_json["backends"] == [
+        {
+            "name": "test_backend1",
+            "last_seen": {"since": None},
+            "paused": {"status": "on", "since": TEST_DATESTR},
+            "db_maintenance": {
+                "status": "on",
+                "since": TEST_DATESTR,
+                "type": "scheduled",
+            },
         },
-        "test_backend2": {
-            "pause": {"v": "false", "ts": TEST_DATESTR},
+        {
+            "name": "test_backend2",
+            "last_seen": {"since": None},
+            "paused": {"status": "off", "since": TEST_DATESTR},
+            "db_maintenance": {"status": "off", "since": None, "type": None},
         },
-    }
+    ]
 
 
 def test_backends_status_view_no_flags(db, client, monkeypatch):
@@ -59,7 +68,28 @@ def test_backends_status_view_no_flags(db, client, monkeypatch):
     response = client.get(reverse("backends_status"), headers=headers)
     assert response.status_code == 200
     response_json = response.json()
-    assert response_json["flags"] == {"test": {}, "foo": {}}
+    assert response_json["backends"] == [
+        {
+            "name": "test",
+            "last_seen": {"since": None},
+            "paused": {"status": "off", "since": None},
+            "db_maintenance": {
+                "status": "off",
+                "since": None,
+                "type": None,
+            },
+        },
+        {
+            "name": "foo",
+            "last_seen": {"since": None},
+            "paused": {"status": "off", "since": None},
+            "db_maintenance": {
+                "status": "off",
+                "since": None,
+                "type": None,
+            },
+        },
+    ]
 
 
 def test_backends_status_view_tracing(db, client, monkeypatch):
