@@ -26,9 +26,9 @@ will show an error for the first line.) The editor also lets you visualise docum
 
 ### View the api spec as json in a browser
 
-The spec can be viewed as json at `/api_spec.json`
+The spec can be viewed as json at `/spec.json`
 
-<https://controller.opensafely.org/api_spec.json>
+<https://controller.opensafely.org/controller/v1/spec.json>
 
 
 ### Using examples
@@ -152,7 +152,7 @@ api spec. The above just command assumes that you already have `node` installed.
 
 
 API docs are saved to [controller/webapp/api_spec/api_docs.html](controller/webapp/api_spec/api_docs.html)
-and are served at /api-docs
+and are served at /v1/docs
 
 
 To view docs locally, run the dev server:
@@ -160,9 +160,9 @@ To view docs locally, run the dev server:
 just run-app
 ```
 
-And then navigate to http://localhost:3000/api-docs/
+And then navigate to http://localhost:3000/controller/v1/docs/
 
-Production docs can be found at: https://controller.opensafely.org/api-docs/
+Production docs can be found at: https://controller.opensafely.org/controller/v1/docs/
 
 
 ### Regenerating docs

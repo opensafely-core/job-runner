@@ -4,6 +4,9 @@ info:
   title: RAP API
   version: "v1"
 
+servers:
+- url: /controller/v1/
+
 paths:
   /backend/status/:
     get:
