@@ -154,11 +154,28 @@ def create(request, *, token_backends, request_obj: CreateRequest):
 
     See controller/webapp/api_spec/openapi.yaml for required request body
     """
+    # TODO: Check jobs for job request ID don't already exist (create_or_update_jobs.related_jobs_exist)
+    # TODO: Catch errors and return error response (don't create exception jobs as we expect job-server
+    #       to use the error response to mark the job request as failed
+    # TODO: validate_repo_and_commit (note that the rest of validate_job_request() in create_or_update_jobs
+    #       should be covered by the jsonschema validation in CreateRequest
+    # TODO: Do the rest of create_jobs
+    # TODO: Return a count of jobs created?
+
+    if request_obj.backend not in token_backends:
+        return JsonResponse(
+            {
+                "error": "Not allowed",
+                "details": f"Not allowed for backend '{request_obj.backend}'",
+            },
+            status=403,
+        )
+
     return JsonResponse(
         {
             "success": "ok",
-            "details": f"Created job request {request_obj.job_request_id}",
-            "job_request_id": request_obj.job_request_id,
+            "details": f"Received job request {request_obj.id}",
+            "job_request_id": request_obj.id,
         },
         status=200,
     )
