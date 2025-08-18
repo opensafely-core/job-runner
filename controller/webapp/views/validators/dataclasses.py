@@ -59,17 +59,50 @@ class CancelRequest(RequestBody):
 @dataclass
 class CreateRequest(RequestBody):
     """
-    Represents a request to create ajob request
+    Represents a request to create a job request
     """
 
-    job_request_id: str
+    id: str
+    backend: str
+    workspace: str
+    repo_url: str
+    branch: str
+    commit: str
+    database_name: str
+    requested_actions: list[str]
+    codelists_ok: bool
+    force_run_dependencies: bool
+    created_by: str
+    project: str
+    orgs: list[str]
+    original: dict
 
     @classmethod
     def from_request(cls, body_data: dict):
         cls.validate_schema(body_data, "createRequestBody")
 
-        job_request_id = body_data["job_request_id"]
+        workspace_name = body_data["workspace"]
+        branch = body_data["branch"]
+        # Construct the "original" dict with the workspace construction we need in
+        # controller.main.job_to_job_definition()
+        original = {
+            **body_data,
+            "workspace": {"name": workspace_name, "branch": branch},
+        }
 
         return cls(
-            job_request_id=job_request_id,
+            id=body_data["job_request_id"],
+            backend=body_data["backend"],
+            workspace=workspace_name,
+            repo_url=body_data["repo_url"],
+            branch=branch,
+            commit=body_data["commit"],
+            database_name=body_data["database_name"],
+            requested_actions=body_data["requested_actions"],
+            codelists_ok=body_data["codelists_ok"],
+            force_run_dependencies=body_data["force_run_dependencies"],
+            created_by=body_data["created_by"],
+            project=body_data["project"],
+            orgs=body_data["orgs"],
+            original=original,
         )
