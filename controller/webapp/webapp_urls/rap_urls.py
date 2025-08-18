@@ -5,11 +5,11 @@ from controller.webapp.views import rap_views
 
 urlpatterns = [
     # RAP API endpoints
-    # backend status for a specific backend
+    # Documentation
     path("api-docs/", rap_views.api_docs),
     path("api_spec.json", rap_views.api_spec),
-    # backend status for a all backends (allowed by token)
+    # Backend status for all backends (that are allowed for client's token)
     path("backend/status/", rap_views.backends_status, name="backends_status"),
-    # Cancel one or more actions
+    # Cancel one or more actions for a single job request
     path("rap/cancel/", rap_views.cancel, name="cancel"),
 ]
