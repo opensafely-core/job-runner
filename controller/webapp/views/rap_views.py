@@ -13,7 +13,7 @@ from controller.webapp.api_spec.utils import api_spec_json
 from controller.webapp.views.auth.rap import (
     get_backends_for_client_token,
 )
-from controller.webapp.views.validators.dataclasses import CancelRequest
+from controller.webapp.views.validators.dataclasses import CancelRequest, CreateRequest
 from controller.webapp.views.validators.decorators import validate_request_body
 
 
@@ -135,6 +135,30 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
             "success": "ok",
             "details": f"{len(request_obj.actions)} actions cancelled",
             "count": cancelled_count,
+        },
+        status=200,
+    )
+
+
+@csrf_exempt
+@require_POST
+@get_backends_for_client_token
+@validate_request_body(CreateRequest)
+def create(request, *, token_backends, request_obj: CreateRequest):
+    """
+    Create a new RAP (job request).
+
+    token_backends: a list of backends that the client token (provided in the
+    request's Authorization header) has access to. Added by the
+    get_backends_for_client_token decorator.
+
+    See controller/webapp/api_spec/openapi.yaml for required request body
+    """
+    return JsonResponse(
+        {
+            "success": "ok",
+            "details": f"Created job request {request_obj.job_request_id}",
+            "job_request_id": request_obj.job_request_id,
         },
         status=200,
     )

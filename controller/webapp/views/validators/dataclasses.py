@@ -54,3 +54,22 @@ class CancelRequest(RequestBody):
             job_request_id=job_request_id,
             actions=actions,
         )
+
+
+@dataclass
+class CreateRequest(RequestBody):
+    """
+    Represents a request to create ajob request
+    """
+
+    job_request_id: str
+
+    @classmethod
+    def from_request(cls, body_data: dict):
+        cls.validate_schema(body_data, "createRequestBody")
+
+        job_request_id = body_data["job_request_id"]
+
+        return cls(
+            job_request_id=job_request_id,
+        )
