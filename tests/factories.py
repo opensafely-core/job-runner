@@ -41,6 +41,22 @@ JOB_REQUEST_DEFAULTS = {
     },
 }
 
+# Represents a job request body received at /controller/v1/rap/create
+JOB_REQUEST_RAP_API_V1_DEFAULTS = {
+    "repo_url": DEFAULT_REPO,
+    "commit": "aaaaaaaaaabbbbbbbbbb11111111112222222222",  # needs to be [0-9a-f]{40} for validation
+    "requested_actions": ["action"],
+    "workspace": "workspace",
+    "branch": "main",
+    "codelists_ok": True,
+    "force_run_dependencies": False,
+    "database_name": "default",
+    "backend": "test",
+    "created_by": "test_user",
+    "project": "test_project",
+    "orgs": ["test_org"],
+}
+
 
 JOB_DEFAULTS = {
     "state": State.PENDING,
@@ -72,6 +88,17 @@ def job_request_factory_raw(**kwargs):
     if "backend" in kwargs:
         values["original"]["backend"] = kwargs["backend"]
     return JobRequest(**values)
+
+
+def job_request_rap_api_v1_factory_raw(**kwargs):
+    if "job_request_id" not in kwargs:
+        kwargs["job_request_id"] = (
+            base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
+        )
+
+    values = deepcopy(JOB_REQUEST_RAP_API_V1_DEFAULTS)
+    values.update(kwargs)
+    return values
 
 
 def job_request_factory(**kwargs):

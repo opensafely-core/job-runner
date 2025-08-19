@@ -7,7 +7,7 @@ from controller.lib.database import find_one
 from controller.models import Job, State, timestamp_to_isoformat
 from controller.queries import set_flag
 from tests.conftest import get_trace
-from tests.factories import job_factory
+from tests.factories import job_factory, job_request_rap_api_v1_factory_raw
 
 
 # use a fixed time for these tests
@@ -192,6 +192,70 @@ def test_cancel_view_not_allowed_for_backend(db, client, monkeypatch):
         content_type="application/json",
     )
     assert response.status_code == 403
+    response_json = response.json()
+    assert response_json == {
+        "error": "Not allowed",
+        "details": "Not allowed for backend 'foo'",
+    }
+
+
+def test_create_view(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job_request_body = job_request_rap_api_v1_factory_raw()
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(job_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 200
+    response_json = response.json()
+    assert response_json == {
+        "success": "ok",
+        "details": f"Received job request {job_request_body['job_request_id']}",
+        "job_request_id": job_request_body["job_request_id"],
+    }, response
+    # TODO: uncomment when create view actually creates jobs
+    # job = find_one(Job, job_request_id=job_request_body["job_request_id"])
+    # assert job.action == "action"
+
+
+def test_create_view_validation_error(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job_request_body = job_request_rap_api_v1_factory_raw(requested_actions=[])
+    response = client.post(
+        reverse("create"),
+        json.dumps(job_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
+        "error": "Validation error",
+        "details": "Invalid request body received: [] should be non-empty",
+    }
+
+
+def test_create_view_not_allowed_for_backend(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job_request_body = job_request_rap_api_v1_factory_raw(backend="foo")
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(job_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 403, response.json()
     response_json = response.json()
     assert response_json == {
         "error": "Not allowed",
