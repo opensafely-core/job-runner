@@ -29,8 +29,14 @@ class RequestBody(abc.ABC):
         try:
             jsonschema.validate(instance=body_data, schema=schema)
         except jsonschema.exceptions.ValidationError as err:
-            log.error(err)
-            raise APIValidationError(f"Invalid request body received: {err.message}")
+            if err.json_path == "$":
+                error_message = f"Invalid request body received: {err.message}"
+            else:
+                error_message = (
+                    f"Invalid request body received at {err.json_path}: {err.message}"
+                )
+            log.error(error_message)
+            raise APIValidationError(error_message)
 
 
 @dataclass

@@ -239,7 +239,7 @@ def test_create_view_validation_error(db, client, monkeypatch):
     response_json = response.json()
     assert response_json == {
         "error": "Validation error",
-        "details": "Invalid request body received: [] should be non-empty",
+        "details": "Invalid request body received at $.requested_actions: [] should be non-empty",
     }
 
 
