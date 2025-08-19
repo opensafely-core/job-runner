@@ -112,3 +112,14 @@ class CreateRequest(RequestBody):
             orgs=body_data["orgs"],
             original=original,
         )
+
+    def get_tracing_span_attributes(self) -> dict:
+        """Provide useful attributes for telemetry suitable for passing
+        as the `attributes` parameter to `start_as_current_span`."""
+        return {
+            "backend": self.backend,
+            "workspace": self.workspace,
+            "user": self.created_by,
+            "project": self.project,
+            "orgs": self.orgs,
+        }

@@ -1,13 +1,21 @@
 import re
+from pathlib import Path
 
 import pytest
 
-from controller.webapp.views.validators.dataclasses import RequestBody
+from controller.create_or_update_jobs import create_jobs
+from controller.lib.database import find_all
+from controller.models import Job
+from controller.webapp.views.validators.dataclasses import CreateRequest, RequestBody
 from controller.webapp.views.validators.exceptions import APIValidationError
+from tests.factories import job_request_rap_api_v1_factory_raw
 
 
-@pytest.fixture(autouse=True)
-def api_schema(monkeypatch):
+FIXTURES_PATH = Path(__file__).parent.parent.parent.resolve() / "fixtures"
+
+
+@pytest.fixture
+def mock_api_schema(monkeypatch):
     test_schema = {
         "type": "object",
         "required": ["foo", "bar", "baz"],
@@ -75,6 +83,32 @@ def api_schema(monkeypatch):
         ),
     ],
 )
-def test_validate_schema_error_message(body, error):
+def test_validate_schema_error_message(mock_api_schema, body, error):
     with pytest.raises(APIValidationError, match=re.escape(error)):
         RequestBody.validate_schema(body, "testSchema")
+
+
+def test_can_create_jobs(tmp_work_dir, db):
+    # Test that the CreateRequestBody object that we receive in the new
+    # create view can act as a JobRequest and be passed to create_jobs
+    repo_url = str(FIXTURES_PATH / "git-repo")
+
+    job_request_body = job_request_rap_api_v1_factory_raw(
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        branch="v1",
+        requested_actions=["generate_dataset"],
+    )
+    job_request = CreateRequest.from_request(job_request_body)
+    assert job_request.original == {
+        **job_request_body,
+        "workspace": {
+            "name": job_request_body["workspace"],
+            "branch": job_request_body["branch"],
+        },
+    }
+    create_jobs(job_request)
+    jobs = find_all(Job)
+    assert len(jobs) == 1
+    assert jobs[0].job_request_id == job_request_body["job_request_id"]
