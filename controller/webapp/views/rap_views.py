@@ -13,7 +13,7 @@ from controller.webapp.api_spec.utils import api_spec_json
 from controller.webapp.views.auth.rap import (
     get_backends_for_client_token,
 )
-from controller.webapp.views.validators.dataclasses import CancelRequest
+from controller.webapp.views.validators.dataclasses import CancelRequest, CreateRequest
 from controller.webapp.views.validators.decorators import validate_request_body
 
 
@@ -59,7 +59,7 @@ def flags_for_backend(backend):
 @validate_request_body(CancelRequest)
 def cancel(request, *, token_backends, request_obj: CancelRequest):
     """
-    Cancel jobs for one or more actions associated with a job_request_id.
+    Cancel jobs for one or more actions associated with a rap_id.
 
     token_backends: a list of backends that the client token (provided in the
     request's Authorization header) has access to. Added by the
@@ -68,25 +68,25 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
     The request should provide data in the format:
 
         {
-            "job_request_id": "<id>",
+            "rap_id": "<id>",
             "actions": ["action1", "action2", ...]
         }
     """
     # Ensure that jobs exist for all requested cancel actions
     # We don't care about the state of the job (i.e. if it's already been cancelled), only
     # that it exists at all
-    if not exists_where(Job, job_request_id=request_obj.job_request_id):
+    if not exists_where(Job, job_request_id=request_obj.rap_id):
         return JsonResponse(
             {
-                "error": "job request not found",
-                "details": f"No jobs found for job_request_id {request_obj.job_request_id}",
-                "job_request_id": request_obj.job_request_id,
+                "error": "jobs not found",
+                "details": f"No jobs found for rap_id {request_obj.rap_id}",
+                "rap_id": request_obj.rap_id,
             },
             status=400,
         )
 
     jobs = find_where(
-        Job, job_request_id=request_obj.job_request_id, action__in=request_obj.actions
+        Job, job_request_id=request_obj.rap_id, action__in=request_obj.actions
     )
 
     actions_to_cancel = {job.action for job in jobs}
@@ -101,7 +101,7 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
             {
                 "error": "jobs not found",
                 "details": f"Jobs matching requested cancelled actions could not be found: {not_found_actions}",
-                "job_request_id": request_obj.job_request_id,
+                "rap_id": request_obj.rap_id,
                 "not_found": list(not_found),
             },
             status=400,
@@ -124,17 +124,58 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
 
     log.info(
         "Cancelling actions for job_request %s: %s",
-        request_obj.job_request_id,
+        request_obj.rap_id,
         request_obj.actions,
     )
 
-    set_cancelled_flag_for_actions(request_obj.job_request_id, request_obj.actions)
+    set_cancelled_flag_for_actions(request_obj.rap_id, request_obj.actions)
     cancelled_count = len(request_obj.actions)
     return JsonResponse(
         {
             "success": "ok",
             "details": f"{len(request_obj.actions)} actions cancelled",
             "count": cancelled_count,
+        },
+        status=200,
+    )
+
+
+@csrf_exempt
+@require_POST
+@get_backends_for_client_token
+@validate_request_body(CreateRequest)
+def create(request, *, token_backends, request_obj: CreateRequest):
+    """
+    Create a new RAP (job request).
+
+    token_backends: a list of backends that the client token (provided in the
+    request's Authorization header) has access to. Added by the
+    get_backends_for_client_token decorator.
+
+    See controller/webapp/api_spec/openapi.yaml for required request body
+    """
+    # TODO: Check jobs for job request ID don't already exist (create_or_update_jobs.related_jobs_exist)
+    # TODO: Catch errors and return error response (don't create exception jobs as we expect job-server
+    #       to use the error response to mark the job request as failed
+    # TODO: validate_repo_and_commit (note that the rest of validate_job_request() in create_or_update_jobs
+    #       should be covered by the jsonschema validation in CreateRequest
+    # TODO: Do the rest of create_jobs
+    # TODO: Return a count of jobs created?
+
+    if request_obj.backend not in token_backends:
+        return JsonResponse(
+            {
+                "error": "Not allowed",
+                "details": f"Not allowed for backend '{request_obj.backend}'",
+            },
+            status=403,
+        )
+
+    return JsonResponse(
+        {
+            "success": "ok",
+            "details": f"Received job request {request_obj.id}",
+            "rap_id": request_obj.id,
         },
         status=200,
     )

@@ -50,6 +50,7 @@ def recorder(request):
     expected_status_codes_by_path = {
         "/backend/status/": {200, 401, 405},
         "/rap/cancel/": {200, 400, 401, 403, 405},
+        "/rap/create/": {200, 400, 401, 403, 405},
     }
 
     recorder_ = Recorder()
