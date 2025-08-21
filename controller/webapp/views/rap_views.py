@@ -59,7 +59,7 @@ def flags_for_backend(backend):
 @validate_request_body(CancelRequest)
 def cancel(request, *, token_backends, request_obj: CancelRequest):
     """
-    Cancel jobs for one or more actions associated with a job_request_id.
+    Cancel jobs for one or more actions associated with a rap_id.
 
     token_backends: a list of backends that the client token (provided in the
     request's Authorization header) has access to. Added by the
@@ -68,25 +68,25 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
     The request should provide data in the format:
 
         {
-            "job_request_id": "<id>",
+            "rap_id": "<id>",
             "actions": ["action1", "action2", ...]
         }
     """
     # Ensure that jobs exist for all requested cancel actions
     # We don't care about the state of the job (i.e. if it's already been cancelled), only
     # that it exists at all
-    if not exists_where(Job, job_request_id=request_obj.job_request_id):
+    if not exists_where(Job, job_request_id=request_obj.rap_id):
         return JsonResponse(
             {
-                "error": "job request not found",
-                "details": f"No jobs found for job_request_id {request_obj.job_request_id}",
-                "job_request_id": request_obj.job_request_id,
+                "error": "jobs not found",
+                "details": f"No jobs found for rap_id {request_obj.rap_id}",
+                "rap_id": request_obj.rap_id,
             },
             status=400,
         )
 
     jobs = find_where(
-        Job, job_request_id=request_obj.job_request_id, action__in=request_obj.actions
+        Job, job_request_id=request_obj.rap_id, action__in=request_obj.actions
     )
 
     actions_to_cancel = {job.action for job in jobs}
@@ -101,7 +101,7 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
             {
                 "error": "jobs not found",
                 "details": f"Jobs matching requested cancelled actions could not be found: {not_found_actions}",
-                "job_request_id": request_obj.job_request_id,
+                "rap_id": request_obj.rap_id,
                 "not_found": list(not_found),
             },
             status=400,
@@ -124,11 +124,11 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
 
     log.info(
         "Cancelling actions for job_request %s: %s",
-        request_obj.job_request_id,
+        request_obj.rap_id,
         request_obj.actions,
     )
 
-    set_cancelled_flag_for_actions(request_obj.job_request_id, request_obj.actions)
+    set_cancelled_flag_for_actions(request_obj.rap_id, request_obj.actions)
     cancelled_count = len(request_obj.actions)
     return JsonResponse(
         {
@@ -175,7 +175,7 @@ def create(request, *, token_backends, request_obj: CreateRequest):
         {
             "success": "ok",
             "details": f"Received job request {request_obj.id}",
-            "job_request_id": request_obj.id,
+            "rap_id": request_obj.id,
         },
         status=200,
     )

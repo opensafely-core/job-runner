@@ -43,21 +43,21 @@ class RequestBody(abc.ABC):
 class CancelRequest(RequestBody):
     """
     Represents a request to cancel one or more actions associated with
-    a single job_request
+    a single rap_id
     """
 
-    job_request_id: str
+    rap_id: str
     actions: list[str]
 
     @classmethod
     def from_request(cls, body_data: dict):
         cls.validate_schema(body_data, "cancelRequestBody")
 
-        job_request_id = body_data["job_request_id"]
+        rap_id = body_data["rap_id"]
         actions = body_data["actions"]
 
         return cls(
-            job_request_id=job_request_id,
+            rap_id=rap_id,
             actions=actions,
         )
 
@@ -65,7 +65,10 @@ class CancelRequest(RequestBody):
 @dataclass
 class CreateRequest(RequestBody):
     """
-    Represents a request to create a job request
+    Represents a request to create a RAP
+
+    Note: a RAP is currently still referred to as a `job_request`
+    in other parts of the code
     """
 
     id: str
@@ -97,7 +100,7 @@ class CreateRequest(RequestBody):
         }
 
         return cls(
-            id=body_data["job_request_id"],
+            id=body_data["rap_id"],
             backend=body_data["backend"],
             workspace=workspace_name,
             repo_url=body_data["repo_url"],

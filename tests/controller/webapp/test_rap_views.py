@@ -7,7 +7,7 @@ from controller.lib.database import find_one
 from controller.models import Job, State, timestamp_to_isoformat
 from controller.queries import set_flag
 from tests.conftest import get_trace
-from tests.factories import job_factory, job_request_rap_api_v1_factory_raw
+from tests.factories import job_factory, rap_api_v1_factory_raw
 
 
 # use a fixed time for these tests
@@ -85,7 +85,7 @@ def test_cancel_view(db, client, monkeypatch):
     job = job_factory(state=State.PENDING, action="action1", backend="test")
     assert not job.cancelled
     post_data = {
-        "job_request_id": job.job_request_id,
+        "rap_id": job.job_request_id,
         "actions": ["action1"],
     }
     response = client.post(
@@ -122,16 +122,16 @@ def test_cancel_view_validation_error(db, client, monkeypatch):
     response_json = response.json()
     assert response_json == {
         "error": "Validation error",
-        "details": "Invalid request body received: 'job_request_id' is a required property",
+        "details": "Invalid request body received: 'rap_id' is a required property",
     }
 
 
-def test_cancel_view_no_jobs_for_job_request_id(db, client, monkeypatch):
+def test_cancel_view_no_jobs_for_rap_id(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
     post_data = {
-        "job_request_id": "abcdefgh12345678",
+        "rap_id": "abcdefgh12345678",
         "actions": ["action1"],
     }
     response = client.post(
@@ -143,9 +143,9 @@ def test_cancel_view_no_jobs_for_job_request_id(db, client, monkeypatch):
     assert response.status_code == 400
     response_json = response.json()
     assert response_json == {
-        "error": "job request not found",
-        "details": "No jobs found for job_request_id abcdefgh12345678",
-        "job_request_id": "abcdefgh12345678",
+        "error": "jobs not found",
+        "details": "No jobs found for rap_id abcdefgh12345678",
+        "rap_id": "abcdefgh12345678",
     }
 
 
@@ -156,7 +156,7 @@ def test_cancel_view_actions_not_found(db, client, monkeypatch):
     job = job_factory(state=State.PENDING, action="action1", backend="test")
 
     post_data = {
-        "job_request_id": job.job_request_id,
+        "rap_id": job.job_request_id,
         "actions": ["action2", "action3"],
     }
     response = client.post(
@@ -170,7 +170,7 @@ def test_cancel_view_actions_not_found(db, client, monkeypatch):
     assert response_json == {
         "error": "jobs not found",
         "details": "Jobs matching requested cancelled actions could not be found: action2,action3",
-        "job_request_id": job.job_request_id,
+        "rap_id": job.job_request_id,
         "not_found": ["action2", "action3"],
     }
 
@@ -182,7 +182,7 @@ def test_cancel_view_not_allowed_for_backend(db, client, monkeypatch):
     job = job_factory(state=State.PENDING, action="action1", backend="foo")
 
     post_data = {
-        "job_request_id": job.job_request_id,
+        "rap_id": job.job_request_id,
         "actions": ["action1"],
     }
     response = client.post(
@@ -203,11 +203,11 @@ def test_create_view(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    job_request_body = job_request_rap_api_v1_factory_raw()
+    rap_request_body = rap_api_v1_factory_raw()
 
     response = client.post(
         reverse("create"),
-        json.dumps(job_request_body),
+        json.dumps(rap_request_body),
         headers=headers,
         content_type="application/json",
     )
@@ -215,11 +215,11 @@ def test_create_view(db, client, monkeypatch):
     response_json = response.json()
     assert response_json == {
         "success": "ok",
-        "details": f"Received job request {job_request_body['job_request_id']}",
-        "job_request_id": job_request_body["job_request_id"],
+        "details": f"Received job request {rap_request_body['rap_id']}",
+        "rap_id": rap_request_body["rap_id"],
     }, response
     # TODO: uncomment when create view actually creates jobs
-    # job = find_one(Job, job_request_id=job_request_body["job_request_id"])
+    # job = find_one(Job, job_request_id=rap_request_body["rap_id"])
     # assert job.action == "action"
 
 
@@ -227,10 +227,10 @@ def test_create_view_validation_error(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    job_request_body = job_request_rap_api_v1_factory_raw(requested_actions=[])
+    rap_request_body = rap_api_v1_factory_raw(requested_actions=[])
     response = client.post(
         reverse("create"),
-        json.dumps(job_request_body),
+        json.dumps(rap_request_body),
         headers=headers,
         content_type="application/json",
     )
@@ -247,11 +247,11 @@ def test_create_view_not_allowed_for_backend(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    job_request_body = job_request_rap_api_v1_factory_raw(backend="foo")
+    rap_request_body = rap_api_v1_factory_raw(backend="foo")
 
     response = client.post(
         reverse("create"),
-        json.dumps(job_request_body),
+        json.dumps(rap_request_body),
         headers=headers,
         content_type="application/json",
     )
