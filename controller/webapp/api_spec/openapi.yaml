@@ -94,6 +94,8 @@ paths:
                       type: string
                     details:
                       type: string
+                    rap_id:
+                      type: string
                 examples:
                   success:
                     description: success
