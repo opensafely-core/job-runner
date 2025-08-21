@@ -32,6 +32,7 @@ def test_backends_status_view(db, client, monkeypatch, freezer):
     # set flag for unauthorised backend
     set_flag("foo", "bar", "test_other_backend")
     # set flag for authorised backends
+    set_flag("last-seen-at", TEST_DATESTR, "test_backend1")
     set_flag("paused", "true", "test_backend1")
     set_flag("mode", "db-maintenance", "test_backend1")
     set_flag("paused", "false", "test_backend2")
@@ -42,7 +43,7 @@ def test_backends_status_view(db, client, monkeypatch, freezer):
     assert response_json["backends"] == [
         {
             "name": "test_backend1",
-            "last_seen": {"since": None},
+            "last_seen": {"since": TEST_DATESTR},
             "paused": {"status": "on", "since": TEST_DATESTR},
             "db_maintenance": {
                 "status": "on",
@@ -55,6 +56,86 @@ def test_backends_status_view(db, client, monkeypatch, freezer):
             "last_seen": {"since": None},
             "paused": {"status": "off", "since": TEST_DATESTR},
             "db_maintenance": {"status": "off", "since": None, "type": None},
+        },
+    ]
+
+    set_flag("paused", "true", "test_backend2")
+    response = client.get(reverse("backends_status"), headers=headers)
+    response_json = response.json()
+
+    assert response_json["backends"] == [
+        {
+            "name": "test_backend1",
+            "last_seen": {"since": TEST_DATESTR},
+            "paused": {"status": "on", "since": TEST_DATESTR},
+            "db_maintenance": {
+                "status": "on",
+                "since": TEST_DATESTR,
+                "type": "scheduled",
+            },
+        },
+        {
+            "name": "test_backend2",
+            "last_seen": {"since": None},
+            "paused": {"status": "on", "since": TEST_DATESTR},
+            "db_maintenance": {"status": "off", "since": None, "type": None},
+        },
+    ]
+
+    set_flag("paused", "false", "test_backend1")
+    set_flag("mode", "db-maintenance", "test_backend2")
+    response = client.get(reverse("backends_status"), headers=headers)
+    response_json = response.json()
+
+    assert response_json["backends"] == [
+        {
+            "name": "test_backend1",
+            "last_seen": {"since": TEST_DATESTR},
+            "paused": {"status": "off", "since": TEST_DATESTR},
+            "db_maintenance": {
+                "status": "on",
+                "since": TEST_DATESTR,
+                "type": "scheduled",
+            },
+        },
+        {
+            "name": "test_backend2",
+            "last_seen": {"since": None},
+            "paused": {"status": "on", "since": TEST_DATESTR},
+            "db_maintenance": {
+                "status": "on",
+                "since": TEST_DATESTR,
+                "type": "scheduled",
+            },
+        },
+    ]
+
+    set_flag("mode", None, "test_backend1")
+    set_flag("manual-db-maintenance", "on", "test_backend1")
+    set_flag("manual-db-maintenance", "off", "test_backend2")
+    response = client.get(reverse("backends_status"), headers=headers)
+    response_json = response.json()
+
+    assert response_json["backends"] == [
+        {
+            "name": "test_backend1",
+            "last_seen": {"since": TEST_DATESTR},
+            "paused": {"status": "off", "since": TEST_DATESTR},
+            "db_maintenance": {
+                "status": "off",
+                "since": TEST_DATESTR,
+                "type": "manual",
+            },
+        },
+        {
+            "name": "test_backend2",
+            "last_seen": {"since": None},
+            "paused": {"status": "on", "since": TEST_DATESTR},
+            "db_maintenance": {
+                "status": "on",
+                "since": TEST_DATESTR,
+                "type": "scheduled",
+            },
         },
     ]
 

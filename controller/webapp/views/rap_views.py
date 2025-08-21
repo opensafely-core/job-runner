@@ -76,12 +76,16 @@ def flags_for_backend(backend):
                 flags_dict["paused"]["since"] = f.timestamp_isoformat
                 if f.value == "true":
                     flags_dict["paused"]["status"] = "on"
+                else:
+                    flags_dict["paused"]["status"] = "off"
             case "mode":
                 flags_dict["db_maintenance"]["since"] = f.timestamp_isoformat
                 if f.value == "db-maintenance":
                     flags_dict["db_maintenance"]["status"] = "on"
                     if flags_dict["db_maintenance"]["type"] is None:
                         flags_dict["db_maintenance"]["type"] = "scheduled"
+                else:
+                    flags_dict["db_maintenance"]["status"] = "off"
             case "manual-db-maintenance":
                 if f.value == "on":
                     flags_dict["db_maintenance"]["type"] = "manual"
