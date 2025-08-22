@@ -13,7 +13,11 @@ from controller.webapp.api_spec.utils import api_spec_json
 from controller.webapp.views.auth.rap import (
     get_backends_for_client_token,
 )
-from controller.webapp.views.validators.dataclasses import CancelRequest, CreateRequest
+from controller.webapp.views.validators.dataclasses import (
+    CancelRequest,
+    CreateRequest,
+    StatusRequest,
+)
 from controller.webapp.views.validators.decorators import validate_request_body
 
 
@@ -177,5 +181,58 @@ def create(request, *, token_backends, request_obj: CreateRequest):
             "details": f"Received job request {request_obj.id}",
             "rap_id": request_obj.id,
         },
+        status=200,
+    )
+
+
+@csrf_exempt
+@require_POST
+@get_backends_for_client_token
+@validate_request_body(StatusRequest)
+def status(request, *, token_backends, request_obj: StatusRequest):
+    """
+    Get the status of an existing RAP (job request). Although this has no side-effects,
+    use POST rather than GET in order to avoid any complications around request
+    length etc.
+
+    token_backends: a list of backends that the client token (provided in the
+    request's Authorization header) has access to. Added by the
+    get_backends_for_client_token decorator.
+
+    See controller/webapp/api_spec/openapi.yaml for required request body
+    """
+
+    # TODO: This aborts as soon as we encounter an error. Should we return statuses for
+    # those rap_ids which are valid/allowed?
+    for rap_id in request_obj.rap_ids:
+        if not exists_where(Job, job_request_id=rap_id):
+            return JsonResponse(
+                {
+                    "error": "jobs not found",
+                    "details": f"No jobs found for rap_id {rap_id}",
+                    "rap_id": rap_id,
+                },
+                status=400,
+            )
+        jobs = find_where(Job, job_request_id=rap_id)
+        for job in jobs:
+            if job.backend not in token_backends:
+                return JsonResponse(
+                    {
+                        "error": "Not allowed",
+                        "details": f"Not allowed for backend '{job.backend}'",
+                    },
+                    status=403,
+                )
+
+    # TODO: retrieve the statuses of all the relevant jobs in the RAPs
+
+    statuses = [
+        {"rap_id": x, "status": "ok", "details": "I'm sure it's fine"}
+        for x in request_obj.rap_ids
+    ]
+
+    return JsonResponse(
+        {"rap_statuses": statuses},
         status=200,
     )
