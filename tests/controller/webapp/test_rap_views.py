@@ -261,3 +261,90 @@ def test_create_view_not_allowed_for_backend(db, client, monkeypatch):
         "error": "Not allowed",
         "details": "Not allowed for backend 'foo'",
     }
+
+
+def test_status_view(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    # parameterise with some different job status
+    job = job_factory(state=State.PENDING, action="action1", backend="test")
+
+    post_data = {"rap_ids": [job.job_request_id]}
+    response = client.post(
+        reverse("status"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 200
+    response_json = response.json()
+    assert response_json == {
+        "rap_statuses": [
+            {
+                "rap_id": job.job_request_id,
+                "status": "ok",
+                "details": "I'm sure it's fine",
+            }
+        ],
+    }, response
+
+
+def test_status_view_validation_error(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    post_data = {}
+    response = client.post(
+        reverse("status"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
+        "error": "Validation error",
+        "details": "Invalid request body received: 'rap_ids' is a required property",
+    }
+
+
+def test_status_view_no_jobs_for_rap_id(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    post_data = {"rap_ids": ["abcdefgh12345678"]}
+    response = client.post(
+        reverse("status"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
+        "error": "jobs not found",
+        "details": "No jobs found for rap_id abcdefgh12345678",
+        "rap_id": "abcdefgh12345678",
+    }
+
+
+def test_status_view_not_allowed_for_backend(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job = job_factory(state=State.PENDING, action="action1", backend="foo")
+
+    post_data = {"rap_ids": [job.job_request_id]}
+    response = client.post(
+        reverse("status"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 403
+    response_json = response.json()
+    assert response_json == {
+        "error": "Not allowed",
+        "details": "Not allowed for backend 'foo'",
+    }
