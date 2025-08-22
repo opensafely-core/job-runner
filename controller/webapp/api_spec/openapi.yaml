@@ -104,6 +104,20 @@ paths:
                           status: off
                           since: null
                           type: null
+                scheduled_db_maintenance:
+                  description: Backend 'test' in scheduled db maintenance
+                  value:
+                    backends:
+                      - name: test
+                        last_seen:
+                          since: 2025-08-12T11:30:45.123456Z
+                        paused:
+                          status: off
+                          since: 2025-08-12T11:30:45.123456Z
+                        db_maintenance:
+                          status: on
+                          since: 2025-08-12T11:30:45.123456Z
+                          type: scheduled
                 manual_db_maintenance:
                   description: Backend 'test' in manual db maintenance
                   value:
@@ -115,7 +129,7 @@ paths:
                           status: off
                           since: 2025-08-12T11:30:45.123456Z
                         db_maintenance:
-                          status: off
+                          status: on
                           since: 2025-08-12T11:30:45.123456Z
                           type: manual
         401:
