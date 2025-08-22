@@ -42,15 +42,52 @@ def backends_status(request, *, token_backends):
     get_backends_for_client_token decorator.
     """
 
-    flags = {backend: flags_for_backend(backend) for backend in token_backends}
-    return JsonResponse({"flags": flags}, json_dumps_params={"separators": (",", ":")})
+    backends = [flags_for_backend(backend) for backend in token_backends]
+
+    return JsonResponse(
+        {"backends": backends}, json_dumps_params={"separators": (",", ":")}
+    )
 
 
 def flags_for_backend(backend):
-    return {
-        f.id: {"v": f.value, "ts": f.timestamp_isoformat}
-        for f in get_current_flags(backend=backend)
+    flags_dict = {
+        # operating normally, paused and db maintenance never set
+        "name": backend,
+        "last_seen": {"since": None},
+        "paused": {
+            "status": "off",  # on/off
+            "since": None,
+        },
+        "db_maintenance": {
+            "status": "off",
+            "since": None,
+            "type": None,  # scheduled/manual/None
+        },
     }
+
+    flags = {f.id: f for f in get_current_flags(backend=backend)}
+
+    if "last-seen-at" in flags:
+        flags_dict["last_seen"]["since"] = flags["last-seen-at"].timestamp_isoformat
+    if "paused" in flags:
+        flags_dict["paused"]["since"] = flags["paused"].timestamp_isoformat
+        if flags["paused"].value == "true":
+            flags_dict["paused"]["status"] = "on"
+    if "mode" in flags:
+        flags_dict["db_maintenance"]["since"] = flags["mode"].timestamp_isoformat
+        if (
+            flags["mode"].value == "db-maintenance"
+        ):  # pragma: no branch. We currently set mode to db_maintenance only
+            flags_dict["db_maintenance"]["status"] = "on"
+            if (
+                "manual-db-maintenance" in flags
+                and flags["manual-db-maintenance"].value == "on"
+            ):
+                flags_dict["db_maintenance"]["type"] = "manual"
+            else:
+                flags_dict["db_maintenance"]["type"] = "scheduled"
+
+    return flags_dict
 
 
 @csrf_exempt
