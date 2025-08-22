@@ -126,3 +126,23 @@ class CreateRequest(RequestBody):
             "project": self.project,
             "orgs": self.orgs,
         }
+
+
+@dataclass
+class StatusRequest(RequestBody):
+    """
+    Represents a request for the status of the RAPs corresponding to the given list of
+    rap_ids.
+    """
+
+    rap_ids: list[str]
+
+    @classmethod
+    def from_request(cls, body_data: dict):
+        cls.validate_schema(body_data, "statusRequestBody")
+
+        rap_ids = body_data["rap_ids"]
+
+        return cls(
+            rap_ids=rap_ids,
+        )
