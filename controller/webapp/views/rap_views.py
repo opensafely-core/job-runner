@@ -68,27 +68,28 @@ def flags_for_backend(backend):
             "type": None,  # scheduled/manual/None
         },
     }
-    for f in get_current_flags(backend=backend):
-        match f.id:
-            case "last-seen-at":
-                flags_dict["last_seen"]["since"] = f.timestamp_isoformat
-            case "paused":
-                flags_dict["paused"]["since"] = f.timestamp_isoformat
-                if f.value == "true":
-                    flags_dict["paused"]["status"] = "on"
-                else:
-                    flags_dict["paused"]["status"] = "off"
-            case "mode":
-                flags_dict["db_maintenance"]["since"] = f.timestamp_isoformat
-                if f.value == "db-maintenance":
-                    flags_dict["db_maintenance"]["status"] = "on"
-                    if flags_dict["db_maintenance"]["type"] is None:
-                        flags_dict["db_maintenance"]["type"] = "scheduled"
-                else:
-                    flags_dict["db_maintenance"]["status"] = "off"
-            case "manual-db-maintenance":
-                if f.value == "on":
-                    flags_dict["db_maintenance"]["type"] = "manual"
+
+    flags = {f.id: f for f in get_current_flags(backend=backend)}
+
+    if "last-seen-at" in flags:
+        flags_dict["last_seen"]["since"] = flags["last-seen-at"].timestamp_isoformat
+    if "paused" in flags:
+        flags_dict["paused"]["since"] = flags["paused"].timestamp_isoformat
+        if flags["paused"].value == "true":
+            flags_dict["paused"]["status"] = "on"
+    if "mode" in flags:
+        flags_dict["db_maintenance"]["since"] = flags["mode"].timestamp_isoformat
+        if (
+            flags["mode"].value == "db-maintenance"
+        ):  # pragma: no branch. We currently set mode to db_maintenance only
+            flags_dict["db_maintenance"]["status"] = "on"
+            if (
+                "manual-db-maintenance" in flags
+                and flags["manual-db-maintenance"].value == "on"
+            ):
+                flags_dict["db_maintenance"]["type"] = "manual"
+            else:
+                flags_dict["db_maintenance"]["type"] = "scheduled"
 
     return flags_dict
 
