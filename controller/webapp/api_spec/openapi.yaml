@@ -222,6 +222,85 @@ paths:
           403:
             $ref: "#/components/responses/403NotAllowedBackend"
 
+  /rap/status/:
+      post:
+        security:
+          - bearerAuth: []
+        description: |
+          Get the status of RAPs
+        tags:
+        - rap_operations
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/statusRequestBody"
+              examples:
+                example1:
+                  value:
+                    rap_ids: [
+                      a1b2c3d4e5f6g7h8
+                    ]
+                example2:
+                  value:
+                    rap_ids: [
+                      abcdefgh12345678
+                    ]
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    rap_statuses:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          rap_id:
+                            type: string
+                          status:
+                            type: string
+                          details:
+                            type: string
+                examples:
+                  success:
+                    description: success
+                    value:
+                      rap_statuses:
+                        [{
+                          rap_id: a1b2c3d4e5f6g7h8,
+                          status: ok,
+                          details: running,
+                        }]
+          400:
+            description: Bad response
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                   - error
+                   - details
+                  properties:
+                    error:
+                      type: string
+                    details:
+                      type: string
+                examples:
+                  validation_error:
+                    description: Missing rap_ids
+                    value:
+                      error: Validation error
+                      details: "Invalid request body received: 'rap_ids' is a required property"
+          401:
+            $ref: "#/components/responses/401Unauthorized"
+          403:
+            $ref: "#/components/responses/403NotAllowedBackend"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -307,6 +386,17 @@ components:
           minItems: 1
           items:
             type: string
+    statusRequestBody:
+      # Can be referenced as '#/components/schemas/statusRequestBody'
+      type: object
+      required:
+        - rap_ids
+      properties:
+        rap_ids:
+          type: array
+          items:
+            type: string
+            pattern: '^[a-z0-9]{16}$'
 
   responses:
     401Unauthorized:
