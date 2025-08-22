@@ -14,4 +14,6 @@ urlpatterns = [
     path("rap/create/", rap_views.create, name="create"),
     # Cancel one or more actions for a single job request
     path("rap/cancel/", rap_views.cancel, name="cancel"),
+    # Get the status of a RAP (an existing job request)
+    path("rap/status/", rap_views.status, name="status"),
 ]
