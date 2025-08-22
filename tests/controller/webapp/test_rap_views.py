@@ -1,6 +1,7 @@
 import json
 import time
 
+import pytest
 from django.urls import reverse
 
 from controller.lib.database import find_one
@@ -21,7 +22,133 @@ def setup_auto_tracing():
     )
 
 
-def test_backends_status_view(db, client, monkeypatch, freezer):
+@pytest.mark.parametrize(
+    "flags_to_set, expected_backend_response",
+    [
+        # case 1: test_backend1 paused on, db_maintenance on; test_backend2 no flags set
+        (
+            [
+                ("last-seen-at", TEST_DATESTR, "test_backend1"),
+                ("paused", "true", "test_backend1"),
+                ("mode", "db-maintenance", "test_backend1"),
+            ],
+            [
+                {
+                    "name": "test_backend1",
+                    "last_seen": {"since": TEST_DATESTR},
+                    "paused": {"status": "on", "since": TEST_DATESTR},
+                    "db_maintenance": {
+                        "status": "on",
+                        "since": TEST_DATESTR,
+                        "type": "scheduled",
+                    },
+                },
+                {
+                    "name": "test_backend2",
+                    "last_seen": {"since": None},
+                    "paused": {"status": "off", "since": None},
+                    "db_maintenance": {"status": "off", "since": None, "type": None},
+                },
+            ],
+        ),
+        # case 2: test_backend1 paused on, db_maintenance on; test_backend2 paused on
+        (
+            [
+                ("last-seen-at", TEST_DATESTR, "test_backend1"),
+                ("paused", "true", "test_backend1"),
+                ("mode", "db-maintenance", "test_backend1"),
+                ("paused", "true", "test_backend2"),
+            ],
+            [
+                {
+                    "name": "test_backend1",
+                    "last_seen": {"since": TEST_DATESTR},
+                    "paused": {"status": "on", "since": TEST_DATESTR},
+                    "db_maintenance": {
+                        "status": "on",
+                        "since": TEST_DATESTR,
+                        "type": "scheduled",
+                    },
+                },
+                {
+                    "name": "test_backend2",
+                    "last_seen": {"since": None},
+                    "paused": {"status": "on", "since": TEST_DATESTR},
+                    "db_maintenance": {"status": "off", "since": None, "type": None},
+                },
+            ],
+        ),
+        # case 3: test_backend1 paused off, db_maintenance on; test_backend2 paused on, db_maintenance on
+        (
+            [
+                ("last-seen-at", TEST_DATESTR, "test_backend1"),
+                ("paused", "false", "test_backend1"),
+                ("mode", "db-maintenance", "test_backend1"),
+                ("paused", "true", "test_backend2"),
+                ("mode", "db-maintenance", "test_backend2"),
+            ],
+            [
+                {
+                    "name": "test_backend1",
+                    "last_seen": {"since": TEST_DATESTR},
+                    "paused": {"status": "off", "since": TEST_DATESTR},
+                    "db_maintenance": {
+                        "status": "on",
+                        "since": TEST_DATESTR,
+                        "type": "scheduled",
+                    },
+                },
+                {
+                    "name": "test_backend2",
+                    "last_seen": {"since": None},
+                    "paused": {"status": "on", "since": TEST_DATESTR},
+                    "db_maintenance": {
+                        "status": "on",
+                        "since": TEST_DATESTR,
+                        "type": "scheduled",
+                    },
+                },
+            ],
+        ),
+        # case 4: test_backend1 manual db_maintenance on; test_backend2 manual db_maintenance off
+        (
+            [
+                ("last-seen-at", TEST_DATESTR, "test_backend1"),
+                ("paused", "false", "test_backend1"),
+                ("mode", "db-maintenance", "test_backend1"),
+                ("paused", "true", "test_backend2"),
+                ("mode", "db-maintenance", "test_backend2"),
+                ("manual-db-maintenance", "on", "test_backend1"),
+                ("manual-db-maintenance", "off", "test_backend2"),
+            ],
+            [
+                {
+                    "name": "test_backend1",
+                    "last_seen": {"since": TEST_DATESTR},
+                    "paused": {"status": "off", "since": TEST_DATESTR},
+                    "db_maintenance": {
+                        "status": "on",
+                        "since": TEST_DATESTR,
+                        "type": "manual",
+                    },
+                },
+                {
+                    "name": "test_backend2",
+                    "last_seen": {"since": None},
+                    "paused": {"status": "on", "since": TEST_DATESTR},
+                    "db_maintenance": {
+                        "status": "on",
+                        "since": TEST_DATESTR,
+                        "type": "scheduled",
+                    },
+                },
+            ],
+        ),
+    ],
+)
+def test_backends_status_view(
+    db, client, monkeypatch, freezer, flags_to_set, expected_backend_response
+):
     freezer.move_to(TEST_DATESTR)
     monkeypatch.setattr(
         "controller.config.CLIENT_TOKENS",
@@ -32,112 +159,14 @@ def test_backends_status_view(db, client, monkeypatch, freezer):
     # set flag for unauthorised backend
     set_flag("foo", "bar", "test_other_backend")
     # set flag for authorised backends
-    set_flag("last-seen-at", TEST_DATESTR, "test_backend1")
-    set_flag("paused", "true", "test_backend1")
-    set_flag("mode", "db-maintenance", "test_backend1")
-    set_flag("paused", "false", "test_backend2")
+    for flag_id, value, backend in flags_to_set:
+        set_flag(flag_id, value, backend)
 
     response = client.get(reverse("backends_status"), headers=headers)
     assert response.status_code == 200
     response_json = response.json()
-    assert response_json["backends"] == [
-        {
-            "name": "test_backend1",
-            "last_seen": {"since": TEST_DATESTR},
-            "paused": {"status": "on", "since": TEST_DATESTR},
-            "db_maintenance": {
-                "status": "on",
-                "since": TEST_DATESTR,
-                "type": "scheduled",
-            },
-        },
-        {
-            "name": "test_backend2",
-            "last_seen": {"since": None},
-            "paused": {"status": "off", "since": TEST_DATESTR},
-            "db_maintenance": {"status": "off", "since": None, "type": None},
-        },
-    ]
 
-    set_flag("paused", "true", "test_backend2")
-    response = client.get(reverse("backends_status"), headers=headers)
-    response_json = response.json()
-
-    assert response_json["backends"] == [
-        {
-            "name": "test_backend1",
-            "last_seen": {"since": TEST_DATESTR},
-            "paused": {"status": "on", "since": TEST_DATESTR},
-            "db_maintenance": {
-                "status": "on",
-                "since": TEST_DATESTR,
-                "type": "scheduled",
-            },
-        },
-        {
-            "name": "test_backend2",
-            "last_seen": {"since": None},
-            "paused": {"status": "on", "since": TEST_DATESTR},
-            "db_maintenance": {"status": "off", "since": None, "type": None},
-        },
-    ]
-
-    set_flag("paused", "false", "test_backend1")
-    set_flag("mode", "db-maintenance", "test_backend2")
-    response = client.get(reverse("backends_status"), headers=headers)
-    response_json = response.json()
-
-    assert response_json["backends"] == [
-        {
-            "name": "test_backend1",
-            "last_seen": {"since": TEST_DATESTR},
-            "paused": {"status": "off", "since": TEST_DATESTR},
-            "db_maintenance": {
-                "status": "on",
-                "since": TEST_DATESTR,
-                "type": "scheduled",
-            },
-        },
-        {
-            "name": "test_backend2",
-            "last_seen": {"since": None},
-            "paused": {"status": "on", "since": TEST_DATESTR},
-            "db_maintenance": {
-                "status": "on",
-                "since": TEST_DATESTR,
-                "type": "scheduled",
-            },
-        },
-    ]
-
-    set_flag("mode", None, "test_backend1")
-    set_flag("manual-db-maintenance", "on", "test_backend1")
-    set_flag("manual-db-maintenance", "off", "test_backend2")
-    response = client.get(reverse("backends_status"), headers=headers)
-    response_json = response.json()
-
-    assert response_json["backends"] == [
-        {
-            "name": "test_backend1",
-            "last_seen": {"since": TEST_DATESTR},
-            "paused": {"status": "off", "since": TEST_DATESTR},
-            "db_maintenance": {
-                "status": "off",
-                "since": TEST_DATESTR,
-                "type": "manual",
-            },
-        },
-        {
-            "name": "test_backend2",
-            "last_seen": {"since": None},
-            "paused": {"status": "on", "since": TEST_DATESTR},
-            "db_maintenance": {
-                "status": "on",
-                "since": TEST_DATESTR,
-                "type": "scheduled",
-            },
-        },
-    ]
+    assert response_json["backends"] == expected_backend_response
 
 
 def test_backends_status_view_no_flags(db, client, monkeypatch):
