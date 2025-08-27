@@ -11,6 +11,18 @@ from controller.models import Job, State
 from tests.factories import job_factory, job_request_factory
 
 
+FIXTURES_PATH = Path(__file__).parent.parent.parent.resolve() / "fixtures"
+
+
+@schemathesis.hook
+def before_add_examples(context, examples: list[schemathesis.Case]):
+    # Modify the rap/create/ example2 request body to use our fixture repo, so the
+    # jobs will be successfully created
+    for example in examples:
+        if example.body.get("repo_url") == "https://github.com/opensafely/a-new-study":
+            example.body["repo_url"] = str(FIXTURES_PATH / "git-repo")
+
+
 @pytest.fixture
 def api_schema(live_server):
     responses.add_passthru(live_server.url)
@@ -53,7 +65,7 @@ def recorder(request):
     expected_status_codes_by_path = {
         "/backend/status/": {200, 401, 405},
         "/rap/cancel/": {200, 400, 401, 404, 405},
-        "/rap/create/": {200, 400, 401, 403, 405},
+        "/rap/create/": {200, 201, 400, 401, 403, 405},
         "/rap/status/": {200, 400, 401, 405},
     }
 
@@ -87,13 +99,17 @@ schema = schemathesis.pytest.from_fixture("api_schema")
 
 @pytest.fixture(autouse=True)
 def setup_jobs(db):
-    # Set up jobs that match the request body for the /cancel
+    # Set up jobs that match the request body for the
     # endpoint examples in the api spec;
-    # this allows us to hit the 200 response (jobs with test backend)
+    # this allows us to hit the 200/201 response (jobs with test backend)
     # and 403 responses (jobs with not-allowed foo backend)
     example_jobs = [
+        # successful rap/cancel/ example1
         ("a1b2c3d4e5f6g7h8", ["action1"], "test"),
+        # error rap/cancel/ example2, non allowed backend
         ("abcdefgh12345678", ["action2", "action3"], "foo"),
+        # rap/create/ example1, jobs already created
+        ("abcdefgh23456789", ["action1"], "test"),
     ]
     for job_request_id, actions, backend in example_jobs:
         if not database.exists_where(Job, job_request_id=job_request_id):
@@ -117,7 +133,7 @@ def test_api_with_auth(db, case, recorder):
 
 
 def call_and_validate(case, recorder):
-    # Note: we're not using call_and_validate here so that we can record the status
+    # Note: we're not using case.call_and_validate() here so that we can record the status
     # code prior to validating the response (otherwise status codes for check failures
     # won't be recorded).
     response = case.call()

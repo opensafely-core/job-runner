@@ -355,7 +355,7 @@ def test_create_view(db, client, monkeypatch):
     assert response.status_code == 201
     response_json = response.json()
     assert response_json == {
-        "result": "success",
+        "result": "Success",
         "details": f"Jobs created for rap_id '{rap_request_body['rap_id']}'",
         "rap_id": rap_request_body["rap_id"],
         "count": 0,
