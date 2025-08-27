@@ -54,9 +54,22 @@ def backends_status(request, *, token_backends):
 
 
 def flags_for_backend(backend):
-    """Flags are arbitrary key/value pairs set for a backend, along with a timestamp. We are interested in a specific
-    set of possible flags, which may or may not have ever been set. First define a dict of default values for a backend that
-    has never had any of the flags of interest set"""
+    """
+    Flags are arbitrary key/value pairs set for a backend, along with a timestamp. We are interested in a specific
+    set of possible flags, which may or may not have ever been set:
+
+        last-seen-at: set when the agent fetches tasks (in the /tasks endpoint)
+
+        paused: set manually via manage command (webapp/management/commands/pause); possible values are "true" and None
+
+        mode: set by the agent using the result of a DBSTATUS task OR set manually via manage command (webapp/management/commands/db_maintenance);
+        possible values are "db-maintenance" and None
+
+        manual-db-maintenance: manually via manage command (webapp/management/commands/db_maintenance);
+        possible values are "on" and None. Always set in conjunction with setting mode (i.e. either mode="db-maintenance" AND manual-db-maintenance="on", or both are None)
+    """
+
+    # First define a dict of default values for a backend that has never had any of the flags of interest set
     flags_dict = {
         "name": backend,
         "last_seen": {"since": None},
@@ -72,18 +85,6 @@ def flags_for_backend(backend):
     }
 
     flags = {f.id: f for f in get_current_flags(backend=backend)}
-
-    """
-    last-seen-at: set when the agent fetches tasks (in the /tasks endpoint)
-
-    paused: set manually via manage command (webapp/management/commands/pause); possible values are "true" and None
-
-    mode: set by the agent using the result of a DBSTATUS task OR set manually via manage command (webapp/management/commands/db_maintenance);
-    possible values are "db-maintenance" and None
-
-    manual-db-maintenance: manually via manage command (webapp/management/commands/db_maintenance);
-    possible values are "on" and None. Always set in conjunction with setting mode (i.e. either mode="db-maintenance" AND manual-db-maintenance="on", or both are None)
-    """
 
     if "last-seen-at" in flags:
         flags_dict["last_seen"]["since"] = flags["last-seen-at"].timestamp_isoformat
