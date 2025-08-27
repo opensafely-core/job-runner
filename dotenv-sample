@@ -61,7 +61,8 @@ TEST_JOB_SERVER_TOKEN=pass
 # and is a comma-separated list of client tokens that are allowed to access information
 # about this backend. These may be duplicated for clients that can request information about
 # multiple backends.
-TEST_CLIENT_TOKENS=token
+# Note: this corresponds to RAP_API_TOKEN in job-server
+TEST_CLIENT_TOKENS=rap_token
 
 # Change this to reduce parallelism (per backend)
 # Note this variable is per-backend i.e. <BACKEND>_MAX_WORKERS for each backend
