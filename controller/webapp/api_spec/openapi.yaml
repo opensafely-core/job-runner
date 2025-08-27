@@ -150,7 +150,7 @@ paths:
                 example1:
                   value:
                     backend: test
-                    rap_id: a1b2c3d4e5f6g7h8
+                    rap_id: abcdefgh23456789
                     workspace: test-study
                     repo_url: https://github.com/opensafely/test-study
                     branch: main
@@ -162,6 +162,23 @@ paths:
                     force_run_dependencies: false
                     created_by: test_user
                     project: test-project
+                    orgs:
+                     - opensafely
+                example2:
+                  value:
+                    backend: test
+                    rap_id: abcdefgh87654321
+                    workspace: my-study-workspace
+                    repo_url: https://github.com/opensafely/a-new-study
+                    branch: v1
+                    commit: d090466f63b0d68084144d8f105f0d6e79a0819e
+                    database_name: default
+                    requested_actions:
+                     - generate_dataset
+                    codelists_ok: true
+                    force_run_dependencies: false
+                    created_by: user1
+                    project: my-project
                     orgs:
                      - opensafely
         responses:
@@ -178,11 +195,13 @@ paths:
                       type: string
                     rap_id:
                       type: string
+                    count:
+                      type: number
                 examples:
                   success:
                     description: success
                     value:
-                      result: success
+                      result: Success
                       details: Jobs created for rap_id 'a1b2c3d4e5f6g7h8'
                       rap_id: a1b2c3d4e5f6g7h8
                       count: 1
@@ -199,6 +218,8 @@ paths:
                       type: string
                     rap_id:
                       type: string
+                    count:
+                      type: number
                 examples:
                   no_change:
                     description: Jobs already created
@@ -206,6 +227,7 @@ paths:
                       result: No change
                       details: Jobs already created for rap_id 'a1b2c3d4e5f6g7h8'
                       rap_id: a1b2c3d4e5f6g7h8
+                      count: 1
           400:
             description: Bad response
             content:
