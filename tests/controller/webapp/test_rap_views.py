@@ -7,8 +7,9 @@ from django.urls import reverse
 from controller.lib.database import find_one
 from controller.models import Job, State, timestamp_to_isoformat
 from controller.queries import set_flag
+from controller.webapp.views.rap_views import job_to_api_format
 from tests.conftest import get_trace
-from tests.factories import job_factory, rap_api_v1_factory_raw
+from tests.factories import job_factory, rap_api_v1_factory_raw, runjob_db_task_factory
 
 
 # use a fixed time for these tests
@@ -402,12 +403,35 @@ def test_create_view_not_allowed_for_backend(db, client, monkeypatch):
     }
 
 
-def test_status_view(db, client, monkeypatch):
+@pytest.mark.parametrize("agent_results", [True, False])
+def test_job_to_api_format_metrics(db, agent_results):
+    job = job_factory(state=State.RUNNING, action="action1", backend="test")
+    if agent_results:
+        runjob_db_task_factory(
+            job=job,
+            agent_results={
+                "job_metrics": {"test": 0.0},
+            },
+        )
+    else:
+        runjob_db_task_factory(
+            job=job,
+        )
+
+    if agent_results:
+        assert job_to_api_format(job)["metrics"]["test"] == 0.0
+    else:
+        assert job_to_api_format(job)["metrics"] == {}
+
+
+@pytest.mark.parametrize(
+    "state", [State.PENDING, State.RUNNING, State.SUCCEEDED, State.FAILED]
+)
+def test_status_view(db, client, monkeypatch, state):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    # parameterise with some different job status
-    job = job_factory(state=State.PENDING, action="action1", backend="test")
+    job = job_factory(state=state, action="action1", backend="test")
 
     post_data = {"rap_ids": [job.job_request_id]}
     response = client.post(
@@ -419,11 +443,24 @@ def test_status_view(db, client, monkeypatch):
     assert response.status_code == 200
     response_json = response.json()
     assert response_json == {
-        "rap_statuses": [
+        "jobs": [
             {
+                "action": "action1",
+                "backend": "test",
+                "completed_at": None,
+                "created_at": job.created_at_isoformat,
+                "identifier": job.id,
+                "metrics": {},
                 "rap_id": job.job_request_id,
-                "status": "ok",
-                "details": "I'm sure it's fine",
+                "requires_db": False,
+                "run_command": "python myscript.py",
+                "started_at": None,
+                "status": state.value,
+                # TODO: weird that this doesn't change - test data issue?
+                "status_code": "created",
+                "status_message": "",
+                "trace_context": job.trace_context,
+                "updated_at": job.updated_at_isoformat,
             }
         ],
     }, response
