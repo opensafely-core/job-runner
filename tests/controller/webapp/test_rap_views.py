@@ -25,71 +25,72 @@ def setup_auto_tracing():
 @pytest.mark.parametrize(
     "flags_to_set, expected_backend_response",
     [
-        # case 1: test_backend1 paused on, db_maintenance on; test_backend2 no flags set
+        # case 1: last seen set for backend
         (
             [
-                ("last-seen-at", TEST_DATESTR, "test_backend1"),
-                ("paused", "true", "test_backend1"),
-                ("mode", "db-maintenance", "test_backend1"),
+                ("last-seen-at", TEST_DATESTR, "test_backend"),
             ],
             [
                 {
-                    "name": "test_backend1",
+                    "name": "test_backend",
                     "last_seen": {"since": TEST_DATESTR},
-                    "paused": {"status": "on", "since": TEST_DATESTR},
-                    "db_maintenance": {
-                        "status": "on",
-                        "since": TEST_DATESTR,
-                        "type": "scheduled",
-                    },
-                },
-                {
-                    "name": "test_backend2",
-                    "last_seen": {"since": None},
                     "paused": {"status": "off", "since": None},
-                    "db_maintenance": {"status": "off", "since": None, "type": None},
+                    "db_maintenance": {
+                        "status": "off",
+                        "since": None,
+                        "type": None,
+                    },
                 },
             ],
         ),
-        # case 2: test_backend1 paused on, db_maintenance on; test_backend2 paused on
+        # case 2: backend paused
         (
             [
-                ("last-seen-at", TEST_DATESTR, "test_backend1"),
-                ("paused", "true", "test_backend1"),
-                ("mode", "db-maintenance", "test_backend1"),
-                ("paused", "true", "test_backend2"),
+                ("last-seen-at", TEST_DATESTR, "test_backend"),
+                ("paused", "true", "test_backend"),
             ],
             [
                 {
-                    "name": "test_backend1",
+                    "name": "test_backend",
                     "last_seen": {"since": TEST_DATESTR},
                     "paused": {"status": "on", "since": TEST_DATESTR},
                     "db_maintenance": {
-                        "status": "on",
-                        "since": TEST_DATESTR,
-                        "type": "scheduled",
+                        "status": "off",
+                        "since": None,
+                        "type": None,
                     },
-                },
-                {
-                    "name": "test_backend2",
-                    "last_seen": {"since": None},
-                    "paused": {"status": "on", "since": TEST_DATESTR},
-                    "db_maintenance": {"status": "off", "since": None, "type": None},
                 },
             ],
         ),
-        # case 3: test_backend1 paused off, db_maintenance on; test_backend2 paused on, db_maintenance on
+        # case 3: backend not paused
         (
             [
-                ("last-seen-at", TEST_DATESTR, "test_backend1"),
-                ("paused", "false", "test_backend1"),
-                ("mode", "db-maintenance", "test_backend1"),
-                ("paused", "true", "test_backend2"),
-                ("mode", "db-maintenance", "test_backend2"),
+                ("last-seen-at", TEST_DATESTR, "test_backend"),
+                ("paused", None, "test_backend"),
             ],
             [
                 {
-                    "name": "test_backend1",
+                    "name": "test_backend",
+                    "last_seen": {"since": TEST_DATESTR},
+                    "paused": {"status": "off", "since": TEST_DATESTR},
+                    "db_maintenance": {
+                        "status": "off",
+                        "since": None,
+                        "type": None,
+                    },
+                },
+            ],
+        ),
+        # case 4: backend in scheduled db maintenance
+        (
+            [
+                ("last-seen-at", TEST_DATESTR, "test_backend"),
+                ("paused", None, "test_backend"),
+                ("mode", "db-maintenance", "test_backend"),
+            ],
+            [
+                {
+                    "name": "test_backend",
                     "last_seen": {"since": TEST_DATESTR},
                     "paused": {"status": "off", "since": TEST_DATESTR},
                     "db_maintenance": {
@@ -98,32 +99,19 @@ def setup_auto_tracing():
                         "type": "scheduled",
                     },
                 },
-                {
-                    "name": "test_backend2",
-                    "last_seen": {"since": None},
-                    "paused": {"status": "on", "since": TEST_DATESTR},
-                    "db_maintenance": {
-                        "status": "on",
-                        "since": TEST_DATESTR,
-                        "type": "scheduled",
-                    },
-                },
             ],
         ),
-        # case 4: test_backend1 manual db_maintenance on; test_backend2 manual db_maintenance off
+        # case 5: backend in manual db maintenance
         (
             [
-                ("last-seen-at", TEST_DATESTR, "test_backend1"),
-                ("paused", "false", "test_backend1"),
-                ("mode", "db-maintenance", "test_backend1"),
-                ("paused", "true", "test_backend2"),
-                ("mode", "db-maintenance", "test_backend2"),
-                ("manual-db-maintenance", "on", "test_backend1"),
-                ("manual-db-maintenance", "off", "test_backend2"),
+                ("last-seen-at", TEST_DATESTR, "test_backend"),
+                ("paused", None, "test_backend"),
+                ("mode", "db-maintenance", "test_backend"),
+                ("manual-db-maintenance", "on", "test_backend"),
             ],
             [
                 {
-                    "name": "test_backend1",
+                    "name": "test_backend",
                     "last_seen": {"since": TEST_DATESTR},
                     "paused": {"status": "off", "since": TEST_DATESTR},
                     "db_maintenance": {
@@ -132,14 +120,25 @@ def setup_auto_tracing():
                         "type": "manual",
                     },
                 },
+            ],
+        ),
+        # case 6: backend has previously been in db maintenance
+        (
+            [
+                ("last-seen-at", TEST_DATESTR, "test_backend"),
+                ("paused", None, "test_backend"),
+                ("mode", None, "test_backend"),
+                ("manual-db-maintenance", None, "test_backend"),
+            ],
+            [
                 {
-                    "name": "test_backend2",
-                    "last_seen": {"since": None},
-                    "paused": {"status": "on", "since": TEST_DATESTR},
+                    "name": "test_backend",
+                    "last_seen": {"since": TEST_DATESTR},
+                    "paused": {"status": "off", "since": TEST_DATESTR},
                     "db_maintenance": {
-                        "status": "on",
+                        "status": "off",
                         "since": TEST_DATESTR,
-                        "type": "scheduled",
+                        "type": None,
                     },
                 },
             ],
@@ -152,7 +151,7 @@ def test_backends_status_view(
     freezer.move_to(TEST_DATESTR)
     monkeypatch.setattr(
         "controller.config.CLIENT_TOKENS",
-        {"test_token": ["test_backend1", "test_backend2"]},
+        {"test_token": ["test_backend"]},
     )
     headers = {"Authorization": "test_token"}
 
