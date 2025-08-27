@@ -352,12 +352,13 @@ def test_create_view(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     response_json = response.json()
     assert response_json == {
-        "success": "ok",
-        "details": f"Received job request {rap_request_body['rap_id']}",
+        "result": "success",
+        "details": f"Jobs created for rap_id '{rap_request_body['rap_id']}'",
         "rap_id": rap_request_body["rap_id"],
+        "count": 0,
     }, response
     # TODO: uncomment when create view actually creates jobs
     # job = find_one(Job, job_request_id=rap_request_body["rap_id"])
@@ -423,6 +424,29 @@ def test_job_to_api_format_metrics(db, agent_results):
         assert job_to_api_format(job)["metrics"]["test"] == 0.0
     else:
         assert job_to_api_format(job)["metrics"] == {}
+
+
+def test_create_view_jobs_already_created(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job = job_factory(state=State.PENDING, action="action", backend="test")
+    rap_request_body = rap_api_v1_factory_raw(backend="test", rap_id=job.job_request_id)
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 200, response.json()
+
+    response_json = response.json()
+    assert response_json == {
+        "result": "No change",
+        "details": f"Jobs already created for rap_id '{job.job_request_id}'",
+        "rap_id": job.job_request_id,
+        "count": 1,
+    }
 
 
 @pytest.mark.parametrize(
