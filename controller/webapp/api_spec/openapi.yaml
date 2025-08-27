@@ -41,6 +41,7 @@ paths:
                          type: string
                          description: Name of backend
                         last_seen:
+                          description: Time of last contact from this backend
                           type: object
                           required:
                             - since
@@ -57,8 +58,10 @@ paths:
                             status:
                               $ref: "#/components/schemas/backendFlagStatus"
                             since:
+                              description: Time backend was last paused
                               $ref: "#/components/schemas/backendFlagSince"
                         db_maintenance:
+                          description: Is this backend in database maintenance mode?
                           type: object
                           required:
                             - status
@@ -68,6 +71,7 @@ paths:
                             status:
                               $ref: "#/components/schemas/backendFlagStatus"
                             since:
+                              description: Time backend was last in maintenance mode
                               $ref: "#/components/schemas/backendFlagSince"
                             type:
                               type: string
