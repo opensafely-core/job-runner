@@ -58,7 +58,7 @@ paths:
                             status:
                               $ref: "#/components/schemas/backendFlagStatus"
                             since:
-                              description: Time backend was last paused
+                              description: Time backend was last paused/unpaused
                               $ref: "#/components/schemas/backendFlagSince"
                         db_maintenance:
                           description: Is this backend in database maintenance mode?
@@ -71,7 +71,7 @@ paths:
                             status:
                               $ref: "#/components/schemas/backendFlagStatus"
                             since:
-                              description: Time backend was last in maintenance mode
+                              description: Time maintenance mode was last updated for this backend
                               $ref: "#/components/schemas/backendFlagSince"
                             type:
                               type: string
