@@ -42,12 +42,8 @@ paths:
                          description: Name of backend
                         last_seen:
                           description: Time of last contact from this backend
-                          type: object
-                          required:
-                            - since
-                          properties:
-                            since:
-                              $ref: "#/components/schemas/backendFlagSince"
+                          type: string
+                          $ref: "#/components/schemas/backendFlagSince"
                         paused:
                           description: Backend paused status (determines whether backend accepts new jobs)
                           type: object
@@ -85,8 +81,7 @@ paths:
                   value:
                     backends:
                       - name: test
-                        last_seen:
-                          since: 2025-08-12T11:30:45.123456Z
+                        last_seen: 2025-08-12T11:30:45.123456Z
                         paused:
                           status: off
                           since: 2025-08-12T11:30:45.123456Z
@@ -113,8 +108,7 @@ paths:
                   value:
                     backends:
                       - name: test
-                        last_seen:
-                          since: 2025-08-12T11:30:45.123456Z
+                        last_seen: 2025-08-12T11:30:45.123456Z
                         paused:
                           status: off
                           since: 2025-08-12T11:30:45.123456Z
@@ -127,8 +121,7 @@ paths:
                   value:
                     backends:
                       - name: test
-                        last_seen:
-                          since: 2025-08-12T11:30:45.123456Z
+                        last_seen: 2025-08-12T11:30:45.123456Z
                         paused:
                           status: off
                           since: 2025-08-12T11:30:45.123456Z

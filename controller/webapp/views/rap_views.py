@@ -72,7 +72,7 @@ def flags_for_backend(backend):
     # First define a dict of default values for a backend that has never had any of the flags of interest set
     flags_dict = {
         "name": backend,
-        "last_seen": {"since": None},
+        "last_seen": None,
         "paused": {
             "status": "off",  # on/off
             "since": None,
@@ -87,7 +87,7 @@ def flags_for_backend(backend):
     flags = {f.id: f for f in get_current_flags(backend=backend)}
 
     if "last-seen-at" in flags:
-        flags_dict["last_seen"]["since"] = flags["last-seen-at"].timestamp_isoformat
+        flags_dict["last_seen"] = flags["last-seen-at"].timestamp_isoformat
     if "paused" in flags:
         flags_dict["paused"]["since"] = flags["paused"].timestamp_isoformat
         if flags["paused"].value == "true":

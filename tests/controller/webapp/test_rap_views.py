@@ -33,7 +33,7 @@ def setup_auto_tracing():
             [
                 {
                     "name": "test_backend",
-                    "last_seen": {"since": TEST_DATESTR},
+                    "last_seen": TEST_DATESTR,
                     "paused": {"status": "off", "since": None},
                     "db_maintenance": {
                         "status": "off",
@@ -52,7 +52,7 @@ def setup_auto_tracing():
             [
                 {
                     "name": "test_backend",
-                    "last_seen": {"since": TEST_DATESTR},
+                    "last_seen": TEST_DATESTR,
                     "paused": {"status": "on", "since": TEST_DATESTR},
                     "db_maintenance": {
                         "status": "off",
@@ -71,7 +71,7 @@ def setup_auto_tracing():
             [
                 {
                     "name": "test_backend",
-                    "last_seen": {"since": TEST_DATESTR},
+                    "last_seen": TEST_DATESTR,
                     "paused": {"status": "off", "since": TEST_DATESTR},
                     "db_maintenance": {
                         "status": "off",
@@ -91,7 +91,7 @@ def setup_auto_tracing():
             [
                 {
                     "name": "test_backend",
-                    "last_seen": {"since": TEST_DATESTR},
+                    "last_seen": TEST_DATESTR,
                     "paused": {"status": "off", "since": TEST_DATESTR},
                     "db_maintenance": {
                         "status": "on",
@@ -112,7 +112,7 @@ def setup_auto_tracing():
             [
                 {
                     "name": "test_backend",
-                    "last_seen": {"since": TEST_DATESTR},
+                    "last_seen": TEST_DATESTR,
                     "paused": {"status": "off", "since": TEST_DATESTR},
                     "db_maintenance": {
                         "status": "on",
@@ -133,7 +133,7 @@ def setup_auto_tracing():
             [
                 {
                     "name": "test_backend",
-                    "last_seen": {"since": TEST_DATESTR},
+                    "last_seen": TEST_DATESTR,
                     "paused": {"status": "off", "since": TEST_DATESTR},
                     "db_maintenance": {
                         "status": "off",
@@ -180,7 +180,7 @@ def test_backends_status_view_no_flags(db, client, monkeypatch):
     assert response_json["backends"] == [
         {
             "name": "test",
-            "last_seen": {"since": None},
+            "last_seen": None,
             "paused": {"status": "off", "since": None},
             "db_maintenance": {
                 "status": "off",
@@ -190,7 +190,7 @@ def test_backends_status_view_no_flags(db, client, monkeypatch):
         },
         {
             "name": "foo",
-            "last_seen": {"since": None},
+            "last_seen": None,
             "paused": {"status": "off", "since": None},
             "db_maintenance": {
                 "status": "off",
