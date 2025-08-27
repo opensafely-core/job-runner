@@ -1,13 +1,7 @@
 PERMISSIONS = {
-    # project 37
-    # opensafely/risk-factors-research
-    "factors-associated-with-covid-19-vaccination": ["icnarc"],
     # project None
     # opensafely/immunosuppressant-meds-research opensafely/with-gp-consultations-curation
     "opensafely-internal": ["icnarc", "appointments"],
-    # project 54
-    # opensafely/school-age-children-and-covid
-    "school-age-children": ["icnarc"],
     # project 9
     # opensafely/hdruk-os-covid-paeds
     "impact-of-covid-19-on-long-term-healthcare-use-and-costs-in-children-and-young-people": [
@@ -48,9 +42,6 @@ PERMISSIONS = {
     "the-effect-of-long-covid-on-quality-adjusted-life-years-using-openprompt": [
         "open_prompt"
     ],
-    # project 71
-    # opensafely/openprompt-cohort-profile
-    "openprompt": ["open_prompt"],
     # project 122
     # opensafely/waiting-list
     "opioid-prescribing-trends-and-changes-during-covid-19": [
