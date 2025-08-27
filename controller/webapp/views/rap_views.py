@@ -7,6 +7,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from controller.create_or_update_jobs import set_cancelled_flag_for_actions
 from controller.lib.database import exists_where, find_where
+from controller.main import get_task_for_job
 from controller.models import Job
 from controller.queries import get_current_flags
 from controller.webapp.api_spec.utils import api_spec_json
@@ -235,6 +236,36 @@ def create(request, *, token_backends, request_obj: CreateRequest):
     )
 
 
+# Fork of controller.sync.job_to_remote_format()
+def job_to_api_format(job):
+    """
+    Convert our internal representation of a Job into the API format
+    """
+
+    metrics = {}
+    if task := get_task_for_job(job):
+        if task.agent_results:
+            metrics = task.agent_results.get("job_metrics", {})
+
+    return {
+        "identifier": job.id,
+        "rap_id": job.job_request_id,
+        "backend": job.backend,
+        "action": job.action,
+        "run_command": job.run_command,
+        "status": job.state.value,
+        "status_code": job.status_code.value,
+        "status_message": job.status_message or "",
+        "created_at": job.created_at_isoformat,
+        "updated_at": job.updated_at_isoformat,
+        "started_at": job.started_at_isoformat,
+        "completed_at": job.completed_at_isoformat,
+        "trace_context": job.trace_context,
+        "metrics": metrics,
+        "requires_db": job.requires_db,
+    }
+
+
 @csrf_exempt
 @require_POST
 @get_backends_for_client_token
@@ -275,14 +306,10 @@ def status(request, *, token_backends, request_obj: StatusRequest):
                     status=403,
                 )
 
-    # TODO: retrieve the statuses of all the relevant jobs in the RAPs
-
-    statuses = [
-        {"rap_id": x, "status": "ok", "details": "I'm sure it's fine"}
-        for x in request_obj.rap_ids
-    ]
+    jobs = find_where(Job, job_request_id__in=request_obj.rap_ids)
+    jobs_data = [job_to_api_format(i) for i in jobs]
 
     return JsonResponse(
-        {"rap_statuses": statuses},
+        {"jobs": jobs_data},
         status=200,
     )
