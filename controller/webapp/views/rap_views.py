@@ -46,15 +46,65 @@ def backends_status(request, *, token_backends):
     get_backends_for_client_token decorator.
     """
 
-    flags = {backend: flags_for_backend(backend) for backend in token_backends}
-    return JsonResponse({"flags": flags}, json_dumps_params={"separators": (",", ":")})
+    backends = [flags_for_backend(backend) for backend in token_backends]
+
+    return JsonResponse(
+        {"backends": backends}, json_dumps_params={"separators": (",", ":")}
+    )
 
 
 def flags_for_backend(backend):
-    return {
-        f.id: {"v": f.value, "ts": f.timestamp_isoformat}
-        for f in get_current_flags(backend=backend)
+    """
+    Flags are arbitrary key/value pairs set for a backend, along with a timestamp. We are interested in a specific
+    set of possible flags, which may or may not have ever been set:
+
+        last-seen-at: set when the agent fetches tasks (in the /tasks endpoint)
+
+        paused: set manually via manage command (webapp/management/commands/pause); possible values are "true" and None
+
+        mode: set by the agent using the result of a DBSTATUS task OR set manually via manage command (webapp/management/commands/db_maintenance);
+        possible values are "db-maintenance" and None
+
+        manual-db-maintenance: manually via manage command (webapp/management/commands/db_maintenance);
+        possible values are "on" and None. Always set in conjunction with setting mode (i.e. either mode="db-maintenance" AND manual-db-maintenance="on", or both are None)
+    """
+
+    # First define a dict of default values for a backend that has never had any of the flags of interest set
+    flags_dict = {
+        "name": backend,
+        "last_seen": None,
+        "paused": {
+            "status": "off",  # on/off
+            "since": None,
+        },
+        "db_maintenance": {
+            "status": "off",
+            "since": None,
+            "type": None,  # scheduled/manual/None
+        },
     }
+
+    flags = {f.id: f for f in get_current_flags(backend=backend)}
+
+    if "last-seen-at" in flags:
+        flags_dict["last_seen"] = flags["last-seen-at"].timestamp_isoformat
+    if "paused" in flags:
+        flags_dict["paused"]["since"] = flags["paused"].timestamp_isoformat
+        if flags["paused"].value == "true":
+            flags_dict["paused"]["status"] = "on"
+    if "mode" in flags:
+        flags_dict["db_maintenance"]["since"] = flags["mode"].timestamp_isoformat
+        if flags["mode"].value == "db-maintenance":
+            flags_dict["db_maintenance"]["status"] = "on"
+            if (
+                "manual-db-maintenance" in flags
+                and flags["manual-db-maintenance"].value == "on"
+            ):
+                flags_dict["db_maintenance"]["type"] = "manual"
+            else:
+                flags_dict["db_maintenance"]["type"] = "scheduled"
+
+    return flags_dict
 
 
 @csrf_exempt

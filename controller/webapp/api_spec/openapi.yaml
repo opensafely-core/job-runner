@@ -24,29 +24,111 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - backends
                 properties:
-                  flags:
-                    type: object
-                    additionalProperties:
+                  backends:
+                    type: array
+                    items:
                       type: object
-                      additionalProperties:
-                        type: object
-                        properties:
-                          v:
-                            type: string
-                            nullable: true
-                            description: flag value
-                          ts:
-                            type: string
-                            description: timestamp
-              examples:
-                ex1:
-                  value:
-                    flags:
-                      test:
+                      required:
+                        - name
+                        - last_seen
+                        - paused
+                        - db_maintenance
+                      properties:
+                        name:
+                         type: string
+                         description: Name of backend
+                        last_seen:
+                          description: Time of last contact from this backend
+                          type: string
+                          $ref: "#/components/schemas/backendFlagSince"
                         paused:
-                          v: on
-                          ts: 2025-07-29T16:12:28.216609Z
+                          description: Backend paused status (determines whether backend accepts new jobs)
+                          type: object
+                          required:
+                            - status
+                            - since
+                          properties:
+                            status:
+                              $ref: "#/components/schemas/backendFlagStatus"
+                            since:
+                              description: Time backend was last paused/unpaused
+                              $ref: "#/components/schemas/backendFlagSince"
+                        db_maintenance:
+                          description: Is this backend in database maintenance mode?
+                          type: object
+                          required:
+                            - status
+                            - since
+                            - type
+                          properties:
+                            status:
+                              $ref: "#/components/schemas/backendFlagStatus"
+                            since:
+                              description: Time maintenance mode was last updated for this backend
+                              $ref: "#/components/schemas/backendFlagSince"
+                            type:
+                              type: string
+                              enum:
+                                - scheduled
+                                - manual
+                              nullable: true
+              examples:
+                normal_operation:
+                  description: Backend 'test' operating normally
+                  value:
+                    backends:
+                      - name: test
+                        last_seen: 2025-08-12T11:30:45.123456Z
+                        paused:
+                          status: off
+                          since: 2025-08-12T11:30:45.123456Z
+                        db_maintenance:
+                          status: off
+                          since: null
+                          type: null
+                paused:
+                  description: Backend 'test' paused
+                  value:
+                    backends:
+                      - name: test
+                        last_seen:
+                          since: 2025-08-12T11:30:45.123456Z
+                        paused:
+                          status: on
+                          since: 2025-08-12T11:30:45.123456Z
+                        db_maintenance:
+                          status: off
+                          since: null
+                          type: null
+                scheduled_db_maintenance:
+                  description: Backend 'test' in scheduled db maintenance
+                  value:
+                    backends:
+                      - name: test
+                        last_seen: 2025-08-12T11:30:45.123456Z
+                        paused:
+                          status: off
+                          since: 2025-08-12T11:30:45.123456Z
+                        db_maintenance:
+                          status: on
+                          since: 2025-08-12T11:30:45.123456Z
+                          type: scheduled
+                manual_db_maintenance:
+                  description: Backend 'test' in manual db maintenance
+                  value:
+                    backends:
+                      - name: test
+                        last_seen: 2025-08-12T11:30:45.123456Z
+                        paused:
+                          status: off
+                          since: 2025-08-12T11:30:45.123456Z
+                        db_maintenance:
+                          status: on
+                          since: 2025-08-12T11:30:45.123456Z
+                          type: manual
         401:
           $ref: "#/components/responses/401Unauthorized"
 
@@ -371,6 +453,18 @@ components:
           type: array
           items:
             type: string
+    backendFlagStatus:
+      # Can be referenced as '#/components/schemas/backendFlagStatus'
+      type: string
+      enum:
+        - "on"
+        - "off"
+    backendFlagSince:
+      # Can be referenced as '#/components/schemas/backendFlagSince'
+      type: string
+      nullable: true
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{6}Z$'
+      description: Time this property was last set
     cancelRequestBody:
       # Can be referenced as '#/components/schemas/cancelRequestBody'
       type: object

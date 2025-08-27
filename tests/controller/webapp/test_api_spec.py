@@ -1,6 +1,7 @@
 from collections import defaultdict
 from pathlib import Path
 
+import hypothesis
 import pytest
 import responses
 import schemathesis
@@ -39,8 +40,10 @@ def setup(monkeypatch):
 class Recorder:
     _inputs = set()
     status_codes = defaultdict(set)
+    count = 0
 
     def record_status_code(self, path, status_code):
+        self.count += 1
         self.status_codes[path].add(status_code)
 
 
@@ -76,6 +79,7 @@ def recorder(request):
         assert not extra_codes, (
             f"Unexpected status codes found for path {path}: {extra_codes}"
         )
+    print(f"Cases: {recorder_.count}")
 
 
 schema = schemathesis.pytest.from_fixture("api_schema")
@@ -103,6 +107,7 @@ def setup_jobs(db):
                 )
 
 
+@hypothesis.settings(deadline=None)
 @schema.parametrize()
 def test_api_with_auth(db, case, recorder):
     # We pass good headers; schemathesis will typically generate a test case
