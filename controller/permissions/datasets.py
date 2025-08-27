@@ -101,7 +101,4 @@ PERMISSIONS = {
     # project 175
     # opensafely/metformin_covid
     "implications-of-metformin-for-long-covid": ["appointments"],
-    # project UNKNOWN
-    # opensafely/ckd-post-covid-outcomes
-    "opensafely/ckd-post-covid-outcomes": ["ukrr"],
 }
