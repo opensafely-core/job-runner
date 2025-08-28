@@ -504,7 +504,6 @@ def test_create_view_with_git_error(db, client, monkeypatch):
     assert response_json == {
         "error": "Error creating jobs",
         "details": f"Error fetching commit {bad_commit} from {repo_url}",
-        "rap_id": rap_request_body["rap_id"],
     }, response
 
 
@@ -534,7 +533,6 @@ def test_create_view_unexpected_error(mock_create_jobs, db, client, monkeypatch)
     assert response_json == {
         "error": "Error creating jobs",
         "details": "Unknown error",
-        "rap_id": rap_request_body["rap_id"],
     }, response
 
 
