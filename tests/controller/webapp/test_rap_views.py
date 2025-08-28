@@ -1,6 +1,7 @@
 import json
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from django.urls import reverse
@@ -372,7 +373,6 @@ def test_create_view(db, client, monkeypatch):
         "rap_id": rap_request_body["rap_id"],
         "count": 1,
     }, response
-    # TODO: uncomment when create view actually creates jobs
     job = find_one(Job, job_request_id=rap_request_body["rap_id"])
     assert job.action == "generate_dataset"
 
@@ -438,6 +438,66 @@ def test_create_view_jobs_already_created(db, client, monkeypatch):
         "rap_id": job.job_request_id,
         "count": 1,
     }
+
+
+def test_create_view_with_git_error(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    repo_url = str(FIXTURES_PATH / "git-repo")
+    bad_commit = "0" * 40
+
+    rap_request_body = rap_api_v1_factory_raw(
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit=bad_commit,
+        branch="v1",
+        requested_actions=["generate_dataset"],
+    )
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
+        "error": "Error creating jobs",
+        "details": f"Error fetching commit {bad_commit} from {repo_url}",
+        "rap_id": rap_request_body["rap_id"],
+    }, response
+
+
+@patch("controller.webapp.views.rap_views.create_jobs", side_effect=Exception("unk"))
+def test_create_view_unexpected_error(mock_create_jobs, db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    repo_url = str(FIXTURES_PATH / "git-repo")
+
+    rap_request_body = rap_api_v1_factory_raw(
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        branch="v1",
+        requested_actions=["generate_dataset"],
+    )
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
+        "error": "Error creating jobs",
+        "details": "Unknown error",
+        "rap_id": rap_request_body["rap_id"],
+    }, response
 
 
 @pytest.mark.parametrize("agent_results", [True, False])
