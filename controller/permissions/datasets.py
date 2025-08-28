@@ -1,5 +1,5 @@
 PERMISSIONS = {
-    # project None
+    # project Internal project for curation
     # opensafely/immunosuppressant-meds-research opensafely/with-gp-consultations-curation
     "opensafely-internal": ["icnarc", "appointments"],
     # project 9
