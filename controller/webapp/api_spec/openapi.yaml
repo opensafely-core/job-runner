@@ -331,9 +331,7 @@ components:
           description: The backend this RAP should run on
           type: string
         rap_id:
-          description: A unique identifier for this RAP
-          type: string
-          pattern: '^[a-z0-9]{16}$'
+          $ref: "./openapi.yaml#/components/schemas/rap_id"
         workspace:
           type: string
           pattern: '[a-zA-Z0-9_-]+'
