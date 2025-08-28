@@ -251,11 +251,16 @@ paths:
                     value:
                       error: Validation error
                       details: "Invalid request body received: 'rap_id' is a required property"
-                  rap_error:
+                  git_error:
                     description: Error creating jobs - git error
                     value:
                       error: Error creating jobs
                       details: "GitError: Error fetching commit d090466f63b0d68084144d8f105f0d6e79a0819e from https://github.com/opensafely/a-new-study"
+                  duplicate_rap_error:
+                    description: Jobs already exist for this RAP ID that are inconsistent with the data provided in this request
+                    value:
+                      error: Inconsistent request data
+                      details: "Jobs already created for rap_id 'abcdegh12345678' are inconsistent with request data"
                   unknown_error:
                     description: Unexpected error creating jobs
                     value:
