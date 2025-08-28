@@ -421,8 +421,19 @@ def test_create_view_jobs_already_created(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    job = job_factory(state=State.PENDING, action="action", backend="test")
-    rap_request_body = rap_api_v1_factory_raw(backend="test", rap_id=job.job_request_id)
+    job = job_factory(
+        state=State.PENDING,
+        action="action",
+        backend="test",
+        commit="aaaaaaaaaabbbbbbbbbb11111111112222222222",
+    )
+    rap_request_body = rap_api_v1_factory_raw(
+        backend="test",
+        rap_id=job.job_request_id,
+        commit=job.commit,
+        repo_url=job.repo_url,
+        workspace=job.workspace,
+    )
     response = client.post(
         reverse("create"),
         json.dumps(rap_request_body),
@@ -437,6 +448,33 @@ def test_create_view_jobs_already_created(db, client, monkeypatch):
         "details": f"Jobs already created for rap_id '{job.job_request_id}'",
         "rap_id": job.job_request_id,
         "count": 1,
+    }
+
+
+def test_create_view_inconsistent_jobs_already_created(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job = job_factory(state=State.PENDING, action="action", backend="test")
+    rap_id = job.job_request_id
+    rap_request_body = rap_api_v1_factory_raw(
+        backend="test",
+        workspace="another_workspace",
+        repo_url="another_repo_url",
+        rap_id=rap_id,
+    )
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400, response.json()
+
+    response_json = response.json()
+    assert response_json == {
+        "error": "Inconsistent request data",
+        "details": f"Jobs already created for rap_id '{rap_id}' are inconsistent with request data",
     }
 
 
