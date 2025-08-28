@@ -1,3 +1,14 @@
+# This dictionary maps project slug to permitted tables.
+#
+# Most table permissions are governed by IG, and can be found in the project spreadsheet:
+#
+# https://docs.google.com/spreadsheets/d/1odgWEwFrkmCr3-7leE2amwVA3b55UCOzbXQOiNgyb1w/edit
+#
+# However, appointments and wl_* (waitlist) table permissions are not IG
+# managed. They are restricted for different reasons, in that there data need
+# handling with due attention. Appointments is access managed by Alex, and I do
+# not know who decides about waitlist table access.
+
 PERMISSIONS = {
     # project Internal project for curation
     # opensafely/immunosuppressant-meds-research opensafely/with-gp-consultations-curation
