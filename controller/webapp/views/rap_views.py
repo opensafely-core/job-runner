@@ -322,7 +322,6 @@ def create(request, *, token_backends, request_obj: CreateRequest):
             {
                 "error": "Error creating jobs",
                 "details": str(e),
-                "rap_id": request_obj.id,
             },
             status=400,
         )
@@ -333,7 +332,6 @@ def create(request, *, token_backends, request_obj: CreateRequest):
             {
                 "error": "Error creating jobs",
                 "details": "Unknown error",
-                "rap_id": request_obj.id,
             },
             status=400,
         )

@@ -242,9 +242,6 @@ paths:
                       type: string
                     details:
                       type: string
-                    rap_id:
-                      description: rap_id parameter
-                      type: string
                 examples:
                   validation_error:
                     description: Missing rap_id
