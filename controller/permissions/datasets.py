@@ -55,7 +55,6 @@ PERMISSIONS = {
     ],
     # project 185
     # opensafely/post-covid-renal opensafely/post-covid-neurodegenerative opensafely/post-covid-cvd opensafely/post-covid-cvd-methods opensafely/post-covid-respiratory
-    # ambiguous from repo alone
     "investigating-events-following-covid-19": ["appointments"],
     # project 78
     # opensafely/post-covid-kidney-outcomes
@@ -67,11 +66,9 @@ PERMISSIONS = {
     ],
     # project 136
     # opensafely/winter-pressures
-    # ambiguous from repo alone
     "gp-appointments-during-covid": ["appointments"],
     # project 172
-    # opensafely/winter-pressures opensafely/winter-pressures-phase-II
-    # ambiguous from repo alone
+    # opensafely/winter-pressures-phase-II
     "impact-and-inequalities-of-winter-pressures-in-primary-care-providing-the-evidence-base-for-mitigation-strategies": [
         "appointments"
     ],
