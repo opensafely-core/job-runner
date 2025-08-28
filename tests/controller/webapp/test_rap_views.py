@@ -1,5 +1,6 @@
 import json
 import time
+from pathlib import Path
 
 import pytest
 from django.urls import reverse
@@ -9,6 +10,9 @@ from controller.models import Job, State, timestamp_to_isoformat
 from controller.queries import set_flag
 from tests.conftest import get_trace
 from tests.factories import job_factory, rap_api_v1_factory_raw
+
+
+FIXTURES_PATH = Path(__file__).parent.parent.parent.resolve() / "fixtures"
 
 
 # use a fixed time for these tests
@@ -342,7 +346,15 @@ def test_create_view(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    rap_request_body = rap_api_v1_factory_raw()
+    repo_url = str(FIXTURES_PATH / "git-repo")
+
+    rap_request_body = rap_api_v1_factory_raw(
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        branch="v1",
+        requested_actions=["generate_dataset"],
+    )
 
     response = client.post(
         reverse("create"),
@@ -356,11 +368,11 @@ def test_create_view(db, client, monkeypatch):
         "result": "Success",
         "details": f"Jobs created for rap_id '{rap_request_body['rap_id']}'",
         "rap_id": rap_request_body["rap_id"],
-        "count": 0,
+        "count": 1,
     }, response
     # TODO: uncomment when create view actually creates jobs
-    # job = find_one(Job, job_request_id=rap_request_body["rap_id"])
-    # assert job.action == "action"
+    job = find_one(Job, job_request_id=rap_request_body["rap_id"])
+    assert job.action == "generate_dataset"
 
 
 def test_create_view_validation_error(db, client, monkeypatch):
