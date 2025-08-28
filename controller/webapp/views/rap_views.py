@@ -4,8 +4,13 @@ from pathlib import Path
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
+from pipeline import ProjectValidationError
 
+from common.lib.git import GitError
+from common.lib.github_validators import GithubValidationError
 from controller.create_or_update_jobs import (
+    JobRequestError,
+    create_jobs,
     related_jobs_exist,
     set_cancelled_flag_for_actions,
 )
@@ -13,6 +18,7 @@ from controller.lib.database import count_where, exists_where, find_where
 from controller.main import get_task_for_job
 from controller.models import Job
 from controller.queries import get_current_flags
+from controller.reusable_actions import ReusableActionError
 from controller.webapp.api_spec.utils import api_spec_json
 from controller.webapp.views.auth.rap import (
     get_backends_for_client_token,
@@ -217,6 +223,7 @@ def create(request, *, token_backends, request_obj: CreateRequest):
     # The request completed successfully but did not create any new jobs (new job creation
     # will return a 201 - see below)
     if related_jobs_exist(request_obj):
+        log.info(f"Ignoring already processed rap_id:\n{request_obj.id}")
         job_count = count_where(Job, job_request_id=request_obj.id)
 
         return JsonResponse(
@@ -229,22 +236,58 @@ def create(request, *, token_backends, request_obj: CreateRequest):
             status=200,
         )
 
-    # TODO: Catch errors and return error response (don't create exception jobs as we expect job-server
-    #       to use the error response to mark the job request as failed
-    # TODO: validate_repo_and_commit (note that the rest of validate_job_request() in create_or_update_jobs
-    #       should be covered by the jsonschema validation in CreateRequest
-    # TODO: Do the rest of create_jobs
-    # TODO: Return a count of jobs created?
+    try:
+        log.info(f"Handling new rap_id:\n{request_obj.id}")
 
-    return JsonResponse(
-        {
-            "result": "Success",
-            "details": f"Jobs created for rap_id '{request_obj.id}'",
-            "rap_id": request_obj.id,
-            "count": 0,
-        },
-        status=201,
-    )
+        # TODO: create_jobs calls a method called validate_job_request() which checks
+        # various job request properties, and then calls validate_repo_and_commit
+        # Everything other than validate_repo_and_commit should be covered by the jsonschema
+        # validation in CreateRequest and so is not required now. It is left in for now
+        # while the existing controller sync loop is running in parallel to this method of
+        # creating jobs
+        new_job_count = create_jobs(request_obj)
+        log.info(f"Created {new_job_count} new jobs")
+
+        return JsonResponse(
+            {
+                "result": "Success",
+                "details": f"Jobs created for rap_id '{request_obj.id}'",
+                "rap_id": request_obj.id,
+                "count": new_job_count,
+            },
+            status=201,
+        )
+    except (
+        GitError,
+        GithubValidationError,
+        ProjectValidationError,
+        ReusableActionError,
+        JobRequestError,
+    ) as e:
+        log.error("Failed to create jobs for rap_id %s:\n%s", request_obj.id, e)
+        # Note: we return the error in the response for these specific handled errors, as
+        # this is likely to contain useful information for the client to display to the
+        # user regarding what went wrong. We control the content of these errors so it is
+        # safe to pass them on in the response.
+        return JsonResponse(
+            {
+                "error": "Error creating jobs",
+                "details": str(e),
+                "rap_id": request_obj.id,
+            },
+            status=400,
+        )
+
+    except Exception:
+        log.exception("Uncaught error while creating jobs")
+        return JsonResponse(
+            {
+                "error": "Error creating jobs",
+                "details": "Unknown error",
+                "rap_id": request_obj.id,
+            },
+            status=400,
+        )
 
 
 # Fork of controller.sync.job_to_remote_format()
