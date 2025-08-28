@@ -95,7 +95,7 @@ paths:
                     details:
                       type: string
                     rap_id:
-                      type: string
+                      $ref: "#/components/schemas/rap_id"
                 examples:
                   success:
                     description: success
@@ -118,8 +118,7 @@ paths:
                     details:
                       type: string
                     rap_id:
-                      description: rap_id parameter
-                      type: string
+                      $ref: "#/components/schemas/rap_id"
                 examples:
                   validation_error:
                     description: Missing rap_id
@@ -190,9 +189,7 @@ paths:
                       type: string
                     details:
                       type: string
-                    rap_id:
-                      description: rap_id parameter
-                      type: string
+                    $ref: "#/components/schemas/rap_id"
                     not_found:
                       description: actions requested for cancellation that do not exist for the requested rap_id
                       type: array
@@ -261,7 +258,7 @@ paths:
                         type: object
                         properties:
                           rap_id:
-                            type: string
+                            $ref: "#/components/schemas/rap_id"
                           status:
                             type: string
                           details:
@@ -308,6 +305,10 @@ components:
       scheme: bearer
       bearerFormat: token
   schemas:
+    rap_id:
+      description: A unique identifier for a RAP
+      type: string
+      pattern: '^[a-z0-9]{16}$'
     createRequestBody:
       # Can be referenced as '#/components/schemas/createRequestBody'
       type: object
