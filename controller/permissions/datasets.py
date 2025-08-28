@@ -18,16 +18,8 @@ PERMISSIONS = {
     # project 106
     # opensafely/sotrovimab-and-molnupiravir
     "effectiveness-safety-sotrovimab-molnupiravir": ["ukrr"],
-    # project 137
+    # project 171 (continuation of closed project 137)
     # opensafely/ckd-healthcare-use
-    # ambiguous from repo alone
-    "healthcare-needs-for-people-with-chronic-kidney-disease-in-the-covid-19-era": [
-        "appointments",
-        "ukrr",
-    ],
-    # project 171
-    # opensafely/ckd-healthcare-use
-    # ambiguous from repo alone
     "healthcare-needs-for-people-with-chronic-kidney-disease-in-the-covid-19-era-project-continuation-of-approved-project-no-137": [
         "appointments",
         "ukrr",
@@ -56,22 +48,11 @@ PERMISSIONS = {
     # project 152
     # opensafely/digital-access-to-primary-care
     "digital-access-to-primary-care-for-older-people-during-covid": ["appointments"],
-    # project 148
+    # project 166, continued from 148
     # opensafely/uom_pregnancy_tx_pathways
-    # ambiguous from repo alone
-    "the-impact-of-covid-19-on-pregnancy-treatment-pathways-and-outcomes": [
-        "appointments"
-    ],
-    # project 166
-    # opensafely/uom_pregnancy_tx_pathways
-    # ambiguous from repo alone
     "the-impact-of-covid-19-on-pregnancy-treatment-pathways-and-outcomes-project-continuation-of-approved-project-no-148": [
         "appointments"
     ],
-    # project 12
-    # opensafely/post-covid-renal opensafely/post-covid-autoimmune opensafely/post-covid-neurodegenerative opensafely/post-covid-cvd opensafely/post-covid-cvd-methods opensafely/post-covid-respiratory
-    # ambiguous from repo alone
-    "investigating-events-following-sars-cov-2-infection": ["appointments"],
     # project 185
     # opensafely/post-covid-renal opensafely/post-covid-neurodegenerative opensafely/post-covid-cvd opensafely/post-covid-cvd-methods opensafely/post-covid-respiratory
     # ambiguous from repo alone
@@ -79,9 +60,8 @@ PERMISSIONS = {
     # project 78
     # opensafely/post-covid-kidney-outcomes
     "long-term-kidney-outcomes-after-sars-cov-2-infection": ["appointments"],
-    # project 156
+    # project 156, continued from project 12
     # opensafely/post-covid-cvd opensafely/post-covid-cvd-methods
-    # ambiguous from repo alone
     "investigating-events-following-sars-cov-2-infection-project-continuation-of-approved-project-no-12": [
         "appointments"
     ],
