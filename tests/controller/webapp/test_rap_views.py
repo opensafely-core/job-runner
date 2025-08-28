@@ -1,5 +1,6 @@
 import json
 import time
+from pathlib import Path
 
 import pytest
 from django.urls import reverse
@@ -10,6 +11,9 @@ from controller.queries import set_flag
 from controller.webapp.views.rap_views import job_to_api_format
 from tests.conftest import get_trace
 from tests.factories import job_factory, rap_api_v1_factory_raw, runjob_db_task_factory
+
+
+FIXTURES_PATH = Path(__file__).parent.parent.parent.resolve() / "fixtures"
 
 
 # use a fixed time for these tests
@@ -344,7 +348,15 @@ def test_create_view(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    rap_request_body = rap_api_v1_factory_raw()
+    repo_url = str(FIXTURES_PATH / "git-repo")
+
+    rap_request_body = rap_api_v1_factory_raw(
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        branch="v1",
+        requested_actions=["generate_dataset"],
+    )
 
     response = client.post(
         reverse("create"),
@@ -358,11 +370,11 @@ def test_create_view(db, client, monkeypatch):
         "result": "Success",
         "details": f"Jobs created for rap_id '{rap_request_body['rap_id']}'",
         "rap_id": rap_request_body["rap_id"],
-        "count": 0,
+        "count": 1,
     }, response
     # TODO: uncomment when create view actually creates jobs
-    # job = find_one(Job, job_request_id=rap_request_body["rap_id"])
-    # assert job.action == "action"
+    job = find_one(Job, job_request_id=rap_request_body["rap_id"])
+    assert job.action == "generate_dataset"
 
 
 def test_create_view_validation_error(db, client, monkeypatch):
@@ -405,27 +417,6 @@ def test_create_view_not_allowed_for_backend(db, client, monkeypatch):
     }
 
 
-@pytest.mark.parametrize("agent_results", [True, False])
-def test_job_to_api_format_metrics(db, agent_results):
-    job = job_factory(state=State.RUNNING, action="action1", backend="test")
-    if agent_results:
-        runjob_db_task_factory(
-            job=job,
-            agent_results={
-                "job_metrics": {"test": 0.0},
-            },
-        )
-    else:
-        runjob_db_task_factory(
-            job=job,
-        )
-
-    if agent_results:
-        assert job_to_api_format(job)["metrics"]["test"] == 0.0
-    else:
-        assert job_to_api_format(job)["metrics"] == {}
-
-
 def test_create_view_jobs_already_created(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
@@ -447,6 +438,27 @@ def test_create_view_jobs_already_created(db, client, monkeypatch):
         "rap_id": job.job_request_id,
         "count": 1,
     }
+
+
+@pytest.mark.parametrize("agent_results", [True, False])
+def test_job_to_api_format_metrics(db, agent_results):
+    job = job_factory(state=State.RUNNING, action="action1", backend="test")
+    if agent_results:
+        runjob_db_task_factory(
+            job=job,
+            agent_results={
+                "job_metrics": {"test": 0.0},
+            },
+        )
+    else:
+        runjob_db_task_factory(
+            job=job,
+        )
+
+    if agent_results:
+        assert job_to_api_format(job)["metrics"]["test"] == 0.0
+    else:
+        assert job_to_api_format(job)["metrics"] == {}
 
 
 @pytest.mark.parametrize(
