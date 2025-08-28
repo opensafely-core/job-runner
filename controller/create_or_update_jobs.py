@@ -307,7 +307,7 @@ def assert_new_jobs_created(job_request, new_jobs, current_jobs):
     # is treated as a successful outcome because we've already done everything that was
     # requested.
     if RUN_ALL_COMMAND in job_request.requested_actions:
-        raise NothingToDoError("All actions have already completed succesfully")
+        raise NothingToDoError("All actions have already completed successfully")
 
     # The other reason is that every requested action is already running or pending,
     # this is considered a user error.
