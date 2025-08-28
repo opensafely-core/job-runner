@@ -337,27 +337,38 @@ paths:
                 schema:
                   type: object
                   properties:
-                    rap_statuses:
+                    jobs:
                       type: array
                       items:
-                        type: object
-                        properties:
-                          rap_id:
-                            type: string
-                          status:
-                            type: string
-                          details:
-                            type: string
+                        $ref: "#/components/schemas/job"
                 examples:
                   success:
                     description: success
                     value:
-                      rap_statuses:
-                        [{
-                          rap_id: a1b2c3d4e5f6g7h8,
-                          status: ok,
-                          details: running,
-                        }]
+                      jobs:
+                        [
+                          {
+                            'action': 'action1',
+                            'backend': 'test',
+                            'completed_at': None,
+                            'created_at': '2025-08-28T09:27:26Z',
+                            'identifier': 'zhgksvaob3u5opzv',
+                            'metrics': {
+                              'test': 0.0,
+                            },
+                            'rap_id': 'tqyly5nljliltsxj',
+                            'requires_db': False,
+                            'run_command': 'python myscript.py',
+                            'started_at': None,
+                            'status': 'failed',
+                            'status_code': 'created',
+                            'status_message': '',
+                            'trace_context': {
+                              'traceparent': '00-ee668ef06f2f1564c028eea1d9be716d-5b3ca103cdd2a017-01',
+                            },
+                            'updated_at': '2025-08-28T09:27:26Z',
+                          }
+                        ]
           400:
             description: Bad response
             content:
@@ -491,7 +502,73 @@ components:
           items:
             type: string
             pattern: '^[a-z0-9]{16}$'
-
+    job:
+      # Can be referenced as '#/components/schemas/job'
+      type: object
+      required:
+        - identifier
+      properties:
+        action:
+          type: string
+        backend:
+          type: string
+        completed_at:
+          type: timestamp
+        created_at:
+          type: timestamp
+        identifier:
+          type: string
+        metrics:
+          type: object
+        rap_id:
+          type: string
+          pattern: '^[a-z0-9]{16}$'
+        requires_db:
+          type: boolean
+        run_command:
+          type: string
+        started_at:
+          type: timestamp
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - succeeded
+            - failed
+        status_code:
+          type: string
+          enum:
+            - created
+            - initiated
+            - paused
+            - waiting_db_maintenance
+            - waiting_on_dependencies
+            - waiting_on_workers
+            - waiting_on_db_workers
+            - waiting_on_reboot
+            - waiting_on_new_task
+            - preparing
+            - prepared
+            - executing
+            - executed
+            - finalizing
+            - finalized
+            - succeeded
+            - dependency_failed
+            - nonzero_exit
+            - cancelled_by_user
+            - unmatched_patterns
+            - internal_error
+            - killed_by_admin
+            - stale_codelists
+            - job_error
+        status_message:
+          type: string
+        trace_context:
+          type: object
+        updated_at:
+          type: timestamp
   responses:
     401Unauthorized:
       # Can be referenced as '#/components/responses/401Unauthorized'
