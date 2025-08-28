@@ -5,7 +5,7 @@ import pytest
 from django.urls import reverse
 
 from controller.lib.database import find_one
-from controller.models import Job, State, timestamp_to_isoformat
+from controller.models import Job, State, StatusCode, timestamp_to_isoformat
 from controller.queries import set_flag
 from controller.webapp.views.rap_views import job_to_api_format
 from tests.conftest import get_trace
@@ -425,13 +425,21 @@ def test_job_to_api_format_metrics(db, agent_results):
 
 
 @pytest.mark.parametrize(
-    "state", [State.PENDING, State.RUNNING, State.SUCCEEDED, State.FAILED]
+    "state, status_code",
+    [
+        (State.PENDING, StatusCode.CREATED),
+        (State.RUNNING, StatusCode.EXECUTING),
+        (State.SUCCEEDED, StatusCode.SUCCEEDED),
+        (State.FAILED, StatusCode.DEPENDENCY_FAILED),
+    ],
 )
-def test_status_view(db, client, monkeypatch, state):
+def test_status_view(db, client, monkeypatch, state, status_code):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    job = job_factory(state=state, action="action1", backend="test")
+    job = job_factory(
+        state=state, status_code=status_code, action="action1", backend="test"
+    )
 
     post_data = {"rap_ids": [job.job_request_id]}
     response = client.post(
@@ -440,9 +448,13 @@ def test_status_view(db, client, monkeypatch, state):
         headers=headers,
         content_type="application/json",
     )
+
     assert response.status_code == 200
-    response_json = response.json()
-    assert response_json == {
+
+    expected_started_at = None
+    if state not in [State.PENDING]:
+        expected_started_at = job.started_at_isoformat
+    assert response.json() == {
         "jobs": [
             {
                 "action": "action1",
@@ -454,10 +466,10 @@ def test_status_view(db, client, monkeypatch, state):
                 "rap_id": job.job_request_id,
                 "requires_db": False,
                 "run_command": "python myscript.py",
-                "started_at": None,
+                "started_at": expected_started_at,
                 "status": state.value,
                 # TODO: weird that this doesn't change - test data issue?
-                "status_code": "created",
+                "status_code": status_code.value,
                 "status_message": "",
                 "trace_context": job.trace_context,
                 "updated_at": job.updated_at_isoformat,
