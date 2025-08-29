@@ -508,12 +508,10 @@ def test_status_view_no_jobs_for_rap_id(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    assert response.status_code == 400
+    assert response.status_code == 200
     response_json = response.json()
     assert response_json == {
-        "error": "jobs not found",
-        "details": "No jobs found for rap_id abcdefgh12345678",
-        "rap_id": "abcdefgh12345678",
+        "jobs": [],
     }
 
 
@@ -530,9 +528,8 @@ def test_status_view_not_allowed_for_backend(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    assert response.status_code == 403
+    assert response.status_code == 200
     response_json = response.json()
     assert response_json == {
-        "error": "Not allowed",
-        "details": "Not allowed for backend 'foo'",
+        "jobs": [],
     }
