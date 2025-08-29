@@ -290,9 +290,11 @@ def status(request, *, token_backends, request_obj: StatusRequest):
     jobs = find_where(
         Job, job_request_id__in=request_obj.rap_ids, backend__in=token_backends
     )
+    valid_rap_ids = {job.job_request_id for job in jobs}
+    unrecognised_rap_ids = set(request_obj.rap_ids) - valid_rap_ids
     jobs_data = [job_to_api_format(i) for i in jobs]
 
     return JsonResponse(
-        {"jobs": jobs_data},
+        {"jobs": jobs_data, "unrecognised_rap_ids": list(unrecognised_rap_ids)},
         status=200,
     )

@@ -341,6 +341,13 @@ paths:
                       type: array
                       items:
                         $ref: "#/components/schemas/job"
+                    unrecognised_rap_ids:
+                      type: array
+                      items:
+                        rap_id:
+                          type: string
+                          pattern: '^[a-z0-9]{16}$'
+
                 examples:
                   success:
                     description: success
@@ -369,6 +376,15 @@ paths:
                             'updated_at': '2025-08-28T09:27:26Z',
                           }
                         ]
+                      unrecognised_rap_ids:
+                        []
+                  unrecognised_rap_ids:
+                    description: No jobs corresponding to rap_id
+                    value:
+                      jobs:
+                        []
+                      unrecognised_rap_ids:
+                        ['abcdefg12345678']
           400:
             description: Bad response
             content:
