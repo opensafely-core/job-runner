@@ -306,7 +306,9 @@ def status(request, *, token_backends, request_obj: StatusRequest):
                     status=403,
                 )
 
-    jobs = find_where(Job, job_request_id__in=request_obj.rap_ids)
+    jobs = find_where(
+        Job, job_request_id__in=request_obj.rap_ids, backend__in=token_backends
+    )
     jobs_data = [job_to_api_format(i) for i in jobs]
 
     return JsonResponse(
