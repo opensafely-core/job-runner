@@ -475,6 +475,7 @@ def test_status_view(db, client, monkeypatch, state, status_code):
                 "updated_at": job.updated_at_isoformat,
             }
         ],
+        "unrecognised_rap_ids": [],
     }, response
 
 
@@ -494,14 +495,14 @@ def test_status_view_validation_error(db, client, monkeypatch):
     assert response_json == {
         "error": "Validation error",
         "details": "Invalid request body received: 'rap_ids' is a required property",
-    }
+    }, response
 
 
 def test_status_view_no_jobs_for_rap_id(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    post_data = {"rap_ids": ["abcdefgh12345678"]}
+    post_data = {"rap_ids": ["hgfedca987654321"]}
     response = client.post(
         reverse("status"),
         json.dumps(post_data),
@@ -512,7 +513,8 @@ def test_status_view_no_jobs_for_rap_id(db, client, monkeypatch):
     response_json = response.json()
     assert response_json == {
         "jobs": [],
-    }
+        "unrecognised_rap_ids": ["hgfedca987654321"],
+    }, response
 
 
 def test_status_view_not_allowed_for_backend(db, client, monkeypatch):
@@ -532,4 +534,5 @@ def test_status_view_not_allowed_for_backend(db, client, monkeypatch):
     response_json = response.json()
     assert response_json == {
         "jobs": [],
-    }
+        "unrecognised_rap_ids": [job.job_request_id],
+    }, response
