@@ -280,31 +280,12 @@ def status(request, *, token_backends, request_obj: StatusRequest):
     request's Authorization header) has access to. Added by the
     get_backends_for_client_token decorator.
 
+    If jobs exist for a given rap_id, but the client does not provide a valid
+    token, it will return as unrecognised (rather than invalid token) in order
+    to reduce information leakage.
+
     See controller/webapp/api_spec/openapi.yaml for required request body
     """
-
-    # TODO: This aborts as soon as we encounter an error. Should we return statuses for
-    # those rap_ids which are valid/allowed?
-    for rap_id in request_obj.rap_ids:
-        if not exists_where(Job, job_request_id=rap_id):
-            return JsonResponse(
-                {
-                    "error": "jobs not found",
-                    "details": f"No jobs found for rap_id {rap_id}",
-                    "rap_id": rap_id,
-                },
-                status=400,
-            )
-        jobs = find_where(Job, job_request_id=rap_id)
-        for job in jobs:
-            if job.backend not in token_backends:
-                return JsonResponse(
-                    {
-                        "error": "Not allowed",
-                        "details": f"Not allowed for backend '{job.backend}'",
-                    },
-                    status=403,
-                )
 
     jobs = find_where(
         Job, job_request_id__in=request_obj.rap_ids, backend__in=token_backends
