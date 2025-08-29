@@ -331,11 +331,12 @@ def test_cancel_view_not_allowed_for_backend(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    assert response.status_code == 403
+    assert response.status_code == 400
     response_json = response.json()
     assert response_json == {
-        "error": "Not allowed",
-        "details": "Not allowed for backend 'foo'",
+        "error": "jobs not found",
+        "details": f"No jobs found for rap_id {job.job_request_id}",
+        "rap_id": job.job_request_id,
     }
 
 

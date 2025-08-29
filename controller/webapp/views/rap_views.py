@@ -130,7 +130,9 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
     # Ensure that jobs exist for all requested cancel actions
     # We don't care about the state of the job (i.e. if it's already been cancelled), only
     # that it exists at all
-    if not exists_where(Job, job_request_id=request_obj.rap_id):
+    if not exists_where(
+        Job, job_request_id=request_obj.rap_id, backend__in=token_backends
+    ):
         return JsonResponse(
             {
                 "error": "jobs not found",
@@ -141,7 +143,10 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
         )
 
     jobs = find_where(
-        Job, job_request_id=request_obj.rap_id, action__in=request_obj.actions
+        Job,
+        job_request_id=request_obj.rap_id,
+        action__in=request_obj.actions,
+        backend__in=token_backends,
     )
 
     actions_to_cancel = {job.action for job in jobs}
@@ -160,21 +165,6 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
                 "not_found": list(not_found),
             },
             status=400,
-        )
-
-    # Ensure that the client has access to the backend for this job-request.
-    # Jobs for the same job-request will always have the same backend, so we can just check the
-    # first one.
-    # We could check for this prior to retrieving jobs for the requested actions, but it's unlikely
-    # that a client would send a job_request ID for a backend it doesn't know about, so we avoid an
-    # extra database query by checking it here instead.
-    if jobs[0].backend not in token_backends:
-        return JsonResponse(
-            {
-                "error": "Not allowed",
-                "details": f"Not allowed for backend '{jobs[0].backend}'",
-            },
-            status=403,
         )
 
     log.info(
