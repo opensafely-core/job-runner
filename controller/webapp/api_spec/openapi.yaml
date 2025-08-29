@@ -259,7 +259,31 @@ paths:
                       details: 2 actions cancelled
                       count: 2
           400:
-            description: Bad response
+            description: Bad request
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                   - error
+                   - details
+                  properties:
+                    error:
+                      type: string
+                    details:
+                      type: string
+                examples:
+                  validation_error:
+                    description: Missing rap_id
+                    value:
+                      error: Validation error
+                      details: "Invalid request body received: 'rap_id' is a required property"
+          401:
+            $ref: "#/components/responses/401Unauthorized"
+          403:
+            $ref: "#/components/responses/403NotAllowedBackend"
+          404:
+            description: No matching jobs for RAP id
             content:
               application/json:
                 schema:
@@ -281,11 +305,6 @@ paths:
                       items:
                         type: string
                 examples:
-                  validation_error:
-                    description: Missing rap_id
-                    value:
-                      error: Validation error
-                      details: "Invalid request body received: 'rap_id' is a required property"
                   data_error1:
                     description: No jobs found matching rap_id
                     value:
@@ -299,11 +318,6 @@ paths:
                       details: "Jobs matching requested cancelled actions could not be found: action1,action2"
                       rap_id: abcdefgh12345678
                       not_found: ["action1", "action2"]
-          401:
-            $ref: "#/components/responses/401Unauthorized"
-          403:
-            $ref: "#/components/responses/403NotAllowedBackend"
-
   /rap/status/:
       post:
         security:

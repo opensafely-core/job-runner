@@ -52,7 +52,7 @@ def recorder(request):
     default_expected_status_codes = {200, 401, 405}
     expected_status_codes_by_path = {
         "/backend/status/": {200, 401, 405},
-        "/rap/cancel/": {200, 400, 401, 405},
+        "/rap/cancel/": {200, 400, 401, 404, 405},
         "/rap/create/": {200, 400, 401, 403, 405},
         "/rap/status/": {200, 400, 401, 405},
     }
