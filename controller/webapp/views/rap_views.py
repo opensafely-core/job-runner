@@ -139,7 +139,7 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
                 "details": f"No jobs found for rap_id {request_obj.rap_id}",
                 "rap_id": request_obj.rap_id,
             },
-            status=400,
+            status=404,
         )
 
     jobs = find_where(
@@ -164,7 +164,7 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
                 "rap_id": request_obj.rap_id,
                 "not_found": list(not_found),
             },
-            status=400,
+            status=404,
         )
 
     log.info(

@@ -280,7 +280,7 @@ def test_cancel_view_no_jobs_for_rap_id(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    assert response.status_code == 400
+    assert response.status_code == 404
     response_json = response.json()
     assert response_json == {
         "error": "jobs not found",
@@ -305,7 +305,7 @@ def test_cancel_view_actions_not_found(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    assert response.status_code == 400
+    assert response.status_code == 404
     response_json = response.json()
     assert response_json == {
         "error": "jobs not found",
@@ -331,7 +331,7 @@ def test_cancel_view_not_allowed_for_backend(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    assert response.status_code == 400
+    assert response.status_code == 404
     response_json = response.json()
     assert response_json == {
         "error": "jobs not found",
