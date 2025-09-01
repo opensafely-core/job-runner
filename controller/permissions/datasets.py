@@ -1,13 +1,18 @@
+# This dictionary maps project slug to permitted tables.
+#
+# Most table permissions are governed by IG, and can be found in the project spreadsheet:
+#
+# https://docs.google.com/spreadsheets/d/1odgWEwFrkmCr3-7leE2amwVA3b55UCOzbXQOiNgyb1w/edit
+#
+# However, appointments and wl_* (waitlist) table permissions are not IG
+# managed. They are restricted for different reasons, in that there data need
+# handling with due attention. Appointments is access managed by Alex, and I do
+# not know who decides about waitlist table access.
+
 PERMISSIONS = {
-    # project 37
-    # opensafely/risk-factors-research
-    "factors-associated-with-covid-19-vaccination": ["icnarc"],
-    # project None
+    # project Internal project for curation
     # opensafely/immunosuppressant-meds-research opensafely/with-gp-consultations-curation
     "opensafely-internal": ["icnarc", "appointments"],
-    # project 54
-    # opensafely/school-age-children-and-covid
-    "school-age-children": ["icnarc"],
     # project 9
     # opensafely/hdruk-os-covid-paeds
     "impact-of-covid-19-on-long-term-healthcare-use-and-costs-in-children-and-young-people": [
@@ -24,16 +29,8 @@ PERMISSIONS = {
     # project 106
     # opensafely/sotrovimab-and-molnupiravir
     "effectiveness-safety-sotrovimab-molnupiravir": ["ukrr"],
-    # project 137
+    # project 171 (continuation of closed project 137)
     # opensafely/ckd-healthcare-use
-    # ambiguous from repo alone
-    "healthcare-needs-for-people-with-chronic-kidney-disease-in-the-covid-19-era": [
-        "appointments",
-        "ukrr",
-    ],
-    # project 171
-    # opensafely/ckd-healthcare-use
-    # ambiguous from repo alone
     "healthcare-needs-for-people-with-chronic-kidney-disease-in-the-covid-19-era-project-continuation-of-approved-project-no-137": [
         "appointments",
         "ukrr",
@@ -48,9 +45,6 @@ PERMISSIONS = {
     "the-effect-of-long-covid-on-quality-adjusted-life-years-using-openprompt": [
         "open_prompt"
     ],
-    # project 71
-    # opensafely/openprompt-cohort-profile
-    "openprompt": ["open_prompt"],
     # project 122
     # opensafely/waiting-list
     "opioid-prescribing-trends-and-changes-during-covid-19": [
@@ -65,42 +59,27 @@ PERMISSIONS = {
     # project 152
     # opensafely/digital-access-to-primary-care
     "digital-access-to-primary-care-for-older-people-during-covid": ["appointments"],
-    # project 148
+    # project 166, continued from 148
     # opensafely/uom_pregnancy_tx_pathways
-    # ambiguous from repo alone
-    "the-impact-of-covid-19-on-pregnancy-treatment-pathways-and-outcomes": [
-        "appointments"
-    ],
-    # project 166
-    # opensafely/uom_pregnancy_tx_pathways
-    # ambiguous from repo alone
     "the-impact-of-covid-19-on-pregnancy-treatment-pathways-and-outcomes-project-continuation-of-approved-project-no-148": [
         "appointments"
     ],
-    # project 12
-    # opensafely/post-covid-renal opensafely/post-covid-autoimmune opensafely/post-covid-neurodegenerative opensafely/post-covid-cvd opensafely/post-covid-cvd-methods opensafely/post-covid-respiratory
-    # ambiguous from repo alone
-    "investigating-events-following-sars-cov-2-infection": ["appointments"],
     # project 185
     # opensafely/post-covid-renal opensafely/post-covid-neurodegenerative opensafely/post-covid-cvd opensafely/post-covid-cvd-methods opensafely/post-covid-respiratory
-    # ambiguous from repo alone
     "investigating-events-following-covid-19": ["appointments"],
     # project 78
     # opensafely/post-covid-kidney-outcomes
     "long-term-kidney-outcomes-after-sars-cov-2-infection": ["appointments"],
-    # project 156
+    # project 156, continued from project 12
     # opensafely/post-covid-cvd opensafely/post-covid-cvd-methods
-    # ambiguous from repo alone
     "investigating-events-following-sars-cov-2-infection-project-continuation-of-approved-project-no-12": [
         "appointments"
     ],
     # project 136
     # opensafely/winter-pressures
-    # ambiguous from repo alone
     "gp-appointments-during-covid": ["appointments"],
     # project 172
-    # opensafely/winter-pressures opensafely/winter-pressures-phase-II
-    # ambiguous from repo alone
+    # opensafely/winter-pressures-phase-II
     "impact-and-inequalities-of-winter-pressures-in-primary-care-providing-the-evidence-base-for-mitigation-strategies": [
         "appointments"
     ],
@@ -110,7 +89,4 @@ PERMISSIONS = {
     # project 175
     # opensafely/metformin_covid
     "implications-of-metformin-for-long-covid": ["appointments"],
-    # project UNKNOWN
-    # opensafely/ckd-post-covid-outcomes
-    "opensafely/ckd-post-covid-outcomes": ["ukrr"],
 }
