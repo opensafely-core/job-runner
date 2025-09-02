@@ -10,13 +10,13 @@ from common.lib.git import GitError
 from common.lib.github_validators import GithubValidationError
 from controller.create_or_update_jobs import (
     JobRequestError,
+    NothingToDoError,
     create_jobs,
     related_jobs_exist,
     set_cancelled_flag_for_actions,
 )
 from controller.lib.database import exists_where, find_where
 from controller.main import get_task_for_job
-from controller.lib.database import exists_where, find_where
 from controller.models import Job
 from controller.queries import get_current_flags
 from controller.reusable_actions import ReusableActionError
@@ -297,6 +297,20 @@ def create(request, *, token_backends, request_obj: CreateRequest):
                 "count": new_job_count,
             },
             status=201,
+        )
+    except NothingToDoError as e:
+        # No jobs have been created; this isn't really an error, and can occur due to:
+        # - user requested run_all, and all actions have already run successfully
+        # - pending or running jobs already exist for all the requested actions
+        log.info("Nothing to do for rap_id %s:\n%s", request_obj.id, e)
+        return JsonResponse(
+            {
+                "result": "Nothing to do",
+                "details": str(e),
+                "rap_id": request_obj.id,
+                "count": 0,
+            },
+            status=200,
         )
     except (
         GitError,

@@ -5,7 +5,9 @@ from unittest.mock import patch
 
 import pytest
 from django.urls import reverse
+from pipeline import load_pipeline
 
+from common.lib.git import read_file_from_repo
 from controller.lib.database import find_one
 from controller.models import Job, State, StatusCode, timestamp_to_isoformat
 from controller.queries import set_flag
@@ -448,6 +450,95 @@ def test_create_view_jobs_already_created(db, client, monkeypatch):
         "details": f"Jobs already created for rap_id '{job.job_request_id}'",
         "rap_id": job.job_request_id,
         "count": 1,
+    }
+
+
+def test_create_view_all_actions_already_scheduled(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    # create an existing pending job
+    job = job_factory(
+        repo_url=str(FIXTURES_PATH / "git-repo"),
+        state=State.PENDING,
+        action="generate_dataset",
+        backend="test",
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+    )
+
+    # attempt to create a new job (with a different rap id) for the same action
+    rap_request_body = rap_api_v1_factory_raw(
+        backend="test",
+        commit=job.commit,
+        branch="v1",
+        repo_url=job.repo_url,
+        workspace=job.workspace,
+        requested_actions=["generate_dataset"],
+    )
+    assert rap_request_body["rap_id"] != job.job_request_id
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 200, response.json()
+
+    response_json = response.json()
+    assert response_json == {
+        "result": "Nothing to do",
+        "details": "All requested actions were already scheduled to run",
+        "rap_id": rap_request_body["rap_id"],
+        "count": 0,
+    }
+
+
+def test_create_view_all_actions_already_run(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    repo_url = str(FIXTURES_PATH / "git-repo")
+    workspace = "workspace"
+    commit = "d090466f63b0d68084144d8f105f0d6e79a0819e"
+
+    # create an existing successful job for each action
+    project_file = read_file_from_repo(repo_url, commit, "project.yaml")
+    pipeline_config = load_pipeline(project_file)
+
+    for action in pipeline_config.all_actions:
+        job_factory(
+            repo_url=repo_url,
+            state=State.SUCCEEDED,
+            action=action,
+            backend="test",
+            commit=commit,
+        )
+
+    # attempt to create a new job (with a different rap id) for the same action
+    rap_request_body = rap_api_v1_factory_raw(
+        backend="test",
+        commit=commit,
+        branch="v1",
+        repo_url=repo_url,
+        workspace=workspace,
+        requested_actions=["run_all"],
+    )
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 200, response.json()
+
+    response_json = response.json()
+    assert response_json == {
+        "result": "Nothing to do",
+        "details": "All actions have already completed successfully",
+        "rap_id": rap_request_body["rap_id"],
+        "count": 0,
     }
 
 

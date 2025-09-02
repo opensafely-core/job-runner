@@ -228,6 +228,20 @@ paths:
                       details: Jobs already created for rap_id 'a1b2c3d4e5f6g7h8'
                       rap_id: a1b2c3d4e5f6g7h8
                       count: 1
+                  already_succeeded:
+                    description: Jobs running these actions already completed successfully; no new jobs were created
+                    value:
+                      result: Nothing to do
+                      details: All actions have already completed successfully
+                      rap_id: a1b2c3d4e5f6g7h8
+                      count: 0
+                  already_scheduled:
+                    description: Jobs to run these actions are already completed or scheduled; no new jobs were created
+                    value:
+                      result: Nothing to do
+                      details: All requested actions were already scheduled to run
+                      rap_id: a1b2c3d4e5f6g7h8
+                      count: 0
           400:
             description: Bad request
             content:
