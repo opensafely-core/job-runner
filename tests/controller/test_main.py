@@ -928,7 +928,7 @@ def test_job_definition_ehrql_event_level_access(db, monkeypatch, repo_url, expe
         ("project-with-some-permissions", "table1,table2"),
     ],
 )
-def test_job_definition_ehrql_permitted_tables(db, monkeypatch, project, expected_env):
+def test_job_definition_ehrql_permissions(db, monkeypatch, project, expected_env):
     monkeypatch.setattr(
         controller.permissions.datasets,
         "PERMISSIONS",
@@ -953,7 +953,7 @@ def test_job_definition_ehrql_permitted_tables(db, monkeypatch, project, expecte
 
     job = job_factory(requires_db=True, job_request=jr)
     job_definition = main.job_to_job_definition(job, task_id="")
-    assert job_definition.env["EHRQL_PERMITTED_TABLES"] == expected_env
+    assert job_definition.env["EHRQL_PERMISSIONS"] == expected_env
 
 
 @patch("controller.main.handle_job")

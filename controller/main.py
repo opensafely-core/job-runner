@@ -344,7 +344,7 @@ def job_to_job_definition(job, task_id):
         if job.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
             env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] = "True"
         job_request = get_saved_job_request(job)
-        env["EHRQL_PERMITTED_TABLES"] = ",".join(
+        env["EHRQL_PERMISSIONS"] = ",".join(
             datasets.PERMISSIONS.get(job_request["project"], [])
         )
 
