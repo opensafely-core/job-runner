@@ -4,12 +4,22 @@ from pathlib import Path
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
+from pipeline import ProjectValidationError
 
-from controller.create_or_update_jobs import set_cancelled_flag_for_actions
+from common.lib.git import GitError
+from common.lib.github_validators import GithubValidationError
+from controller.create_or_update_jobs import (
+    JobRequestError,
+    NothingToDoError,
+    create_jobs,
+    related_jobs_exist,
+    set_cancelled_flag_for_actions,
+)
 from controller.lib.database import exists_where, find_where
 from controller.main import get_task_for_job
 from controller.models import Job
 from controller.queries import get_current_flags
+from controller.reusable_actions import ReusableActionError
 from controller.webapp.api_spec.utils import api_spec_json
 from controller.webapp.views.auth.rap import (
     get_backends_for_client_token,
@@ -199,14 +209,6 @@ def create(request, *, token_backends, request_obj: CreateRequest):
 
     See controller/webapp/api_spec/openapi.yaml for required request body
     """
-    # TODO: Check jobs for job request ID don't already exist (create_or_update_jobs.related_jobs_exist)
-    # TODO: Catch errors and return error response (don't create exception jobs as we expect job-server
-    #       to use the error response to mark the job request as failed
-    # TODO: validate_repo_and_commit (note that the rest of validate_job_request() in create_or_update_jobs
-    #       should be covered by the jsonschema validation in CreateRequest
-    # TODO: Do the rest of create_jobs
-    # TODO: Return a count of jobs created?
-
     if request_obj.backend not in token_backends:
         return JsonResponse(
             {
@@ -216,14 +218,129 @@ def create(request, *, token_backends, request_obj: CreateRequest):
             status=403,
         )
 
-    return JsonResponse(
-        {
-            "success": "ok",
-            "details": f"Received job request {request_obj.id}",
-            "rap_id": request_obj.id,
-        },
-        status=200,
-    )
+    # Check jobs for job request ID don't already exist
+    # We don't raise an error status code here; instead we return a 200 to
+    # tell the client that jobs for the rap_id it requested have already been created.
+    # The request completed successfully but did not create any new jobs (new job creation
+    # will return a 201 - see below)
+    if related_jobs_exist(request_obj):
+        # We currently don't record any notion of which client requested the jobs to be created.
+        # A rap_id must be unique, however, as it's provided by the client, there is the
+        # possibility that if/when we have multiple clients, two client could make a request
+        # with the same rap_id, but for different jobs.
+        # This is just a crude check that the existing related jobs are consistent with this
+        # request, by checking that the repo/commit/workspace (data which we have on the Job
+        # model) match.
+
+        related_jobs = find_where(Job, job_request_id=request_obj.id)
+        # All jobs for a single rap_id have the same repo_url, workspace and commit, so we
+        # only need to check the first one
+        job = related_jobs[0]
+        job_data = {job.repo_url, job.workspace, job.commit}
+        if job_data != {
+            request_obj.repo_url,
+            request_obj.workspace,
+            request_obj.commit,
+        }:
+            log.error(
+                (
+                    "Received mismatched create request data for existing rap_id %s\n"
+                    "repo_url: %s; received %s\n"
+                    "commit: %s; received %s\n"
+                    "workspace: %s; received %s"
+                ),
+                request_obj.id,
+                job.repo_url,
+                request_obj.repo_url,
+                job.commit,
+                request_obj.commit,
+                job.workspace,
+                request_obj.workspace,
+            )
+            return JsonResponse(
+                {
+                    "error": "Inconsistent request data",
+                    "details": f"Jobs already created for rap_id '{request_obj.id}' are inconsistent with request data",
+                },
+                status=400,
+            )
+
+        log.info(f"Ignoring already processed rap_id:\n{request_obj.id}")
+
+        return JsonResponse(
+            {
+                "result": "No change",
+                "details": f"Jobs already created for rap_id '{request_obj.id}'",
+                "rap_id": request_obj.id,
+                "count": len(related_jobs),
+            },
+            status=200,
+        )
+
+    try:
+        log.info(f"Handling new rap_id:\n{request_obj.id}")
+
+        # TODO: create_jobs calls a method called validate_job_request() which checks
+        # various job request properties, and then calls validate_repo_and_commit
+        # Everything other than validate_repo_and_commit should be covered by the jsonschema
+        # validation in CreateRequest and so is not required now. It is left in for now
+        # while the existing controller sync loop is running in parallel to this method of
+        # creating jobs
+        new_job_count = create_jobs(request_obj)
+        log.info(f"Created {new_job_count} new jobs")
+
+        return JsonResponse(
+            {
+                "result": "Success",
+                "details": f"Jobs created for rap_id '{request_obj.id}'",
+                "rap_id": request_obj.id,
+                "count": new_job_count,
+            },
+            status=201,
+        )
+    except NothingToDoError as e:
+        # No jobs have been created; this isn't really an error, and can occur due to:
+        # - user requested run_all, and all actions have already run successfully
+        # - pending or running jobs already exist for all the requested actions
+        log.info("Nothing to do for rap_id %s:\n%s", request_obj.id, e)
+        return JsonResponse(
+            {
+                "result": "Nothing to do",
+                "details": str(e),
+                "rap_id": request_obj.id,
+                "count": 0,
+            },
+            status=200,
+        )
+    except (
+        GitError,
+        GithubValidationError,
+        ProjectValidationError,
+        ReusableActionError,
+        JobRequestError,
+    ) as e:
+        log.error("Failed to create jobs for rap_id %s:\n%s", request_obj.id, e)
+        # Note: we return the error in the response for these specific handled errors, as
+        # this is likely to contain useful information for the client to display to the
+        # user regarding what went wrong. We control the content of these errors so it is
+        # safe to pass them on in the response.
+        return JsonResponse(
+            {
+                "error": "Error creating jobs",
+                "details": str(e),
+            },
+            status=400,
+        )
+
+    except Exception:
+        log.exception("Uncaught error while creating jobs")
+        return JsonResponse(
+            {
+                "error": "Error creating jobs",
+                "details": "Unknown error",
+            },
+            status=400,
+        )
 
 
 # Fork of controller.sync.job_to_remote_format()

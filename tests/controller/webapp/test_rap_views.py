@@ -1,15 +1,22 @@
 import json
 import time
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from django.urls import reverse
+from pipeline import load_pipeline
 
+from common.lib.git import read_file_from_repo
 from controller.lib.database import find_one
 from controller.models import Job, State, StatusCode, timestamp_to_isoformat
 from controller.queries import set_flag
 from controller.webapp.views.rap_views import job_to_api_format
 from tests.conftest import get_trace
 from tests.factories import job_factory, rap_api_v1_factory_raw, runjob_db_task_factory
+
+
+FIXTURES_PATH = Path(__file__).parent.parent.parent.resolve() / "fixtures"
 
 
 # use a fixed time for these tests
@@ -344,7 +351,15 @@ def test_create_view(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    rap_request_body = rap_api_v1_factory_raw()
+    repo_url = str(FIXTURES_PATH / "git-repo")
+
+    rap_request_body = rap_api_v1_factory_raw(
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        branch="v1",
+        requested_actions=["generate_dataset"],
+    )
 
     response = client.post(
         reverse("create"),
@@ -352,16 +367,16 @@ def test_create_view(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     response_json = response.json()
     assert response_json == {
-        "success": "ok",
-        "details": f"Received job request {rap_request_body['rap_id']}",
+        "result": "Success",
+        "details": f"Jobs created for rap_id '{rap_request_body['rap_id']}'",
         "rap_id": rap_request_body["rap_id"],
+        "count": 1,
     }, response
-    # TODO: uncomment when create view actually creates jobs
-    # job = find_one(Job, job_request_id=rap_request_body["rap_id"])
-    # assert job.action == "action"
+    job = find_one(Job, job_request_id=rap_request_body["rap_id"])
+    assert job.action == "generate_dataset"
 
 
 def test_create_view_validation_error(db, client, monkeypatch):
@@ -402,6 +417,214 @@ def test_create_view_not_allowed_for_backend(db, client, monkeypatch):
         "error": "Not allowed",
         "details": "Not allowed for backend 'foo'",
     }
+
+
+def test_create_view_jobs_already_created(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job = job_factory(
+        state=State.PENDING,
+        action="action",
+        backend="test",
+        commit="aaaaaaaaaabbbbbbbbbb11111111112222222222",
+    )
+    rap_request_body = rap_api_v1_factory_raw(
+        backend="test",
+        rap_id=job.job_request_id,
+        commit=job.commit,
+        repo_url=job.repo_url,
+        workspace=job.workspace,
+    )
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 200, response.json()
+
+    response_json = response.json()
+    assert response_json == {
+        "result": "No change",
+        "details": f"Jobs already created for rap_id '{job.job_request_id}'",
+        "rap_id": job.job_request_id,
+        "count": 1,
+    }
+
+
+def test_create_view_all_actions_already_scheduled(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    # create an existing pending job
+    job = job_factory(
+        repo_url=str(FIXTURES_PATH / "git-repo"),
+        state=State.PENDING,
+        action="generate_dataset",
+        backend="test",
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+    )
+
+    # attempt to create a new job (with a different rap id) for the same action
+    rap_request_body = rap_api_v1_factory_raw(
+        backend="test",
+        commit=job.commit,
+        branch="v1",
+        repo_url=job.repo_url,
+        workspace=job.workspace,
+        requested_actions=["generate_dataset"],
+    )
+    assert rap_request_body["rap_id"] != job.job_request_id
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 200, response.json()
+
+    response_json = response.json()
+    assert response_json == {
+        "result": "Nothing to do",
+        "details": "All requested actions were already scheduled to run",
+        "rap_id": rap_request_body["rap_id"],
+        "count": 0,
+    }
+
+
+def test_create_view_all_actions_already_run(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    repo_url = str(FIXTURES_PATH / "git-repo")
+    workspace = "workspace"
+    commit = "d090466f63b0d68084144d8f105f0d6e79a0819e"
+
+    # create an existing successful job for each action
+    project_file = read_file_from_repo(repo_url, commit, "project.yaml")
+    pipeline_config = load_pipeline(project_file)
+
+    for action in pipeline_config.all_actions:
+        job_factory(
+            repo_url=repo_url,
+            state=State.SUCCEEDED,
+            action=action,
+            backend="test",
+            commit=commit,
+        )
+
+    # attempt to create a new job (with a different rap id) for the same action
+    rap_request_body = rap_api_v1_factory_raw(
+        backend="test",
+        commit=commit,
+        branch="v1",
+        repo_url=repo_url,
+        workspace=workspace,
+        requested_actions=["run_all"],
+    )
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 200, response.json()
+
+    response_json = response.json()
+    assert response_json == {
+        "result": "Nothing to do",
+        "details": "All actions have already completed successfully",
+        "rap_id": rap_request_body["rap_id"],
+        "count": 0,
+    }
+
+
+def test_create_view_inconsistent_jobs_already_created(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job = job_factory(state=State.PENDING, action="action", backend="test")
+    rap_id = job.job_request_id
+    rap_request_body = rap_api_v1_factory_raw(
+        backend="test",
+        workspace="another_workspace",
+        repo_url="another_repo_url",
+        rap_id=rap_id,
+    )
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400, response.json()
+
+    response_json = response.json()
+    assert response_json == {
+        "error": "Inconsistent request data",
+        "details": f"Jobs already created for rap_id '{rap_id}' are inconsistent with request data",
+    }
+
+
+def test_create_view_with_git_error(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    repo_url = str(FIXTURES_PATH / "git-repo")
+    bad_commit = "0" * 40
+
+    rap_request_body = rap_api_v1_factory_raw(
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit=bad_commit,
+        branch="v1",
+        requested_actions=["generate_dataset"],
+    )
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
+        "error": "Error creating jobs",
+        "details": f"Error fetching commit {bad_commit} from {repo_url}",
+    }, response
+
+
+@patch("controller.webapp.views.rap_views.create_jobs", side_effect=Exception("unk"))
+def test_create_view_unexpected_error(mock_create_jobs, db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    repo_url = str(FIXTURES_PATH / "git-repo")
+
+    rap_request_body = rap_api_v1_factory_raw(
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        branch="v1",
+        requested_actions=["generate_dataset"],
+    )
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    response_json = response.json()
+    assert response_json == {
+        "error": "Error creating jobs",
+        "details": "Unknown error",
+    }, response
 
 
 @pytest.mark.parametrize("agent_results", [True, False])

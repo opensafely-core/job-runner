@@ -150,7 +150,7 @@ paths:
                 example1:
                   value:
                     backend: test
-                    rap_id: a1b2c3d4e5f6g7h8
+                    rap_id: abcdefgh23456789
                     workspace: test-study
                     repo_url: https://github.com/opensafely/test-study
                     branch: main
@@ -164,9 +164,26 @@ paths:
                     project: test-project
                     orgs:
                      - opensafely
+                example2:
+                  value:
+                    backend: test
+                    rap_id: abcdefgh87654321
+                    workspace: my-study-workspace
+                    repo_url: https://github.com/opensafely/a-new-study
+                    branch: v1
+                    commit: d090466f63b0d68084144d8f105f0d6e79a0819e
+                    database_name: default
+                    requested_actions:
+                     - generate_dataset
+                    codelists_ok: true
+                    force_run_dependencies: false
+                    created_by: user1
+                    project: my-project
+                    orgs:
+                     - opensafely
         responses:
-          200:
-            description: OK
+          201:
+            description: OK; jobs created
             content:
               application/json:
                 schema:
@@ -178,15 +195,55 @@ paths:
                       type: string
                     rap_id:
                       type: string
+                    count:
+                      type: number
                 examples:
                   success:
                     description: success
                     value:
-                      success: ok
-                      details: Received create request for RAP ID a1b2c3d4e5f6g7h8
+                      result: Success
+                      details: Jobs created for rap_id 'a1b2c3d4e5f6g7h8'
                       rap_id: a1b2c3d4e5f6g7h8
+                      count: 1
+          200:
+            description: OK, jobs already created
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    success:
+                      type: string
+                    details:
+                      type: string
+                    rap_id:
+                      type: string
+                    count:
+                      type: number
+                examples:
+                  no_change:
+                    description: Jobs already created
+                    value:
+                      result: No change
+                      details: Jobs already created for rap_id 'a1b2c3d4e5f6g7h8'
+                      rap_id: a1b2c3d4e5f6g7h8
+                      count: 1
+                  already_succeeded:
+                    description: Jobs running these actions already completed successfully; no new jobs were created
+                    value:
+                      result: Nothing to do
+                      details: All actions have already completed successfully
+                      rap_id: a1b2c3d4e5f6g7h8
+                      count: 0
+                  already_scheduled:
+                    description: Jobs to run these actions are already completed or scheduled; no new jobs were created
+                    value:
+                      result: Nothing to do
+                      details: All requested actions were already scheduled to run
+                      rap_id: a1b2c3d4e5f6g7h8
+                      count: 0
           400:
-            description: Bad response
+            description: Bad request
             content:
               application/json:
                 schema:
@@ -199,15 +256,27 @@ paths:
                       type: string
                     details:
                       type: string
-                    rap_id:
-                      description: rap_id parameter
-                      type: string
                 examples:
                   validation_error:
                     description: Missing rap_id
                     value:
                       error: Validation error
                       details: "Invalid request body received: 'rap_id' is a required property"
+                  git_error:
+                    description: Error creating jobs - git error
+                    value:
+                      error: Error creating jobs
+                      details: "GitError: Error fetching commit d090466f63b0d68084144d8f105f0d6e79a0819e from https://github.com/opensafely/a-new-study"
+                  duplicate_rap_error:
+                    description: Jobs already exist for this RAP ID that are inconsistent with the data provided in this request
+                    value:
+                      error: Inconsistent request data
+                      details: "Jobs already created for rap_id 'abcdegh12345678' are inconsistent with request data"
+                  unknown_error:
+                    description: Unexpected error creating jobs
+                    value:
+                      error: Error creating jobs
+                      details: Unknown error
           401:
             $ref: "#/components/responses/401Unauthorized"
           403:
