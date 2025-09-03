@@ -145,6 +145,25 @@ def test_api_with_auth(db, case, recorder):
     call_and_validate(case, recorder)
 
 
+# Tests for bad/no auth
+# We only test in the explicit phase (i.e. examples) for no/bad tokens, since
+# we expect them always to error
+@hypothesis.settings(deadline=None, phases=[hypothesis.Phase.explicit])
+@schema.parametrize()
+def test_api_no_token(db, case, recorder):
+    # We pass good headers; schemathesis will typically generate a test case
+    # with bad auth too, so the 401 status is covered
+    case.headers = {}
+    call_and_validate(case, recorder)
+
+
+@hypothesis.settings(deadline=None, phases=[hypothesis.Phase.explicit])
+@schema.parametrize()
+def test_api_bad_token(db, case, recorder):
+    case.headers = {"Authorization": "bad-token"}
+    call_and_validate(case, recorder)
+
+
 def call_and_validate(case, recorder):
     # Note: we're not using case.call_and_validate() here so that we can record the status
     # code prior to validating the response (otherwise status codes for check failures
