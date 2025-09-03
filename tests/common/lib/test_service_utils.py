@@ -28,8 +28,11 @@ def test_start_thread_returns(request, caplog):
         assert delta >= interval, (
             f"thread wrapper did not sleep between errors, expected more than {delta}"
         )
-
-    assert len(caplog.records) == 0
+    # Only the main thread's startup message is logged
+    assert len(caplog.records) == 1
+    startup_log = caplog.records[0]
+    assert startup_log.message == f"Starting {request.node.name} thread"
+    assert startup_log.threadName == "MainThread"
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
@@ -54,9 +57,12 @@ def test_start_thread_error(request, caplog):
             f"thread wrapper did not sleep between errors, expected more than {delta}"
         )
 
-    assert len(caplog.records) == 2
+    assert len(caplog.records) == 3
+    startup_log = caplog.records[0]
+    assert startup_log.message == f"Starting {request.node.name} thread"
+    assert startup_log.threadName == "MainThread"
 
-    for i, r in enumerate(caplog.records):
+    for i, r in enumerate(caplog.records[1:]):
         assert r.message == f"Exception in {request.node.name} thread"
         assert r.threadName == request.node.name
         assert str(r.exc_info[1]) == f"thread exception {i + 1}"
@@ -89,8 +95,12 @@ def test_start_thread_error_quiet(request, caplog):
             f"thread wrapper did not sleep between errors, expected more than {delta}"
         )
 
-    assert len(caplog.records) == 2
-    for i, r in enumerate(caplog.records):
+    assert len(caplog.records) == 3
+    startup_log = caplog.records[0]
+    assert startup_log.message == f"Starting {request.node.name} thread"
+    assert startup_log.threadName == "MainThread"
+
+    for i, r in enumerate(caplog.records[1:]):
         assert r.message == f"sync error {i + 1}"
         assert r.threadName == request.node.name
         assert r.exc_info is None
