@@ -349,8 +349,6 @@ paths:
                       details: "Invalid request body received: 'rap_id' is a required property"
           401:
             $ref: "#/components/responses/401Unauthorized"
-          403:
-            $ref: "#/components/responses/403NotAllowedBackend"
           404:
             description: No matching jobs for RAP id
             content:
@@ -490,8 +488,6 @@ paths:
                       details: "Invalid request body received: 'rap_ids' is a required property"
           401:
             $ref: "#/components/responses/401Unauthorized"
-          403:
-            $ref: "#/components/responses/403NotAllowedBackend"
 
 components:
   securitySchemes:
@@ -687,7 +683,7 @@ components:
                 error: "Unauthorized"
                 details: "Invalid token"
     403NotAllowedBackend:
-      # Can be referenced as '#/components/responses/404UnknownBackend'
+      # Can be referenced as '#/components/responses/403NotAllowedBackend'
       description: unknown backend
       content:
         application/json:

@@ -8,6 +8,7 @@ import schemathesis
 
 from controller.lib import database
 from controller.models import Job, State
+from controller.webapp.api_spec.utils import load_api_spec_json
 from tests.factories import job_factory, job_request_factory
 
 
@@ -50,7 +51,12 @@ def setup(monkeypatch):
 
 
 class Recorder:
-    _inputs = set()
+    expected_status_codes_by_path = {
+        "/backend/status/": {200, 401},
+        "/rap/cancel/": {200, 400, 401, 404},
+        "/rap/create/": {200, 201, 400, 401, 403},
+        "/rap/status/": {200, 400, 401},
+    }
     status_codes = defaultdict(set)
     count = 0
 
@@ -61,14 +67,6 @@ class Recorder:
 
 @pytest.fixture(scope="module")
 def recorder(request):
-    default_expected_status_codes = {200, 401, 405}
-    expected_status_codes_by_path = {
-        "/backend/status/": {200, 401, 405},
-        "/rap/cancel/": {200, 400, 401, 404, 405},
-        "/rap/create/": {200, 201, 400, 401, 403, 405},
-        "/rap/status/": {200, 400, 401, 405},
-    }
-
     recorder_ = Recorder()
 
     yield recorder_
@@ -79,15 +77,16 @@ def recorder(request):
     # So, we record all status codes seen for each path and ensure we've seen all the expected ones
     # and haven't seen any we didn't expect
     for path, status_codes in recorder_.status_codes.items():
-        expected_status_codes = expected_status_codes_by_path.get(
-            path, default_expected_status_codes
-        )
+        expected_status_codes = recorder_.expected_status_codes_by_path[path]
         missed_codes = expected_status_codes - status_codes
         assert not missed_codes, (
             f"Expected status codes not tested for path {path}: {missed_codes}"
         )
 
-        extra_codes = status_codes - expected_status_codes
+        # 405 is not explicitly specified in the spec; we may encounter it if a
+        # view requires certain methods, but it's not especially interesting, so we
+        # ignore it
+        extra_codes = status_codes - expected_status_codes - {405}
         assert not extra_codes, (
             f"Unexpected status codes found for path {path}: {extra_codes}"
         )
@@ -123,12 +122,45 @@ def setup_jobs(db):
                 )
 
 
+def test_expected_status_codes():
+    api_spec = load_api_spec_json()
+    status_codes_from_spec = {}
+    for path, spec in api_spec["paths"].items():
+        status_codes = set()
+        for method in ["get", "post", "put", "patch", "delete"]:
+            if method in spec:
+                for status_code in spec[method]["responses"]:
+                    status_codes.add(status_code)
+        status_codes_from_spec[path] = status_codes
+
+    assert status_codes_from_spec == Recorder.expected_status_codes_by_path
+
+
 @hypothesis.settings(deadline=None)
 @schema.parametrize()
 def test_api_with_auth(db, case, recorder):
     # We pass good headers; schemathesis will typically generate a test case
     # with bad auth too, so the 401 status is covered
     case.headers = {"Authorization": "token"}
+    call_and_validate(case, recorder)
+
+
+# Tests for bad/no auth
+# We only test in the explicit phase (i.e. examples) for no/bad tokens, since
+# we expect them always to error
+@hypothesis.settings(deadline=None, phases=[hypothesis.Phase.explicit])
+@schema.parametrize()
+def test_api_no_token(db, case, recorder):
+    # We pass good headers; schemathesis will typically generate a test case
+    # with bad auth too, so the 401 status is covered
+    case.headers = {}
+    call_and_validate(case, recorder)
+
+
+@hypothesis.settings(deadline=None, phases=[hypothesis.Phase.explicit])
+@schema.parametrize()
+def test_api_bad_token(db, case, recorder):
+    case.headers = {"Authorization": "bad-token"}
     call_and_validate(case, recorder)
 
 
