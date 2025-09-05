@@ -50,7 +50,7 @@ def test_handle_tasks_executor_error(db, caplog, responses, live_server, monkeyp
     assert spans[1].attributes["handled_tasks"] == 1
     assert spans[1].attributes["errored_tasks"] == 1
 
-    assert caplog.records[0].msg == "task error"
+    assert caplog.records[-1].msg == "task error"
 
 
 @pytest.mark.parametrize(
@@ -86,7 +86,7 @@ def test_handle_tasks_github_validation(
     with pytest.raises(Exception, match=msg):
         main.handle_tasks(api)
 
-    assert exc_msg in str(caplog.records[0].exc_info[1])
+    assert exc_msg in str(caplog.records[-1].exc_info[1]), caplog.records
 
 
 def test_handle_job_full_execution(

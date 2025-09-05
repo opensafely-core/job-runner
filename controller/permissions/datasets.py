@@ -48,10 +48,7 @@ PERMISSIONS = {
     # project 122
     # opensafely/waiting-list
     "opioid-prescribing-trends-and-changes-during-covid-19": [
-        "wl_openpathways_raw",
-        "wl_clockstops_raw",
-        "wl_openpathways",
-        "wl_clockstops",
+        "waiting_list",
     ],
     # project 129
     # opensafely/appointments-short-data-report
