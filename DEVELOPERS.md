@@ -122,7 +122,15 @@ just add-job ../test-age-distribution run_all --backend test
 ```
 
 In order to pick up and execute the job, you need to run the three job-runner
-components. In separate terminal windows, run:
+components.
+
+```
+just run
+```
+
+This will run all 3 components together. If you need to run only a subset, or you want to run
+them separately (e.g. to more easily see what each component is logging), you can run them each
+in separate terminal windows:
 
 ```
 # Controller service
@@ -136,7 +144,8 @@ just run-agent
 ```
 
 You should see the controller pick up the new job and create a RUNJOB task for it.
-In the controller app terminal, you'll see the agent poll for new tasks every second or so.
+Then you'll see the agent poll for new tasks every second or so (in the In the controller app terminal,
+if you're running the services separately).
 Then the agent will receive the new task, execute the job, and call the controller app
 to update the controller after each step.
 
