@@ -186,8 +186,17 @@ run-agent-service: devenv
 run-controller-service: devenv
     $BIN/python -m controller.service
 
+_run-agent-after-app:
+    #!/usr/bin/env bash
+    while [[  $(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000) == "000" ]]; do
+        echo "Waiting for web app to start..."
+        sleep 1
+    done;
+    just run-agent-service
+
+# Run all services together
 run:
-    { just run-app & just run-agent-service & just run-controller-service; }
+    { just run-app & just _run-agent-after-app & just run-controller-service; }
 
 validate-api-spec: devenv
     $BIN/openapi-spec-validator controller/webapp/api_spec/openapi.yaml
