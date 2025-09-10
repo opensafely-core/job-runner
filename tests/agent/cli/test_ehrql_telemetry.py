@@ -37,13 +37,14 @@ def metadata(jobid="job_id"):
     }
 
 
-def logdata(name="name", start=None, end=None, **kwargs):
+def logdata(name="name", start=None, end=None, events=None, **kwargs):
     """Minimal log data"""
     return {
         "name": name,
         "start": start or "2025-07-02T10:23:45.123456789Z",
         "end": end or "2025-07-02T12:23:45.123456789Z",
         "attributes": kwargs,
+        **({"events": events} if events else {}),
     }
 
 
@@ -88,6 +89,31 @@ def test_ehrql_telemetry_run_no_end_timestamp():
     for span in spans:
         for k, v in attrs.items():
             assert span.attributes[k] == v
+
+
+def test_ehrql_telemetry_run_with_events():
+    meta = metadata()
+    exc_event = {
+        "name": "exception",
+        "timestamp": "2025-09-08T16:41:37.837685167Z",
+        "attributes": {
+            "exception.type": "pymssql._mssql.MSSQLDatabaseException",
+            "exception.message": "(20047, b'DBPROCESS is dead or not enabled')",
+            "exception.stacktrace": " ... full stacktrace as text ... ",
+        },
+    }
+    log = logdata(test=True, events=[exc_event])
+    ehrql_telemetry.run(meta, [log])
+    spans = get_trace()
+    assert len(spans[0].events) == 1
+    assert len(spans[1].events) == 0
+
+    event = spans[0].events[0]
+    assert event.name == exc_event["name"]
+    assert event.timestamp == ehrql_telemetry.docker_datestr_to_ns(
+        exc_event["timestamp"]
+    )
+    assert event.attributes == exc_event["attributes"]
 
 
 def test_ehrql_telemetry_main_with_dir(tmp_path, monkeypatch):

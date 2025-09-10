@@ -137,6 +137,12 @@ def emit(tracer, job_attrs, query, end_time_ns):
         end_time_ns = docker_datestr_to_ns(query["end"])
     attrs = job_attrs | query["attributes"]
     span = tracer.start_span(name, start_time=start_time_ns, attributes=attrs)
+    for event in query.get("events", ()):
+        span.add_event(
+            event["name"],
+            timestamp=docker_datestr_to_ns(event["timestamp"]),
+            attributes=event["attributes"],
+        )
     span.end(end_time_ns)
 
 
