@@ -66,33 +66,38 @@ def sync_backend(backend):
         if not job_requests:
             return
 
-        with duration_ms_as_span_attr("find_ids.duration_ms", span):
-            job_request_ids = [i.id for i in job_requests]
-
         with duration_ms_as_span_attr("create.duration_ms", span):
             for job_request in job_requests:
                 with set_log_context(job_request=job_request):
                     create_or_update_jobs(job_request)
 
-        # `job_request_ids` contains all the JobRequests which job-server thinks are
-        # active; this query gets all those which _we_ think are active
-        with duration_ms_as_span_attr("find_more_ids.duration_ms", span):
-            active_job_request_ids = select_values(
-                Job, "job_request_id", state__in=[State.PENDING, State.RUNNING]
-            )
-            # We sync all jobs belonging to either set (using `dict.fromkeys` to preserve order
-            # for easier testing)
-            job_request_ids_to_sync = list(
-                dict.fromkeys(job_request_ids + active_job_request_ids)
-            )
-        with duration_ms_as_span_attr("find_where.duration_ms", span):
-            jobs = find_where(Job, job_request_id__in=job_request_ids_to_sync)
-        with duration_ms_as_span_attr("encode_jobs.duration_ms", span):
-            jobs_data = [job_to_remote_format(i) for i in jobs]
-        log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
+        sync_backend_jobs_status(backend, job_requests, span)
 
-        with duration_ms_as_span_attr("api_post.duration_ms", span):
-            api_post("jobs", backend=backend, json=jobs_data)
+
+# TODO: this function will be replaced by a call to the RAP API rap/status
+def sync_backend_jobs_status(backend, job_requests, span):
+    with duration_ms_as_span_attr("find_ids.duration_ms", span):
+        job_request_ids = [i.id for i in job_requests]
+
+    # `job_request_ids` contains all the JobRequests which job-server thinks are
+    # active; this query gets all those which _we_ think are active
+    with duration_ms_as_span_attr("find_more_ids.duration_ms", span):
+        active_job_request_ids = select_values(
+            Job, "job_request_id", state__in=[State.PENDING, State.RUNNING]
+        )
+        # We sync all jobs belonging to either set (using `dict.fromkeys` to preserve order
+        # for easier testing)
+        job_request_ids_to_sync = list(
+            dict.fromkeys(job_request_ids + active_job_request_ids)
+        )
+    with duration_ms_as_span_attr("find_where.duration_ms", span):
+        jobs = find_where(Job, job_request_id__in=job_request_ids_to_sync)
+    with duration_ms_as_span_attr("encode_jobs.duration_ms", span):
+        jobs_data = [job_to_remote_format(i) for i in jobs]
+    log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
+
+    with duration_ms_as_span_attr("api_post.duration_ms", span):
+        api_post("jobs", backend=backend, json=jobs_data)
 
 
 def api_get(*args, backend, **kwargs):
