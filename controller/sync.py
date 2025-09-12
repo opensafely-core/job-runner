@@ -71,7 +71,7 @@ def sync_backend(backend):
                 with set_log_context(job_request=job_request):
                     create_or_update_jobs(job_request)
 
-        sync_backend_jobs_status(backend, job_requests, span)
+        # sync_backend_jobs_status(backend, job_requests, span)
 
 
 # TODO: this function will be replaced by a call to the RAP API rap/status
