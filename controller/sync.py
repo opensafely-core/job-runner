@@ -71,6 +71,11 @@ def sync_backend(backend):
                 with set_log_context(job_request=job_request):
                     update_cancelled_jobs(job_request)
 
+        # Temporarily disable status part of sync loop for the test backend
+        # Part of RAP API step 2 work
+        if backend == "test":
+            return
+
         sync_backend_jobs_status(backend, job_requests, span)
 
 
