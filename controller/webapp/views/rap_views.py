@@ -359,7 +359,7 @@ def job_to_api_format(job):
         "rap_id": job.job_request_id,
         "backend": job.backend,
         "action": job.action,
-        "run_command": job.run_command,
+        "run_command": job.run_command or "",
         "status": job.state.value,
         "status_code": job.status_code.value,
         "status_message": job.status_message or "",
