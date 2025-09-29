@@ -45,6 +45,10 @@ class NothingToDoError(JobRequestError):
     pass
 
 
+# Special case for the RAP API v2 initiative.
+SKIP_CANCEL_FOR_BACKEND = "test"
+
+
 def create_or_update_jobs(job_request):
     """
     Create or update Jobs in response to a JobRequest
@@ -73,10 +77,14 @@ def create_or_update_jobs(job_request):
             create_job_from_exception(job_request, JobRequestError("Internal error"))
     else:
         if job_request.cancelled_actions:
-            log.debug("Cancelling actions: %s", job_request.cancelled_actions)
-            set_cancelled_flag_for_actions(
-                job_request.id, job_request.cancelled_actions
-            )
+            if job_request.backend == SKIP_CANCEL_FOR_BACKEND:
+                # Special case for the RAP API v2 initiative.
+                log.debug("Not cancelling actions as backend is set to skip")
+            else:
+                log.debug("Cancelling actions: %s", job_request.cancelled_actions)
+                set_cancelled_flag_for_actions(
+                    job_request.id, job_request.cancelled_actions
+                )
         else:
             log.debug("Ignoring already processed JobRequest")
 

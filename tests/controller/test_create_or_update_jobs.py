@@ -316,6 +316,9 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
 def test_cancelled_jobs_are_flagged(tmp_work_dir):
     job_request = make_job_request(action="analyse_data")
     create_jobs_with_project_file(job_request, TEST_PROJECT)
+    # Special case for the RAP API v2 initiative.
+    # Without this nothing would be cancelled due to backend being test.
+    job_request.backend = "not test"
     job_request.cancelled_actions = ["prepare_data_1", "prepare_data_2"]
     create_or_update_jobs(job_request)
     analyse_job = find_one(Job, action="analyse_data")
@@ -325,6 +328,22 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     assert analyse_job.cancelled == 0
     assert prepare_1_job.cancelled == 1
     assert prepare_2_job.cancelled == 1
+    assert generate_job.cancelled == 0
+
+
+def test_cancelled_test_jobs_are_not_flagged(tmp_work_dir):
+    # Special case for the RAP API v2 initiative.
+    job_request = make_job_request(action="analyse_data")
+    create_jobs_with_project_file(job_request, TEST_PROJECT)
+    job_request.cancelled_actions = ["prepare_data_1", "prepare_data_2"]
+    create_or_update_jobs(job_request)
+    analyse_job = find_one(Job, action="analyse_data")
+    prepare_1_job = find_one(Job, action="prepare_data_1")
+    prepare_2_job = find_one(Job, action="prepare_data_2")
+    generate_job = find_one(Job, action="generate_dataset")
+    assert analyse_job.cancelled == 0
+    assert prepare_1_job.cancelled == 0
+    assert prepare_2_job.cancelled == 0
     assert generate_job.cancelled == 0
 
 

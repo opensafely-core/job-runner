@@ -79,6 +79,9 @@ def set_controller_config(monkeypatch):
     for config_var in config_vars:
         monkeypatch.setattr(f"agent.config.{config_var}", None)
 
+    # Special case for the RAP API v2 initiative.
+    monkeypatch.setattr("controller.create_or_update_jobs.SKIP_CANCEL_FOR_BACKEND", "")
+
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
