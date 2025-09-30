@@ -917,15 +917,17 @@ def test_job_definition_ehrql_event_level_access(db, monkeypatch, repo_url, expe
     job_definition = main.job_to_job_definition(job, task_id="")
     if expect_env:
         assert job_definition.env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] == "True"
+        assert job_definition.env["EHRQL_PERMISSIONS"] == '["event_level_data"]'
     else:
         assert "EHRQL_ENABLE_EVENT_LEVEL_QUERIES" not in job_definition.env
+        assert job_definition.env["EHRQL_PERMISSIONS"] == "[]"
 
 
 @pytest.mark.parametrize(
     "project,expected_env",
     [
-        ("project-with-no-permissions", ""),
-        ("project-with-some-permissions", "table1,table2"),
+        ("project-with-no-permissions", "[]"),
+        ("project-with-some-permissions", '["table1", "table2"]'),
     ],
 )
 def test_job_definition_ehrql_permissions(db, monkeypatch, project, expected_env):
