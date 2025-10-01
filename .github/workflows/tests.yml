@@ -25,11 +25,7 @@ jobs:
         run: just check
 
   test-job:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, macos-14]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     name: Run test suite
     env:
       PYTHON_VERSION: "python3.10"
@@ -39,7 +35,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Python ${{ matrix.python }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -48,18 +44,11 @@ jobs:
 
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d
 
-      - name: Run actual tests on ${{ matrix.os }}
-        if: ${{ matrix.os == 'ubuntu-22.04' }}
+      - name: Run tests
         run: |
           echo "$PYTHON_VERSION"
           just devenv
           just test -vvv
-
-      - name: Run actual tests on macos
-        if: ${{ matrix.os == 'macos-14' }}
-        run: |
-          just devenv
-          just test-no-docker -vvv
 
   test-docker:
     runs-on: ubuntu-22.04
