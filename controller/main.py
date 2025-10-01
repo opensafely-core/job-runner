@@ -6,6 +6,7 @@ updates its state as appropriate.
 
 import collections
 import datetime
+import json
 import logging
 import secrets
 import sys
@@ -341,12 +342,15 @@ def job_to_job_definition(job, task_id):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 
     if job.requires_db:
-        if job.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
-            env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] = "True"
         job_request = get_saved_job_request(job)
-        env["EHRQL_PERMISSIONS"] = ",".join(
-            datasets.PERMISSIONS.get(job_request["project"], [])
-        )
+        permissions = datasets.PERMISSIONS.get(job_request["project"], [])
+        if job.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
+            permissions = [*permissions, "event_level_data"]
+            # We currently still set this env var because ehrQL has yet to be updated to
+            # handle ELD via the generic permissions system. Once it has been updated
+            # this can be removed.
+            env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] = "True"
+        env["EHRQL_PERMISSIONS"] = json.dumps(permissions)
 
     # we need branch information, which is currently only in the original job
     # request data. We are trying to avoid changing the db schema whilst RAP
