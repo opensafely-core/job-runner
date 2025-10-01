@@ -138,13 +138,18 @@ MAINTENANCE_ENABLED_BACKENDS = (
 # Map known exit codes to user-friendly messages
 DATABASE_EXIT_CODES = {
     # Custom database-related exit codes return from ehrQL, see e.g.
-    # https://github.com/opensafely-core/ehrql/blob/main/ehrql/backends/tpp.py#L159-L171
+    # https://github.com/opensafely-core/ehrql/blob/889dcfd9762b/ehrql/backends/tpp.py#L159-L171
     3: (
         "A transient database error occurred, your job may run "
         "if you try it again, if it keeps failing then contact tech support"
     ),
     4: "New data is being imported into the database, please try again in a few hours",
     5: "Something went wrong with the database, please contact tech support",
+    # Other ehrQL exit codes with specific meanings, see:
+    # https://github.com/opensafely-core/ehrql/blob/e0c47acdb887/ehrql/__main__.py#L123-L134
+    10: "There was a problem reading your ehrQL code; please confirm that it runs locally",
+    11: "There was a problem reading one of the supplied data files",
+    12: "You do not have the required permissions for the ehrQL you are trying to run",
 }
 
 
