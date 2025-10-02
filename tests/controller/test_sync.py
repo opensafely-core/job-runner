@@ -208,10 +208,10 @@ def test_sync_no_token(db, monkeypatch):
 
 def test_sync_telemetry(db, monkeypatch, responses, test_repo):
     # Fake endpoints to contact.
-    monkeypatch.setattr("common.config.BACKENDS", ["test"])
+    monkeypatch.setattr("common.config.BACKENDS", ["emis"])
     monkeypatch.setattr(
         "controller.config.JOB_SERVER_TOKENS",
-        {"test": "token-foo"},
+        {"emis": "token-foo"},
     )
     monkeypatch.setattr(
         "controller.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
@@ -238,7 +238,7 @@ def test_sync_telemetry(db, monkeypatch, responses, test_repo):
         "created_by": "user",
         "project": "project",
         "orgs": ["org"],
-        "backend": "test",
+        "backend": "emis",
     }
     responses.add(
         method="GET",
@@ -265,7 +265,7 @@ def test_sync_telemetry(db, monkeypatch, responses, test_repo):
     assert len(spans) == 1
     span = spans[0]
     assert span.name == "sync_backend"
-    assert span.attributes["backend"] == "test"
+    assert span.attributes["backend"] == "emis"
 
     # Test that expected duration_ms_as_span_attr attributes are present.
     # These are in ms, rounded to the nearest int(), so in this test, they're
