@@ -7,7 +7,7 @@ from pathlib import Path
 # - validate each job is from a known backend
 # - looping through BACKENDS in sync
 # The agent uses it to validate its BACKEND config
-BACKENDS = os.environ.get("BACKENDS", "test,tpp,emis").strip().split(",")
+BACKENDS = os.environ.get("BACKENDS", "test,tpp,emis,ted").strip().split(",")
 
 # Used for tracing in both agent and controller
 # This refers to a file created in the docker image by Dockerfile
