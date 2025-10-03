@@ -28,9 +28,9 @@ def set_agent_config(monkeypatch, tmp_work_dir):
     monkeypatch.setattr("agent.config.USING_DUMMY_DATA_BACKEND", True)
     # Note that as we are running ehrql actions in this test, we need to set
     # the backend to a value that ehrql will accept
-    # RAP API stage 2: Use `emis` rather than `test` so that we can disable the
+    # RAP API stage 2: Use `test` rather than `test` so that we can disable the
     # job-runner sync loop for `test`
-    monkeypatch.setattr("agent.config.BACKEND", "emis")
+    monkeypatch.setattr("agent.config.BACKEND", "test")
     monkeypatch.setattr("agent.config.TASK_API_TOKEN", "test_token")
     # set all the tmp workdir config as we remove it for the controller phase
     set_tmp_workdir_config(monkeypatch, tmp_work_dir)
@@ -45,7 +45,7 @@ def set_agent_config(monkeypatch, tmp_work_dir):
 
     # This is controller config, but we need it to be set during the agent part of the
     # test, as the agent will call the controller app
-    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"emis": "test_token"})
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
 
 
 def set_controller_config(monkeypatch):
@@ -53,13 +53,10 @@ def set_controller_config(monkeypatch):
     monkeypatch.setattr(
         "controller.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
-    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"emis": "token"})
+    monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "token"})
     # Ensure that we have enough workers to start the jobs we expect in the test
     # (CI may have fewer actual available workers than this)
-    monkeypatch.setattr("controller.config.MAX_WORKERS", {"emis": 4})
-    monkeypatch.setattr("controller.config.MAX_DB_WORKERS", {"emis": 2})
-    monkeypatch.setattr("controller.config.DEFAULT_JOB_CPU_COUNT", {"emis": 2.0})
-    monkeypatch.setattr("controller.config.DEFAULT_JOB_MEMORY_LIMIT", {"emis": "4G"})
+    monkeypatch.setattr("controller.config.MAX_WORKERS", {"test": 4})
 
     # disable agent config
     # (note some of these will be set in prod because they are based on shared config
@@ -94,7 +91,7 @@ def test_integration(
     live_server, tmp_work_dir, docker_cleanup, monkeypatch, test_repo, responses
 ):
     api = get_executor_api()
-    monkeypatch.setattr("common.config.BACKENDS", ["emis"])
+    monkeypatch.setattr("common.config.BACKENDS", ["test"])
     monkeypatch.setattr("common.config.JOB_LOOP_INTERVAL", 0)
 
     # Use the live_server url for our task api endpoint, so we can test the
@@ -125,7 +122,7 @@ def test_integration(
         "created_by": "user",
         "project": "project",
         "orgs": ["org"],
-        "backend": "emis",
+        "backend": "test",
     }
 
     responses.add(
@@ -246,7 +243,7 @@ def test_integration(
         "created_by": "user",
         "project": "project",
         "orgs": ["org"],
-        "backend": "emis",
+        "backend": "test",
     }
     responses.add(
         method="GET",
