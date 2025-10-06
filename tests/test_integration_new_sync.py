@@ -29,8 +29,6 @@ def set_agent_config(monkeypatch, tmp_work_dir):
     monkeypatch.setattr("agent.config.USING_DUMMY_DATA_BACKEND", True)
     # Note that as we are running ehrql actions in this test, we need to set
     # the backend to a value that ehrql will accept
-    # RAP API stage 2: Use `test` rather than `test` so that we can disable the
-    # job-runner sync loop for `test`
     monkeypatch.setattr("agent.config.BACKEND", "test")
     monkeypatch.setattr("agent.config.TASK_API_TOKEN", "test_token")
     # set all the tmp workdir config as we remove it for the controller phase
