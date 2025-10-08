@@ -346,10 +346,6 @@ def job_to_job_definition(job, task_id):
         permissions = datasets.PERMISSIONS.get(job_request["project"], [])
         if job.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
             permissions = [*permissions, "event_level_data"]
-            # We currently still set this env var because ehrQL has yet to be updated to
-            # handle ELD via the generic permissions system. Once it has been updated
-            # this can be removed.
-            env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] = "True"
         env["EHRQL_PERMISSIONS"] = json.dumps(permissions)
 
     # we need branch information, which is currently only in the original job

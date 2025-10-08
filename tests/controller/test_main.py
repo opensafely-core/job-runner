@@ -916,10 +916,8 @@ def test_job_definition_ehrql_event_level_access(db, monkeypatch, repo_url, expe
     job = job_factory(requires_db=True, repo_url=repo_url)
     job_definition = main.job_to_job_definition(job, task_id="")
     if expect_env:
-        assert job_definition.env["EHRQL_ENABLE_EVENT_LEVEL_QUERIES"] == "True"
         assert job_definition.env["EHRQL_PERMISSIONS"] == '["event_level_data"]'
     else:
-        assert "EHRQL_ENABLE_EVENT_LEVEL_QUERIES" not in job_definition.env
         assert job_definition.env["EHRQL_PERMISSIONS"] == "[]"
 
 
