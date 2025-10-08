@@ -177,11 +177,21 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
             status=404,
         )
 
-    log.info(
-        "Cancelling actions for job_request %s: %s",
-        request_obj.rap_id,
-        request_obj.actions,
-    )
+    num_actions_to_cancel = len(actions_to_cancel)
+    if num_actions_to_cancel > 1:
+        # Probably this is Job Server cancelling a whole request.
+        # Let's avoid spamming the logs with all the actions in that case.
+        log.info(
+            "Cancelling %d actions for job_request %s",
+            num_actions_to_cancel,
+            request_obj.rap_id,
+        )
+    else:
+        log.info(
+            "Cancelling actions for job_request %s: %s",
+            request_obj.rap_id,
+            request_obj.actions,
+        )
 
     set_cancelled_flag_for_actions(request_obj.rap_id, request_obj.actions)
     cancelled_count = len(request_obj.actions)
