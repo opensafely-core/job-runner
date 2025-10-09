@@ -4,10 +4,12 @@ from pathlib import Path
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
+from opentelemetry import trace
 from pipeline import ProjectValidationError
 
 from common.lib.git import GitError
 from common.lib.github_validators import GithubValidationError
+from common.tracing import duration_ms_as_span_attr, set_span_attributes
 from controller.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
@@ -15,9 +17,9 @@ from controller.create_or_update_jobs import (
     related_jobs_exist,
     set_cancelled_flag_for_actions,
 )
-from controller.lib.database import exists_where, find_where
+from controller.lib.database import exists_where, find_where, select_values
 from controller.main import get_task_for_job
-from controller.models import Job
+from controller.models import Job, State
 from controller.queries import get_current_flags
 from controller.reusable_actions import ReusableActionError
 from controller.webapp.api_spec.utils import api_spec_json
@@ -403,13 +405,36 @@ def status(request, *, token_backends, request_obj: StatusRequest):
 
     See controller/webapp/api_spec/openapi.yaml for required request body
     """
+    # Add duration and attributes to the current django request span
+    span = trace.get_current_span()
+    with duration_ms_as_span_attr("find_matching_jobs.duration_ms", span):
+        jobs = find_where(
+            Job, job_request_id__in=request_obj.rap_ids, backend__in=token_backends
+        )
+        valid_rap_ids = {job.job_request_id for job in jobs}
+        unrecognised_rap_ids = set(request_obj.rap_ids) - valid_rap_ids
+        jobs_data = [job_to_api_format(i) for i in jobs]
 
-    jobs = find_where(
-        Job, job_request_id__in=request_obj.rap_ids, backend__in=token_backends
+    # Check for active jobs with RAP IDs that the client has NOT requested. We don't expect
+    # this to happen, as jobs are only created at client request, and are only updated
+    # on the client side via this endpoint. A job should never be marked as complete by the
+    # client until after it has entered a complete state on the RAP controller.
+    # NOTE: this only holds true as long as we have a single client.
+    with duration_ms_as_span_attr("find_extra_rap_ids.duration_ms", span):
+        extra_active_job_request_ids = set(
+            select_values(
+                Job, "job_request_id", state__in=[State.PENDING, State.RUNNING]
+            )
+        ) - set(request_obj.rap_ids)
+
+    set_span_attributes(
+        span,
+        dict(
+            valid_rap_ids=",".join(valid_rap_ids),
+            unrecognised_rap_ids=",".join(unrecognised_rap_ids),
+            extra_rap_ids=",".join(extra_active_job_request_ids),
+        ),
     )
-    valid_rap_ids = {job.job_request_id for job in jobs}
-    unrecognised_rap_ids = set(request_obj.rap_ids) - valid_rap_ids
-    jobs_data = [job_to_api_format(i) for i in jobs]
 
     return JsonResponse(
         {"jobs": jobs_data, "unrecognised_rap_ids": list(unrecognised_rap_ids)},

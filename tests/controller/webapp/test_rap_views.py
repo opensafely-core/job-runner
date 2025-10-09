@@ -804,3 +804,86 @@ def test_status_view_not_allowed_for_backend(db, client, monkeypatch):
         "jobs": [],
         "unrecognised_rap_ids": [job.job_request_id],
     }, response
+
+
+def test_status_view_tracing(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+    setup_auto_tracing()
+
+    job = job_factory(action="action1", backend="test")
+
+    post_data = {"rap_ids": [job.job_request_id]}
+    client.post(
+        reverse("status"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+
+    traces = get_trace()
+    last_trace = traces[-1]
+    # default django attributes
+    assert last_trace.attributes["http.request.method"] == "POST"
+    assert last_trace.attributes["http.route"] == ("controller/v1/rap/status/")
+    assert last_trace.attributes["http.response.status_code"] == 200
+
+    assert last_trace.attributes["valid_rap_ids"] == job.job_request_id
+    assert last_trace.attributes["unrecognised_rap_ids"] == ""
+    assert last_trace.attributes["extra_rap_ids"] == ""
+    # Duration is rounded so will be 0 in the test because it's so quick. This is
+    # tested elsewhere, so we just test that the key is correctly added to the traced
+    # attributes
+    assert "find_matching_jobs.duration_ms" in last_trace.attributes
+    assert "find_extra_rap_ids.duration_ms" in last_trace.attributes
+
+
+def test_status_view_tracing_with_unexpected_rap_ids(db, client, monkeypatch):
+    monkeypatch.setattr("common.config.BACKENDS", ["test", "test1"])
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+    setup_auto_tracing()
+
+    job1 = job_factory(action="action1", backend="test")
+    job2 = job_factory(action="action1", backend="test")
+    job3 = job_factory(action="action1", backend="test1")
+
+    # All 3 jobs have different rap ids
+    assert len({j.job_request_id for j in [job1, job2, job3]}) == 3
+
+    # job1 is active and requested
+    # job2 is active but not requested
+    # job3 is active and requested but the client token doesn't have access to its backend
+
+    # Request job1 and job3's job request ids, and one that doesn't exist at all
+    post_data = {
+        "rap_ids": [job1.job_request_id, job3.job_request_id, "unknown123456789"]
+    }
+    client.post(
+        reverse("status"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+
+    traces = get_trace()
+    last_trace = traces[-1]
+    # default django attributes
+    assert last_trace.attributes["http.request.method"] == "POST"
+    assert last_trace.attributes["http.route"] == ("controller/v1/rap/status/")
+    assert last_trace.attributes["http.response.status_code"] == 200
+
+    assert last_trace.attributes["valid_rap_ids"] == job1.job_request_id
+    # unrecognised rap IDs are ones that we requested, but aren't valid, either because there are no
+    # matching jobs at all, or because jobs aren't found for backends that the client token has access to
+    assert set(last_trace.attributes["unrecognised_rap_ids"].split(",")) == {
+        job3.job_request_id,
+        "unknown123456789",
+    }
+    # extra rap ids are for jobs that are active but have rap ids that we did NOT request
+    assert last_trace.attributes["extra_rap_ids"] == job2.job_request_id
+    # Duration is rounded so will be 0 in the test because it's so quick. This is
+    # tested elsewhere, so we just test that the key is correctly added to the traced
+    # attributes
+    assert "find_matching_jobs.duration_ms" in last_trace.attributes
+    assert "find_extra_rap_ids.duration_ms" in last_trace.attributes
