@@ -8,12 +8,17 @@ from django.urls import reverse
 from pipeline import load_pipeline
 
 from common.lib.git import read_file_from_repo
-from controller.lib.database import find_one
+from controller.lib.database import find_one, find_where
 from controller.models import Job, State, StatusCode, timestamp_to_isoformat
 from controller.queries import set_flag
 from controller.webapp.views.rap_views import job_to_api_format
 from tests.conftest import get_trace
-from tests.factories import job_factory, rap_api_v1_factory_raw, runjob_db_task_factory
+from tests.factories import (
+    job_factory,
+    job_request_factory,
+    rap_api_v1_factory_raw,
+    runjob_db_task_factory,
+)
 
 
 FIXTURES_PATH = Path(__file__).parent.parent.parent.resolve() / "fixtures"
@@ -250,6 +255,45 @@ def test_cancel_view(db, client, monkeypatch):
     }, response
     job = find_one(Job, id=job.id)
     assert job.cancelled
+
+
+def test_cancel_view_multiple(db, client, monkeypatch):
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    job_request = job_request_factory()
+    job1 = job_factory(
+        state=State.PENDING, action="action1", backend="test", job_request=job_request
+    )
+    job2 = job_factory(
+        state=State.RUNNING, action="action2", backend="test", job_request=job_request
+    )
+    job3 = job_factory(
+        state=State.RUNNING, action="action3", backend="test", job_request=job_request
+    )
+    jobs = (job1, job2, job3)
+    assert all(not job.cancelled for job in jobs)
+    post_data = {
+        "rap_id": job_request.id,
+        "actions": ["action1", "action2", "action3"],
+    }
+
+    response = client.post(
+        reverse("cancel"),
+        json.dumps(post_data),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 200
+    response_json = response.json()
+    assert response_json == {
+        "success": "ok",
+        "details": "3 actions cancelled",
+        "count": 3,
+    }, response
+    assert all(
+        job.cancelled for job in find_where(Job, id__in=[job.id for job in jobs])
+    )
 
 
 def test_cancel_view_validation_error(db, client, monkeypatch):
