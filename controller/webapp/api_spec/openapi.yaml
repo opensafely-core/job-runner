@@ -32,14 +32,14 @@ paths:
                     items:
                       type: object
                       required:
-                        - name
+                        - slug
                         - last_seen
                         - paused
                         - db_maintenance
                       properties:
-                        name:
+                        slug:
                          type: string
-                         description: Name of backend
+                         description: Slug of backend
                         last_seen:
                           description: Time of last contact from this backend
                           type: string
@@ -80,7 +80,7 @@ paths:
                   description: Backend 'test' operating normally
                   value:
                     backends:
-                      - name: test
+                      - slug: test
                         last_seen: 2025-08-12T11:30:45.123456Z
                         paused:
                           status: off
@@ -93,7 +93,7 @@ paths:
                   description: Backend 'test' paused
                   value:
                     backends:
-                      - name: test
+                      - slug: test
                         last_seen:
                           since: 2025-08-12T11:30:45.123456Z
                         paused:
@@ -107,7 +107,7 @@ paths:
                   description: Backend 'test' in scheduled db maintenance
                   value:
                     backends:
-                      - name: test
+                      - slug: test
                         last_seen: 2025-08-12T11:30:45.123456Z
                         paused:
                           status: off
@@ -120,7 +120,7 @@ paths:
                   description: Backend 'test' in manual db maintenance
                   value:
                     backends:
-                      - name: test
+                      - slug: test
                         last_seen: 2025-08-12T11:30:45.123456Z
                         paused:
                           status: off

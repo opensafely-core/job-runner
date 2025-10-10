@@ -664,7 +664,7 @@ Maintenance mode is triggered automatically, but in some circumstances we may ne
 manually enable or disable it. Enabling db maintenance mode will cancel any running jobs.
 
 ```
-dokku run rap-controller python manage.py db_maintenance <on/off> <backend name>
+dokku run rap-controller python manage.py db_maintenance <on/off> <backend slug>
 
 # i.e. to turn maintenance mode on for the tpp backend
 dokku run rap-controller python manage.py db_maintenance on tpp
@@ -676,7 +676,7 @@ Pausing a backend prevents the controller from scheduling new run-job tasks. Exi
 tasks and running jobs will not be interrupted.
 
 ```
-dokku run rap-controller python manage.py pause <on/off> <backend name>
+dokku run rap-controller python manage.py pause <on/off> <backend slug>
 
 # i.e. to pause the test backend
 dokku run rap-controller python manage.py pause on test
@@ -691,7 +691,7 @@ First [pause the backend](#pause-a-backend).
 
 Then run:
 ```
-dokku run rap-controller python manage.py prepare_for_reboot --backend <backend name>
+dokku run rap-controller python manage.py prepare_for_reboot --backend <backend slug>
 ```
 
 This will list all running jobs for the backend and ask for confirmation before cancelling them.
@@ -699,7 +699,7 @@ This will list all running jobs for the backend and ask for confirmation before 
 To report on the status of jobs:
 
 ```
-dokku run rap-controller python manage.py prepare_for_reboot --backend <backend name> --status
+dokku run rap-controller python manage.py prepare_for_reboot --backend <backend slug> --status
 ```
 
 Once all jobs have been successfully cancelled, the status report will indicate that it is now
