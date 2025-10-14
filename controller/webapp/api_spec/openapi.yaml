@@ -280,8 +280,6 @@ paths:
                       details: Unknown error
           401:
             $ref: "#/components/responses/401Unauthorized"
-          403:
-            $ref: "#/components/responses/403NotAllowedBackend"
 
   /rap/cancel/:
       post:
@@ -683,23 +681,6 @@ components:
               value:
                 error: "Unauthorized"
                 details: "Invalid token"
-    403NotAllowedBackend:
-      # Can be referenced as '#/components/responses/403NotAllowedBackend'
-      description: unknown backend
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: string
-              details:
-                type: string
-          examples:
-            not_allowed_for_backend:
-              value:
-                error: "Not allowed"
-                details: "Not allowed for backend 'foo'"
 
 security:
   - bearerAuth: []

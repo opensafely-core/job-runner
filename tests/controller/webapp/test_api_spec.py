@@ -43,10 +43,10 @@ def api_schema(live_server):
 def setup(monkeypatch):
     # Schemathesis will use the example values we include in the api spec
     # set up config so this token has access to one known backend (test), and is not
-    # allowed access another known backend (foo)
+    # allowed access another known backend (test1)
     # In our test setup, we create test jobs matching the values from the api spec,
     # with either the test backend (to test happy paths) or foo backend (to test not allowed)
-    monkeypatch.setattr("common.config.BACKENDS", ["test", "foo"])
+    monkeypatch.setattr("common.config.BACKENDS", ["test", "test1"])
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"token": ["test"]})
 
 
@@ -54,7 +54,7 @@ class Recorder:
     expected_status_codes_by_path = {
         "/backend/status/": {200, 401},
         "/rap/cancel/": {200, 400, 401, 404},
-        "/rap/create/": {200, 201, 400, 401, 403},
+        "/rap/create/": {200, 201, 400, 401},
         "/rap/status/": {200, 400, 401},
     }
     status_codes = defaultdict(set)
@@ -100,8 +100,7 @@ schema = schemathesis.pytest.from_fixture("api_schema")
 def setup_jobs(db):
     # Set up jobs that match the request body for the
     # endpoint examples in the api spec;
-    # this allows us to hit the 200/201 response (jobs with test backend)
-    # and 403 responses (jobs with not-allowed foo backend)
+    # this allows us to hit the 200/201 responses for creating and cancelling
     example_jobs = [
         # successful rap/cancel/ example1
         ("a1b2c3d4e5f6g7h8", ["action1"], "test"),

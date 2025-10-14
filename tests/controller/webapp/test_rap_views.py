@@ -455,11 +455,11 @@ def test_create_view_not_allowed_for_backend(db, client, monkeypatch):
         headers=headers,
         content_type="application/json",
     )
-    assert response.status_code == 403, response.json()
+    assert response.status_code == 400, response.json()
     response_json = response.json()
     assert response_json == {
-        "error": "Not allowed",
-        "details": "Not allowed for backend 'foo'",
+        "error": "Error creating jobs",
+        "details": "Unknown error",
     }
 
 
