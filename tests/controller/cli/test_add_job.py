@@ -1,3 +1,6 @@
+import pytest
+
+from common.lib.github_validators import GithubValidationError
 from controller.cli import add_job
 from controller.lib import database
 from controller.models import Job
@@ -17,17 +20,14 @@ def test_add_job(monkeypatch, tmp_work_dir, db, test_repo):
 
 
 def test_add_job_with_bad_commit(monkeypatch, tmp_work_dir, db):
-    _, jobs = add_job.run(
-        [
-            "https://github.com/opensafely/documentation",
-            "generate_dataset",
-            "--commit",
-            "doesnotexist",
-            "--backend",
-            "test",
-        ]
-    )
-
-    assert len(jobs) == 1
-    assert jobs[0].action == "__error__"
-    assert "Could not find commit" in jobs[0].status_message
+    with pytest.raises(GithubValidationError):
+        add_job.run(
+            [
+                "https://github.com/opensafely/documentation",
+                "generate_dataset",
+                "--commit",
+                "doesnotexist",
+                "--backend",
+                "test",
+            ]
+        )

@@ -12,11 +12,11 @@ import re
 import time
 
 from opentelemetry import trace
-from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
+from pipeline import RUN_ALL_COMMAND, load_pipeline
 
 from common import config as common_config
-from common.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
-from common.lib.github_validators import GithubValidationError, validate_repo_and_commit
+from common.lib.git import GitFileNotFoundError, read_file_from_repo
+from common.lib.github_validators import validate_repo_and_commit
 from common.tracing import duration_ms_as_span_attr
 from controller import tracing
 from controller.actions import get_action_specification
@@ -24,7 +24,6 @@ from controller.lib.database import exists_where, insert, transaction, update_wh
 from controller.models import Job, SavedJobRequest, State, StatusCode
 from controller.queries import calculate_workspace_state
 from controller.reusable_actions import (
-    ReusableActionError,
     resolve_reusable_action_references,
 )
 
@@ -49,44 +48,21 @@ class NothingToDoError(JobRequestError):
 SKIP_CANCEL_FOR_BACKEND = "test"
 
 
-def create_or_update_jobs(job_request):
+def update_cancelled_jobs(job_request):
     """
-    Create or update Jobs in response to a JobRequest
-
-    Note that where there is an error with the JobRequest it will create a
-    single, failed job with the error details rather than raising an exception.
-    This allows the error to be synced back to the job-server where it can be
-    displayed to the user.
+    Update cancelled Jobs in response to a JobRequest
     """
-    if not related_jobs_exist(job_request):
-        try:
-            log.info(f"Handling new JobRequest:\n{job_request}")
-            new_job_count = create_jobs(job_request)
-            log.info(f"Created {new_job_count} new jobs")
-        except (
-            GitError,
-            GithubValidationError,
-            ProjectValidationError,
-            ReusableActionError,
-            JobRequestError,
-        ) as e:
-            log.info(f"JobRequest failed:\n{e}")
-            create_job_from_exception(job_request, e)
-        except Exception:
-            log.exception("Uncaught error while creating jobs")
-            create_job_from_exception(job_request, JobRequestError("Internal error"))
-    else:
-        if job_request.cancelled_actions:
-            if job_request.backend == SKIP_CANCEL_FOR_BACKEND:
-                # Special case for the RAP API v2 initiative.
-                log.debug("Not cancelling actions as backend is set to skip")
-            else:
-                log.debug("Cancelling actions: %s", job_request.cancelled_actions)
-                set_cancelled_flag_for_actions(
-                    job_request.id, job_request.cancelled_actions
-                )
+    if (
+        related_jobs_exist(job_request) and job_request.cancelled_actions
+    ):  # pragma: no branch
+        if job_request.backend == SKIP_CANCEL_FOR_BACKEND:
+            # Special case for the RAP API v2 initiative.
+            log.debug("Not cancelling actions as backend is set to skip")
         else:
-            log.debug("Ignoring already processed JobRequest")
+            log.debug("Cancelling actions: %s", job_request.cancelled_actions)
+            set_cancelled_flag_for_actions(
+                job_request.id, job_request.cancelled_actions
+            )
 
 
 def create_jobs(job_request):

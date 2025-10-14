@@ -257,11 +257,6 @@ def test_sync_telemetry(db, monkeypatch, responses, test_repo):
         json={},
     )
 
-    # Patch this as it can be slow.
-    monkeypatch.setattr(
-        "controller.sync.create_or_update_jobs", lambda *args, **kwargs: None
-    )
-
     # Do the work.
     sync.sync()
 
