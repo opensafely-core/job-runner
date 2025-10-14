@@ -44,6 +44,7 @@ paths:
                           description: Time of last contact from this backend
                           type: string
                           $ref: "#/components/schemas/backendFlagSince"
+                          nullable: true
                         paused:
                           description: Backend paused status (determines whether backend accepts new jobs)
                           type: object
