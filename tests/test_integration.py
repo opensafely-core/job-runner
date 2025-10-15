@@ -8,6 +8,7 @@ import json
 import logging
 
 import pytest
+import requests
 
 import agent.main
 import controller.main
@@ -79,6 +80,9 @@ def set_controller_config(monkeypatch):
     for config_var in config_vars:
         monkeypatch.setattr(f"agent.config.{config_var}", None)
 
+    # Client tokens for calls to the RAP API (controller webapp)
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+
     # Special case for the RAP API v2 initiative.
     monkeypatch.setattr("controller.create_or_update_jobs.SKIP_CANCEL_FOR_BACKEND", "")
 
@@ -101,7 +105,7 @@ def test_integration(
 
     # Set up a mock job-server with a single job request
     job_request_1 = {
-        "identifier": 1,
+        "identifier": "1abcdefg12345678",
         "requested_actions": [
             "analyse_data_ehrql",
             "test_reusable_action_ehrql",
@@ -136,8 +140,17 @@ def test_integration(
 
     # START ON CONTROLLER; set up the expected controller config (and remove agent config)
     set_controller_config(monkeypatch)
-    # Run sync to grab the JobRequest from the mocked job-server
+
+    # Mock job-server post to the RAP API create endpoint to create jobs
+    headers = {"Authorization": "test_token"}
+    create_response = create_jobs_via_api(live_server, headers, job_request_1)
+    # See test/fixtures/full_project/project.yaml - the 3 requests actions require 7 jobs
+    # to be created
+    assert create_response["count"] == 7
+
+    # Run sync to post updated jobs
     controller.sync.sync()
+
     # Check that expected number of pending jobs are created
     jobs = get_posted_jobs(responses)
     for job in jobs.values():
@@ -224,7 +237,7 @@ def test_integration(
     # request to be run and then sync
     job_request_1["cancelled_actions"] = ["test_cancellation_ehrql"]
     job_request_2 = {
-        "identifier": 2,
+        "identifier": "2abcdefg12345678",
         "requested_actions": [
             "generate_dataset_with_dummy_data",
         ],
@@ -249,6 +262,10 @@ def test_integration(
         status=200,
         json={"results": [job_request_1, job_request_2]},
     )
+
+    # Call RAP API to create the jobs for this new job request
+    create_response = create_jobs_via_api(live_server, headers, job_request_2)
+    assert create_response["count"] == 1
 
     controller.sync.sync()
 
@@ -429,6 +446,35 @@ def test_integration(
 def get_posted_jobs(responses):
     data = json.loads(responses.calls[-1].request.body)
     return {job["action"]: job for job in data}
+
+
+def create_jobs_via_api(live_server, headers, job_request_dict):
+    """Do a request to the RAP API to create new jobs"""
+
+    # Convert the job request dict (expected response from job-server job requests endpoint)
+    # to the data we expect to be posted to the RAP API create endoint
+    post_data = {
+        "backend": job_request_dict["backend"],
+        "rap_id": job_request_dict["identifier"],
+        "workspace": job_request_dict["workspace"]["name"],
+        "repo_url": job_request_dict["workspace"]["repo"],
+        "branch": job_request_dict["workspace"]["branch"],
+        "commit": job_request_dict["sha"],
+        "database_name": job_request_dict["database_name"],
+        "requested_actions": job_request_dict["requested_actions"],
+        "codelists_ok": job_request_dict["codelists_ok"],
+        "force_run_dependencies": job_request_dict["force_run_dependencies"],
+        "created_by": job_request_dict["created_by"],
+        "project": job_request_dict["project"],
+        "orgs": job_request_dict["orgs"],
+    }
+
+    response = requests.post(
+        live_server + "/controller/v1/rap/create/",
+        json.dumps(post_data),
+        headers=headers,
+    )
+    return response.json()
 
 
 def get_active_db_tasks():

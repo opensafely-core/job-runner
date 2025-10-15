@@ -15,7 +15,7 @@ from common import config as common_config
 from common.lib.log_utils import configure_logging, set_log_context
 from common.tracing import duration_ms_as_span_attr
 from controller import config, queries
-from controller.create_or_update_jobs import create_or_update_jobs
+from controller.create_or_update_jobs import update_cancelled_jobs
 from controller.lib.database import find_where, select_values
 from controller.main import get_task_for_job
 from controller.models import Job, JobRequest, State
@@ -69,7 +69,7 @@ def sync_backend(backend):
         with duration_ms_as_span_attr("create.duration_ms", span):
             for job_request in job_requests:
                 with set_log_context(job_request=job_request):
-                    create_or_update_jobs(job_request)
+                    update_cancelled_jobs(job_request)
 
         sync_backend_jobs_status(backend, job_requests, span)
 
