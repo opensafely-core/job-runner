@@ -84,7 +84,7 @@ def flags_for_backend(backend):
 
     # First define a dict of default values for a backend that has never had any of the flags of interest set
     flags_dict = {
-        "name": backend,
+        "slug": backend,
         "last_seen": None,
         "paused": {
             "status": "off",  # on/off

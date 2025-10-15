@@ -78,6 +78,8 @@ config=(
   DJANGO_DEBUG=False
   DJANGO_CONTROLLER_ALLOWED_HOSTS=controller.opensafely.org
   WORKDIR=/storage
+
+  # Comma-separated list of backends that the controller manages; these correspond to Backend slugs in job-server
   BACKENDS=tpp,test
 
   # Loop timings taken from current TPP backend settings
