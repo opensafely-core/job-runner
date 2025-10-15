@@ -45,7 +45,7 @@ def setup(monkeypatch):
     # set up config so this token has access to one known backend (test), and is not
     # allowed access another known backend (test1)
     # In our test setup, we create test jobs matching the values from the api spec,
-    # with either the test backend (to test happy paths) or foo backend (to test not allowed)
+    # with either the test backend (to test happy paths) or test1 backend (to test not allowed)
     monkeypatch.setattr("common.config.BACKENDS", ["test", "test1"])
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"token": ["test"]})
 
@@ -105,7 +105,7 @@ def setup_jobs(db):
         # successful rap/cancel/ example1
         ("a1b2c3d4e5f6g7h8", ["action1"], "test"),
         # error rap/cancel/ example2, non allowed backend
-        ("abcdefgh12345678", ["action2", "action3"], "foo"),
+        ("abcdefgh12345678", ["action2", "action3"], "test1"),
         # rap/create/ example1, jobs already created
         ("abcdefgh23456789", ["action1"], "test"),
     ]
