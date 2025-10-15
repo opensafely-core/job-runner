@@ -88,7 +88,10 @@ def sync_backend_jobs_status(backend, job_requests, span):
     # active; this query gets all those which _we_ think are active
     with duration_ms_as_span_attr("find_more_ids.duration_ms", span):
         active_job_request_ids = select_values(
-            Job, "job_request_id", state__in=[State.PENDING, State.RUNNING]
+            Job,
+            "job_request_id",
+            state__in=[State.PENDING, State.RUNNING],
+            backend=backend,
         )
         # We sync all jobs belonging to either set (using `dict.fromkeys` to preserve order
         # for easier testing)
