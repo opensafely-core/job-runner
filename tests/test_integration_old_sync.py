@@ -86,7 +86,7 @@ def set_controller_config(monkeypatch):
         monkeypatch.setattr(f"agent.config.{config_var}", None)
 
     # Client tokens for calls to the RAP API (controller webapp)
-    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["emis"]})
 
     # Special case for the RAP API v2 initiative.
     monkeypatch.setattr("controller.create_or_update_jobs.SKIP_CANCEL_FOR_BACKEND", "")
