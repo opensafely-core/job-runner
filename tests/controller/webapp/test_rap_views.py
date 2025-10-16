@@ -847,6 +847,7 @@ def test_status_view_tracing_with_unexpected_rap_ids(db, client, monkeypatch):
     job1 = job_factory(action="action1", backend="test")
     job2 = job_factory(action="action1", backend="test")
     job3 = job_factory(action="action1", backend="test1")
+    job_factory(action="action1", backend="test1")
 
     # All 3 jobs have different rap ids
     assert len({j.job_request_id for j in [job1, job2, job3]}) == 3
@@ -854,6 +855,7 @@ def test_status_view_tracing_with_unexpected_rap_ids(db, client, monkeypatch):
     # job1 is active and requested
     # job2 is active but not requested
     # job3 is active and requested but the client token doesn't have access to its backend
+    # last job is active and not requested but the client token doesn't have access to its backend
 
     # Request job1 and job3's job request ids, and one that doesn't exist at all
     post_data = {
@@ -880,7 +882,8 @@ def test_status_view_tracing_with_unexpected_rap_ids(db, client, monkeypatch):
         job3.job_request_id,
         "unknown123456789",
     }
-    # extra rap ids are for jobs that are active but have rap ids that we did NOT request
+    # extra rap ids are for jobs that are active and for backends that the token has access to
+    # but have rap ids that we did NOT request
     assert last_trace.attributes["extra_rap_ids"] == job2.job_request_id
     # Duration is rounded so will be 0 in the test because it's so quick. This is
     # tested elsewhere, so we just test that the key is correctly added to the traced
