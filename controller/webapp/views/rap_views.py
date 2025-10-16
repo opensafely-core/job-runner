@@ -222,12 +222,17 @@ def create(request, *, token_backends, request_obj: CreateRequest):
     See controller/webapp/api_spec/openapi.yaml for required request body
     """
     if request_obj.backend not in token_backends:
+        log.error(
+            "Error creating jobs for rap_id %s: Not allowed for backend '%s'",
+            request_obj.id,
+            request_obj.backend,
+        )
         return JsonResponse(
             {
-                "error": "Not allowed",
-                "details": f"Not allowed for backend '{request_obj.backend}'",
+                "error": "Error creating jobs",
+                "details": "Unknown error",
             },
-            status=403,
+            status=400,
         )
 
     # Check jobs for job request ID don't already exist
