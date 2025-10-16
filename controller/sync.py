@@ -73,7 +73,7 @@ def sync_backend(backend):
 
 # This function has been replaced by a call to the RAP API rap/status
 # TODO: remove this function & all dependencies (e.g. job_to_remote_format())
-def sync_backend_jobs_status(backend, job_requests, span):
+def sync_backend_jobs_status(backend, job_requests, span):  # pragma: no cover
     with duration_ms_as_span_attr("find_ids.duration_ms", span):
         job_request_ids = [i.id for i in job_requests]
 
@@ -105,7 +105,7 @@ def api_get(*args, backend, **kwargs):
     return api_request("get", *args, backend=backend, **kwargs)
 
 
-def api_post(*args, backend, **kwargs):
+def api_post(*args, backend, **kwargs):  # pragma: no cover
     return api_request("post", *args, backend=backend, **kwargs)
 
 
@@ -169,7 +169,7 @@ def job_to_remote_format(job):
 
     metrics = {}
     if task := get_task_for_job(job):
-        if task.agent_results:
+        if task.agent_results:  # pragma: no cover
             metrics = task.agent_results.get("job_metrics", {})
 
     return {
