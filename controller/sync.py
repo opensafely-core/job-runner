@@ -70,15 +70,9 @@ def sync_backend(backend):
                 with set_log_context(job_request=job_request):
                     update_cancelled_jobs(job_request)
 
-        # Temporarily disable status part of sync loop for the test backend
-        # Part of RAP API step 2 work
-        if backend == "test":
-            return
 
-        sync_backend_jobs_status(backend, job_requests, span)
-
-
-# TODO: this function will be replaced by a call to the RAP API rap/status
+# This function has been replaced by a call to the RAP API rap/status
+# TODO: remove this function & all dependencies (e.g. job_to_remote_format())
 def sync_backend_jobs_status(backend, job_requests, span):
     with duration_ms_as_span_attr("find_ids.duration_ms", span):
         job_request_ids = [i.id for i in job_requests]

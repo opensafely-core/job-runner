@@ -215,14 +215,6 @@ def test_sync_telemetry(db, monkeypatch, responses, test_repo):
         },
     )
 
-    # Fake Job Server /jobs API response.
-    responses.add(
-        method="POST",
-        status=200,
-        url="http://testserver/api/v2/jobs/",
-        json={},
-    )
-
     # Do the work.
     sync.sync()
 
@@ -239,11 +231,6 @@ def test_sync_telemetry(db, monkeypatch, responses, test_repo):
     for attribute in [
         "api_get.duration_ms",
         "parse_requests.duration_ms",
-        "find_ids.duration_ms",
         "create.duration_ms",
-        "find_more_ids.duration_ms",
-        "find_where.duration_ms",
-        "encode_jobs.duration_ms",
-        "api_post.duration_ms",
     ]:
         assert attribute in span.attributes
