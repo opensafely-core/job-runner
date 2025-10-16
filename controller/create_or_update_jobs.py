@@ -44,27 +44,6 @@ class NothingToDoError(JobRequestError):
     pass
 
 
-# Special case for the RAP API v2 initiative.
-SKIP_CANCEL_FOR_BACKEND = "test"
-
-
-def update_cancelled_jobs(job_request):
-    """
-    Update cancelled Jobs in response to a JobRequest
-    """
-    if (
-        related_jobs_exist(job_request) and job_request.cancelled_actions
-    ):  # pragma: no branch
-        if job_request.backend == SKIP_CANCEL_FOR_BACKEND:
-            # Special case for the RAP API v2 initiative.
-            log.debug("Not cancelling actions as backend is set to skip")
-        else:
-            log.debug("Cancelling actions: %s", job_request.cancelled_actions)
-            set_cancelled_flag_for_actions(
-                job_request.id, job_request.cancelled_actions
-            )
-
-
 def create_jobs(job_request):
     with tracer.start_as_current_span(
         "create_jobs", attributes=job_request.get_tracing_span_attributes()

@@ -198,6 +198,5 @@ def test_sync_telemetry(db, monkeypatch, responses, test_repo):
     for attribute in [
         "api_get.duration_ms",
         "parse_requests.duration_ms",
-        "create.duration_ms",
     ]:
         assert attribute in span.attributes

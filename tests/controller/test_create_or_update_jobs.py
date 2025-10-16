@@ -13,7 +13,6 @@ from controller.create_or_update_jobs import (
     StaleCodelistError,
     create_job_from_exception,
     create_jobs,
-    update_cancelled_jobs,
     validate_job_request,
 )
 from controller.lib.database import count_where, find_one, find_where, update_where
@@ -311,40 +310,6 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
     with pytest.raises(NothingToDoError):
         # Now this should be a no-op because all the actions that are still part of the study have succeeded
         create_jobs_with_project_file(make_job_request(action="run_all"), TEST_PROJECT)
-
-
-def test_cancelled_jobs_are_flagged(tmp_work_dir):
-    job_request = make_job_request(action="analyse_data")
-    create_jobs_with_project_file(job_request, TEST_PROJECT)
-    # Special case for the RAP API v2 initiative.
-    # Without this nothing would be cancelled due to backend being test.
-    job_request.backend = "not test"
-    job_request.cancelled_actions = ["prepare_data_1", "prepare_data_2"]
-    update_cancelled_jobs(job_request)
-    analyse_job = find_one(Job, action="analyse_data")
-    prepare_1_job = find_one(Job, action="prepare_data_1")
-    prepare_2_job = find_one(Job, action="prepare_data_2")
-    generate_job = find_one(Job, action="generate_dataset")
-    assert analyse_job.cancelled == 0
-    assert prepare_1_job.cancelled == 1
-    assert prepare_2_job.cancelled == 1
-    assert generate_job.cancelled == 0
-
-
-def test_cancelled_test_jobs_are_not_flagged(tmp_work_dir):
-    # Special case for the RAP API v2 initiative.
-    job_request = make_job_request(action="analyse_data")
-    create_jobs_with_project_file(job_request, TEST_PROJECT)
-    job_request.cancelled_actions = ["prepare_data_1", "prepare_data_2"]
-    update_cancelled_jobs(job_request)
-    analyse_job = find_one(Job, action="analyse_data")
-    prepare_1_job = find_one(Job, action="prepare_data_1")
-    prepare_2_job = find_one(Job, action="prepare_data_2")
-    generate_job = find_one(Job, action="generate_dataset")
-    assert analyse_job.cancelled == 0
-    assert prepare_1_job.cancelled == 0
-    assert prepare_2_job.cancelled == 0
-    assert generate_job.cancelled == 0
 
 
 @pytest.mark.parametrize(

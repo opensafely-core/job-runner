@@ -11,10 +11,9 @@ import requests
 from opentelemetry import trace
 
 from common import config as common_config
-from common.lib.log_utils import configure_logging, set_log_context
+from common.lib.log_utils import configure_logging
 from common.tracing import duration_ms_as_span_attr
 from controller import config
-from controller.create_or_update_jobs import update_cancelled_jobs
 from controller.models import JobRequest
 
 
@@ -62,11 +61,6 @@ def sync_backend(backend):
         # Bail early if there's nothing to do
         if not job_requests:
             return
-
-        with duration_ms_as_span_attr("create.duration_ms", span):
-            for job_request in job_requests:
-                with set_log_context(job_request=job_request):
-                    update_cancelled_jobs(job_request)
 
 
 def api_get(*args, backend, **kwargs):
