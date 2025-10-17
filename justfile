@@ -198,9 +198,6 @@ _run-agent-after-app:
 run:
     { just run-app & just _run-agent-after-app & just run-controller-service; }
 
-validate-api-spec: devenv
-    $BIN/openapi-spec-validator controller/webapp/api_spec/openapi.yaml
-
 _schemathesis *ARGS: devenv
     $BIN/schemathesis --config-file controller/webapp/api_spec/schemathesis.toml run controller/webapp/api_spec/openapi.yaml {{ ARGS }}
 

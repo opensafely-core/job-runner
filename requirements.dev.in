@@ -14,5 +14,4 @@ pytest-responses
 ruff
 pip
 # OpenAPI tools
-openapi-spec-validator
 schemathesis
