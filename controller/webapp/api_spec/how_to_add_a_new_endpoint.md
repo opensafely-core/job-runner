@@ -40,9 +40,7 @@ takes a `?foo=` query parameter, and returns a 200 JSON response with the value 
 
 ### 2) Validate the spec
 
-```
-just validate-api-spec
-```
+Use the [Swagger editor](./RAP_API_DEVELOPERS.md#validate-the-api-spec) to validate the api spec.
 
 ### 3) Run the tests
 ```

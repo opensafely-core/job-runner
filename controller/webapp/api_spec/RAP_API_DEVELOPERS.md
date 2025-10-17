@@ -13,13 +13,11 @@ See the OpenAPI docs for details of [how to describe endpoints with paths](https
 
 ### Validate the api spec
 
-```
-just validate-api-spec
-```
-This will validate the [api spec file](openapi.yaml) and report any errors.
+The [schemathesis tests](#schemathesis) will also do some validation of the api spec, however, the error
+messages can be quite obscure. You can use the [Swagger editor](https://editor.swagger.io/) to validate the spec and
+get a more user-friendly report of errors.
 
-You can also use the [Swagger editor](https://editor.swagger.io/); import the api spec file
-(or copy and paste its contents) into the editor, and it will highlight any errors (note that
+Import the api spec file (or copy and paste its contents) into the editor, and it will highlight any errors (note that
 at the time of writing, the editor currently expects a file in openapi version 3.0.x and so
 will show an error for the first line.) The editor also lets you visualise documentation of the endpoints generated from the spec.
 
