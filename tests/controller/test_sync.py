@@ -3,9 +3,8 @@ from responses import matchers
 
 from controller import config, sync
 from controller.lib.database import find_where
-from controller.models import Job, JobRequest, State
+from controller.models import Job, JobRequest
 from tests.conftest import get_trace
-from tests.factories import job_factory, runjob_db_task_factory
 
 
 def test_job_request_from_remote_format():
@@ -43,38 +42,6 @@ def test_job_request_from_remote_format():
     )
     job_request = sync.job_request_from_remote_format(remote_job_request)
     assert job_request == expected
-
-
-def test_job_to_remote_format_default(db):
-    job = job_factory()
-
-    json = sync.job_to_remote_format(job)
-
-    assert json["action"] == "action_name"
-    assert json["run_command"] == "python myscript.py"
-    assert json["status"] == "pending"
-    assert json["status_code"] == "created"
-    assert json["metrics"] == {}
-    assert json["requires_db"] is False
-
-
-def test_job_to_remote_format_null_status_message(db):
-    job = job_factory(status_message=None)
-    json = sync.job_to_remote_format(job)
-    assert json["status_message"] == ""
-
-
-def test_job_to_remote_format_metrics(db):
-    job = job_factory(state=State.RUNNING)
-    runjob_db_task_factory(
-        job=job,
-        agent_results={
-            "job_metrics": {"test": 0.0},
-        },
-    )
-    json = sync.job_to_remote_format(job)
-
-    assert json["metrics"] == {"test": 0.0}
 
 
 def test_session_request(db, responses):

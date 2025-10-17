@@ -15,9 +15,7 @@ from common.lib.log_utils import configure_logging, set_log_context
 from common.tracing import duration_ms_as_span_attr
 from controller import config
 from controller.create_or_update_jobs import update_cancelled_jobs
-from controller.lib.database import find_where, select_values
-from controller.main import get_task_for_job
-from controller.models import Job, JobRequest, State
+from controller.models import JobRequest
 
 
 session = requests.Session()
@@ -71,42 +69,8 @@ def sync_backend(backend):
                     update_cancelled_jobs(job_request)
 
 
-# This function has been replaced by a call to the RAP API rap/status
-# TODO: remove this function & all dependencies (e.g. job_to_remote_format())
-def sync_backend_jobs_status(backend, job_requests, span):  # pragma: no cover
-    with duration_ms_as_span_attr("find_ids.duration_ms", span):
-        job_request_ids = [i.id for i in job_requests]
-
-    # `job_request_ids` contains all the JobRequests which job-server thinks are
-    # active; this query gets all those which _we_ think are active
-    with duration_ms_as_span_attr("find_more_ids.duration_ms", span):
-        active_job_request_ids = select_values(
-            Job,
-            "job_request_id",
-            state__in=[State.PENDING, State.RUNNING],
-            backend=backend,
-        )
-        # We sync all jobs belonging to either set (using `dict.fromkeys` to preserve order
-        # for easier testing)
-        job_request_ids_to_sync = list(
-            dict.fromkeys(job_request_ids + active_job_request_ids)
-        )
-    with duration_ms_as_span_attr("find_where.duration_ms", span):
-        jobs = find_where(Job, job_request_id__in=job_request_ids_to_sync)
-    with duration_ms_as_span_attr("encode_jobs.duration_ms", span):
-        jobs_data = [job_to_remote_format(i) for i in jobs]
-    log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
-
-    with duration_ms_as_span_attr("api_post.duration_ms", span):
-        api_post("jobs", backend=backend, json=jobs_data)
-
-
 def api_get(*args, backend, **kwargs):
     return api_request("get", *args, backend=backend, **kwargs)
-
-
-def api_post(*args, backend, **kwargs):  # pragma: no cover
-    return api_request("post", *args, backend=backend, **kwargs)
 
 
 def api_request(method, path, *args, backend, headers=None, **kwargs):
@@ -159,35 +123,6 @@ def job_request_from_remote_format(job_request):
         backend=job_request["backend"],
         original=job_request,
     )
-
-
-def job_to_remote_format(job):
-    """
-    Convert our internal representation of a Job into whatever format the
-    job-server expects
-    """
-
-    metrics = {}
-    if task := get_task_for_job(job):
-        if task.agent_results:  # pragma: no cover
-            metrics = task.agent_results.get("job_metrics", {})
-
-    return {
-        "identifier": job.id,
-        "job_request_id": job.job_request_id,
-        "action": job.action,
-        "run_command": job.run_command,
-        "status": job.state.value,
-        "status_code": job.status_code.value,
-        "status_message": job.status_message or "",
-        "created_at": job.created_at_isoformat,
-        "updated_at": job.updated_at_isoformat,
-        "started_at": job.started_at_isoformat,
-        "completed_at": job.completed_at_isoformat,
-        "trace_context": job.trace_context,
-        "metrics": metrics,
-        "requires_db": job.requires_db,
-    }
 
 
 if __name__ == "__main__":
