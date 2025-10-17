@@ -3,7 +3,6 @@ Script which polls the job-server endpoint for active JobRequests and POSTs
 back any associated Jobs.
 """
 
-import json
 import logging
 import sys
 import time
@@ -14,7 +13,7 @@ from opentelemetry import trace
 from common import config as common_config
 from common.lib.log_utils import configure_logging, set_log_context
 from common.tracing import duration_ms_as_span_attr
-from controller import config, queries
+from controller import config
 from controller.create_or_update_jobs import update_cancelled_jobs
 from controller.lib.database import find_where, select_values
 from controller.main import get_task_for_job
@@ -125,13 +124,7 @@ def api_request(method, path, *args, backend, headers=None, **kwargs):
     if backend not in config.JOB_SERVER_TOKENS:
         raise SyncAPIError(f"No api token found for backend '{backend}'")
 
-    flags = {
-        f.id: {"v": f.value, "ts": f.timestamp_isoformat}
-        for f in queries.get_current_flags(backend=backend)
-    }
-
     headers["Authorization"] = config.JOB_SERVER_TOKENS[backend]
-    headers["Flags"] = json.dumps(flags, separators=(",", ":"))
 
     response = session.request(method, url, *args, headers=headers, **kwargs)
 
