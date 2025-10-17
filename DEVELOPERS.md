@@ -193,20 +193,19 @@ JOB_SERVER_ENDPOINT=https://localhost:8000/api/v2/
 
 #### Run all the things
 
-In 4 (yes, 4!) terminal windows, run:
+In 2 terminal windows, run:
 
 In job-server repo:
 1) Run the server: `just run`
 
 In job-runner repo:
-2) Run web app: `just run-app`
-3) Run agent service (main and metrics loops): `just run-agent-service` (or `just run-agent` to run without metrics)
-4) Run controller service (main and sync loops): `just run-controller-service`
+2) Run web app, agent and controller: `just run`
+
 
 In your terminals you should see:
 1) job-server: /api/v2/job-requests is called repeatedly (by the controller sync loop)
 2) controller web app: /test/tasks/ is called every 2 seconds (by the agent)
-3) & 4) Agent and Controller don't report any activity after start up
+   Agent and Controller start up
 
 
 #### Submit a job
@@ -218,16 +217,63 @@ and updated via the controller web app.
 
 #### Simulating multiple backends
 
-To add another backend, "foo":
-1) Setup the backend on your local job-server
-2) in .env:
-   - Add FOO_JOB_SERVER_TOKEN with the backend token from job-server
-   - set BACKENDS=test,foo
+Running multiple backends requires running multiple agents, one per backend.
 
-The controller will now check for jobs for both backends ("test" and "foo"). Locally we can
+Once you're set up and running with a local job-server as described above, you're running a
+controller, a web app, and an agent **for the test backend only**.
+
+To add another backend, "expectations":
+1) Setup the backend on your local job-server
+2) in .env, add the following Controller variables:
+   - Add EXPECTATIONS_JOB_SERVER_TOKEN with the backend token from job-server (allows the expectations agent to call the controller webapp)
+   - Add EXPECTATIONS_CLIENT_TOKENS=rap_token (allow job-server to call the controller for information about the expectations backend)
+   And the following Common variable
+   - set BACKENDS=test,expectations
+
+*Note*:
+We're using "expectations" as a second backend to take advantage of the fact that [ehrql currently ignores
+backends named "test" or "expectations"](https://github.com/opensafely-core/ehrql/blob/d250d7ff6668b2322256b82a958b6606ba37530d/ehrql/__main__.py#L775). We could also set up a backend that
+is a valid backend according to ehrql (i.e. "tpp" or "emis"); any other backend identifier will fail to
+run ehrql jobs.
+
+The controller will now check for jobs for both backends ("expectations" and "test"). Locally we can
 only pretend to be one backend's Agent, so only "test" jobs will be picked up and executed by the
-agent. To execute "foo" jobs, set `BACKEND=foo`. Remember to restart all the things to pick up the
+agent.
+
+To execute "expectations" jobs, in your `.env` file change the following Agent variables:
+ - `BACKEND=expectations`
+ - set `CONTROLLER_TASK_API_TOKEN` to the backend token from job-server for the expectations backend (allows the agent to call the controller webapp)
+ . Remember to restart all the things to pick up the
 new environment variables everywhere.
+
+Alternatively, to run 2 agents at the same time, one for the test backend and one for the expectations backend:
+
+Clone repo again to new dir and set up initial dev environments:
+```
+git clone git@github.com:opensafely-core/job-runner.git job-runner-expectations-agent
+cd git clone git@github.com:opensafely-core/job-runner.git job-runner-expectations-agent
+just devenv
+```
+
+Update .env file with:
+```
+BACKENDS=test,expectations
+BACKEND=expectations
+CONTROLLER_TASK_API_TOKEN=<backend token from job-server for the expectations backend>
+```
+(Note that we don't need to update any controller config, as we'll only be running the agent from this repo)
+
+With your original local job-runner and job-server running (with `just run`), run just the agent for this backend:
+
+```
+just run-agent
+```
+
+In your job-runner terminal, you should see that both agents are now calling the controller tasks endpoint every 2 seconds, at:
+/test/tasks/
+/expectations/tasks/
+
+From your job-server UI, you should now be able to submit jobs for both the test and expectations backends.
 
 
 ### Testing
