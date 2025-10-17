@@ -671,6 +671,25 @@ def test_create_view_unexpected_error(mock_create_jobs, db, client, monkeypatch)
     }, response
 
 
+def test_job_to_api_format_default(db):
+    job = job_factory()
+
+    json = job_to_api_format(job)
+
+    assert json["action"] == "action_name"
+    assert json["run_command"] == "python myscript.py"
+    assert json["status"] == "pending"
+    assert json["status_code"] == "created"
+    assert json["metrics"] == {}
+    assert json["requires_db"] is False
+
+
+def test_job_to_api_format_null_status_message(db):
+    job = job_factory(status_message=None)
+    json = job_to_api_format(job)
+    assert json["status_message"] == ""
+
+
 @pytest.mark.parametrize("agent_results", [True, False])
 def test_job_to_api_format_metrics(db, agent_results):
     job = job_factory(state=State.RUNNING, action="action1", backend="test")
