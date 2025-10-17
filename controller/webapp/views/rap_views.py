@@ -360,7 +360,6 @@ def create(request, *, token_backends, request_obj: CreateRequest):
         )
 
 
-# Fork of controller.sync.job_to_remote_format()
 def job_to_api_format(job):
     """
     Convert our internal representation of a Job into the API format
