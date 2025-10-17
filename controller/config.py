@@ -14,6 +14,8 @@ class ConfigException(Exception):
 
 DATABASE_FILE = common_config.WORKDIR / "db.sqlite"
 
+BACKUPS_PATH = Path(os.environ.get("BACKUPS_PATH", common_config.WORKDIR / "backups"))
+
 JOB_SERVER_ENDPOINT = os.environ.get(
     "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/v2/"
 )
