@@ -428,7 +428,10 @@ def status(request, *, token_backends, request_obj: StatusRequest):
     with duration_ms_as_span_attr("find_extra_rap_ids.duration_ms", span):
         extra_active_job_request_ids = set(
             select_values(
-                Job, "job_request_id", state__in=[State.PENDING, State.RUNNING]
+                Job,
+                "job_request_id",
+                state__in=[State.PENDING, State.RUNNING],
+                backend__in=token_backends,
             )
         ) - set(request_obj.rap_ids)
 
