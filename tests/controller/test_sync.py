@@ -240,7 +240,6 @@ def test_sync_telemetry(db, monkeypatch, responses, test_repo):
         "api_get.duration_ms",
         "parse_requests.duration_ms",
         "find_ids.duration_ms",
-        "create.duration_ms",
         "find_more_ids.duration_ms",
         "find_where.duration_ms",
         "encode_jobs.duration_ms",

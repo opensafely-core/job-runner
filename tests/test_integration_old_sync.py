@@ -88,9 +88,6 @@ def set_controller_config(monkeypatch):
     # Client tokens for calls to the RAP API (controller webapp)
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["emis"]})
 
-    # Special case for the RAP API v2 initiative.
-    monkeypatch.setattr("controller.create_or_update_jobs.SKIP_CANCEL_FOR_BACKEND", "")
-
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
@@ -114,7 +111,6 @@ def test_integration(
         "requested_actions": [
             "analyse_data_ehrql",
             "test_reusable_action_ehrql",
-            "test_cancellation_ehrql",
         ],
         "cancelled_actions": [],
         "force_run_dependencies": False,
@@ -151,8 +147,7 @@ def test_integration(
     create_response = create_jobs_via_api(live_server, headers, job_request_1)
     # See test/fixtures/full_project/project.yaml - the 3 requests actions require 7 jobs
     # to be created
-    assert create_response["count"] == 7
-
+    assert create_response["count"] == 6
     # Run sync to post updated jobs
     controller.sync.sync()
 
@@ -194,7 +189,6 @@ def test_integration(
             "prepare_data_with_quote_in_filename_ehrql",
             "analyse_data_ehrql",
             "test_reusable_action_ehrql",
-            "test_cancellation_ehrql",
         ]:
             assert jobs[action]["status_code"] == "waiting_on_dependencies"
             assert jobs[action]["status_message"].startswith("Waiting on dependencies")
@@ -238,9 +232,7 @@ def test_integration(
     jobs = get_posted_jobs(responses)
     assert_generate_dataset_dependency_running(jobs, "executing")
 
-    # Update the existing job request to mark a (not-started) job as cancelled, add a new job
-    # request to be run and then sync
-    job_request_1["cancelled_actions"] = ["test_cancellation_ehrql"]
+    # Add a new job request to be run and then sync
     job_request_2 = {
         "identifier": "2abcdefg12345678",
         "requested_actions": [
@@ -274,12 +266,10 @@ def test_integration(
 
     controller.sync.sync()
 
-    # Execute one tick of the controller run loop again to pick up the
-    # cancelled job and the second job request and then sync
+    # Execute one tick of the controller run loop again to pick up new request
+    # and sync
     # We now have 2 RUNJOB tasks (for generate_dataset, which is still executing,
     # and the new generate_dataset_with_dummy_data, which has no dependencies)
-    # The cancelled job is now marked as cancelled, but no CANCELJOB task is created,
-    # because no RUNJOB task had been created for it
     # The others are waiting on dependencies, so no tasks have been created for them yet
     controller.main.handle_jobs()
     active_tasks = get_active_db_tasks()
@@ -296,9 +286,6 @@ def test_integration(
     # The new action does not depend on generate_dataset
     assert jobs["generate_dataset_with_dummy_data"]["status"] == "running"
     assert jobs["generate_dataset_with_dummy_data"]["status_code"] == "initiated"
-    cancellation_job = jobs.pop("test_cancellation_ehrql")
-    assert cancellation_job["status"] == "failed"
-    assert cancellation_job["status_message"] == "Cancelled by user"
 
     for action in [
         "prepare_data_m_ehrql",
@@ -348,7 +335,6 @@ def test_integration(
     ]:
         assert jobs[action]["status"] == "running"
 
-    assert jobs["test_cancellation_ehrql"]["status"] == "failed"
     assert jobs["analyse_data_ehrql"]["status"] == "pending"
 
     # AGENT
@@ -394,7 +380,6 @@ def test_integration(
 
     controller.sync.sync()
     jobs = get_posted_jobs(responses)
-    cancellation_job = jobs.pop("test_cancellation_ehrql")
     for job in jobs.values():
         assert job["status"] == "succeeded", job
 
@@ -426,13 +411,9 @@ def test_integration(
     ]:
         assert (medium_privacy_workspace / moderately_sensitive_output).exists()
 
-    # Check that we don't produce outputs for cancelled jobs
-    assert not (high_privacy_workspace / "ehrql-somefile.csv").exists()
-
     # Check that spans were emitted and capture details
     job_spans = [s for s in get_trace("jobs") if s.name == "JOB"]
-    assert len(job_spans) == 8
-    # one job is cancelled
+    assert len(job_spans) == 7
     executed_jobs = [s for s in job_spans if "job.exit_code" in s.attributes]
     assert len(executed_jobs) == 7
     assert sum(s.attributes["job.exit_code"] for s in executed_jobs) == 0
