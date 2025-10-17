@@ -4,6 +4,10 @@ core functionality is tested in tests/cli/controller; these tests just ensure
 that they run correctly via management command.
 """
 
+import sqlite3
+from pathlib import Path
+
+import pytest
 from django.core.management import call_command
 
 from controller import queries
@@ -117,3 +121,40 @@ def test_db_maintenance(db, freezer, capsys):
     assert stderr == ""
     assert queries.get_flag("mode", "test").value is None
     assert queries.get_flag("manual-db-maintenance", "test").value is None
+
+
+def test_snapshot_database(tmp_path, monkeypatch, freezer):
+    # Can't use the `db` fixture here because we need a file on disk we can open a
+    # read-only connection to
+    db_path = tmp_path / "db.sqlite"
+    monkeypatch.setattr("controller.config.DATABASE_FILE", db_path)
+    monkeypatch.setattr("controller.config.BACKUPS_PATH", tmp_path)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE foo (bar STRING);
+            INSERT INTO foo VALUES ("hello"), ("world");
+            """
+        )
+
+    freezer.move_to("2025-09-10 11:12:13")
+    call_command("snapshot_database")
+
+    expected_path = tmp_path / "db.snapshot_2025-09-10_111213Z.sqlite"
+    with sqlite3.connect(expected_path) as conn:
+        results = list(conn.execute("SELECT * FROM foo"))
+    assert results == [("hello",), ("world",)]
+
+    freezer.move_to("2025-09-20 21:22:23")
+    call_command("snapshot_database")
+
+    new_path = tmp_path / "db.snapshot_2025-09-20_212223Z.sqlite"
+    assert new_path.exists()
+    assert not expected_path.exists()
+
+
+def test_snapshot_database_errors_when_misconfigured(monkeypatch):
+    monkeypatch.setattr("controller.config.BACKUPS_PATH", Path("/no/such/path"))
+    with pytest.raises(RuntimeError, match="does not exist"):
+        call_command("snapshot_database")
