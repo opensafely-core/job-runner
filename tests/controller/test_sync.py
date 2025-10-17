@@ -1,9 +1,7 @@
-import json
-
 import pytest
 from responses import matchers
 
-from controller import config, queries, sync
+from controller import config, sync
 from controller.lib.database import find_where
 from controller.models import Job, JobRequest, State
 from tests.conftest import get_trace
@@ -79,7 +77,7 @@ def test_job_to_remote_format_metrics(db):
     assert json["metrics"] == {"test": 0.0}
 
 
-def test_session_request_no_flags(db, responses):
+def test_session_request(db, responses):
     responses.add(
         method="GET",
         url=f"{config.JOB_SERVER_ENDPOINT}path/",
@@ -89,36 +87,6 @@ def test_session_request_no_flags(db, responses):
             matchers.header_matcher(
                 {
                     "Authorization": config.JOB_SERVER_TOKENS["test"],
-                    "Flags": "{}",
-                }
-            ),
-        ],
-    )
-
-    # if this works, our expected request was generated
-    sync.api_get("path", backend="test")
-
-
-def test_session_request_flags(db, responses):
-    f1 = queries.set_flag("mode", "db-maintenance", backend="test")
-    f2 = queries.set_flag("pause", "true", backend="test")
-
-    flags_dict = {
-        "mode": {"v": "db-maintenance", "ts": f1.timestamp_isoformat},
-        "pause": {"v": "true", "ts": f2.timestamp_isoformat},
-    }
-    expected_header = json.dumps(flags_dict, separators=(",", ":"))
-
-    responses.add(
-        method="GET",
-        url=f"{config.JOB_SERVER_ENDPOINT}path/",
-        status=200,
-        json="{}",
-        match=[
-            matchers.header_matcher(
-                {
-                    "Authorization": config.JOB_SERVER_TOKENS["test"],
-                    "Flags": expected_header,
                 }
             ),
         ],
@@ -168,7 +136,6 @@ def test_session_request_multiple_backends(db, monkeypatch, responses):
             matchers.header_matcher(
                 {
                     "Authorization": "token-foo",
-                    "Flags": "{}",
                 }
             ),
         ],
@@ -182,7 +149,6 @@ def test_session_request_multiple_backends(db, monkeypatch, responses):
             matchers.header_matcher(
                 {
                     "Authorization": "token-bar",
-                    "Flags": "{}",
                 }
             ),
         ],
