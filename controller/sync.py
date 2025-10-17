@@ -69,21 +69,8 @@ def sync_backend(backend):
                     update_cancelled_jobs(job_request)
 
 
-# This function has been replaced by a call to the RAP API rap/status
-# TODO: remove this function & all dependencies (e.g. job_to_remote_format())
-def sync_backend_jobs_status(backend, job_requests, span):  # pragma: no cover
-    jobs_data = None
-
-    with duration_ms_as_span_attr("api_post.duration_ms", span):
-        api_post("jobs", backend=backend, json=jobs_data)
-
-
 def api_get(*args, backend, **kwargs):
     return api_request("get", *args, backend=backend, **kwargs)
-
-
-def api_post(*args, backend, **kwargs):  # pragma: no cover
-    return api_request("post", *args, backend=backend, **kwargs)
 
 
 def api_request(method, path, *args, backend, headers=None, **kwargs):
