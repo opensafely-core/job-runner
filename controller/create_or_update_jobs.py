@@ -300,59 +300,6 @@ def assert_codelists_ok(job_request, new_jobs):
             )
 
 
-def create_job_from_exception(job_request, exception):
-    """
-    Sometimes we want to say to the job-server (and the user): your JobRequest
-    was broken so we weren't able to create any jobs for it. But the only way
-    for the job-runner to communicate back to the job-server is by creating a
-    job. So this function creates a single job with the special action name
-    "__error__", which starts in the FAILED state and whose status_message
-    contains the error we wish to communicate.
-
-    This is a bit of a hack, but it keeps the sync protocol simple.
-    """
-    action = "__error__"
-    error = exception
-    state = State.FAILED
-    status_message = str(exception)
-
-    # Special case for the NothingToDoError which we treat as a success
-    if isinstance(exception, NothingToDoError):
-        state = State.SUCCEEDED
-        code = StatusCode.SUCCEEDED
-        action = job_request.requested_actions[0]
-        error = None
-    # StaleCodelistError is a failure but not an INTERNAL_ERROR
-    elif isinstance(exception, StaleCodelistError):
-        code = StatusCode.STALE_CODELISTS
-    else:
-        code = StatusCode.INTERNAL_ERROR
-        # include exception name in message to aid debugging
-        status_message = f"{type(exception).__name__}: {exception}"
-
-    now = time.time()
-    job = Job(
-        job_request_id=job_request.id,
-        state=state,
-        status_code=code,
-        status_message=status_message,
-        # time in nanoseconds
-        status_code_updated_at=int(now * 1e9),
-        repo_url=job_request.repo_url,
-        commit=job_request.commit,
-        workspace=job_request.workspace,
-        action=action,
-        created_at=int(now),
-        started_at=int(now),
-        updated_at=int(now),
-        completed_at=int(now),
-        backend=job_request.backend,
-    )
-    tracing.initialise_job_trace(job)
-    insert_into_database(job_request, [job])
-    tracing.record_final_job_state(job, job.status_code_updated_at, exception=error)
-
-
 def insert_into_database(job_request, jobs):
     with transaction():
         insert(SavedJobRequest(id=job_request.id, original=job_request.original))

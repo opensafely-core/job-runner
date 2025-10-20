@@ -11,14 +11,12 @@ from controller.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
     StaleCodelistError,
-    create_job_from_exception,
     create_jobs,
     validate_job_request,
 )
 from controller.lib.database import count_where, find_one, find_where, update_where
-from controller.models import Job, JobRequest, State, StatusCode
+from controller.models import Job, JobRequest, State
 from tests.conftest import get_trace
-from tests.factories import job_request_factory_raw
 
 
 FIXTURES_PATH = Path(__file__).parent.parent.resolve() / "fixtures"
@@ -526,68 +524,6 @@ def test_create_jobs_tracing(db, tmp_work_dir):
         "insert_into_database.duration_ms",
     ]:
         assert attribute in spans[0].attributes
-
-
-def test_create_job_from_exception(db):
-    job_request = job_request_factory_raw()
-
-    create_job_from_exception(job_request, Exception("test"))
-
-    job = find_one(Job, job_request_id=job_request.id)
-
-    assert job.state == State.FAILED
-    assert job.status_code == StatusCode.INTERNAL_ERROR
-    assert job.status_message == "Exception: test"
-    assert job.action == "__error__"
-
-    spans = get_trace("jobs")
-
-    assert spans[0].name == "INTERNAL_ERROR"
-    assert not spans[0].status.is_ok
-    assert spans[0].events[0].name == "exception"
-    assert spans[0].events[0].attributes["exception.message"] == "test"
-    assert spans[1].name == "JOB"
-    assert not spans[1].status.is_ok
-    assert spans[1].events[0].name == "exception"
-    assert spans[1].events[0].attributes["exception.message"] == "test"
-
-
-def test_create_job_from_exception_nothing_to_do(db):
-    job_request = job_request_factory_raw()
-
-    create_job_from_exception(job_request, NothingToDoError("nothing to do"))
-    job = find_one(Job, job_request_id=job_request.id)
-
-    assert job.state == State.SUCCEEDED
-    assert job.status_code == StatusCode.SUCCEEDED
-    assert job.status_message == "nothing to do"
-    assert job.action == job_request.requested_actions[0]
-
-    spans = get_trace("jobs")
-
-    assert spans[0].name == "SUCCEEDED"
-    assert spans[0].status.is_ok
-    assert spans[1].name == "JOB"
-    assert spans[1].status.is_ok
-
-
-def test_create_job_from_exception_stale_codelist(db):
-    job_request = job_request_factory_raw()
-
-    create_job_from_exception(job_request, StaleCodelistError("stale"))
-    job = find_one(Job, job_request_id=job_request.id)
-
-    assert job.state == State.FAILED
-    assert job.status_code == StatusCode.STALE_CODELISTS
-    assert job.status_message == "stale"
-    assert job.action == "__error__"
-
-    spans = get_trace("jobs")
-
-    assert spans[0].name == "STALE_CODELISTS"
-    assert spans[0].status.is_ok
-    assert spans[1].name == "JOB"
-    assert spans[1].status.is_ok
 
 
 @pytest.mark.parametrize(
