@@ -62,7 +62,7 @@ JOB_DEFAULTS = {
     "state": State.PENDING,
     "action": "action_name",
     "requires_outputs_from": ["some-earlier-action"],
-    "run_command": "python myscript.py",
+    "run_command": "python:v2 myscript.py",
     "output_spec": {},
     "created_at": 0,
     "status_code": StatusCode.CREATED,
