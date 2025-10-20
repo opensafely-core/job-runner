@@ -48,9 +48,6 @@ def client_tokens_from_env(env):
 CLIENT_TOKENS = client_tokens_from_env(os.environ)
 
 
-# API poll
-POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
-
 # TICK trace interval
 TICK_POLL_INTERVAL = float(os.environ.get("TICK_POLL_INTERVAL", "30"))
 
