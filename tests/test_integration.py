@@ -83,9 +83,6 @@ def set_controller_config(monkeypatch):
     # Client tokens for calls to the RAP API (controller webapp)
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
 
-    # Special case for the RAP API v2 initiative.
-    monkeypatch.setattr("controller.create_or_update_jobs.SKIP_CANCEL_FOR_BACKEND", "")
-
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
@@ -261,6 +258,12 @@ def test_integration(
         status=200,
         json={"results": [job_request_1, job_request_2]},
     )
+
+    # Call RAP API to cancel the job from the first job request
+    cancel_response = cancel_job_via_api(
+        live_server, headers, job_request_1["identifier"], "test_cancellation_ehrql"
+    )
+    assert cancel_response["count"] == 1
 
     # Call RAP API to create the jobs for this new job request
     create_response = create_jobs_via_api(live_server, headers, job_request_2)
@@ -487,6 +490,22 @@ def create_jobs_via_api(live_server, headers, job_request_dict):
 
     response = requests.post(
         live_server + "/controller/v1/rap/create/",
+        json.dumps(post_data),
+        headers=headers,
+    )
+    return response.json()
+
+
+def cancel_job_via_api(live_server, headers, rap_id, action):
+    """Do a request to the RAP API to cancel an action in a RAP."""
+
+    post_data = {
+        "rap_id": rap_id,
+        "actions": [action],
+    }
+
+    response = requests.post(
+        live_server + "/controller/v1/rap/cancel/",
         json.dumps(post_data),
         headers=headers,
     )
