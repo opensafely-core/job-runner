@@ -29,6 +29,10 @@ Assume we have a server correctly configured by the [sysadmin](https://github.co
 tooling. This will ensure that Dokku is installed and configured with the
 necessary plugins and that a `rap-controller` user has been created.
 
+We also assume an appropriate "backups" volume has been configured and
+mounted at `/mnt/volume_lon1_02` with regular snapshots externally
+configured.
+
 First we create the app and do some basic configuration:
 ```bash
 dokku apps:create rap-controller
@@ -45,6 +49,9 @@ dokku checks:disable rap-controller service
 sudo mkdir -p /var/lib/dokku/data/storage/rap-controller
 sudo chown rap-controller:rap-controller /var/lib/dokku/data/storage/rap-controller
 dokku storage:mount rap-controller /var/lib/dokku/data/storage/rap-controller:/storage
+
+# Mount the backups directory
+dokku storage:mount rap-controller /mnt/volume_lon1_02/backups/rap-controller:/backups
 
 # Run app as correct user, both the deployed services and one-off commands
 dokku docker-options:add rap-controller deploy,run "--user=$(id -u rap-controller):$(id -g rap-controller)"
@@ -78,6 +85,7 @@ config=(
   DJANGO_DEBUG=False
   DJANGO_CONTROLLER_ALLOWED_HOSTS=controller.opensafely.org
   WORKDIR=/storage
+  BACKUPS_PATH=/backups
 
   # Comma-separated list of backends that the controller manages; these correspond to Backend slugs in job-server
   BACKENDS=tpp,test
