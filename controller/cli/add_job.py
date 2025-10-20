@@ -18,7 +18,7 @@ from controller.cli.utils import add_backend_argument
 from controller.create_or_update_jobs import create_jobs
 from controller.lib.database import find_where
 from controller.models import Job, random_id
-from controller.sync import job_request_from_remote_format
+from controller.webapp.views.validators.dataclasses import CreateRequest
 
 
 def main(
@@ -39,7 +39,7 @@ def main(
         repo_url = str(path)
     if not commit:
         commit = get_sha_from_remote_ref(repo_url, branch)
-    job_request = job_request_from_remote_format(
+    create_request = _make_create_request(
         dict(
             identifier=random_id(),
             sha=commit,
@@ -47,7 +47,6 @@ def main(
             workspace=dict(name=workspace, repo=repo_url, branch=branch),
             requested_actions=actions,
             force_run_dependencies=force_run_dependencies,
-            cancelled_actions=[],
             codelists_ok=True,
             backend=backend,
             created_by="controller",
@@ -56,14 +55,14 @@ def main(
         )
     )
     print("Submitting JobRequest:\n")
-    display_obj(job_request)
-    create_jobs(job_request)
-    jobs = find_where(Job, job_request_id=job_request.id)
+    display_obj(create_request)
+    create_jobs(create_request)
+    jobs = find_where(Job, job_request_id=create_request.id)
     print(f"Created {len(jobs)} new jobs:\n")
     for job in jobs:
         display_obj(job)
 
-    return job_request, jobs
+    return create_request, jobs
 
 
 def display_obj(obj):
@@ -74,6 +73,28 @@ def display_obj(obj):
     output = pprint.pformat(data)
     print(textwrap.indent(output, "  "))
     print()
+
+
+def _make_create_request(args_dict: dict) -> CreateRequest:
+    """
+    Construct an object suitable for passing to create_jobs
+    """
+    return CreateRequest(
+        id=str(args_dict["identifier"]),
+        backend=args_dict["backend"],
+        workspace=args_dict["workspace"]["name"],
+        repo_url=args_dict["workspace"]["repo"],
+        branch=args_dict["workspace"]["branch"],
+        commit=args_dict["sha"],
+        database_name=args_dict["database_name"],
+        requested_actions=args_dict["requested_actions"],
+        codelists_ok=args_dict["codelists_ok"],
+        force_run_dependencies=args_dict["force_run_dependencies"],
+        created_by=args_dict["created_by"],
+        project=args_dict["project"],
+        orgs=args_dict["orgs"],
+        original=args_dict,
+    )
 
 
 def add_parser_args(parser):
