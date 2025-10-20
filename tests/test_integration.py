@@ -93,7 +93,7 @@ def test_integration(
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
-    ensure_docker_images_present("ehrql:v1", "python")
+    ensure_docker_images_present("ehrql:v1", "python:v2")
 
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
