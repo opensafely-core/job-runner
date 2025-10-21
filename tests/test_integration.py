@@ -12,7 +12,6 @@ import requests
 
 import agent.main
 import controller.main
-import controller.sync
 from agent.executors import get_executor_api
 from common.schema import TaskType
 from controller.lib.database import find_where
@@ -127,13 +126,6 @@ def test_integration(
         "backend": "test",
     }
 
-    responses.add(
-        method="GET",
-        url="http://testserver/api/v2/job-requests/",
-        status=200,
-        json={"results": [job_request_1]},
-    )
-
     # START ON CONTROLLER; set up the expected controller config (and remove agent config)
     set_controller_config(monkeypatch)
 
@@ -144,11 +136,8 @@ def test_integration(
     # to be created
     assert create_response["count"] == 7
 
-    # Run sync to post updated jobs
-    controller.sync.sync()
-
-    # Check that expected number of pending jobs are created
-    jobs = get_synced_jobs(live_server, headers, [job_request_1["identifier"]])
+    # Check that expected number of pending jobs are created via status API
+    jobs = check_status_via_api(live_server, headers, [job_request_1["identifier"]])
     for job in jobs.values():
         assert job["status"] == "pending"
         assert job["status_code"] == "created"
@@ -157,7 +146,7 @@ def test_integration(
     # no active tasks yet
     assert not get_active_db_tasks()
 
-    # Execute one tick of the controller run loop and then sync
+    # Execute one tick of the controller run loop and then check via status API
     # The controller creates one runjob task, for the one action that has no
     # dependencies, and marks that job as running
     controller.main.handle_jobs()
@@ -168,10 +157,8 @@ def test_integration(
     # stage is None before the task has been picked up by the agent
     assert active_tasks[0].agent_stage is None
 
-    controller.sync.sync()
-
     # We should now have one running (initiated, i.e. task created) job and all others waiting on dependencies
-    jobs = get_synced_jobs(live_server, headers, [job_request_1["identifier"]])
+    jobs = check_status_via_api(live_server, headers, [job_request_1["identifier"]])
     # started_at should not change after job is first initiated
     started_at = jobs["generate_dataset"]["started_at"]
 
@@ -205,10 +192,8 @@ def test_integration(
     set_controller_config(monkeypatch)
     # Run the controller loop again to update the job status code
     controller.main.handle_jobs()
-    # sync again
-    controller.sync.sync()
     # still one running job (now prepared) and all others waiting on dependencies
-    jobs = get_synced_jobs(live_server, headers, [job_request_1["identifier"]])
+    jobs = check_status_via_api(live_server, headers, [job_request_1["identifier"]])
     assert_generate_dataset_dependency_running(jobs, "prepared")
 
     # AGENT
@@ -223,14 +208,12 @@ def test_integration(
     set_controller_config(monkeypatch)
     # Run the controller loop again to update the job status code
     controller.main.handle_jobs()
-    # sync again
-    controller.sync.sync()
     # still one running job (now executing) and all others waiting on dependencies
-    jobs = get_synced_jobs(live_server, headers, [job_request_1["identifier"]])
+    jobs = check_status_via_api(live_server, headers, [job_request_1["identifier"]])
     assert_generate_dataset_dependency_running(jobs, "executing")
 
     # Update the existing job request to mark a (not-started) job as cancelled, add a new job
-    # request to be run and then sync
+    # request to be run and then check status via API
     job_request_1["cancelled_actions"] = ["test_cancellation_ehrql"]
     job_request_2 = {
         "identifier": "87654321hgfedcba",
@@ -252,12 +235,6 @@ def test_integration(
         "orgs": ["org"],
         "backend": "test",
     }
-    responses.add(
-        method="GET",
-        url="http://testserver/api/v2/job-requests/",
-        status=200,
-        json={"results": [job_request_1, job_request_2]},
-    )
 
     # Call RAP API to cancel the job from the first job request
     cancel_response = cancel_job_via_api(
@@ -269,10 +246,8 @@ def test_integration(
     create_response = create_jobs_via_api(live_server, headers, job_request_2)
     assert create_response["count"] == 1
 
-    controller.sync.sync()
-
     # Execute one tick of the controller run loop again to pick up the
-    # cancelled job and the second job request and then sync
+    # cancelled job and the second job request and then check status via API
     # We now have 2 RUNJOB tasks (for generate_dataset, which is still executing,
     # and the new generate_dataset_with_dummy_data, which has no dependencies)
     # The cancelled job is now marked as cancelled, but no CANCELJOB task is created,
@@ -285,9 +260,8 @@ def test_integration(
     # new task has no stage as it hasn't been picked up by agent yet
     assert active_tasks[1].agent_stage is None
 
-    # sync to confirm updated jobs have been posted back to job-server
-    controller.sync.sync()
-    jobs = get_synced_jobs(
+    # check status
+    jobs = check_status_via_api(
         live_server, headers, [job_request_1["identifier"], job_request_2["identifier"]]
     )
     assert jobs["generate_dataset"]["status"] == "running"
@@ -335,8 +309,7 @@ def test_integration(
     for task_id, job_id in zip(task_ids, expected_job_ids):
         assert task_id.startswith(job_id)
 
-    controller.sync.sync()
-    jobs = get_synced_jobs(
+    jobs = check_status_via_api(
         live_server, headers, [job_request_1["identifier"], job_request_2["identifier"]]
     )
     for action in ["generate_dataset", "generate_dataset_with_dummy_data"]:
@@ -369,8 +342,7 @@ def test_integration(
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 1
 
-    controller.sync.sync()
-    jobs = get_synced_jobs(
+    jobs = check_status_via_api(
         live_server, headers, [job_request_1["identifier"], job_request_2["identifier"]]
     )
     assert jobs["analyse_data_ehrql"]["status"] == "running"
@@ -395,8 +367,7 @@ def test_integration(
     active_tasks = get_active_db_tasks()
     assert not len(active_tasks)
 
-    controller.sync.sync()
-    jobs = get_synced_jobs(
+    jobs = check_status_via_api(
         live_server, headers, [job_request_1["identifier"], job_request_2["identifier"]]
     )
     cancellation_job = jobs.pop("test_cancellation_ehrql")
@@ -453,7 +424,7 @@ def test_integration(
     assert len(loop_spans) > 1
 
 
-def get_synced_jobs(live_server, headers, job_request_ids):
+def check_status_via_api(live_server, headers, job_request_ids):
     # Do a request to the RAP API & get the job info from there for us to verify
     # Nb. responses.add_passthrough has already been enabled for this url
     post_data = {"rap_ids": job_request_ids}

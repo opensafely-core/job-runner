@@ -78,7 +78,7 @@ def test_start_thread_error_quiet(request, caplog):
         # measure time called
         t.append(time.time())
         if len(t) < 3:
-            raise QuietException(f"sync error {len(t)}")
+            raise QuietException(f"some error {len(t)}")
         else:
             raise SystemExit  # bypass our exception handling and actually exit the thread
 
@@ -101,6 +101,6 @@ def test_start_thread_error_quiet(request, caplog):
     assert startup_log.threadName == "MainThread"
 
     for i, r in enumerate(caplog.records[1:]):
-        assert r.message == f"sync error {i + 1}"
+        assert r.message == f"some error {i + 1}"
         assert r.threadName == request.node.name
         assert r.exc_info is None

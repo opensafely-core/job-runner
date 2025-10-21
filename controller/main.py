@@ -587,8 +587,9 @@ def get_job_resource_weight(job, weights=None):
 
 
 def update_job(job):
-    # The cancelled field is written by the sync thread and we should never update it. The sync thread never updates
-    # any other fields after it has created the job, so we're always safe to modify them.
+    # The cancelled field is written by the webapp RAP API views and we should
+    # never update it. The views never update any other fields after job
+    # creation, so we're always safe to modify them.
     update(job, exclude_fields=["cancelled"])
 
 

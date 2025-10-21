@@ -301,8 +301,7 @@ def create(request, *, token_backends, request_obj: CreateRequest):
         # various job request properties, and then calls validate_repo_and_commit
         # Everything other than validate_repo_and_commit should be covered by the jsonschema
         # validation in CreateRequest and so is not required now. It is left in for now
-        # while the existing controller sync loop is running in parallel to this method of
-        # creating jobs
+        # as technical debt from removing the controller sync loop.
         new_job_count = create_jobs(request_obj)
         log.info(f"Created {new_job_count} new jobs")
 
