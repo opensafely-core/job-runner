@@ -114,3 +114,25 @@ Finally we can apply the configuration and deploy the app:
 dokku config:set rap-controller "${config[@]}" "${secrets[@]}"
 dokku git:from-image rap-controller ghcr.io/opensafely-core/job-runner:latest
 ```
+
+
+## Restoring database backups
+
+Log in to Digital Ocean and navigate to "Backups & Snapshots >
+Snapshots > Volumes":
+https://cloud.digitalocean.com/images/snapshots/volumes
+
+You should see (among other things) a number of timestamped SnapShooter snapshots of
+`volume-lon1-02`. Find the one you to want to restore from and click
+"More > Create Volume".
+
+You can then follow the standard instructions for attaching this volume
+to a Droplet and mounting it. Most likely you'll want to attach it to
+the Droplet running the RAP Controller, but it doesn't have to be.
+
+Once the volume is mounted you should be able to extract the single,
+timestamped SQLite file from it. If you don't know what to do with this
+file then you're probably not the person to be doing the restore :)
+
+Don't forget to unmount, detatch and destroy the volume afterwards so we
+don't pay for it indefinitely.
