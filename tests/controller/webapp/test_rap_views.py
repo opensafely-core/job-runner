@@ -249,7 +249,7 @@ def test_cancel_view(db, client, monkeypatch):
     assert response.status_code == 200
     response_json = response.json()
     assert response_json == {
-        "success": "ok",
+        "result": "Success",
         "details": "1 actions cancelled",
         "count": 1,
     }, response
@@ -287,7 +287,7 @@ def test_cancel_view_multiple(db, client, monkeypatch):
     assert response.status_code == 200
     response_json = response.json()
     assert response_json == {
-        "success": "ok",
+        "result": "Success",
         "details": "3 actions cancelled",
         "count": 3,
     }, response

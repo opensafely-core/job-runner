@@ -190,7 +190,7 @@ paths:
                 schema:
                   type: object
                   properties:
-                    success:
+                    result:
                       type: string
                     details:
                       type: string
@@ -213,7 +213,7 @@ paths:
                 schema:
                   type: object
                   properties:
-                    success:
+                    result:
                       type: string
                     details:
                       type: string
@@ -312,7 +312,7 @@ paths:
                 schema:
                   type: object
                   properties:
-                    success:
+                    result:
                       type: string
                     details:
                       type: string
@@ -323,7 +323,7 @@ paths:
                   success:
                     description: 2 actions successfully cancelled
                     value:
-                      success: ok
+                      result: Success
                       details: 2 actions cancelled
                       count: 2
           400:

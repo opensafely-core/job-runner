@@ -199,7 +199,7 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
     cancelled_count = len(request_obj.actions)
     return JsonResponse(
         {
-            "success": "ok",
+            "result": "Success",
             "details": f"{len(request_obj.actions)} actions cancelled",
             "count": cancelled_count,
         },
