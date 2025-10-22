@@ -196,16 +196,21 @@ JOB_SERVER_ENDPOINT=https://localhost:8000/api/v2/
 In 2 terminal windows, run:
 
 In job-server repo:
-1) Run the server: `just run`
+1) Run the server and the rap_status_service (to fetch job updates): `just run-all`
 
 In job-runner repo:
 2) Run web app, agent and controller: `just run`
 
 
 In your terminals you should see:
-1) job-server: /api/v2/job-requests is called repeatedly (by the controller sync loop)
-2) controller web app: /test/tasks/ is called every 2 seconds (by the agent)
-   Agent and Controller start up
+1) job-server:
+     - web server starts up
+     - rap status service logs calls to rap/status every 60s (or as frequently as configured by
+       `RAP_API_POLL_INTERVAL` in `job-server/.env`)
+2) controller:
+    - /test/tasks/ is called every 2 seconds (by the agent)
+    - /controller/v1/rap/status/ is called by jobserver every 60s
+    - Agent and Controller start up
 
 
 #### Submit a job
