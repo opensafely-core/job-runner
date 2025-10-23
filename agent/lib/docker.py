@@ -154,6 +154,19 @@ def image_exists_locally(image_name_and_version):
         raise  # pragma: no cover
 
 
+def ensure_docker_sha_present(full_image, sha):
+    """Pull the image sha via the proxy
+
+    Technically, we don't need the label, as the sha overrides it. However, its
+    a useful bit of metadata to have on the locally tagged image.
+    """
+    proxy_image = full_image.replace("ghcr.io", "docker-proxy.opensafely.org")
+    with_sha = f"{proxy_image}@{sha}"
+    docker(["pull", with_sha], check=True)
+    # tag as official image, so we can run via ghcr.io name.
+    docker(["image", "tag", with_sha, full_image], check=True)
+
+
 def delete_container(name):
     try:
         docker(

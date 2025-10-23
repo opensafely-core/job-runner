@@ -10,14 +10,22 @@ from agent.executors import local, volumes
 from agent.lib import docker
 from common.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from common.lib import datestr_to_ns_timestamp
+from controller.lib.docker import get_current_image_sha
 from tests.factories import ensure_docker_images_present, metrics_factory
 
 
-@pytest.fixture
-def job_definition(request, test_repo):
+pytestmark = pytest.mark.needs_ghcr
+
+IMAGE_SHA = get_current_image_sha("busybox:latest")
+
+
+@pytest.fixture(params=[True, False], ids=["image_sha", "no_image_sha"])
+def job_definition(request, test_repo, responses):
     """Basic simple action with no inputs as base for testing."""
     if "needs_docker" in list(m.name for m in request.node.iter_markers()):
         ensure_docker_images_present("busybox")
+
+    responses.add_passthru("https://ghcr.io/")
 
     # replace parameterized tests [/] chars
     clean_name = request.node.name.replace("[", "_").replace("]", "_")
@@ -29,8 +37,8 @@ def job_definition(request, test_repo):
         workspace="test",
         action="action",
         created_at=int(time.time()),
-        image="ghcr.io/opensafely-core/busybox",
-        image_sha=None,
+        image="ghcr.io/opensafely-core/busybox:latest",
+        image_sha=IMAGE_SHA if request.param else None,
         args=["true"],
         inputs=[],
         input_job_ids=[],
@@ -251,7 +259,9 @@ def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition):
 
 
 @pytest.mark.needs_docker
-def test_prepare_no_image(docker_cleanup, job_definition):
+def test_prepare_no_image(docker_cleanup, job_definition, request):
+    if job_definition.image_sha:
+        pytest.skip("test only valid without image_sha")
     job_definition.image = "invalid-test-image"
     api = local.LocalDockerAPI()
 
@@ -1200,9 +1210,8 @@ def test_get_status_timeout(tmp_work_dir, job_definition, monkeypatch):
     with pytest.raises(local.ExecutorRetry) as exc:
         api.get_status(job_definition, timeout=11)
 
-    assert (
-        str(exc.value)
-        == "docker timed out after 11s inspecting container os-job-test_get_status_timeout"
+    assert str(exc.value).startswith(
+        "docker timed out after 11s inspecting container os-job-test_get_status_timeout"
     )
 
 

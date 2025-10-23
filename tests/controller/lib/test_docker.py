@@ -4,6 +4,9 @@ import requests
 from controller.lib import docker
 
 
+pytestmark = pytest.mark.needs_ghcr
+
+
 def test_dockerhub_api_refresh_functional(responses, monkeypatch):
     responses.add_passthru("https://ghcr.io/")
 
