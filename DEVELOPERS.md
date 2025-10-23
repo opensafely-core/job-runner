@@ -121,6 +121,10 @@ git clone git@github.com:opensafely/test-age-distribution.git ../test-age-distri
 just add-job ../test-age-distribution run_all --backend test
 ```
 
+> [!WARNING]
+> These commands should only be used in your local job-runner
+
+
 In order to pick up and execute the job, you need to run the three job-runner
 components.
 
@@ -344,38 +348,6 @@ The runner takes care of executing dependencies in order. By default, it skips
 re-running a dependency whose previous run produced output that still exists in
 the production environment.  The runner also reports status back to the job
 server, redacting possibly-sensitive information.
-
-The runner is bundled as part of the [opensafely-cli][cli] tool so users
-can test their actions locally. The bundled version is frozen at v2.75.3 as
-later versions of job-runner do not provide `local_run`, see
-[this opensafely-cli ticket][cli-ticket] for more information.
-
-[cli]: https://github.com/opensafely-core/opensafely-cli
-[cli-ticket]: https://github.com/opensafely-core/opensafely-cli/issues/330
-
-### Job structure
-
-The job server serves jobs as JSON. See the [job-server serializer](https://github.com/opensafely-core/job-server/blob/5f490d55ad1e6fd187d6da37d0907200550052ce/jobserver/api/jobs.py#L227)
-and the [job-runner converter](https://github.com/opensafely-core/job-runner/blob/main/controller/sync.py#L126) for more details.
-
-Some important fields include:
-
-```json
-{
-    ...
-    "database_name": "default"
-    "workspace": {
-        "name": "my workspace",
-        "repo": "https://github.com/opensafely/job-integration-tests",
-        "branch": "main",
-    }
-    ...
-}
-```
-Valid values for `"database_name"` can be found in [VALID_DATABASE_NAMES][common-config],
-and are currently "default", and "include_t1oo".
-
-[common-config]: https://github.com/opensafely-core/job-runner/blob/main/jobrunner/config/common.py
 
 ### Consuming jobs
 
@@ -606,34 +578,6 @@ The [test backend](https://github.com/opensafely-core/backend-server/tree/main/b
 a test version of an OpenSAFELY backend which has no access to patient data, but can be used to
 schedule and run jobs in a production-like environment.
 
-### Using the CLI
-
-You will need ssh access to dokku4 in order to add jobs using the CLI.
-
-To view the logs of the jobs, you will also need ssh access to test.opensafely.org.
-This currently requires the same permissions as any non-test backend; see the
-[developer permissions documentation](https://bennett.wiki/products/developer-permissions-log/#platform-developerstesters) for further details.
-
-To add a job, ssh to dokku4 and run:
-```
-dokku run rap-controller python manage.py add-job https://github.com/opensafely/test-age-distribution run_all --backend test
-```
-
-You will see the output of the newly created job (note that if it returns `'state': 'succeeded'`
-in the displayed json, the job has already run successfully on the test backend. Use `-f` to
-force dependencies to re-run).
-
-
-The jobrunner services are already running in the background on the test backend, so
-jobs should be picked up and run automatically. Check the job logs to see the progress of your
-job. From the output of `just add-job`, find the new job's `id` value.
-
-Now check the logs for this job:
-```
-ssh <your-username>@test.opensafely.org
-sudo su - opensafely
-just jobrunner/logs-id <your-job-id>
-```
 
 ### Using job-server
 
