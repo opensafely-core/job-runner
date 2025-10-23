@@ -8,6 +8,11 @@
   - [Testing](#testing)
 - [Operating Principles](#operating-principles)
 - [Architecture](#architecture)
+  - [The RAP Agent](#the-rap-agent)
+  - [The RAP Controller](#the-rap-controller)
+  - [The RAP Controller APIs](#the-rap-controller-apis)
+  - [Configuration](#configuration)
+  - [Job State](#job-state)
 - [Running jobs on the test backend](#running-jobs-on-the-test-backend)
 - [job-runner docker image](#job-runner-docker-image)
 - [Database schema and migrations](#database-schema-and-migrations)
@@ -16,7 +21,6 @@
   - [Turn manual database maintenance mode on/off](#turn-manual-database-maintenance-mode-onoff-on-a-specific-backend)
   - [Pause a backend](#pause-a-backend)
   - [Prepare for reboot](#prepare-for-reboot)
-- [RAP API](#rap-api)
 
 
 ## Local development
@@ -108,6 +112,9 @@ docker pull ghcr.io/opensafely-core/r:latest
 
 ### Running jobs locally
 
+> [!WARNING]
+> The `add-job` command should only be used in local development
+
 Adding jobs locally is most easily done with the `just add-job` command, which
 calls `jobrunner.cli.controller.add_job` with a study repo, an action to run, and
 a backend to run it on e.g.
@@ -120,10 +127,6 @@ As well as URLs this will accept paths to local git repos e.g.
 git clone git@github.com:opensafely/test-age-distribution.git ../test-age-distribution
 just add-job ../test-age-distribution run_all --backend test
 ```
-
-> [!WARNING]
-> These commands should only be used in your local job-runner
-
 
 In order to pick up and execute the job, you need to run the three job-runner
 components.
@@ -213,7 +216,7 @@ In your terminals you should see:
        `RAP_API_POLL_INTERVAL` in `job-server/.env`)
 2) controller:
     - /test/tasks/ is called every 2 seconds (by the agent)
-    - /controller/v1/rap/status/ is called by jobserver every 60s
+    - /controller/v1/rap/status/ is called by job-server every 60s
     - Agent and Controller start up
 
 
@@ -324,8 +327,7 @@ in separate docker containers, and adds and runs a job.
 
 ## Operating principles
 
-The project retrieves jobs to be run from an [OpenSAFELY job
-server](https://github.com/opensafely-core/job-server) by polling the job server.
+The project creates jobs to be run based on requests made by [OpenSAFELY job-server](https://github.com/opensafely-core/job-server) via the [RAP API](#rap-api).
 
 Jobs belong to a `workspace`. This describes the git repo containing the
 OpenSAFELY-compliant project under execution and the git branch.
@@ -344,10 +346,9 @@ An action can define `outputs`; these are persisted on disk and made available
 to subsequent actions in the workspace, and to users who have permission to log
 into the server and view the raw files.
 
-The runner takes care of executing dependencies in order. By default, it skips
+The RAP controller takes care of executing dependencies in order. By default, it skips
 re-running a dependency whose previous run produced output that still exists in
-the production environment.  The runner also reports status back to the job
-server, redacting possibly-sensitive information.
+the production environment. The RAP controller reports status updates on request from the job-server, redacting possibly-sensitive information.
 
 ### Consuming jobs
 
@@ -376,8 +377,7 @@ When a job is found, the following happens:
   * The RAP Agent polls the RAP Controller's queue for tasks to be run &
     runs everything it receives
   * On completion, a status code and message are reported back to the RAP Controller via
-    the RAP Controller API. The RAP Controller will then report back to the job-server.
-    On completion, non-sensitive information about the outcome of the job is posted back to job-server. If the
+    the Controller Task API. Job-server polls the RAP Controller (via the RAP API) for job status updates. If the
     job failed, an error message is reported, and a user with requisite permissions can log into the
     production environment and examine the job logs in [Airlock](https://docs.opensafely.org/outputs/viewing-with-airlock/#log-files) for the full error.
 
@@ -417,7 +417,7 @@ The project consists of two main components which are intended to run entirely s
 - the **RAP [agent](agent/)**: executes tasks
 - the **RAP [controller](controller/)**:  schedules tasks
 
-The RAP agent communicates with the RAP controller via an [http API (a Django app)](controller.webapp/).
+The RAP agent communicates with the RAP controller via an [http API (a Django app)](controller.webapp/), using the [Controller Task API](#controller-task-api)
 
 A *task* is an activity that the controller schedules and the agent executes.
 Tasks can (currently) take 3 forms:
@@ -442,29 +442,38 @@ together as a [service](./agent/service.py).
 
 ### The RAP Controller
 
-The RAP Controller has two main entrypoints:
+The RAP Controller has one entrypoint:
 
 - [controller.main](./controller/main.py) polls its database for
     active jobs and takes appropriate action. This involves creating RUNJOB tasks for
     new jobs, creating CANCELJOB tasks for jobs which have been cancelled, retrieving
     associated tasks for running jobs and updating their status.
-- [controller.sync](./controller/sync.py) handles all communication between the job-server and the RAP Controller. It polls the job-server for active JobRequests, updates its local Jobs table accordingly, and then posts back the details of all Jobs associated with the active JobRequests it received.
-The bulk of the work here is done by the
-[create_or_update_jobs](./controller/create_or_update_jobs.py) module.
+
+Jobs are created via the [RAP API](#rap-api) `create` endpoint and the [create_or_update_jobs](./controller/create_or_update_jobs.py) module does the bulk of the work.
 
 Only the Controller has access to its database of Jobs and Tasks.
 
-### The RAP Controller API
+### The RAP Controller APIs
 
 This is a very simple [Django application](./controller.webapp/) that allows external
-applications and users (currently just the Agent) to communicate with the Controller.
+applications and users to communicate with the Controller. Users of the RAP Controller APIs may be Agents inside backends (which consume the [Controller Task API](#controller-task-api)) or external clients like job-server (which consume the [RAP API](#rap-api)).
 
-It has two endpoints, and uses the same backend-specific token from job-server to
-authenticate. These endpoints are essentially view wrappers around methods in the
+#### Controller Task API
+The Controller Task API has two endpoints, and uses a backend-specific token to authenticate. These endpoints are essentially view wrappers around methods in the
 controller's [tasks api module](./controller/task_api.py):
 
 - `/<backend>/tasks/`: returns all active tasks for <backend>
 - `/<backend>/task/update/`: receives information about a task and updates the controller database
+
+#### RAP API
+The RAP API is used by non-agent clients to communicate with the RAP Controller. It has four endpoints which are defined in the [rap api views](./controller/webapp/views/rap_views.py) module. They are authenticated by the tokens received as part of job-server's request.
+
+- `/backend/status/`: returns information about the status of backends. This endpoint is polled by job-server every minute.
+- `/rap/cancel/`: cancels actions within a specific job request.
+- `/rap/create/`: creates jobs for a job request.
+- `/rap/status/`: returns current status of jobs in the controller database for the requested RAP IDs. This endpoint is polled by job-server every minute.
+
+We use the OpenAPI specification to describe the API. See the [RAP API](./controller/webapp/api_spec/RAP_API_DEVELOPERS.md) documentation for more details.
 
 
 ### Configuration
@@ -583,6 +592,13 @@ schedule and run jobs in a production-like environment.
 
 If you have an account on <jobs.opensafely.org> with relevant permissions, you can select "Test" as the backend when running jobs. This will exercise the entire user interaction, using
 the test backend instead of a production backend, and results of the jobs will be reported back to job-server.
+
+### Viewing logs in the server
+
+To view logs for running jobs, refer to [the playbook](https://github.com/opensafely-core/backend-server/blob/main/playbook.md).
+
+You’ll need SSH access to <test.opensafely.org> to inspect job logs. This access currently requires the same permissions as any non-test backend; see the
+[developer permissions documentation](https://bennett.wiki/products/developer-permissions-log/#platform-developerstesters) for further details.
 
 
 ## job-runner docker image
@@ -710,8 +726,3 @@ $dokku4 dokku run rap-controller python manage.py prepare_for_reboot --backend t
 == READY TO REBOOT ==
 Safe to reboot now
 ```
-
-## RAP API
-
-The RAP API is used by non-agent clients to communicate with the RAP Controller. We use the
-OpenAPI specification to describe the API. See the [RAP API](./controller/webapp/api_spec/RAP_API_DEVELOPERS.md) documentation for more details.
