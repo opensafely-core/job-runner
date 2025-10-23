@@ -853,6 +853,7 @@ def test_job_definition_defaults(db):
         },
         "id": "test_job",
         "image": "ghcr.io/opensafely-core/python:v2",
+        "image_sha": None,
         "input_job_ids": [],
         "inputs": [],
         "rap_id": "test_job_request",
