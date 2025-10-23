@@ -42,13 +42,8 @@ CONTROLLER_TASK_API_ENDPOINT=http://localhost:3000/
 
 # USED BY CONTROLLER ONLY
 #########################
-# The endpoint to poll for jobs
-# If using a local job-server, running on port 8000:
-JOB_SERVER_ENDPOINT=http://localhost:8000/api/v2/
-
-# Credentials for authenticating with job server
+# Credentials for authenticating Agents
 # Note this variable is per-backend i.e. <BACKEND>_JOB_SERVER_TOKEN for each backend
-# If using a local jobserver, obtain the token from http://localhost:8000/staff/backends
 TEST_JOB_SERVER_TOKEN=pass
 
 # Credentials for clients (e.g. job-server) to authenticate with the controller APIs
