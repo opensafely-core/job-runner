@@ -23,6 +23,7 @@ from common.lib import ns_timestamp_to_datetime
 from common.lib.log_utils import configure_logging, set_log_context
 from common.schema import JobTaskResults
 from controller import config, tracing
+from controller.lib import docker
 from controller.lib.database import (
     exists_where,
     find_where,
@@ -331,6 +332,16 @@ def save_results(job, results, timestamp_ns):
 
 
 def job_to_job_definition(job, task_id, image_sha=None):
+    """Generate the JobDefinition for a job.
+
+    This is the json payload for task.definition for job tasks. Care needs to
+    be taken changing this, as we need to think about pre-existing jobs with
+    older formats.
+
+    Note: image_sha is only required for RUNJOB tasks, and takes a network call
+    to resolve. Rather than do the network call here, we let the caller handle
+    it and pass it in.
+    """
     env = {"OPENSAFELY_BACKEND": job.backend}
 
     # for the job-definition, we split out the image from the rest of the args,
@@ -608,6 +619,7 @@ def get_attributes_for_job_task(job):
 
 
 def create_task_for_job(job):
+    """Create a runjob task."""
     previous_tasks = find_where(
         Task, id__glob=f"{job.id}-*", type=TaskType.RUNJOB, backend=job.backend
     )
@@ -616,11 +628,15 @@ def create_task_for_job(job):
     task_number = len(previous_tasks) + 1
     # Zero-pad the task number so tasks sort lexically
     task_id = f"{job.id}-{task_number:03}"
+    # resolve the docker image sha here, as only a RUNJOB task needs it
+    image_sha = docker.get_current_image_sha(job.action_args[0])
+
     return Task(
         # Zero-pad the task number so tasks sort lexically
         id=task_id,
         type=TaskType.RUNJOB,
-        definition=job_to_job_definition(job, task_id).to_dict(),
+        # pass in the sha we've resolved
+        definition=job_to_job_definition(job, task_id, image_sha).to_dict(),
         backend=job.backend,
         attributes=get_attributes_for_job_task(job),
     )

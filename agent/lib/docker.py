@@ -333,6 +333,14 @@ def image_exists_locally(image_name_and_version):
         raise  # pragma: no cover
 
 
+def ensure_docker_sha_present(full_image, sha):
+    proxy_image = full_image.replace("ghrc.io", "docker-proxy.opensafely.org")
+    # pull via the proxy
+    docker(["pull", "--quiet", f"{proxy_image}@{sha}"], check=True)
+    # tag as official image
+    docker(["image", "tag", proxy_image, full_image], check=True)
+
+
 def delete_container(name):
     try:
         docker(
