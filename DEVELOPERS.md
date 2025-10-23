@@ -190,12 +190,14 @@ Ensure that the following variables are set in your `.env` file:
 # TEST_JOB_SERVER_TOKEN is used by the Controller when communicating with job-server
 CONTROLLER_TASK_API_TOKEN=<token obtained from local job-server for the test backend>
 TEST_JOB_SERVER_TOKEN=<token obtained from local job-server for the test backend>
+# This is a comma-separated list of tokens that can access the backend called "test" using
+# The RAP API; it should correspond to `RAP_API_TOKEN` inyour local job-server.
+TEST_CLIENT_TOKENS=<tokens>
 
 # These are all set by default in dotenv-sample
 BACKENDS=test
 BACKEND=test
 CONTROLLER_TASK_API_ENDPOINT=http://localhost:3000/
-JOB_SERVER_ENDPOINT=https://localhost:8000/api/v2/
 ```
 
 #### Run all the things
