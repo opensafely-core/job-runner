@@ -29,7 +29,8 @@ class JobDefinition:
     workspace: str  # the workspace to run the job in
     action: str  # the name of the action that the job is running
     created_at: int  # UNIX timestamp, time job created
-    image: str  # the Docker image to run
+    image: str  # the name and label of the docker image
+    image_sha: str  # the specific sha of the named docker image to run.
     args: list[str]  # the arguments to pass to the Docker container
     env: Mapping[str, str]  # the environment variables to set for the Docker container
     inputs: list[

@@ -30,6 +30,7 @@ def job_definition(request, test_repo):
         action="action",
         created_at=int(time.time()),
         image="ghcr.io/opensafely-core/busybox",
+        image_sha=None,
         args=["true"],
         inputs=[],
         input_job_ids=[],
