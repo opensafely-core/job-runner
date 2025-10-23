@@ -330,12 +330,15 @@ def save_results(job, results, timestamp_ns):
     set_code(job, code, message, results=results, task_timestamp_ns=timestamp_ns)
 
 
-def job_to_job_definition(job, task_id):
+def job_to_job_definition(job, task_id, image_sha=None):
     env = {"OPENSAFELY_BACKEND": job.backend}
 
-    # Prepend registry name
+    # for the job-definition, we split out the image from the rest of the args,
+    # hence the pop()
     action_args = job.action_args
     image = action_args.pop(0)
+
+    # Prepend registry name
     full_image = f"{common_config.DOCKER_REGISTRY}/{image}"
 
     if image.startswith("stata-mp"):
@@ -383,6 +386,7 @@ def job_to_job_definition(job, task_id):
         action=job.action,
         created_at=job.created_at,
         image=full_image,
+        image_sha=image_sha,
         args=action_args,
         env=env,
         inputs=[],
