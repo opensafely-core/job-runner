@@ -535,6 +535,7 @@ def get_job_metadata(
     job_metadata["created_at"] = job_definition.created_at
     job_metadata["completed_at"] = int(time.time())
     job_metadata["docker_image_id"] = container_metadata.get("Image")
+    job_metadata["expected_image_id"] = job_definition.image_sha
     # convert exit code to str so 0 exit codes get logged
     job_metadata["exit_code"] = str(container_metadata.get("State", {}).get("ExitCode"))
     job_metadata["oom_killed"] = container_metadata.get("State", {}).get("OOMKilled")

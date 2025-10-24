@@ -450,6 +450,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
         "completed_at",
         "commit",
         "docker_image_id",
+        "expected_image_id",
         "status_message",
         "outputs",
         "job_definition_id",
