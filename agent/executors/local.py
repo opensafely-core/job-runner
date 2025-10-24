@@ -159,6 +159,7 @@ class LocalDockerAPI(ExecutorAPI):
                 job_definition.image, job_definition.image_sha
             )
 
+        # TODO: remove once new definition migrated
         elif not docker.image_exists_locally(job_definition.image):
             # old world: we run at whatever sha has been
             # manually pulled, but we check if a version of it
@@ -216,6 +217,7 @@ class LocalDockerAPI(ExecutorAPI):
 
         if job_definition.image_sha:
             image = f"{job_definition.image}@{job_definition.image_sha}"
+        # TODO: remove once new definition migrated
         else:
             image = job_definition.image
 
