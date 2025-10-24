@@ -517,7 +517,7 @@ def get_job_metadata(
     # start with calculated results
     job_metadata = {**results_metadata}
     job_metadata["job_definition_id"] = job_definition.id
-    job_metadata["job_definition_request_id"] = job_definition.rap_id
+    job_metadata["job_definition_rap_id"] = job_definition.rap_id
     job_metadata["task_id"] = job_definition.task_id
     job_metadata["created_at"] = job_definition.created_at
     job_metadata["completed_at"] = int(time.time())
@@ -888,7 +888,7 @@ def write_log_file(job_definition, job_metadata, filename, excluded):
 # Keys of fields to log in log file
 KEYS_TO_LOG = [
     "job_definition_id",
-    "job_definition_request_id",
+    "job_definition_rap_id",
     "commit",
     "docker_image_id",
     "exit_code",
