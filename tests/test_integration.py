@@ -420,10 +420,10 @@ def test_integration(
     assert len(loop_spans) > 1
 
 
-def check_status_via_api(live_server, headers, job_request_ids):
+def check_status_via_api(live_server, headers, rap_ids):
     # Do a request to the RAP API & get the job info from there for us to verify
     # Nb. responses.add_passthrough has already been enabled for this url
-    post_data = {"rap_ids": job_request_ids}
+    post_data = {"rap_ids": rap_ids}
     response = requests.post(
         live_server + "/controller/v1/rap/status/",
         json.dumps(post_data),

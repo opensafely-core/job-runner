@@ -200,7 +200,7 @@ def test_set_job_span_metadata_no_attrs(db):
         job,
     )
     assert span.attributes["job"] == job.id
-    assert span.attributes["job_request"] == job.job_request_id
+    assert span.attributes["job_request"] == job.rap_id
     assert span.attributes["workspace"] == job.workspace
 
 
@@ -222,7 +222,7 @@ def test_set_job_span_metadata_attrs(db):
     )
 
     assert span.attributes["job"] == job.id
-    assert span.attributes["job_request"] == job.job_request_id
+    assert span.attributes["job_request"] == job.rap_id
     assert span.attributes["workspace"] == job.workspace
     assert span.attributes["action"] == job.action  # not "should be ignored"
     assert span.attributes["custom_attr"] == "I am the custom class"

@@ -196,7 +196,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
 
     timestamp = time.time()
     job = Job(
-        job_request_id=job_request.id,
+        rap_id=job_request.id,
         state=State.PENDING,
         status_code=StatusCode.CREATED,
         # time in nanoseconds
@@ -296,10 +296,10 @@ def insert_into_database(job_request, jobs):
 
 
 def related_jobs_exist(job_request):
-    return exists_where(Job, job_request_id=job_request.id)
+    return exists_where(Job, rap_id=job_request.id)
 
 
-def set_cancelled_flag_for_actions(job_request_id, actions):
+def set_cancelled_flag_for_actions(rap_id, actions):
     # It's important that we modify the Jobs in-place in the database rather than retrieving, updating and re-writing
     # them. If we did the latter then we would risk dirty writes if the run thread modified a Job while we were
     # working.
@@ -309,6 +309,6 @@ def set_cancelled_flag_for_actions(job_request_id, actions):
             "cancelled": True,
             "completed_at": int(time.time()),
         },
-        job_request_id=job_request_id,
+        rap_id=rap_id,
         action__in=actions,
     )

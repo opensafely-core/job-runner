@@ -74,7 +74,7 @@ def trace_job_attributes(job: JobDefinition):
 
     attrs = dict(
         job=job.id,
-        job_request=job.job_request_id,
+        job_request=job.rap_id,
         workspace=job.workspace,
         repo_url=repo_url,
         commit=commit,

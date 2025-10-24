@@ -109,9 +109,9 @@ def setup_jobs(db):
         # rap/create/ example1, jobs already created
         ("abcdefgh23456789", ["action1"], "test"),
     ]
-    for job_request_id, actions, backend in example_jobs:
-        if not database.exists_where(Job, job_request_id=job_request_id):
-            job_req = job_request_factory(id=job_request_id)
+    for rap_id, actions, backend in example_jobs:
+        if not database.exists_where(Job, rap_id=rap_id):
+            job_req = job_request_factory(id=rap_id)
             for action in actions:
                 job_factory(
                     state=State.PENDING,

@@ -239,7 +239,7 @@ def trace_attributes(job, results=None):
     attrs = {
         "job.backend": job.backend,
         "job.id": job.id,
-        "job.request": job.job_request_id,
+        "job.request": job.rap_id,
         "job.workspace": job.workspace,
         "job.action": job.action,
         "job.commit": job.commit,
@@ -290,7 +290,7 @@ if __name__ == "__main__":
         state=State.PENDING,
         status_code=StatusCode.CREATED,
         status_code_updated_at=int(timestamp * 1e9),
-        job_request_id="request_id",
+        rap_id="request_id",
         workspace="workspace",
         action="action name",
         run_command="ehrql:latest cmd opt",

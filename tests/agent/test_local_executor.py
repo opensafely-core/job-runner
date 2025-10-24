@@ -23,7 +23,7 @@ def job_definition(request, test_repo):
     clean_name = request.node.name.replace("[", "_").replace("]", "_")
     return JobDefinition(
         id=clean_name,
-        job_request_id=f"job-request-{clean_name}",
+        rap_id=f"job-request-{clean_name}",
         task_id=f"{clean_name}-001",
         study=test_repo.study,
         workspace="test",
@@ -415,7 +415,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
     csv_metadata = manifest["outputs"]["output/summary.csv"]
     assert csv_metadata["level"] == "moderately_sensitive"
     assert csv_metadata["job_id"] == job_definition.id
-    assert csv_metadata["job_request"] == job_definition.job_request_id
+    assert csv_metadata["job_request"] == job_definition.rap_id
     assert csv_metadata["action"] == job_definition.action
     assert csv_metadata["commit"] == job_definition.study.commit
     assert csv_metadata["excluded"] is False

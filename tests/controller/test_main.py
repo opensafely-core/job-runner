@@ -103,7 +103,7 @@ def test_handle_job_pending_dependency_failed(db):
     dependency = job_factory(state=State.FAILED)
     job = job_factory(
         state=State.PENDING,
-        job_request_id=dependency.job_request_id,
+        rap_id=dependency.rap_id,
         action="action2",
         wait_for_job_ids=[dependency.id],
     )
@@ -131,7 +131,7 @@ def test_handle_pending_job_waiting_on_dependency(db):
     dependency = job_factory()
     job = job_factory(
         state=State.PENDING,
-        job_request_id=dependency.job_request_id,
+        rap_id=dependency.rap_id,
         action="action2",
         wait_for_job_ids=[dependency.id],
     )
@@ -733,7 +733,7 @@ def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
     dependency = job_factory()
     job = job_factory(
         state=State.PENDING,
-        job_request_id=dependency.job_request_id,
+        rap_id=dependency.rap_id,
         action="action2",
         wait_for_job_ids=[dependency.id],
     )
@@ -855,7 +855,7 @@ def test_job_definition_defaults(db):
         "image": "ghcr.io/opensafely-core/python",
         "input_job_ids": [],
         "inputs": [],
-        "job_request_id": "test_job_request",
+        "rap_id": "test_job_request",
         "level4_file_types": [
             ".csv",
             ".html",

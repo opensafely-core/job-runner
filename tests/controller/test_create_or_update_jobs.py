@@ -50,7 +50,7 @@ def disable_github_org_checking(monkeypatch):
 #     )
 #     create_or_update_jobs(job_request)
 #     old_job = find_one(Job)
-#     assert old_job.job_request_id == "123"
+#     assert old_job.rap_id == "123"
 #     assert old_job.state == State.PENDING
 #     assert old_job.repo_url == repo_url
 #     assert old_job.commit == "d090466f63b0d68084144d8f105f0d6e79a0819e"
@@ -95,7 +95,7 @@ def disable_github_org_checking(monkeypatch):
 #     )
 #     create_or_update_jobs(job_request)
 #     j = find_one(Job)
-#     assert j.job_request_id == "123"
+#     assert j.rap_id == "123"
 #     assert j.state == State.FAILED
 #     assert j.repo_url == repo_url
 #     assert j.commit == bad_commit
@@ -135,8 +135,8 @@ def disable_github_org_checking(monkeypatch):
 #         backend="test",
 #     )
 #     create_or_update_jobs(job_request)
-#     j = find_one(Job, job_request_id="123")
-#     assert j.job_request_id == "123"
+#     j = find_one(Job, rap_id="123")
+#     assert j.rap_id == "123"
 #     assert j.state == State.FAILED
 #     assert j.repo_url == repo_url
 #     assert j.commit == "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
@@ -303,7 +303,7 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
         actions=["generate_dataset", "prepare_data_1", "prepare_data_2", "analyse_data"]
     )
     create_jobs_with_project_file(request, TEST_PROJECT)
-    update_where(Job, {"state": State.SUCCEEDED}, job_request_id=request.id)
+    update_where(Job, {"state": State.SUCCEEDED}, rap_id=request.id)
 
     with pytest.raises(NothingToDoError):
         # Now this should be a no-op because all the actions that are still part of the study have succeeded

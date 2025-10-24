@@ -376,7 +376,7 @@ def job_to_job_definition(job, task_id):
 
     return JobDefinition(
         id=job.id,
-        job_request_id=job.job_request_id,
+        rap_id=job.rap_id,
         task_id=task_id,
         study=study,
         workspace=job.workspace,
