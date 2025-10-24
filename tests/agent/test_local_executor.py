@@ -442,7 +442,7 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
         "status_message",
         "outputs",
         "job_definition_id",
-        "job_definition_request_id",
+        "job_definition_rap_id",
         "timestamp_ns",
     }:
         assert key in job_metadata.keys()
