@@ -248,6 +248,13 @@ class Job:
         """,
     )
 
+    migration(
+        10,
+        """
+        ALTER TABLE job RENAME COLUMN job_request_id TO rap_id;
+        """,
+    )
+
     id: str = None  # noqa: A003
     rap_id: str = None
     state: State = None
