@@ -290,7 +290,7 @@ if __name__ == "__main__":
         state=State.PENDING,
         status_code=StatusCode.CREATED,
         status_code_updated_at=int(timestamp * 1e9),
-        rap_id="request_id",
+        rap_id="rap_id",
         workspace="workspace",
         action="action name",
         run_command="ehrql:latest cmd opt",
