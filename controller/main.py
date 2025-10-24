@@ -687,7 +687,7 @@ def update_scheduled_task_for_db_maintenance_for_backend(backend):
     ):
         return
 
-    # If there's a task that was completed within POLL_INTERVAL seconds of now then
+    # If there's a task that was completed within MAINTENANCE_POLL_INTERVAL seconds of now then
     # there's nothing to do
     cutoff_time = int(time.time() - config.MAINTENANCE_POLL_INTERVAL)
     if exists_where(

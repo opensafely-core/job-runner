@@ -113,9 +113,6 @@ services:
       DJANGO_CONTROLLER_SECRET_KEY: 12345789abcdefghi
       DJANGO_CONTROLLER_ALLOWED_HOSTS: "*"
       DJANGO_DEBUG: "False"
-      # Point it at a "reserved for future use" IP which just hangs and does
-      # nothing as we want
-      JOB_SERVER_ENDPOINT: "http://240.0.0.1"
     volumes:
       - ${TMP_WORKDIR:-/tmp/jobrunner-workdir}:/workdir
 

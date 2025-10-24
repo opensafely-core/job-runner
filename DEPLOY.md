@@ -69,6 +69,10 @@ space to exclude from bash history):
   TPP_JOB_SERVER_TOKEN='[XXXXX]'
   TEST_JOB_SERVER_TOKEN='[XXXXX]'
 
+  # These allow job-server to call the RAP API; they should correspond to job-server's `RAP_API_TOKEN`
+  TEST_CLIENT_TOKENS='[XXXXX]'
+  TPP_CLIENT_TOKENS='[XXXXX]'
+
   # Get these from Bitwarden:
   PRIVATE_REPO_ACCESS_TOKEN='[XXXXX]'
   STATA_LICENSE='[XXXXX]'
@@ -91,7 +95,6 @@ config=(
   BACKENDS=tpp,test
 
   # Loop timings taken from current TPP backend settings
-  POLL_INTERVAL=60
   JOB_LOOP_INTERVAL=5.0
 
   # TPP specific config taken from current backend settings
@@ -102,10 +105,6 @@ config=(
 
   # Service specific honeycomb dataset name
   OTEL_SERVICE_NAME=rap-controller
-
-  # This is the default values in the codebase, but it seems clearer
-  # to set it explicitly here
-  JOB_SERVER_ENDPOINT=https://jobs.opensafely.org/api/v2/
 )
 ```
 
