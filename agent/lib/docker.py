@@ -47,6 +47,8 @@ def add_docker_labels(cmd, labels):
 def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     args = ["docker"] + docker_args
     try:
+        if "PYTEST_CURRENT_TEST" in os.environ:  # pragma: nocover
+            print("executing: " + " ".join(str(s) for s in args))
         return subprocess.run(args, timeout=timeout, **kwargs)
     except subprocess.TimeoutExpired as e:
         raise DockerTimeoutError from e  # pragma: no cover
@@ -56,6 +58,8 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
             output = e.stdout
         if isinstance(output, bytes):
             output = output.decode("utf8", "ignore")
+        if "PYTEST_CURRENT_TEST" in os.environ:  # pragma: nocover
+            print(output)
         if (
             output is not None
             and e.returncode == 1
