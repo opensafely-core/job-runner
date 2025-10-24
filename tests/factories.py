@@ -137,7 +137,7 @@ def job_factory(job_request=None, **kwargs):
 
     values.update(kwargs)
 
-    values["job_request_id"] = job_request.id
+    values["rap_id"] = job_request.id
     job = Job(**values)
 
     # initialise tracing

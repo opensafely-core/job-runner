@@ -57,7 +57,7 @@ def main(
     print("Submitting JobRequest:\n")
     display_obj(create_request)
     create_jobs(create_request)
-    jobs = find_where(Job, job_request_id=create_request.id)
+    jobs = find_where(Job, rap_id=create_request.id)
     print(f"Created {len(jobs)} new jobs:\n")
     for job in jobs:
         display_obj(job)
