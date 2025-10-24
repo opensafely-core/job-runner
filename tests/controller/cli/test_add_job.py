@@ -14,7 +14,7 @@ def test_add_job(monkeypatch, tmp_work_dir, db, test_repo):
     assert len(jobs) == 1
     assert jobs[0].action == "generate_dataset"
 
-    db_jobs = database.find_where(Job, job_request_id=job_request.id)
+    db_jobs = database.find_where(Job, rap_id=job_request.id)
     assert len(db_jobs) == 1
     assert db_jobs[0].action == "generate_dataset"
 

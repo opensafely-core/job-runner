@@ -19,7 +19,7 @@ class Study:
 @dataclass
 class JobDefinition:
     id: str  # a unique identifier for the job  # noqa: A003
-    job_request_id: str  # a unique identifier for the job's job request
+    rap_id: str  # a unique identifier for the job's job request
     # a unique identifier for the task associated with this job. Note that a
     # job definition is constructed for use with a specific task; it may be
     # constructed multiple times for the same job (e.g. run the job, cancel the

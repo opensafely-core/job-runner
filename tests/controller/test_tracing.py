@@ -40,7 +40,7 @@ def test_trace_attributes(db):
     assert attrs == {
         "job.backend": "test",
         "job.id": job.id,
-        "job.request": job.job_request_id,
+        "job.request": job.rap_id,
         "job.workspace": "workspace",
         "job.action": "action",
         "job.commit": "commit",
@@ -89,7 +89,7 @@ def test_trace_attributes_missing(db):
     assert attrs == {
         "job.backend": "test",
         "job.id": job.id,
-        "job.request": job.job_request_id,
+        "job.request": job.rap_id,
         "job.workspace": "workspace",
         "job.action": "action",
         "job.commit": "abc123def",
@@ -283,7 +283,7 @@ def test_set_span_job_metadata_attrs(db):
     )
 
     assert span.attributes["job.id"] == job.id
-    assert span.attributes["job.request"] == job.job_request_id
+    assert span.attributes["job.request"] == job.rap_id
     assert span.attributes["job.workspace"] == job.workspace
     assert span.attributes["job.action"] == job.action
     assert span.attributes["job.state"] == job.state.name  # not "should be ignored"
@@ -305,7 +305,7 @@ def test_set_span_job_metadata_attrs_bwcompat(db):
 
     # special cased
     assert span.attributes["job"] == job.id
-    assert span.attributes["job_request"] == job.job_request_id
+    assert span.attributes["job_request"] == job.rap_id
 
     assert span.attributes["workspace"] == job.workspace
     assert span.attributes["action"] == job.action

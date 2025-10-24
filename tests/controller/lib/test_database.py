@@ -36,14 +36,14 @@ def test_get_connection():
 def test_basic_roundtrip(tmp_work_dir):
     job = Job(
         id="foo123",
-        job_request_id="bar123",
+        rap_id="bar123",
         state=State.RUNNING,
         output_spec={"hello": [1, 2, 3]},
         requires_db=False,
         cancelled=None,
     )
     insert(job)
-    j = find_one(Job, job_request_id__in=["bar123", "baz123"])
+    j = find_one(Job, rap_id__in=["bar123", "baz123"])
     assert job.id == j.id
     assert job.output_spec == j.output_spec
     # bool values are encoded in db as 0/1
@@ -55,14 +55,14 @@ def test_basic_roundtrip(tmp_work_dir):
 def test_insert_in_transaction_success(tmp_work_dir):
     job = Job(
         id="foo123",
-        job_request_id="bar123",
+        rap_id="bar123",
         state=State.RUNNING,
         output_spec={"hello": [1, 2, 3]},
     )
 
     with transaction():
         insert(job)
-    j = find_one(Job, job_request_id__in=["bar123", "baz123"])
+    j = find_one(Job, rap_id__in=["bar123", "baz123"])
     assert job.id == j.id
     assert job.output_spec == j.output_spec
 
@@ -74,7 +74,7 @@ def test_insert_in_transaction_success(tmp_work_dir):
 def test_insert_in_transaction_fail(tmp_work_dir):
     job = Job(
         id="foo123",
-        job_request_id="bar123",
+        rap_id="bar123",
         state=State.RUNNING,
         output_spec={"hello": [1, 2, 3]},
     )
@@ -85,7 +85,7 @@ def test_insert_in_transaction_fail(tmp_work_dir):
         conn.execute("ROLLBACK")
 
     with pytest.raises(ValueError):
-        find_one(Job, job_request_id__in=["bar123", "baz123"])
+        find_one(Job, rap_id__in=["bar123", "baz123"])
 
     spans = get_trace("db")
     assert len(spans) == 1
@@ -98,7 +98,7 @@ def test_generate_insert_sql(tmp_work_dir):
 
     assert (
         sql
-        == 'INSERT INTO "job" ("id", "job_request_id", "state", "repo_url", "commit", "workspace", "database_name", "action", "action_repo_url", "action_commit", "requires_outputs_from", "wait_for_job_ids", "run_command", "image_id", "output_spec", "outputs", "unmatched_outputs", "status_message", "status_code", "cancelled", "created_at", "updated_at", "started_at", "completed_at", "status_code_updated_at", "trace_context", "level4_excluded_files", "requires_db", "backend") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        == 'INSERT INTO "job" ("id", "rap_id", "state", "repo_url", "commit", "workspace", "database_name", "action", "action_repo_url", "action_commit", "requires_outputs_from", "wait_for_job_ids", "run_command", "image_id", "output_spec", "outputs", "unmatched_outputs", "status_message", "status_code", "cancelled", "created_at", "updated_at", "started_at", "completed_at", "status_code_updated_at", "trace_context", "level4_excluded_files", "requires_db", "backend") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
 
 

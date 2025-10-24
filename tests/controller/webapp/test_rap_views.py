@@ -237,7 +237,7 @@ def test_cancel_view(db, client, monkeypatch):
     job = job_factory(state=State.PENDING, action="action1", backend="test")
     assert not job.cancelled
     post_data = {
-        "rap_id": job.job_request_id,
+        "rap_id": job.rap_id,
         "actions": ["action1"],
     }
     response = client.post(
@@ -347,7 +347,7 @@ def test_cancel_view_actions_not_found(db, client, monkeypatch):
     job = job_factory(state=State.PENDING, action="action1", backend="test")
 
     post_data = {
-        "rap_id": job.job_request_id,
+        "rap_id": job.rap_id,
         "actions": ["action2", "action3"],
     }
     response = client.post(
@@ -361,7 +361,7 @@ def test_cancel_view_actions_not_found(db, client, monkeypatch):
     assert response_json == {
         "error": "jobs not found",
         "details": "Jobs matching requested cancelled actions could not be found: action2,action3",
-        "rap_id": job.job_request_id,
+        "rap_id": job.rap_id,
         "not_found": ["action2", "action3"],
     }
 
@@ -373,7 +373,7 @@ def test_cancel_view_not_allowed_for_backend(db, client, monkeypatch):
     job = job_factory(state=State.PENDING, action="action1", backend="foo")
 
     post_data = {
-        "rap_id": job.job_request_id,
+        "rap_id": job.rap_id,
         "actions": ["action1"],
     }
     response = client.post(
@@ -386,8 +386,8 @@ def test_cancel_view_not_allowed_for_backend(db, client, monkeypatch):
     response_json = response.json()
     assert response_json == {
         "error": "jobs not found",
-        "details": f"No jobs found for rap_id {job.job_request_id}",
-        "rap_id": job.job_request_id,
+        "details": f"No jobs found for rap_id {job.rap_id}",
+        "rap_id": job.rap_id,
     }
 
 
@@ -419,7 +419,7 @@ def test_create_view(db, client, monkeypatch):
         "rap_id": rap_request_body["rap_id"],
         "count": 1,
     }, response
-    job = find_one(Job, job_request_id=rap_request_body["rap_id"])
+    job = find_one(Job, rap_id=rap_request_body["rap_id"])
     assert job.action == "generate_dataset"
 
 
@@ -475,7 +475,7 @@ def test_create_view_jobs_already_created(db, client, monkeypatch):
     )
     rap_request_body = rap_api_v1_factory_raw(
         backend="test",
-        rap_id=job.job_request_id,
+        rap_id=job.rap_id,
         commit=job.commit,
         repo_url=job.repo_url,
         workspace=job.workspace,
@@ -491,8 +491,8 @@ def test_create_view_jobs_already_created(db, client, monkeypatch):
     response_json = response.json()
     assert response_json == {
         "result": "No change",
-        "details": f"Jobs already created for rap_id '{job.job_request_id}'",
-        "rap_id": job.job_request_id,
+        "details": f"Jobs already created for rap_id '{job.rap_id}'",
+        "rap_id": job.rap_id,
         "count": 1,
     }
 
@@ -519,7 +519,7 @@ def test_create_view_all_actions_already_scheduled(db, client, monkeypatch):
         workspace=job.workspace,
         requested_actions=["generate_dataset"],
     )
-    assert rap_request_body["rap_id"] != job.job_request_id
+    assert rap_request_body["rap_id"] != job.rap_id
 
     response = client.post(
         reverse("create"),
@@ -591,7 +591,7 @@ def test_create_view_inconsistent_jobs_already_created(db, client, monkeypatch):
     headers = {"Authorization": "test_token"}
 
     job = job_factory(state=State.PENDING, action="action", backend="test")
-    rap_id = job.job_request_id
+    rap_id = job.rap_id
     rap_request_body = rap_api_v1_factory_raw(
         backend="test",
         workspace="another_workspace",
@@ -728,7 +728,7 @@ def test_status_view(db, client, monkeypatch, state, status_code):
         state=state, status_code=status_code, action="action1", backend="test"
     )
 
-    post_data = {"rap_ids": [job.job_request_id]}
+    post_data = {"rap_ids": [job.rap_id]}
     response = client.post(
         reverse("status"),
         json.dumps(post_data),
@@ -750,7 +750,7 @@ def test_status_view(db, client, monkeypatch, state, status_code):
                 "created_at": job.created_at_isoformat,
                 "identifier": job.id,
                 "metrics": {},
-                "rap_id": job.job_request_id,
+                "rap_id": job.rap_id,
                 "requires_db": False,
                 "run_command": "python myscript.py",
                 "started_at": expected_started_at,
@@ -810,7 +810,7 @@ def test_status_view_not_allowed_for_backend(db, client, monkeypatch):
 
     job = job_factory(state=State.PENDING, action="action1", backend="foo")
 
-    post_data = {"rap_ids": [job.job_request_id]}
+    post_data = {"rap_ids": [job.rap_id]}
     response = client.post(
         reverse("status"),
         json.dumps(post_data),
@@ -821,7 +821,7 @@ def test_status_view_not_allowed_for_backend(db, client, monkeypatch):
     response_json = response.json()
     assert response_json == {
         "jobs": [],
-        "unrecognised_rap_ids": [job.job_request_id],
+        "unrecognised_rap_ids": [job.rap_id],
     }, response
 
 
@@ -832,7 +832,7 @@ def test_status_view_tracing(db, client, monkeypatch):
 
     job = job_factory(action="action1", backend="test")
 
-    post_data = {"rap_ids": [job.job_request_id]}
+    post_data = {"rap_ids": [job.rap_id]}
     client.post(
         reverse("status"),
         json.dumps(post_data),
@@ -847,7 +847,7 @@ def test_status_view_tracing(db, client, monkeypatch):
     assert last_trace.attributes["http.route"] == ("controller/v1/rap/status/")
     assert last_trace.attributes["http.response.status_code"] == 200
 
-    assert last_trace.attributes["valid_rap_ids"] == job.job_request_id
+    assert last_trace.attributes["valid_rap_ids"] == job.rap_id
     assert last_trace.attributes["unrecognised_rap_ids"] == ""
     assert last_trace.attributes["extra_rap_ids"] == ""
     # Duration is rounded so will be 0 in the test because it's so quick. This is
@@ -869,7 +869,7 @@ def test_status_view_tracing_with_unexpected_rap_ids(db, client, monkeypatch):
     job_factory(action="action1", backend="test1")
 
     # All 3 jobs have different rap ids
-    assert len({j.job_request_id for j in [job1, job2, job3]}) == 3
+    assert len({j.rap_id for j in [job1, job2, job3]}) == 3
 
     # job1 is active and requested
     # job2 is active but not requested
@@ -877,9 +877,7 @@ def test_status_view_tracing_with_unexpected_rap_ids(db, client, monkeypatch):
     # last job is active and not requested but the client token doesn't have access to its backend
 
     # Request job1 and job3's job request ids, and one that doesn't exist at all
-    post_data = {
-        "rap_ids": [job1.job_request_id, job3.job_request_id, "unknown123456789"]
-    }
+    post_data = {"rap_ids": [job1.rap_id, job3.rap_id, "unknown123456789"]}
     client.post(
         reverse("status"),
         json.dumps(post_data),
@@ -894,16 +892,16 @@ def test_status_view_tracing_with_unexpected_rap_ids(db, client, monkeypatch):
     assert last_trace.attributes["http.route"] == ("controller/v1/rap/status/")
     assert last_trace.attributes["http.response.status_code"] == 200
 
-    assert last_trace.attributes["valid_rap_ids"] == job1.job_request_id
+    assert last_trace.attributes["valid_rap_ids"] == job1.rap_id
     # unrecognised rap IDs are ones that we requested, but aren't valid, either because there are no
     # matching jobs at all, or because jobs aren't found for backends that the client token has access to
     assert set(last_trace.attributes["unrecognised_rap_ids"].split(",")) == {
-        job3.job_request_id,
+        job3.rap_id,
         "unknown123456789",
     }
     # extra rap ids are for jobs that are active and for backends that the token has access to
     # but have rap ids that we did NOT request
-    assert last_trace.attributes["extra_rap_ids"] == job2.job_request_id
+    assert last_trace.attributes["extra_rap_ids"] == job2.rap_id
     # Duration is rounded so will be 0 in the test because it's so quick. This is
     # tested elsewhere, so we just test that the key is correctly added to the traced
     # attributes

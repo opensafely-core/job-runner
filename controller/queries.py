@@ -91,6 +91,6 @@ def get_current_flags(backend):
 
 def get_saved_job_request(job):
     try:
-        return find_one(SavedJobRequest, id=job.job_request_id).original
+        return find_one(SavedJobRequest, id=job.rap_id).original
     except ValueError:
         return {}

@@ -517,7 +517,7 @@ def get_job_metadata(
     # start with calculated results
     job_metadata = {**results_metadata}
     job_metadata["job_definition_id"] = job_definition.id
-    job_metadata["job_definition_request_id"] = job_definition.job_request_id
+    job_metadata["job_definition_rap_id"] = job_definition.rap_id
     job_metadata["task_id"] = job_definition.task_id
     job_metadata["created_at"] = job_definition.created_at
     job_metadata["completed_at"] = int(time.time())
@@ -653,7 +653,7 @@ def persist_outputs(job_definition, outputs, job_metadata):
             abspath,
             level,
             job_id=job_definition.id,
-            job_request=job_definition.job_request_id,
+            job_request=job_definition.rap_id,
             action=job_definition.action,
             commit=job_definition.study.commit,
             repo=job_definition.study.git_repo_url,
@@ -885,10 +885,10 @@ def write_log_file(job_definition, job_metadata, filename, excluded):
         f.write("\n")
 
 
-# Keys of fields to log in manifest.json and log file
+# Keys of fields to log in log file
 KEYS_TO_LOG = [
     "job_definition_id",
-    "job_definition_request_id",
+    "job_definition_rap_id",
     "commit",
     "docker_image_id",
     "exit_code",
