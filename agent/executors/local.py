@@ -885,7 +885,7 @@ def write_log_file(job_definition, job_metadata, filename, excluded):
         f.write("\n")
 
 
-# Keys of fields to log in manifest.json and log file
+# Keys of fields to log in log file
 KEYS_TO_LOG = [
     "job_definition_id",
     "job_definition_request_id",
