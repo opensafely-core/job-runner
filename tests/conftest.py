@@ -18,7 +18,7 @@ from agent import metrics
 from common.job_executor import Study
 from common.tracing import add_exporter, get_provider
 from controller import config as controller_config
-from controller.lib import database
+from controller.lib import database, docker
 
 
 # set up test tracing
@@ -32,6 +32,10 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "slow_test: mark test as being slow running")
     config.addinivalue_line(
         "markers", "needs_docker: mark test as needing Docker daemon"
+    )
+    config.addinivalue_line(
+        "markers",
+        "needs_ghcr: mark test as needing access to ghcr api for resolving image shas",
     )
 
 
@@ -273,3 +277,33 @@ def import_cfg(env, script, raises=None):
 
     print(ps.stdout)
     return ast.literal_eval(ps.stdout)
+
+
+@pytest.fixture(autouse=True)
+def patch_image_shas(request, monkeypatch, responses):
+    """Provide a default set of image shas to use in tests.
+
+    To disable, add `@pytest.mark.needs_ghcr`
+    """
+    # has the module opted in to using the fixutre
+    if request.node.get_closest_marker("needs_ghcr"):
+        # Skip applying fixture, use the real api. Note, tests will still need
+        # to add responses.add_passthru as needed. We don't want to modify the
+        # global responses state here
+        return
+
+    # Note: we choose to list our valid images here, as it acts as a helpful
+    # guard against unrealistic test data. However, it does mean we may want to
+    # keep this up to date with new versions.
+    sha_map = {
+        "ehrql:v1": "test-sha-for-ehrql-v1",
+        "python:v2": "test-sha-for-python-v2",
+    }
+
+    def get_current_image_sha(name):
+        assert name in sha_map, f"{name} is not a recognised image in this fixture"
+        return sha_map[name]
+
+    monkeypatch.setattr(docker, "get_current_image_sha", get_current_image_sha)
+    # caller can modify sha_map if needed
+    return sha_map

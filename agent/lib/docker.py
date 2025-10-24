@@ -57,6 +57,8 @@ def add_docker_labels(cmd, labels):
 def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     args = ["docker"] + docker_args
     try:
+        if "PYTEST_CURRENT_TEST" in os.environ:  # pragma: nocover
+            print("executing: " + " ".join(str(s) for s in args))
         return subprocess.run(args, timeout=timeout, **kwargs)
     except subprocess.TimeoutExpired as e:
         raise DockerTimeoutError from e  # pragma: no cover
@@ -66,6 +68,8 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
             output = e.stdout
         if isinstance(output, bytes):
             output = output.decode("utf8", "ignore")
+        if "PYTEST_CURRENT_TEST" in os.environ:  # pragma: nocover
+            print(output)
         if (
             output is not None
             and e.returncode == 1
@@ -331,6 +335,19 @@ def image_exists_locally(image_name_and_version):
         if e.returncode == 1 and b"no such image" in e.stderr.lower():
             return False
         raise  # pragma: no cover
+
+
+def ensure_docker_sha_present(full_image, sha):
+    """Pull the image sha via the proxy
+
+    Technically, we don't need the label, as the sha overrides it. However, its
+    a useful bit of metadata to have on the locally tagged image.
+    """
+    proxy_image = full_image.replace("ghcr.io", "docker-proxy.opensafely.org")
+    with_sha = f"{proxy_image}@{sha}"
+    docker(["pull", with_sha], check=True)
+    # tag as official image, so we can run via ghcr.io name.
+    docker(["image", "tag", with_sha, full_image], check=True)
 
 
 def delete_container(name):
