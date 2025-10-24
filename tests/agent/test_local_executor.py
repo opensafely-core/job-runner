@@ -258,6 +258,7 @@ def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition):
     assert status.state == ExecutorState.PREPARED
 
 
+# TODO: remove once new definition migrated
 @pytest.mark.needs_docker
 def test_prepare_no_image(docker_cleanup, job_definition, request):
     if job_definition.image_sha:
