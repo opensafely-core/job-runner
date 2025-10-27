@@ -42,8 +42,7 @@ paths:
                          description: Slug of backend
                         last_seen:
                           description: Time of last contact from this backend
-                          type: string
-                          $ref: "#/components/schemas/backendFlagSince"
+                          $ref: "#/components/schemas/timestamp"
                           nullable: true
                         paused:
                           description: Backend paused status (determines whether backend accepts new jobs)
@@ -56,7 +55,8 @@ paths:
                               $ref: "#/components/schemas/backendFlagStatus"
                             since:
                               description: Time backend was last paused/unpaused
-                              $ref: "#/components/schemas/backendFlagSince"
+                              $ref: "#/components/schemas/timestamp"
+                              nullable: true
                         db_maintenance:
                           description: Is this backend in database maintenance mode?
                           type: object
@@ -69,7 +69,8 @@ paths:
                               $ref: "#/components/schemas/backendFlagStatus"
                             since:
                               description: Time maintenance mode was last updated for this backend
-                              $ref: "#/components/schemas/backendFlagSince"
+                              $ref: "#/components/schemas/timestamp"
+                              nullable: true
                             type:
                               type: string
                               enum:
@@ -564,12 +565,6 @@ components:
       enum:
         - "on"
         - "off"
-    backendFlagSince:
-      # Can be referenced as '#/components/schemas/backendFlagSince'
-      type: string
-      nullable: true
-      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{6}Z$'
-      description: Time this property was last set
     cancelRequestBody:
       # Can be referenced as '#/components/schemas/cancelRequestBody'
       type: object
