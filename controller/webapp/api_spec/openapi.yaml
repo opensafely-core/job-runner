@@ -425,10 +425,8 @@ paths:
                     unrecognised_rap_ids:
                       type: array
                       items:
-                        rap_id:
-                          type: string
-                          pattern: '^[a-z0-9]{16}$'
-
+                        type: string
+                        pattern: '^[a-z0-9]{16}$'
                 examples:
                   success:
                     description: success
