@@ -518,9 +518,7 @@ def test_create_jobs_tracing(db, tmp_work_dir):
         "load_pipeline.duration_ms",
         "get_latest_jobs.duration_ms",
         "get_new_jobs.duration_ms",
-        "assert_new_jobs_created.duration_ms",
         "resolve_refs.duration_ms",
-        "assert_codelists_ok.duration_ms",
         "insert_into_database.duration_ms",
     ]:
         assert attribute in spans[0].attributes

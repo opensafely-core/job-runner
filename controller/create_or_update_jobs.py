@@ -64,15 +64,13 @@ def create_jobs(job_request):
 
         with duration_ms_as_span_attr("get_new_jobs.duration_ms", span):
             new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
-        with duration_ms_as_span_attr("assert_new_jobs_created.duration_ms", span):
-            assert_new_jobs_created(job_request, new_jobs, latest_jobs)
+        assert_new_jobs_created(job_request, new_jobs, latest_jobs)
         with duration_ms_as_span_attr("resolve_refs.duration_ms", span):
             resolve_reusable_action_references(new_jobs)
 
         # check for database actions in the new jobs, and raise an exception if
         # codelists are out of date
-        with duration_ms_as_span_attr("assert_codelists_ok.duration_ms", span):
-            assert_codelists_ok(job_request, new_jobs)
+        assert_codelists_ok(job_request, new_jobs)
 
         # There is a delay between getting the current jobs (which we fetch from
         # the database and the disk) and inserting our new jobs below. This means
