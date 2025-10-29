@@ -12,6 +12,7 @@ from agent import config
 from agent.executors import volumes
 from agent.lib import docker
 from agent.metrics import read_job_metrics
+from common import config as common_config
 from common.job_executor import (
     ExecutorAPI,
     ExecutorRetry,
@@ -155,9 +156,10 @@ class LocalDockerAPI(ExecutorAPI):
         # validate image is present
         if job_definition.image_sha:
             # new world: we have been told to run a specific sha
-            docker.ensure_docker_sha_present(
+            proxy_image = get_proxy_image_sha(
                 job_definition.image, job_definition.image_sha
             )
+            docker.docker(["pull", "--quiet", proxy_image], check=True)
 
         # TODO: remove once new definition migrated
         elif not docker.image_exists_locally(job_definition.image):
@@ -218,7 +220,7 @@ class LocalDockerAPI(ExecutorAPI):
         if job_definition.image_sha:
             # label is ignored when there is a sha, but we include it in the
             # command as extra information
-            image = f"{job_definition.image}@{job_definition.image_sha}"
+            image = get_proxy_image_sha(job_definition.image, job_definition.image_sha)
         # TODO: remove once new definition migrated
         else:
             image = job_definition.image
@@ -1005,3 +1007,9 @@ def write_manifest_file(workspace_dir, manifest):
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)
+
+
+def get_proxy_image_sha(full_image, sha):
+    assert common_config.DOCKER_REGISTRY in full_image
+    proxy_image = full_image.replace(common_config.DOCKER_REGISTRY, config.DOCKER_PROXY)
+    return f"{proxy_image}@{sha}"
