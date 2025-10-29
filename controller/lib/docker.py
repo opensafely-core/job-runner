@@ -72,7 +72,14 @@ def dockerhub_api(path):
 def get_auth_token(header):
     """Parse a docker v2 www-authentication header and fetch a token.
 
+    The header looks like this
+
     Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:opensafely-core/busybox:pull"
+
+    And then needs converting to a url like
+
+    https://ghcr.io/token?service=ghcr.io&scope=repository:opensafely-core/busybox:pull
+
     """
     header = header.lstrip("Bearer")
     # split_header_words is weird, but better than doing it ourselves
