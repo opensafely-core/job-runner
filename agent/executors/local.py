@@ -216,6 +216,8 @@ class LocalDockerAPI(ExecutorAPI):
         )
 
         if job_definition.image_sha:
+            # label is ignored when there is a sha, but we include it in the
+            # command as extra information
             image = f"{job_definition.image}@{job_definition.image_sha}"
         # TODO: remove once new definition migrated
         else:
