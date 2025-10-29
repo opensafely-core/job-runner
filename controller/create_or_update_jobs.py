@@ -17,7 +17,6 @@ from pipeline import RUN_ALL_COMMAND, load_pipeline
 from common import config as common_config
 from common.lib.git import GitFileNotFoundError, read_file_from_repo
 from common.lib.github_validators import validate_repo_and_commit
-from common.tracing import duration_ms_as_span_attr
 from controller import tracing
 from controller.actions import get_action_specification
 from controller.lib.database import exists_where, insert, transaction, update_where
@@ -47,26 +46,20 @@ class NothingToDoError(JobRequestError):
 def create_jobs(job_request):
     with tracer.start_as_current_span(
         "create_jobs", attributes=job_request.get_tracing_span_attributes()
-    ) as span:
-        with duration_ms_as_span_attr("validate_job_request.duration_ms", span):
-            validate_job_request(job_request)
-        with duration_ms_as_span_attr("get_project_file.duration_ms", span):
-            project_file = get_project_file(job_request)
+    ):
+        validate_job_request(job_request)
+        project_file = get_project_file(job_request)
 
-        with duration_ms_as_span_attr("load_pipeline.duration_ms", span):
-            pipeline_config = load_pipeline(project_file)
+        pipeline_config = load_pipeline(project_file)
 
-        with duration_ms_as_span_attr("get_latest_jobs.duration_ms", span):
-            latest_jobs = get_latest_jobs_for_actions_in_project(
-                job_request.backend, job_request.workspace, pipeline_config
-            )
-        span.set_attribute("len_latest_jobs", len(latest_jobs))
+        latest_jobs = get_latest_jobs_for_actions_in_project(
+            job_request.backend, job_request.workspace, pipeline_config
+        )
 
-        with duration_ms_as_span_attr("get_new_jobs.duration_ms", span):
-            new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
+        new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
         assert_new_jobs_created(job_request, new_jobs, latest_jobs)
-        with duration_ms_as_span_attr("resolve_refs.duration_ms", span):
-            resolve_reusable_action_references(new_jobs)
+
+        resolve_reusable_action_references(new_jobs)
 
         # check for database actions in the new jobs, and raise an exception if
         # codelists are out of date
@@ -86,12 +79,9 @@ def create_jobs(job_request):
         # (It is also possible that someone could delete files off disk that are
         # needed by a particular job, but there's not much we can do about that
         # other than fail gracefully when trying to start the job.)
-        with duration_ms_as_span_attr("insert_into_database.duration_ms", span):
-            insert_into_database(job_request, new_jobs)
+        insert_into_database(job_request, new_jobs)
 
-        len_new_jobs = len(new_jobs)
-        span.set_attribute("len_new_jobs", len_new_jobs)
-        return len_new_jobs
+        return len(new_jobs)
 
 
 def validate_job_request(job_request):

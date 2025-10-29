@@ -504,24 +504,8 @@ def test_create_jobs_tracing(db, tmp_work_dir):
 
     assert spans[0].name == "create_jobs"
     assert spans[0].attributes["foo"] == "bar"  # patched
-    assert spans[0].attributes["len_latest_jobs"] == 0
-    assert spans[0].attributes["len_new_jobs"] == 2
 
     assert count_where(Job) == 2
-
-    # test that expected duration_ms_as_span_attr attributes are present.
-    # These are in ms, rounded to the nearest int(), so in this test, they're
-    # likely to be 0. Actual timing is tested in tests/common/test_tracing.py
-    for attribute in [
-        "validate_job_request.duration_ms",
-        "get_project_file.duration_ms",
-        "load_pipeline.duration_ms",
-        "get_latest_jobs.duration_ms",
-        "get_new_jobs.duration_ms",
-        "resolve_refs.duration_ms",
-        "insert_into_database.duration_ms",
-    ]:
-        assert attribute in spans[0].attributes
 
 
 @pytest.mark.parametrize(
