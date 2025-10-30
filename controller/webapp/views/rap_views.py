@@ -142,9 +142,7 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
     # Ensure that jobs exist for all requested cancel actions
     # We don't care about the state of the job (i.e. if it's already been cancelled), only
     # that it exists at all
-    if not exists_where(
-        Job, job_request_id=request_obj.rap_id, backend__in=token_backends
-    ):
+    if not exists_where(Job, rap_id=request_obj.rap_id, backend__in=token_backends):
         return JsonResponse(
             {
                 "error": "jobs not found",
@@ -156,7 +154,7 @@ def cancel(request, *, token_backends, request_obj: CancelRequest):
 
     jobs = find_where(
         Job,
-        job_request_id=request_obj.rap_id,
+        rap_id=request_obj.rap_id,
         action__in=request_obj.actions,
         backend__in=token_backends,
     )
@@ -249,7 +247,7 @@ def create(request, *, token_backends, request_obj: CreateRequest):
         # request, by checking that the repo/commit/workspace (data which we have on the Job
         # model) match.
 
-        related_jobs = find_where(Job, job_request_id=request_obj.id)
+        related_jobs = find_where(Job, rap_id=request_obj.id)
         # All jobs for a single rap_id have the same repo_url, workspace and commit, so we
         # only need to check the first one
         job = related_jobs[0]
@@ -371,7 +369,7 @@ def job_to_api_format(job):
 
     return {
         "identifier": job.id,
-        "rap_id": job.job_request_id,
+        "rap_id": job.rap_id,
         "backend": job.backend,
         "action": job.action,
         "run_command": job.run_command or "",
@@ -412,9 +410,9 @@ def status(request, *, token_backends, request_obj: StatusRequest):
     span = trace.get_current_span()
     with duration_ms_as_span_attr("find_matching_jobs.duration_ms", span):
         jobs = find_where(
-            Job, job_request_id__in=request_obj.rap_ids, backend__in=token_backends
+            Job, rap_id__in=request_obj.rap_ids, backend__in=token_backends
         )
-        valid_rap_ids = {job.job_request_id for job in jobs}
+        valid_rap_ids = {job.rap_id for job in jobs}
         unrecognised_rap_ids = set(request_obj.rap_ids) - valid_rap_ids
         jobs_data = [job_to_api_format(i) for i in jobs]
 
@@ -424,10 +422,10 @@ def status(request, *, token_backends, request_obj: StatusRequest):
     # client until after it has entered a complete state on the RAP controller.
     # NOTE: this only holds true as long as we have a single client.
     with duration_ms_as_span_attr("find_extra_rap_ids.duration_ms", span):
-        extra_active_job_request_ids = set(
+        extra_active_rap_ids = set(
             select_values(
                 Job,
-                "job_request_id",
+                "rap_id",
                 state__in=[State.PENDING, State.RUNNING],
                 backend__in=token_backends,
             )
@@ -438,7 +436,7 @@ def status(request, *, token_backends, request_obj: StatusRequest):
         dict(
             valid_rap_ids=",".join(valid_rap_ids),
             unrecognised_rap_ids=",".join(unrecognised_rap_ids),
-            extra_rap_ids=",".join(extra_active_job_request_ids),
+            extra_rap_ids=",".join(extra_active_rap_ids),
         ),
     )
 

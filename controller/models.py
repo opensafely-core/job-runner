@@ -177,7 +177,7 @@ class Job:
     __tableschema__ = """
         CREATE TABLE job (
             id TEXT,
-            job_request_id TEXT,
+            rap_id TEXT,
             state TEXT,
             repo_url TEXT,
             "commit" TEXT,
@@ -209,7 +209,7 @@ class Job:
             PRIMARY KEY (id)
         );
 
-        CREATE INDEX idx_job__job_request_id ON job (job_request_id);
+        CREATE INDEX idx_job__rap_id ON job (rap_id);
 
         -- Once jobs transition into a terminal state (failed or succeeded) they become
         -- basically irrelevant from the application's point of view as it never needs
@@ -248,8 +248,15 @@ class Job:
         """,
     )
 
+    migration(
+        10,
+        """
+        ALTER TABLE job RENAME COLUMN job_request_id TO rap_id;
+        """,
+    )
+
     id: str = None  # noqa: A003
-    job_request_id: str = None
+    rap_id: str = None
     state: State = None
     # Git repository URL
     repo_url: str = None
@@ -328,8 +335,8 @@ class Job:
         # sufficient to give us global uniqueness. In fact we could do away
         # with Job IDs altogether and just use the action name directly, but
         # doing things this way is a less invasive change.
-        if not self.id and self.job_request_id and self.action:
-            self.id = deterministic_id(f"{self.job_request_id}\n{self.action}")
+        if not self.id and self.rap_id and self.action:
+            self.id = deterministic_id(f"{self.rap_id}\n{self.action}")
 
     def asdict(self):
         data = dataclasses.asdict(self)
