@@ -159,7 +159,7 @@ class LocalDockerAPI(ExecutorAPI):
             proxy_image = get_proxy_image_sha(
                 job_definition.image, job_definition.image_sha
             )
-            docker.docker(["pull", "--quiet", proxy_image], check=True)
+            docker.ensure_docker_sha_present(proxy_image, job_definition.image)
 
         # TODO: remove once new definition migrated
         elif not docker.image_exists_locally(job_definition.image):

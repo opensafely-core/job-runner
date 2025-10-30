@@ -105,6 +105,19 @@ def container_inspect(name, key="", none_if_not_exists=False, timeout=None):
     return json.loads(response.stdout)
 
 
+def image_inspect(image_ref):
+    ps = docker(
+        ["image", "inspect", "--format", "{{json .}}", image_ref],
+        capture_output=True,
+        text=True,
+    )
+
+    if ps.returncode != 0:
+        return {}
+
+    return json.loads(ps.stdout.strip())
+
+
 def run(
     name,
     args,
@@ -236,3 +249,26 @@ def get_hostname_ip_from_url(url):
     hostname = urllib.parse.urlparse(url).hostname
     ip = socket.gethostbyname(hostname)
     return hostname, ip
+
+
+def ensure_docker_sha_present(proxy_image_with_sha, registry_image_with_label):
+    """Pull the image sha via the proxy."""
+
+    # ensure the image/sha is present
+    docker(["pull", "--quiet", proxy_image_with_sha], check=True)
+
+    proxy_image_with_label, _, _ = proxy_image_with_sha.partition("@")
+
+    new_created = image_inspect(proxy_image_with_sha).get("Created", "")
+    current_created = image_inspect(proxy_image_with_label).get("Created", "")
+
+    # update the tags if this image is a newer version of the label
+    if new_created > current_created:
+        docker(
+            ["image", "tag", proxy_image_with_sha, proxy_image_with_label], check=True
+        )
+        # also tag as ghcr.io, for human convenience
+        docker(
+            ["image", "tag", proxy_image_with_label, registry_image_with_label],
+            check=True,
+        )
