@@ -1,7 +1,29 @@
-# syntax=docker/dockerfile:1.2
+# syntax=docker/dockerfile:1
+#################################################
+#
+# Images are structured as shown in this diagram:
+# ┌──────────────────┐            ┌──────────────────┐
+# │   base-python    ├────────────►     builder      │
+# └────────┬─────────┘            └──────────┬───────┘
+#          │                                 │
+#          │                                 │COPY FROM
+#          │     ┌──────────────────┐        │
+#          └─────► new-project-base ◄────────┘
+#                └────────┬─┬───────┘
+#                         │ │
+#                         │ │
+# ┌──────────────────┐    │ │     ┌──────────────────┐
+# │ new-project-prod ◄────┘ └─────► new-project-dev  │
+# └──────────────────┘            └──────────────────┘
+# The goal of this stages structure is to a) minimise the size of the *prod* image by
+# not including build dependencies and b) to make rebuilding the *dev* fast in local
+# development, by avoiding invalidating the layer cache every time we change python
+# code.
+#
 #################################################
 #
 # Create base image with python installed.
+# All Dockerfiles should start from the base-docker image
 #
 # DL3007 ignored because base-docker we specifically always want to build on
 # the latest base image, by design.
@@ -13,17 +35,28 @@ FROM ghcr.io/opensafely-core/base-docker:22.04 as base-python
 # docker clean up that deletes that cache on every apt install
 RUN rm -f /etc/apt/apt.conf.d/docker-clean
 
-# ensure fully working base python3 installation
+# use deadsnakes ppa to install a fully working base python installation
 # see: https://gist.github.com/tiran/2dec9e03c6f901814f6d1e8dad09528e
 # use space efficient utility from base image
 RUN --mount=type=cache,target=/var/cache/apt \
-  /root/docker-apt-install.sh python3 python3-venv python3-pip python3-distutils tzdata ca-certificates
+    echo "deb https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" > /etc/apt/sources.list.d/deadsnakes-ppa.list && \
+    /usr/lib/apt/apt-helper download-file 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xf23c5a6cf475977595c89f51ba6932366a755776' /etc/apt/trusted.gpg.d/deadsnakes.asc
 
 # install any additional system dependencies
-COPY docker/dependencies.txt /tmp/dependencies.txt
 RUN --mount=type=cache,target=/var/cache/apt \
-    /root/docker-apt-install.sh /tmp/dependencies.txt
+    --mount=type=bind,source=.,target=/app \
+    /root/docker-apt-install.sh /app/docker/dependencies.txt "python$(cat /app/.python-version)"
 
+# uv env var documentation: https://docs.astral.sh/uv/reference/environment/
+# copy files rather than symlink since the cache and the target are on different filesystems
+ENV UV_LINK_MODE=copy
+# compile at installation time, not import time
+ENV UV_COMPILE_BYTECODE=1
+# we are providing python via deadsnakes ppa
+# (as we require dynamic linking of openssl for security reasons)
+ENV UV_PYTHON_DOWNLOADS=never
+# set the directory for the venv
+ENV UV_PROJECT_ENVIRONMENT="/opt/venv"
 
 ##################################################
 #
@@ -38,55 +71,49 @@ RUN --mount=type=cache,target=/var/cache/apt \
 FROM base-python as builder
 
 # Install any system build dependencies
-COPY docker/build-dependencies.txt /tmp/build-dependencies.txt
 RUN --mount=type=cache,target=/var/cache/apt \
-    /root/docker-apt-install.sh /tmp/build-dependencies.txt
+    --mount=type=bind,source=docker/dependencies-build.txt,target=/tmp/dependencies-build.txt \
+    /root/docker-apt-install.sh /tmp/dependencies-build.txt
 
 # Install everything in venv for isolation from system python libraries
-RUN python3 -m venv /opt/venv
-ENV VIRTUAL_ENV=/opt/venv/ PATH="/opt/venv/bin:$PATH"
+COPY --from=ghcr.io/astral-sh/uv:0.9 /uv /uvx /usr/local/bin/
+
+RUN uv venv
 
 # The cache mount means a) /root/.cache is not in the image, and b) it's preserved
 # between docker builds locally, for faster dev rebuild.
-COPY requirements.prod.txt /tmp/requirements.prod.txt
-
-# DL3042: using cache mount instead
-# DL3013: we always want latest pip/setuptools/wheel, at least for now
-# hadolint ignore=DL3042,DL3013
+# Setting --directory /app lets `uv` detect the pyproject.toml, uv.lock etc.
 RUN --mount=type=cache,target=/root/.cache \
-    python -m pip install -U pip setuptools wheel && \
-    python -m pip install --requirement /tmp/requirements.prod.txt
-
+    --mount=type=bind,source=.,target=/app \
+    uv sync --frozen --no-dev --no-install-project --directory /app
 
 ##################################################
 #
-# Base project image
+# Base project image (change the name from `new-project-base`!)
 #
 # Ok, we've built everything we need, build an image with all dependencies but
 # no code.
 #
 # Not including the code at this stage has two benefits:
 #
-# 1) this image only rebuilds when the handfull of files needed to build job-runner-base
-#    changes. If we do `COPY . /app` now, this will rebuild when *any* file changes.
+# 1) this image only rebuilds when the handlful of files needed to build
+#    the base project image changes. If we do `COPY . /app` now, this will
+#    rebuild when *any* file changes.
 #
 # 2) Ensures we *have* to mount the volume for dev image, as there's no embedded
 #    version of the code. Otherwise, we could end up accidentally using the
 #    version of the code included when the prod image was built.
 FROM base-python as job-runner-base
 
+RUN mkdir -p /app
+WORKDIR /app
+ENV VIRTUAL_ENV=/opt/venv/ \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH=/app
+
 # copy venv over from builder image. These will have root:root ownership, but
 # are readable by all.
 COPY --from=builder /opt/venv /opt/venv
-
-# Ensure we're using the venv by default
-ENV VIRTUAL_ENV=/opt/venv/ PATH="/opt/venv/bin:$PATH"
-
-RUN mkdir /app
-WORKDIR /app
-
-# This may not be necessary, but it probably doesn't hurt
-ENV PYTHONPATH=/app
 
 # We use --init to run the docker container, which mounts tini binary, and uses
 # it as PID 1, but only in single-process mode. Setting TINI_KILL_PROCESS_GROUP
@@ -126,8 +153,6 @@ LABEL org.opencontainers.image.revision=$GITREF
 RUN mkdir -p /app/metadata \
     && echo "${GITREF}" > /app/metadata/version.txt
 
-
-
 ##################################################
 #
 # Dev image
@@ -138,11 +163,10 @@ RUN mkdir -p /app/metadata \
 #
 FROM job-runner-base as job-runner-dev
 
-# TODO: its possible python dev dependencies might need some additional build packages installed?
-
 # install development requirements
-COPY requirements.dev.txt /tmp/requirements.dev.txt
-# using cache mount instead
-# hadolint ignore=DL3042
+# we want to additionally sync dev dependencies into the venv;
+# prod dependencies are already installed and we don't want to remove them.
+COPY --from=ghcr.io/astral-sh/uv:0.9 /uv /uvx /bin/
 RUN --mount=type=cache,target=/root/.cache \
-    python -m pip install --requirement /tmp/requirements.dev.txt
+    --mount=type=bind,source=.,target=/app \
+    uv sync --frozen --no-install-project --directory /app
