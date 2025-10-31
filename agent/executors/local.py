@@ -12,6 +12,7 @@ from agent import config
 from agent.executors import volumes
 from agent.lib import docker
 from agent.metrics import read_job_metrics
+from common import config as common_config
 from common.job_executor import (
     ExecutorAPI,
     ExecutorRetry,
@@ -152,10 +153,19 @@ class LocalDockerAPI(ExecutorAPI):
                     f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve"
                 )
 
-        # Check the image exists locally and error if not. Newer versions of
-        # docker-cli support `--pull=never` as an argument to `docker run` which
-        # would make this simpler.
-        if not docker.image_exists_locally(job_definition.image):
+        # validate image is present
+        if job_definition.image_sha:
+            # new world: we have been told to run a specific sha
+            proxy_image = get_proxy_image_sha(
+                job_definition.image, job_definition.image_sha
+            )
+            docker.ensure_docker_sha_present(proxy_image, job_definition.image)
+
+        # TODO: remove once new definition migrated
+        elif not docker.image_exists_locally(job_definition.image):
+            # old world: we run at whatever sha has been
+            # manually pulled, but we check if a version of it
+            # is present first
             log.info(
                 f"Image not found, may need to run: docker pull {job_definition.image}"
             )
@@ -207,9 +217,17 @@ class LocalDockerAPI(ExecutorAPI):
             ]
         )
 
+        if job_definition.image_sha:
+            # label is ignored when there is a sha, but we include it in the
+            # command as extra information
+            image = get_proxy_image_sha(job_definition.image, job_definition.image_sha)
+        # TODO: remove once new definition migrated
+        else:
+            image = job_definition.image
+
         docker.run(
             container_name(job_definition.id),
-            [job_definition.image] + job_definition.args,
+            [image] + job_definition.args,
             volume=(volumes.volume_name(job_definition), "/workspace"),
             env=job_definition.env,
             allow_network_access=job_definition.allow_database_access,
@@ -374,6 +392,7 @@ def delete_files_from_directory(directory, files):
 
 def prepare_job(job_definition):
     """Creates a volume and populates it with the repo and input files."""
+
     workspace_dir = get_high_privacy_workspace(job_definition.workspace)
 
     volumes.create_volume(job_definition, get_job_labels(job_definition))
@@ -522,6 +541,7 @@ def get_job_metadata(
     job_metadata["created_at"] = job_definition.created_at
     job_metadata["completed_at"] = int(time.time())
     job_metadata["docker_image_id"] = container_metadata.get("Image")
+    job_metadata["expected_image_id"] = job_definition.image_sha
     # convert exit code to str so 0 exit codes get logged
     job_metadata["exit_code"] = str(container_metadata.get("State", {}).get("ExitCode"))
     job_metadata["oom_killed"] = container_metadata.get("State", {}).get("OOMKilled")
@@ -987,3 +1007,9 @@ def write_manifest_file(workspace_dir, manifest):
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)
+
+
+def get_proxy_image_sha(full_image, sha):
+    assert common_config.DOCKER_REGISTRY in full_image
+    proxy_image = full_image.replace(common_config.DOCKER_REGISTRY, config.DOCKER_PROXY)
+    return f"{proxy_image}@{sha}"

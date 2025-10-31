@@ -5,20 +5,12 @@ Utility functions for interacting with Docker
 import json
 import logging
 import os
-import re
 import socket
 import subprocess
 import urllib.parse
 
-from common import config as common_config
-from common.lib import atomic_writer
-
 
 logger = logging.getLogger(__name__)
-
-# Docker requires a container in order to interact with volumes, but it doesn't
-# much matter what it is for our purposes as long as it has `sh` and `find`
-MANAGEMENT_CONTAINER_IMAGE = f"{common_config.DOCKER_REGISTRY}/busybox"
 
 # This path is pretty arbitrary: it sets where we mount volumes inside their
 # management containers (which are used for copying files in and out), but this
@@ -48,8 +40,6 @@ class DockerDiskSpaceError(Exception):
 
 def add_docker_labels(cmd, labels):
     """Add labels to a docker cmd."""
-    if not labels:
-        return
     for name, value in labels.items():
         cmd.extend(["--label", f"{name}={value}"])
 
@@ -57,6 +47,8 @@ def add_docker_labels(cmd, labels):
 def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     args = ["docker"] + docker_args
     try:
+        if "PYTEST_CURRENT_TEST" in os.environ:  # pragma: nocover
+            print("executing: " + " ".join(str(s) for s in args))
         return subprocess.run(args, timeout=timeout, **kwargs)
     except subprocess.TimeoutExpired as e:
         raise DockerTimeoutError from e  # pragma: no cover
@@ -66,6 +58,8 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
             output = e.stdout
         if isinstance(output, bytes):
             output = output.decode("utf8", "ignore")
+        if "PYTEST_CURRENT_TEST" in os.environ:  # pragma: nocover
+            print(output)
         if (
             output is not None
             and e.returncode == 1
@@ -75,175 +69,6 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
             raise DockerDiskSpaceError from e
         else:
             raise
-
-
-def create_volume(volume_name, labels=None):
-    """
-    Creates the named volume and also creates (but does not start) a "manager"
-    container which we can use to copy files in and out of the volume. Note
-    that in order to interact with the volume a container with that volume
-    mounted must exist, but it doesn't need to be running.
-    """
-    cmd = ["volume", "create", "--label", LABEL, "--name", volume_name]
-    add_docker_labels(cmd, labels)
-    docker(cmd, check=True, capture_output=True)
-    # Run a basic container that mounts this image.  Having the volume mounted
-    # allows us to copy from/to it, and having the container running protects
-    # it from rogue `docker container prune` commands.
-    try:
-        run(
-            manager_name(volume_name),
-            [MANAGEMENT_CONTAINER_IMAGE, "sh"],
-            volume=(volume_name, VOLUME_MOUNT_POINT),
-            label=LABEL,
-            labels=labels,
-            extra_args=[
-                "--interactive",
-                "--restart=unless-stopped",
-            ],
-        )
-    except subprocess.CalledProcessError as e:
-        # If a volume and its manager already exist we don't want to throw an
-        # error. `docker volume create` is naturally idempotent, but we have to
-        # handle this manually here.
-        if (
-            e.returncode != 125
-            or b"is already in use by container" not in e.stderr.lower()
-        ):
-            raise  # pragma: no cover
-
-
-def delete_volume(volume_name):
-    """
-    Deletes the named volume and its manager container
-    """
-    try:
-        docker(
-            ["rm", "--force", manager_name(volume_name)],
-            check=True,
-            capture_output=True,
-        )
-    except subprocess.CalledProcessError as e:  # pragma: no cover
-        # Ignore error if container has already been removed
-        if e.returncode != 1 or b"no such container" not in e.stderr.lower():
-            raise
-    try:
-        docker(
-            [
-                "volume",
-                "rm",
-                volume_name,
-            ],
-            check=True,
-            capture_output=True,
-        )
-    except subprocess.CalledProcessError as e:
-        # Ignore error if container has already been removed
-        if e.returncode != 1 or b"no such volume" not in e.stderr.lower():
-            raise  # pragma: no cover
-
-
-def copy_to_volume(volume_name, source, dest, timeout=None):
-    """
-    Copy the contents of `directory` to the root of the named volume
-
-    As this command can potentially take a long time with large files it does
-    not, by default, have any timeout.
-    """
-    if source.is_dir():
-        # Ensure the *contents* of the directory are copied, rather than the
-        # directory itself. See:
-        # https://docs.docker.com/engine/reference/commandline/cp/#extended-description
-        source = str(source).rstrip("/") + "/."
-    docker(
-        [
-            "cp",
-            "--follow-link",
-            source,
-            f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{dest}",
-        ],
-        check=True,
-        capture_output=True,
-        timeout=timeout,
-    )
-
-
-def copy_from_volume(volume_name, source, dest, timeout=None):
-    """
-    Copy the contents of `source` from the root of the named volume to `dest`
-    on local disk
-
-    As this command can potentially take a long time with large files it does
-    not, by default, have any timeout.
-    """
-    with atomic_writer(dest) as tmp:
-        docker(
-            [
-                "cp",
-                "--follow-link",
-                f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{source}",
-                tmp,
-            ],
-            check=True,
-            capture_output=True,
-            timeout=timeout,
-        )
-
-    return dest.stat().st_size
-
-
-def glob_volume_files(volume_name, glob_patterns):
-    """
-    Accept a list of glob patterns and return a dict mapping each pattern to a
-    list of all the files in `volume_name` which match
-
-    Accepting multiple patterns like this allow us to avoid multiple round
-    trips through Docker when we need to match several different patterns.
-    """
-    # Guard against the easy mistake of passing a single string pattern, rather
-    # than a list of patterns
-    assert not isinstance(glob_patterns, str)
-    # Build a `find` command
-    args = ["find", VOLUME_MOUNT_POINT, "-type", "f", "("]
-    # We need to use regex matching rather than `-path` because find's
-    # wildcards are too liberal and match across path separators (e.g
-    # "foo/*.py" matches Python files in all sub-directories of "foo" rather
-    # than just the top level)
-    for pattern in glob_patterns:
-        args.extend(
-            ["-regex", _glob_pattern_to_regex(f"{VOLUME_MOUNT_POINT}/{pattern}"), "-o"]
-        )
-    # Replace final OR flag with a closing bracket
-    args[-1] = ")"
-    response = docker(
-        ["container", "exec", manager_name(volume_name)] + args,
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    # Remove the volume path prefix from the results
-    chars_to_strip = len(VOLUME_MOUNT_POINT) + 1
-    files = [f[chars_to_strip:] for f in response.stdout.splitlines()]
-    files = sorted(files)
-    matches = {}
-    for pattern in glob_patterns:
-        regex = re.compile(_glob_pattern_to_regex(pattern))
-        matches[pattern] = [f for f in files if regex.match(f)]
-    return matches
-
-
-def _glob_pattern_to_regex(glob_pattern):
-    """
-    Convert a shell glob pattern (where the wildcard does not match the "/"
-    character) into a regular expression
-    """
-    literals = glob_pattern.split("*")
-    return "[^/]*".join(map(re.escape, literals))
-
-
-def manager_name(volume_name):
-    return f"{volume_name}-manager"
 
 
 def container_exists(name):
@@ -278,6 +103,19 @@ def container_inspect(name, key="", none_if_not_exists=False, timeout=None):
         else:  # pragma: no cover
             raise
     return json.loads(response.stdout)
+
+
+def image_inspect(image_ref):
+    ps = docker(
+        ["image", "inspect", "--format", "{{json .}}", image_ref],
+        capture_output=True,
+        text=True,
+    )
+
+    if ps.returncode != 0:
+        return {}
+
+    return json.loads(ps.stdout.strip())
 
 
 def run(
@@ -411,3 +249,26 @@ def get_hostname_ip_from_url(url):
     hostname = urllib.parse.urlparse(url).hostname
     ip = socket.gethostbyname(hostname)
     return hostname, ip
+
+
+def ensure_docker_sha_present(proxy_image_with_sha, registry_image_with_label):
+    """Pull the image sha via the proxy."""
+
+    # ensure the image/sha is present
+    docker(["pull", "--quiet", proxy_image_with_sha], check=True)
+
+    proxy_image_with_label, _, _ = proxy_image_with_sha.partition("@")
+
+    new_created = image_inspect(proxy_image_with_sha).get("Created", "")
+    current_created = image_inspect(proxy_image_with_label).get("Created", "")
+
+    # update the tags if this image is a newer version of the label
+    if new_created > current_created:
+        docker(
+            ["image", "tag", proxy_image_with_sha, proxy_image_with_label], check=True
+        )
+        # also tag as ghcr.io, for human convenience
+        docker(
+            ["image", "tag", proxy_image_with_label, registry_image_with_label],
+            check=True,
+        )

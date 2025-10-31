@@ -313,7 +313,7 @@ def test_handle_job_finalized_success_with_large_file(db):
     [
         (
             3,
-            "ehrql generate-dataset dataset.py --output data.csv",
+            "ehrql:v1 generate-dataset dataset.py --output data.csv",
             (
                 "A transient database error occurred, your job may run "
                 "if you try it again, if it keeps failing then contact tech support"
@@ -322,32 +322,32 @@ def test_handle_job_finalized_success_with_large_file(db):
         ),
         (
             4,
-            "ehrql generate-dataset dataset.py --output data.csv",
+            "ehrql:v1 generate-dataset dataset.py --output data.csv",
             "New data is being imported into the database, please try again in a few hours",
             None,
         ),
         (
             5,
-            "ehrql generate-dataset dataset.py --output data.csv",
+            "ehrql:v1 generate-dataset dataset.py --output data.csv",
             "Something went wrong with the database, please contact tech support",
             None,
         ),
         (
             5,
-            "ehrql generate-dataset dataset.py --output data.csv",
+            "ehrql:v1 generate-dataset dataset.py --output data.csv",
             "Something went wrong with the database, please contact tech support",
             "A message from the results",
         ),
         (
             7,  # an unknown DATABASE_EXIT_CODE
-            "ehrql generate-dataset dataset.py --output data.csv",
+            "ehrql:v1 generate-dataset dataset.py --output data.csv",
             None,
             None,
         ),
         # the same exit codes for a job that doesn't have access to the database show no message
-        (3, "python foo.py", None, "A message from the results"),
-        (4, "python foo.py", None, None),
-        (5, "python foo.py", None, None),
+        (3, "python:v2 foo.py", None, "A message from the results"),
+        (4, "python:v2 foo.py", None, None),
+        (5, "python:v2 foo.py", None, None),
     ],
 )
 def test_handle_job_finalized_failed_exit_code(
@@ -852,7 +852,8 @@ def test_job_definition_defaults(db):
             "OPENSAFELY_BACKEND": "test",
         },
         "id": "test_job",
-        "image": "ghcr.io/opensafely-core/python",
+        "image": "ghcr.io/opensafely-core/python:v2",
+        "image_sha": None,
         "input_job_ids": [],
         "inputs": [],
         "rap_id": "test_job_request",

@@ -151,3 +151,8 @@ TASK_API_ENDPOINT = os.environ.get("CONTROLLER_TASK_API_ENDPOINT")
 # Token for authenticating with the controller task api
 # For now this will reuse the job-server token for this backend
 TASK_API_TOKEN = os.environ.get("CONTROLLER_TASK_API_TOKEN", "token")
+
+# What proxy are we pulling the images from
+DOCKER_PROXY = os.environ.get(
+    "DOCKER_PROXY", "docker-proxy.opensafely.org/opensafely-core"
+)

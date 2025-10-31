@@ -41,6 +41,7 @@ test_job_definition = JobDefinition(
     action="",
     created_at=None,
     image="",
+    image_sha=None,
     args=[],
     env={},
     inputs=[],
