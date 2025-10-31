@@ -2,3 +2,5 @@
 docker.io
 sqlite3
 git
+tzdata
+ca-certificates
