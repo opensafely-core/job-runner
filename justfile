@@ -14,7 +14,16 @@ _dotenv:
       echo "No '.env' file found; creating a default '.env' from 'dotenv-sample'"
       cp dotenv-sample .env
       ./local-setup.sh
-      echo "Rerun command to load new .env"
+    fi
+
+# Check if a .env exists
+_checkenv:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [[ ! -f .env ]]; then
+        echo "No '.env' file found; run 'just devenv' to create one"
+        exit 1
     fi
 
 # Clean up temporary files
@@ -85,21 +94,21 @@ upgrade-pipeline: && prodenv
     ./scripts/upgrade-pipeline.sh pyproject.toml
 
 # Run the tests
-test *ARGS: _dotenv
+test *ARGS: _checkenv
     uv run coverage run --module pytest "$@"
     uv run coverage report || uv run coverage html
 
-test-fast *ARGS: _dotenv
+test-fast *ARGS: _checkenv
     uv run python -m pytest tests -m "not slow_test" "$@"
 
-test-verbose *ARGS: _dotenv
+test-verbose *ARGS: _checkenv
     uv run python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO "$@"
 
-test-no-docker *ARGS: _dotenv
+test-no-docker *ARGS: _checkenv
     uv run python -m pytest -m "not needs_docker" "$@"
 
 # Run a cli command locally
-cli command *ARGS: _dotenv
+cli command *ARGS: _checkenv
     uv run python -m jobrunner.cli.{{ command }} {{ ARGS }}
 
 format *args=".":
@@ -133,7 +142,7 @@ fix:
     just --fmt --unstable --justfile justfile
     just --fmt --unstable --justfile docker/justfile
 
-manage *args: _dotenv
+manage *args: _checkenv
     uv run python manage.py {{ args }}
 
 add-job *args:
@@ -153,19 +162,19 @@ migrate:
     just manage migrate_controller
 
 # Run the dev project
-run-agent: _dotenv
+run-agent: _checkenv
     uv run python -m agent.main
 
-run-controller: _dotenv
+run-controller: _checkenv
     uv run python -m controller.main
 
-run-app: _dotenv
+run-app: _checkenv
     just manage runserver 3000
 
-run-agent-service: _dotenv
+run-agent-service: _checkenv
     uv run python -m agent.service
 
-run-controller-service: _dotenv
+run-controller-service: _checkenv
     uv run python -m controller.service
 
 _run-agent-after-app:
@@ -180,7 +189,7 @@ _run-agent-after-app:
 run:
     { just run-app & just _run-agent-after-app & just run-controller-service; }
 
-_schemathesis *ARGS: _dotenv
+_schemathesis *ARGS: _checkenv
     uv run schemathesis --config-file controller/webapp/api_spec/schemathesis.toml run controller/webapp/api_spec/openapi.yaml {{ ARGS }}
 
 schemathesis *ARGS:
