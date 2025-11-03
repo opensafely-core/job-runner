@@ -11,8 +11,8 @@ def clear_cache():
 
 @pytest.mark.needs_docker
 def test_get_job_stats(docker_cleanup):
-    docker.run("os-job-test", [docker.MANAGEMENT_CONTAINER_IMAGE, "sleep", "1000"])
-    docker.run("not-job", [docker.MANAGEMENT_CONTAINER_IMAGE, "sleep", "1000"])
+    docker.run("os-job-test", ["ghcr.io/opensafely-core/ehrql:v1", "sleep", "1000"])
+    docker.run("not-job", ["ghcr.io/opensafely-core/ehrql:v1", "sleep", "1000"])
     containers = docker_stats.get_job_stats()
     assert isinstance(containers["test"]["cpu_percentage"], float)
     assert isinstance(containers["test"]["memory_used"], int)
@@ -25,7 +25,7 @@ def test_get_job_stats_cache(docker_cleanup):
     assert len(docker_stats.CONTAINER_METADATA) == 0
     docker_stats.CONTAINER_METADATA["stale_container"] = 0
 
-    docker.run("os-job-test", [docker.MANAGEMENT_CONTAINER_IMAGE, "sleep", "1000"])
+    docker.run("os-job-test", ["ghcr.io/opensafely-core/ehrql:v1", "sleep", "1000"])
     tracer = trace.get_tracer("test")
     with tracer.start_as_current_span("s1") as s1:
         docker_stats.get_job_stats()

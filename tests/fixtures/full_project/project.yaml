@@ -18,28 +18,28 @@ actions:
         cohort: output/extra/dataset.csv
 
   prepare_data_m_ehrql:
-      run: python:latest python analysis/filter_by_sex.py M output/dataset.csv ehrql-male.csv
-      needs: [generate_dataset]
-      outputs:
-        highly_sensitive:
-          male_cohort: ehrql-male*.csv
+    run: python:v2 analysis/filter_by_sex.py M output/dataset.csv ehrql-male.csv
+    needs: [generate_dataset]
+    outputs:
+      highly_sensitive:
+        male_cohort: ehrql-male*.csv
 
   prepare_data_f_ehrql:
-    run: python:latest python analysis/filter_by_sex.py F output/dataset.csv ehrql-female.csv
+    run: python:v2 analysis/filter_by_sex.py F output/dataset.csv ehrql-female.csv
     needs: [generate_dataset]
     outputs:
       highly_sensitive:
         female_cohort: ehrql-female*.csv
 
   prepare_data_with_quote_in_filename_ehrql:
-    run: python:latest python analysis/filter_by_sex.py F output/dataset.csv "ehrql-qu'ote.csv"
+    run: python:v2 analysis/filter_by_sex.py F output/dataset.csv "ehrql-qu'ote.csv"
     needs: [generate_dataset]
     outputs:
       highly_sensitive:
         quote_cohort: "ehrql-qu'ote.csv"
 
   analyse_data_ehrql:
-    run: python:latest python analysis/count_lines.py ehrql-counts.txt
+    run: python:v2 analysis/count_lines.py ehrql-counts.txt
     config:
       files: ["ehrql-male.csv", "ehrql-female.csv", "ehrql-qu'ote.csv"]
     needs: [prepare_data_m_ehrql, prepare_data_f_ehrql, prepare_data_with_quote_in_filename_ehrql]
@@ -48,7 +48,7 @@ actions:
         count: ehrql-counts.txt
 
   test_cancellation_ehrql:
-    run: python:latest python analysis/count_by_year.py output/dataset.csv ehrql-somefile.csv
+    run: python:v2 python analysis/count_by_year.py output/dataset.csv ehrql-somefile.csv
     needs: [generate_dataset]
     outputs:
       highly_sensitive:
@@ -64,7 +64,7 @@ actions:
         cohort: output/dataset.backup.csv
 
   copy_highly_sensitive_data:
-    run: python:latest python -c 'import shutil; shutil.copyfile("output/dataset.csv", "output/data.csv")'
+    run: python:v2 -c 'import shutil; shutil.copyfile("output/dataset.csv", "output/data.csv")'
     needs: [generate_dataset]
     outputs:
       moderately_sensitive:

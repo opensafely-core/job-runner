@@ -677,7 +677,7 @@ def test_job_to_api_format_default(db):
     json = job_to_api_format(job)
 
     assert json["action"] == "action_name"
-    assert json["run_command"] == "python myscript.py"
+    assert json["run_command"] == "python:v2 myscript.py"
     assert json["status"] == "pending"
     assert json["status_code"] == "created"
     assert json["metrics"] == {}
@@ -752,7 +752,7 @@ def test_status_view(db, client, monkeypatch, state, status_code):
                 "metrics": {},
                 "rap_id": job.rap_id,
                 "requires_db": False,
-                "run_command": "python myscript.py",
+                "run_command": "python:v2 myscript.py",
                 "started_at": expected_started_at,
                 "status": state.value,
                 # TODO: weird that this doesn't change - test data issue?

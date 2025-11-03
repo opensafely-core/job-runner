@@ -3,7 +3,6 @@ from pathlib import Path
 
 import hypothesis
 import pytest
-import responses
 import schemathesis
 
 from controller.lib import database
@@ -25,7 +24,7 @@ def before_add_examples(context, examples: list[schemathesis.Case]):
 
 
 @pytest.fixture
-def api_schema(live_server):
+def api_schema(live_server, responses):
     responses.add_passthru(live_server.url)
     config = schemathesis.Config.from_path(
         Path(__file__).parents[3]
