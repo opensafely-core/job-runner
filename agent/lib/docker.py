@@ -29,6 +29,12 @@ LABEL = "job-runner"
 # Docker. (Timeout value is in seconds.)
 DEFAULT_TIMEOUT = 5 * 60
 
+# Pulls of large images (especially from inside the secure env via the proxy) can
+# sometimes take a significant amount of time. We want some form of timeout here to
+# catch cases where something hangs indefinitely, but it needs to be much larger than
+# the default.
+IMAGE_PULL_TIMEOUT = 20 * 60
+
 
 class DockerTimeoutError(Exception):
     pass
@@ -255,7 +261,11 @@ def ensure_docker_sha_present(proxy_image_with_sha, registry_image_with_label):
     """Pull the image sha via the proxy."""
 
     # ensure the image/sha is present
-    docker(["pull", "--quiet", proxy_image_with_sha], check=True)
+    docker(
+        ["pull", "--quiet", proxy_image_with_sha],
+        check=True,
+        timeout=IMAGE_PULL_TIMEOUT,
+    )
 
     proxy_image_with_label, _, _ = proxy_image_with_sha.partition("@")
 
