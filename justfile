@@ -60,7 +60,9 @@ upgrade-all: && devenv
 
 # Move the cutoff date in pyproject.toml to N days ago (default: 7) at midnight UTC
 bump-uv-cutoff days="7":
-    #!/usr/bin/env -S uvx --with tomlkit python3
+    #!/usr/bin/env -S uvx --with tomlkit python3.13
+    # Note we specify the python version here and we don't care if it's different to
+    # the .python-version; we need 3.11+ for the datetime code used.
 
     import datetime
     import tomlkit
@@ -87,10 +89,10 @@ bump-uv-cutoff days="7":
 # https://github.com/bennettoxford/update-dependencies-action
 
 # Bump the timestamp cutoff to midnight UTC 7 days ago and upgrade all dependencies
-update-dependencies: bump-uv-cutoff upgrade-all
+update-dependencies: upgrade-pipeline bump-uv-cutoff upgrade-all
 
 # Upgrade version of opensafely-pipeline library
-upgrade-pipeline: && prodenv
+upgrade-pipeline: && devenv
     ./scripts/upgrade-pipeline.sh pyproject.toml
 
 # Run the tests
