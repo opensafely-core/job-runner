@@ -113,21 +113,52 @@ test-no-docker *ARGS: _checkenv
 cli command *ARGS: _checkenv
     uv run python -m jobrunner.cli.{{ command }} {{ ARGS }}
 
-format *args=".":
-    uv run ruff format --check {{ args }}
+format *args:
+    uv run ruff format --diff --quiet {{ args }} .
 
-lint *args=".":
-    uv run ruff check {{ args }}
+lint *args:
+    uv run ruff check {{ args }} .
 
-hadolint:
-    #!/usr/bin/env bash
-    docker run --rm -i ghcr.io/hadolint/hadolint:v2.12.0-alpine < docker/Dockerfile
+lint-actions:
+    docker run --rm -v $(pwd):/repo:ro --workdir /repo rhysd/actionlint:1.7.8 -color
 
-# Lint and check formatting but don't modify anything
-check: && (format "--diff --quiet .") (lint "--output-format=full .") hadolint
+# Run the various dev checks but does not change any files
+check:
     #!/usr/bin/env bash
     set -euo pipefail
 
+    failed=0
+
+    check() {
+      echo -e "\e[1m=> ${1}\e[0m"
+      rc=0
+      # Run it
+      eval $1 || rc=$?
+      # Increment the counter on failure
+      if [[ $rc != 0 ]]; then
+        failed=$((failed + 1))
+        # Add spacing to separate the error output from the next check
+        echo -e "\n"
+      fi
+    }
+
+    check "just check-lockfile"
+    check "just format"
+    check "just lint"
+    check "just lint-actions"
+    test -d docker/ && check "just docker/lint"
+
+    if [[ $failed > 0 ]]; then
+      echo -en "\e[1;31m"
+      echo "   $failed checks failed"
+      echo -e "\e[0m"
+      exit 1
+    fi
+
+# validate uv.lock
+check-lockfile:
+    #!/usr/bin/env bash
+    set -euo pipefail
     # Make sure dates in pyproject.toml and uv.lock are in sync
     unset UV_EXCLUDE_NEWER
     rc=0
@@ -141,7 +172,7 @@ check: && (format "--diff --quiet .") (lint "--output-format=full .") hadolint
 fix:
     uv run ruff check --fix .
     uv run ruff format .
-    just --fmt --unstable --justfile justfile
+    just --fmt --unstable
     just --fmt --unstable --justfile docker/justfile
 
 manage *args: _checkenv

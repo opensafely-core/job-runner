@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build-and-publish-docker-image:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Build and publish docker image
     steps:
     - name: Checkout

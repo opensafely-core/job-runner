@@ -1,0 +1,10 @@
+COMPOSE_PROJECT_NAME=job-runner
+
+# enable modern docker build features
+DOCKER_BUILDKIT=1
+COMPOSE_DOCKER_CLI_BUILD=1
+
+# The ubuntu version the docker image will use
+UBUNTU_VERSION=22.04
+# The uv version the docker image will use
+UV_VERSION=0.9
