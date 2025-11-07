@@ -93,6 +93,9 @@ run-detached-webapp: (build 'dev') _workdir
 exec *args="bash": _workdir
     docker compose exec dev {{ args }}
 
+lint:
+    docker run --rm -i ghcr.io/hadolint/hadolint:v2.14.0-alpine < Dockerfile
+
 clean:
     #!/bin/bash
     rm -rf $PYTEST_HOST_TMP .env
