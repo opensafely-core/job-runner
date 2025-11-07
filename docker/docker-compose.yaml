@@ -1,8 +1,6 @@
 # note: this docker-compose file is intended to define the *building* of
 # job-runner images, and running them locally in dev, not for running them in
 # production
-name: job-runner
-
 services:
   prod:
     # image name, both locally and public
@@ -23,6 +21,9 @@ services:
         # env vars should be supplied by just/make
         - BUILD_DATE
         - GITREF
+        # env vars from .env
+        - UBUNTU_VERSION
+        - UV_VERSION
     # use dockers builitin PID daemon
     init: true
     # run as the the current user to preserve file permissions
