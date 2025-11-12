@@ -11,6 +11,7 @@ shouldn't be too large a job.
 
 import contextlib
 import dataclasses
+import functools
 import json
 import logging
 import sqlite3
@@ -31,6 +32,18 @@ MIGRATIONS = {}
 
 
 tracer = trace.get_tracer("db")
+
+
+def ensure_transaction(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        conn = get_connection()
+        if conn.in_transaction:
+            return f(*args, **kwargs)
+        with transaction():
+            return f(*args, **kwargs)
+
+    return wrapper
 
 
 def databaseclass(cls):
@@ -58,12 +71,13 @@ def generate_insert_sql(item):
     return sql, fields
 
 
+@ensure_transaction
 def insert(item):
     sql, fields = generate_insert_sql(item)
-
     get_connection().execute(sql, encode_field_values(fields, item))
 
 
+@ensure_transaction
 def upsert(item, keys=("id",)):
     assert all(getattr(item, k) for k in keys)
     insert_sql, fields = generate_insert_sql(item)
@@ -92,6 +106,7 @@ def update(item, exclude_fields=None):
     update_where(item.__class__, update_dict, id=item.id)
 
 
+@ensure_transaction
 def update_where(itemclass, update_dict, **query_params):
     table = itemclass.__tablename__
     fields = [f for f in dataclasses.fields(itemclass) if f.name in update_dict]
