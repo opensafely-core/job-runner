@@ -1,4 +1,4 @@
-name: Build and publish assets
+name: Build, publish and deploy assets
 on:
   push:
     branches:
@@ -18,9 +18,9 @@ permissions:
   contents: write
 
 jobs:
-  build-and-publish-docker-image:
+  build-publish-and-deploy-docker-image:
     runs-on: ubuntu-22.04
-    name: Build and publish docker image
+    name: Build, publish and deploy docker image
     steps:
     - name: Checkout
       uses: actions/checkout@v5
