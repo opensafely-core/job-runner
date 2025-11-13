@@ -135,7 +135,16 @@ def run(
     extra_args=None,
     volume_type="volume",
 ):
-    run_args = ["run", "--init", "--detach", "--label", LABEL, "--name", name]
+    run_args = [
+        "run",
+        "--init",
+        "--detach",
+        "--label",
+        LABEL,
+        "--name",
+        name,
+        "--pull=never",
+    ]
     if extra_args is not None:
         run_args.extend(extra_args)
 
