@@ -61,7 +61,8 @@ def test_handle_pending_job_with_previous_tasks(db):
         run_controller_loop_once()
 
     # Make task inactive and run the controller loop again
-    task_api.mark_task_inactive(task)
+    with database.transaction():
+        task_api.mark_task_inactive(task)
 
     run_controller_loop_once()
 
@@ -82,7 +83,8 @@ def test_handle_pending_job_cancelled(db):
     assert len(tasks) == 1
     assert tasks[0].active
 
-    database.update_where(Job, dict(cancelled=True), id=job.id)
+    with database.transaction():
+        database.update_where(Job, dict(cancelled=True), id=job.id)
 
     run_controller_loop_once()
 
@@ -810,7 +812,8 @@ def test_status_code_updated_from_task_timestamp(db, freezer):
     prepared_at = datetime.datetime(2025, 3, 1, 10, 5, 11, 99999)
     task.agent_stage = StatusCode.PREPARED.value
     task.agent_timestamp_ns = int(datetime_to_ns(prepared_at))
-    database.update(task)
+    with database.transaction():
+        database.update(task)
 
     run_controller_loop_once()
     job = database.find_one(Job, id=job.id)
