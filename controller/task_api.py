@@ -73,8 +73,9 @@ def handle_task_update(*, task_id, stage, results, complete, timestamp_ns=None):
 
 
 def handle_task_update_dbstatus(task):
+    if results := task.agent_results.get("results"):
+        mode = results["status"]
+        set_flag("mode", mode, backend=task.backend)
+
     with database.transaction():
-        if results := task.agent_results.get("results"):
-            mode = results["status"]
-            set_flag("mode", mode, backend=task.backend)
         database.update(task)
