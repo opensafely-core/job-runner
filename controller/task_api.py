@@ -1,6 +1,7 @@
 import time
 
 from controller.lib import database
+from controller.lib.database import transaction
 from controller.models import Task, TaskType
 from controller.queries import set_flag
 
@@ -63,7 +64,8 @@ def handle_task_update(*, task_id, stage, results, complete, timestamp_ns=None):
 
     match task.type:
         case TaskType.RUNJOB | TaskType.CANCELJOB:
-            database.update(task)
+            with transaction():
+                database.update(task)
         case TaskType.DBSTATUS:
             handle_task_update_dbstatus(task)
         case _:
