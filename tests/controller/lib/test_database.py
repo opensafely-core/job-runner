@@ -42,7 +42,8 @@ def test_basic_roundtrip(tmp_work_dir):
         requires_db=False,
         cancelled=None,
     )
-    insert(job)
+    with transaction():
+        insert(job)
     j = find_one(Job, rap_id__in=["bar123", "baz123"])
     assert job.id == j.id
     assert job.output_spec == j.output_spec
@@ -104,31 +105,37 @@ def test_generate_insert_sql(tmp_work_dir):
 
 def test_update(tmp_work_dir):
     job = Job(id="foo123", action="foo")
-    insert(job)
+    with transaction():
+        insert(job)
     job.action = "bar"
-    update(job)
+    with transaction():
+        update(job)
     assert find_one(Job, id="foo123").action == "bar"
 
 
 def test_upsert_insert(tmp_work_dir):
     job = Job(id="foo123", action="bar")
-    upsert(job)
+    with transaction():
+        upsert(job)
     assert find_one(Job, id="foo123").action == "bar"
 
 
 def test_upsert_update(tmp_work_dir):
     job = Job(id="foo123", action="foo")
-    insert(job)
+    with transaction():
+        insert(job)
     job.action = "bar"
-    upsert(job)
+    with transaction():
+        upsert(job)
     assert find_one(Job, id="foo123").action == "bar"
 
 
 def test_upsert_insert_composite_key(tmp_work_dir):
     flag1 = Flag(id="foo", backend="test1", value="bar")
     flag2 = Flag(id="foo", backend="test2", value="baz")
-    upsert(flag1, keys=("id", "backend"))
-    upsert(flag2, keys=("id", "backend"))
+    with transaction():
+        upsert(flag1, keys=("id", "backend"))
+        upsert(flag2, keys=("id", "backend"))
     assert find_one(Flag, id="foo", backend="test1").value == "bar"
     assert find_one(Flag, id="foo", backend="test2").value == "baz"
 
@@ -136,31 +143,38 @@ def test_upsert_insert_composite_key(tmp_work_dir):
 def test_upsert_update_composite_key(tmp_work_dir):
     flag1 = Flag(id="foo", backend="test1", value="bar")
     flag2 = Flag(id="foo", backend="test2", value="baz")
-    insert(flag1)
-    insert(flag2)
+    with transaction():
+        insert(flag1)
+        insert(flag2)
+
     flag1.value = "abc"
     flag2.value = "def"
-    upsert(flag1, keys=("id", "backend"))
-    upsert(flag2, keys=("id", "backend"))
+
+    with transaction():
+        upsert(flag1, keys=("id", "backend"))
+        upsert(flag2, keys=("id", "backend"))
     assert find_one(Flag, id="foo", backend="test1").value == "abc"
     assert find_one(Flag, id="foo", backend="test2").value == "def"
 
 
 def test_update_excluding_a_field(tmp_work_dir):
     job = Job(id="foo123", action="foo", commit="commit-of-glory")
-    insert(job)
+    with transaction():
+        insert(job)
     job.action = "bar"
     job.commit = "commit-of-doom"
-    update(job, exclude_fields=["commit"])
+    with transaction():
+        update(job, exclude_fields=["commit"])
     j = find_one(Job, id="foo123")
     assert j.action == "bar"
     assert j.commit == "commit-of-glory"
 
 
 def test_exists_where(tmp_work_dir):
-    insert(Job(id="foo123", state=State.PENDING))
-    insert(Job(id="foo124", state=State.RUNNING))
-    insert(Job(id="foo125", state=State.FAILED))
+    with transaction():
+        insert(Job(id="foo123", state=State.PENDING))
+        insert(Job(id="foo124", state=State.RUNNING))
+        insert(Job(id="foo125", state=State.FAILED))
     job_state_exists = exists_where(Job, state__in=[State.PENDING, State.FAILED])
     assert job_state_exists is True
     job_id_exists = exists_where(Job, id="foo124")
@@ -168,9 +182,10 @@ def test_exists_where(tmp_work_dir):
 
 
 def test_exists_where_null(tmp_work_dir):
-    insert(Job(id="foo123", backend=None))
-    insert(Job(id="foo124", backend="test"))
-    insert(Job(id="foo125", backend="foo"))
+    with transaction():
+        insert(Job(id="foo123", backend=None))
+        insert(Job(id="foo124", backend="test"))
+        insert(Job(id="foo125", backend="foo"))
     job_no_backend = exists_where(Job, backend=None)
     assert job_no_backend is True
     job_no_backend = exists_where(Job, id="foo124", backend=None)
@@ -178,9 +193,10 @@ def test_exists_where_null(tmp_work_dir):
 
 
 def test_count_where(tmp_work_dir):
-    insert(Job(id="foo123", state=State.PENDING))
-    insert(Job(id="foo124", state=State.RUNNING))
-    insert(Job(id="foo125", state=State.FAILED))
+    with transaction():
+        insert(Job(id="foo123", state=State.PENDING))
+        insert(Job(id="foo124", state=State.RUNNING))
+        insert(Job(id="foo125", state=State.FAILED))
     jobs_in_states = count_where(Job, state__in=[State.PENDING, State.FAILED])
     assert jobs_in_states == 2
     jobs_with_id = count_where(Job, id="foo124")
@@ -188,9 +204,10 @@ def test_count_where(tmp_work_dir):
 
 
 def test_select_values(tmp_work_dir):
-    insert(Job(id="foo123", state=State.PENDING))
-    insert(Job(id="foo124", state=State.RUNNING))
-    insert(Job(id="foo125", state=State.FAILED))
+    with transaction():
+        insert(Job(id="foo123", state=State.PENDING))
+        insert(Job(id="foo124", state=State.RUNNING))
+        insert(Job(id="foo125", state=State.FAILED))
     values = select_values(Job, "id", state__in=[State.PENDING, State.FAILED])
     assert sorted(values) == ["foo123", "foo125"]
     values = select_values(Job, "state", id="foo124")
@@ -198,7 +215,8 @@ def test_select_values(tmp_work_dir):
 
 
 def test_find_one_returns_a_single_value(tmp_work_dir):
-    insert(Job(id="foo123", workspace="the-workspace"))
+    with transaction():
+        insert(Job(id="foo123", workspace="the-workspace"))
     job = find_one(Job, id="foo123")
     assert job.workspace == "the-workspace"
 
@@ -209,8 +227,9 @@ def test_find_one_fails_if_there_are_no_results(tmp_work_dir):
 
 
 def test_find_one_fails_if_there_is_more_than_one_result(tmp_work_dir):
-    insert(Job(id="foo123", workspace="the-workspace"))
-    insert(Job(id="foo456", workspace="the-workspace"))
+    with transaction():
+        insert(Job(id="foo123", workspace="the-workspace"))
+        insert(Job(id="foo456", workspace="the-workspace"))
     with pytest.raises(ValueError):
         find_one(Job, workspace="the-workspace")
 
