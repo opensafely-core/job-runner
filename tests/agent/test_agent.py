@@ -8,7 +8,7 @@ import pytest
 from agent import config, main, task_api
 from common.job_executor import ExecutorState, JobDefinition
 from controller import task_api as controller_task_api
-from controller.lib.database import update_where
+from controller.lib.database import transaction, update_where
 from controller.models import Task, TaskType
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
@@ -527,7 +527,8 @@ def test_handle_job_no_task_id_in_definition(
     task, _ = api.add_test_runjob_task(ExecutorState.UNKNOWN)
 
     task.definition.pop("task_id")
-    update_where(Task, {"definition": task.definition}, id=task.id)
+    with transaction():
+        update_where(Task, {"definition": task.definition}, id=task.id)
 
     main.handle_single_task(task, api)
 
