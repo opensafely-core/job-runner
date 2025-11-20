@@ -7,6 +7,7 @@ from responses import matchers
 from agent import config, task_api
 from common.schema import AgentTask
 from controller import task_api as controller_api
+from controller.lib.database import transaction
 from tests.factories import runjob_db_task_factory
 
 
@@ -32,7 +33,9 @@ def test_get_active_tasks(db, monkeypatch, responses):
     task1 = runjob_db_task_factory(backend="dummy")
     task2 = runjob_db_task_factory(backend="dummy")
     task3 = runjob_db_task_factory(backend="another")
-    controller_api.mark_task_inactive(task2)
+
+    with transaction():
+        controller_api.mark_task_inactive(task2)
 
     responses.add(
         method="GET",

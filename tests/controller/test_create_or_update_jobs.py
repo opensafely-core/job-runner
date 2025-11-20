@@ -14,7 +14,13 @@ from controller.create_or_update_jobs import (
     create_jobs,
     validate_job_request,
 )
-from controller.lib.database import count_where, find_one, find_where, update_where
+from controller.lib.database import (
+    count_where,
+    find_one,
+    find_where,
+    transaction,
+    update_where,
+)
 from controller.models import Job, JobRequest, State
 from tests.conftest import get_trace
 
@@ -249,7 +255,8 @@ def test_existing_succeeded_jobs_are_picked_up_when_checking_dependencies(tmp_wo
     generate_job = find_one(Job, action="generate_dataset")
     assert prepare_1_job.wait_for_job_ids == [generate_job.id]
     # make the generate_job succeeded
-    update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
+    with transaction():
+        update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
 
     # Now schedule a job which has the above jobs as dependencies
     create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
@@ -268,7 +275,8 @@ def test_existing_cancelled_jobs_are_ignored_up_when_checking_dependencies(
         make_job_request(action="generate_dataset"), TEST_PROJECT
     )
     cancelled_generate_job = find_one(Job, action="generate_dataset")
-    update_where(Job, {"cancelled": True}, id=cancelled_generate_job.id)
+    with transaction():
+        update_where(Job, {"cancelled": True}, id=cancelled_generate_job.id)
 
     # Now schedule a job which has the above job as a dependency
     create_jobs_with_project_file(
@@ -296,14 +304,16 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
     create_jobs_with_project_file(
         make_job_request(action="obsolete_action"), TEST_PROJECT + obsolete_action_def
     )
-    update_where(Job, {"state": State.FAILED}, action="obsolete_action")
+    with transaction():
+        update_where(Job, {"state": State.FAILED}, action="obsolete_action")
 
     # Since then all the healthy, vigorous actions have been successfully run individually
     request = make_job_request(
         actions=["generate_dataset", "prepare_data_1", "prepare_data_2", "analyse_data"]
     )
     create_jobs_with_project_file(request, TEST_PROJECT)
-    update_where(Job, {"state": State.SUCCEEDED}, rap_id=request.id)
+    with transaction():
+        update_where(Job, {"state": State.SUCCEEDED}, rap_id=request.id)
 
     with pytest.raises(NothingToDoError):
         # Now this should be a no-op because all the actions that are still part of the study have succeeded
@@ -435,8 +445,9 @@ def test_create_jobs_already_succeeded_is_rerun(db, tmp_work_dir):
     )
     prepare_1_job = find_one(Job, action="prepare_data_1")
     generate_job = find_one(Job, action="generate_dataset")
-    update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
-    update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
+    with transaction():
+        update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
+        update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
     create_jobs_with_project_file(
         make_job_request(action="prepare_data_1"), TEST_PROJECT
     )
@@ -452,8 +463,9 @@ def test_create_jobs_force_run_dependencies(db, tmp_work_dir):
     )
     prepare_1_job = find_one(Job, action="prepare_data_1")
     generate_job = find_one(Job, action="generate_dataset")
-    update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
-    update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
+    with transaction():
+        update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
+        update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
     create_jobs_with_project_file(
         make_job_request(action="prepare_data_1", force_run_dependencies=True),
         TEST_PROJECT,
@@ -470,8 +482,9 @@ def test_create_jobs_reruns_failed_dependencies(db, tmp_work_dir):
     )
     prepare_1_job = find_one(Job, action="prepare_data_1")
     generate_job = find_one(Job, action="generate_dataset")
-    update_where(Job, {"state": State.FAILED}, id=generate_job.id)
-    update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
+    with transaction():
+        update_where(Job, {"state": State.FAILED}, id=generate_job.id)
+        update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
     create_jobs_with_project_file(
         make_job_request(action="prepare_data_1"), TEST_PROJECT
     )

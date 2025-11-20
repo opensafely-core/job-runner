@@ -9,7 +9,7 @@ from agent.lib import docker
 from common import config as common_config
 from common.schema import JobTaskResults, TaskType
 from controller import task_api, tracing
-from controller.lib.database import count_where, insert, update
+from controller.lib.database import count_where, insert, transaction, update
 from controller.main import create_task_for_job, job_to_job_definition
 from controller.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
 from tests.conftest import test_exporter
@@ -103,7 +103,8 @@ def rap_api_v1_factory_raw(**kwargs):
 
 def job_request_factory(**kwargs):
     job_request = job_request_factory_raw(**kwargs)
-    insert(SavedJobRequest(id=job_request.id, original=job_request.original))
+    with transaction():
+        insert(SavedJobRequest(id=job_request.id, original=job_request.original))
     return job_request
 
 
@@ -143,7 +144,8 @@ def job_factory(job_request=None, **kwargs):
     # initialise tracing
     tracing.initialise_job_trace(job)
 
-    insert(job)
+    with transaction():
+        insert(job)
 
     # ensure tests just have the span they generate
     test_exporter.clear()
@@ -177,13 +179,14 @@ def runjob_db_task_factory(job=None, *, backend="test", **kwargs):
     for k, v in kwargs.items():
         setattr(task, k, v)
 
-    task_api.insert_task(task)
+    with transaction():
+        task_api.insert_task(task)
 
-    # insert_task always sets active=true. If we want to create an inactive
-    # task, we need to modify it post insertion.
-    if kwargs.get("active") is False:
-        task.active = False
-        update(task)
+        # insert_task always sets active=true. If we want to create an inactive
+        # task, we need to modify it post insertion.
+        if kwargs.get("active") is False:
+            task.active = False
+            update(task)
 
     return task
 
@@ -201,13 +204,14 @@ def canceljob_db_task_factory(job=None, *, backend="test", **kwargs):
         definition=job_to_job_definition(job, task_id).to_dict(),
         **kwargs,
     )
-    task_api.insert_task(task)
+    with transaction():
+        task_api.insert_task(task)
 
-    # insert_task always sets active=true. If we want to create an inactive
-    # task, we need to modify it post insertion.
-    if kwargs.get("active") is False:
-        task.active = False
-        update(task)
+        # insert_task always sets active=true. If we want to create an inactive
+        # task, we need to modify it post insertion.
+        if kwargs.get("active") is False:
+            task.active = False
+            update(task)
 
     return task
 

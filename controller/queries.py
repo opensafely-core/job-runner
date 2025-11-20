@@ -5,7 +5,7 @@ from operator import attrgetter
 
 from opentelemetry import trace
 
-from controller.lib.database import find_one, find_where, upsert
+from controller.lib.database import find_one, find_where, transaction, upsert
 from controller.models import Flag, Job, SavedJobRequest
 
 
@@ -80,7 +80,8 @@ def set_flag(name, value, backend, timestamp=None):
     if timestamp is None:
         timestamp = time.time()
     flag = Flag(name, value, backend, timestamp)
-    upsert(flag, keys=("id", "backend"))
+    with transaction():
+        upsert(flag, keys=("id", "backend"))
     return flag
 
 

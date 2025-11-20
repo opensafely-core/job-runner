@@ -38,10 +38,8 @@ def ensure_transaction(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         conn = get_connection()
-        if conn.in_transaction:
-            return f(*args, **kwargs)
-        with transaction():
-            return f(*args, **kwargs)
+        assert conn.in_transaction
+        return f(*args, **kwargs)
 
     return wrapper
 

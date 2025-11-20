@@ -126,15 +126,16 @@ def handle_single_job(job):
         except Exception as exc:
             span.set_attribute("job.fatal_error", is_fatal_controller_error(exc))
             if is_fatal_controller_error(exc):
-                set_code(
-                    job,
-                    StatusCode.INTERNAL_ERROR,
-                    "Internal error: this usually means a platform issue rather than a problem "
-                    "for users to fix.\n"
-                    "The tech team are automatically notified of these errors and will be "
-                    "investigating.",
-                    exception=exc,
-                )
+                with transaction():
+                    set_code(
+                        job,
+                        StatusCode.INTERNAL_ERROR,
+                        "Internal error: this usually means a platform issue rather than a problem "
+                        "for users to fix.\n"
+                        "The tech team are automatically notified of these errors and will be "
+                        "investigating.",
+                        exception=exc,
+                    )
             # Do not clean up, as we may want to debug
             #
             # Raising will kill the main loop, by design. The service manager
@@ -183,17 +184,18 @@ def handle_job(job, mode=None, paused=None):
     # Handle special modes
     if paused:
         if job.state == State.PENDING:
-            if job.status_code == StatusCode.WAITING_ON_REBOOT:
-                # This job was already reset in prepration for reboot, just
-                # update that we've seen it
-                refresh_job_timestamps(job)
-            else:
-                # Do not start the job, keep it pending
-                set_code(
-                    job,
-                    StatusCode.WAITING_PAUSED,
-                    "Backend is currently paused for maintenance, job will start once this is completed",
-                )
+            with transaction():
+                if job.status_code == StatusCode.WAITING_ON_REBOOT:
+                    # This job was already reset in prepration for reboot, just
+                    # update that we've seen it
+                    refresh_job_timestamps(job)
+                else:
+                    # Do not start the job, keep it pending
+                    set_code(
+                        job,
+                        StatusCode.WAITING_PAUSED,
+                        "Backend is currently paused for maintenance, job will start once this is completed",
+                    )
             return
 
     if mode == "db-maintenance" and job.requires_db:
@@ -225,26 +227,29 @@ def handle_pending_job(job):
     # Check states of jobs we're depending on
     awaited_states = get_states_of_awaited_jobs(job)
     if State.FAILED in awaited_states:
-        set_code(
-            job,
-            StatusCode.DEPENDENCY_FAILED,
-            "Not starting as dependency failed",
-        )
+        with transaction():
+            set_code(
+                job,
+                StatusCode.DEPENDENCY_FAILED,
+                "Not starting as dependency failed",
+            )
         return
 
     if any(state != State.SUCCEEDED for state in awaited_states):
-        set_code(
-            job,
-            StatusCode.WAITING_ON_DEPENDENCIES,
-            "Waiting on dependencies",
-        )
+        with transaction():
+            set_code(
+                job,
+                StatusCode.WAITING_ON_DEPENDENCIES,
+                "Waiting on dependencies",
+            )
         return
 
     # Give me ONE GOOD REASON why I shouldn't start you running right now!
     not_started_reason = get_reason_job_not_started(job)
     if not_started_reason:
         code, message = not_started_reason
-        set_code(job, code, message)
+        with transaction():
+            set_code(job, code, message)
         return
 
     task = create_task_for_job(job)
@@ -264,23 +269,26 @@ def handle_running_job(job):
             span = trace.get_current_span()
             span.set_attribute("fatal_job_error", is_fatal_job_error(job_error))
             if is_fatal_job_error(job_error):
-                set_code(
-                    job,
-                    StatusCode.JOB_ERROR,
-                    "This job returned a fatal error.",
-                    exception=job_error,
-                )
+                with transaction():
+                    set_code(
+                        job,
+                        StatusCode.JOB_ERROR,
+                        "This job returned a fatal error.",
+                        exception=job_error,
+                    )
             else:
                 # mark task as waiting on new task, this will trigger the loop to respawn it
-                set_code(
-                    job,
-                    StatusCode.WAITING_ON_NEW_TASK,
-                    "This job returned an error that could be retriedwith a new task.",
-                )
+                with transaction():
+                    set_code(
+                        job,
+                        StatusCode.WAITING_ON_NEW_TASK,
+                        "This job returned an error that could be retriedwith a new task.",
+                    )
 
         else:
             results = JobTaskResults.from_dict(task.agent_results)
-            save_results(job, results, task.agent_timestamp_ns)
+            with transaction():
+                save_results(job, results, task.agent_timestamp_ns)
             # TODO: Delete obsolete files
     else:
         # A task exists for this job already and it hasn't completed yet
@@ -293,12 +301,13 @@ def handle_running_job(job):
         # In case a running job is updated with an unknown agent_stage (i.e. an
         # ExecutorState that is not a valid StatusCode (i.e. error, unknown), we
         # use the current job status_code as a default)
-        set_code(
-            job,
-            StatusCode.from_value(task.agent_stage, default=job.status_code),
-            job.status_message,
-            task_timestamp_ns=task.agent_timestamp_ns,
-        )
+        with transaction():
+            set_code(
+                job,
+                StatusCode.from_value(task.agent_stage, default=job.status_code),
+                job.status_message,
+                task_timestamp_ns=task.agent_timestamp_ns,
+            )
 
 
 def save_results(job, results, timestamp_ns):
@@ -689,13 +698,14 @@ def update_scheduled_task_for_db_maintenance_for_backend(backend):
     # If we're in manual maintenance mode then deactivate any running status check tasks
     # and exit
     if get_flag_value("manual-db-maintenance", backend):
-        update_where(
-            Task,
-            {"active": False},
-            type=TaskType.DBSTATUS,
-            active=True,
-            backend=backend,
-        )
+        with transaction():
+            update_where(
+                Task,
+                {"active": False},
+                type=TaskType.DBSTATUS,
+                active=True,
+                backend=backend,
+            )
         return
 
     # If there's already an active task then there's nothing to do
@@ -720,16 +730,17 @@ def update_scheduled_task_for_db_maintenance_for_backend(backend):
         return
 
     # Otherwise, create a new task
-    insert_task(
-        Task(
-            # Add a bit of structure to the ID: this isn't strictly necessary – truly
-            # random IDs should work just fine – but it may help with future debugging
-            id=f"dbstatus-{datetime.date.today()}-{secrets.token_hex(10)}",
-            type=TaskType.DBSTATUS,
-            backend=backend,
-            definition={"database_name": "default"},
+    with transaction():
+        insert_task(
+            Task(
+                # Add a bit of structure to the ID: this isn't strictly necessary – truly
+                # random IDs should work just fine – but it may help with future debugging
+                id=f"dbstatus-{datetime.date.today()}-{secrets.token_hex(10)}",
+                type=TaskType.DBSTATUS,
+                backend=backend,
+                definition={"database_name": "default"},
+            )
         )
-    )
 
 
 if __name__ == "__main__":
