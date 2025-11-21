@@ -423,6 +423,41 @@ def test_create_view(db, client, monkeypatch):
     assert job.action == "generate_dataset"
 
 
+def test_create_view_with_analysis_scope(db, client, monkeypatch):
+    # Test that the create view can be passed an analysis_scope
+    monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
+    headers = {"Authorization": "test_token"}
+
+    repo_url = str(FIXTURES_PATH / "git-repo")
+
+    rap_request_body = rap_api_v1_factory_raw(
+        repo_url=repo_url,
+        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
+        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        branch="v1",
+        requested_actions=["generate_dataset"],
+        analysis_scope={
+            "dataset_permissions": ["appointments"],
+            "population_permissions": ["include_ndoo"],
+        },
+    )
+
+    response = client.post(
+        reverse("create"),
+        json.dumps(rap_request_body),
+        headers=headers,
+        content_type="application/json",
+    )
+    assert response.status_code == 201
+    response_json = response.json()
+    assert response_json == {
+        "result": "Success",
+        "details": f"Jobs created for rap_id '{rap_request_body['rap_id']}'",
+        "rap_id": rap_request_body["rap_id"],
+        "count": 1,
+    }, response
+
+
 def test_create_view_validation_error(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}

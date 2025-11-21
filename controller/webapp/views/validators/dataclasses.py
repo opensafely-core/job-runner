@@ -84,6 +84,7 @@ class CreateRequest(RequestBody):
     created_by: str
     project: str
     orgs: list[str]
+    analysis_scope: dict
     original: dict
 
     @classmethod
@@ -113,6 +114,7 @@ class CreateRequest(RequestBody):
             created_by=body_data["created_by"],
             project=body_data["project"],
             orgs=body_data["orgs"],
+            analysis_scope=body_data.get("analysis_scope") or {},
             original=original,
         )
 
