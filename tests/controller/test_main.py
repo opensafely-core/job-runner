@@ -17,8 +17,8 @@ from controller.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
 from tests.factories import (
     job_factory,
-    job_request_factory,
     job_task_results_factory,
+    rap_create_request_factory,
     runjob_db_task_factory,
 )
 
@@ -835,8 +835,10 @@ def test_job_definition_defaults(db):
     import time
 
     ts = int(time.time())
-    job_request = job_request_factory(id="test_job_request")
-    job = job_factory(id="test_job", job_request=job_request, created_at=ts)
+    rap_create_request = rap_create_request_factory(id="test_rap_create_request")
+    job = job_factory(
+        id="test_job", rap_create_request=rap_create_request, created_at=ts
+    )
     definition = main.job_to_job_definition(job, task_id="task_id")
 
     assert definition.to_dict() == {
@@ -856,7 +858,7 @@ def test_job_definition_defaults(db):
         "image_sha": None,
         "input_job_ids": [],
         "inputs": [],
-        "rap_id": "test_job_request",
+        "rap_id": "test_rap_create_request",
         "level4_file_types": [
             ".csv",
             ".html",
@@ -937,7 +939,7 @@ def test_job_definition_ehrql_permissions(db, monkeypatch, project, expected_env
             "project-with-some-permissions": ["table1", "table2"],
         },
     )
-    jr = job_request_factory(
+    jr = rap_create_request_factory(
         original={
             "created_by": "testuser",
             "project": project,
@@ -952,7 +954,7 @@ def test_job_definition_ehrql_permissions(db, monkeypatch, project, expected_env
         }
     )
 
-    job = job_factory(requires_db=True, job_request=jr)
+    job = job_factory(requires_db=True, rap_create_request=jr)
     job_definition = main.job_to_job_definition(job, task_id="")
     assert job_definition.env["EHRQL_PERMISSIONS"] == expected_env
 

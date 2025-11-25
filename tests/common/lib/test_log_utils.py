@@ -9,7 +9,8 @@ import pytest
 from common.job_executor import JobDefinition
 from common.lib import log_utils
 from common.schema import AgentTask
-from controller.models import Job, JobRequest, TaskType
+from controller.models import Job, TaskType
+from controller.webapp.views.validators.dataclasses import CreateRequest
 
 
 FROZEN_TIMESTAMP = 1608568119.1467905
@@ -22,15 +23,21 @@ test_job = Job(
     repo_url=repo_url,
     workspace="workspace",
 )
-test_request = JobRequest(
+test_request = CreateRequest(
     id="request",
     repo_url=repo_url,
     workspace="workspace",
     commit="commit",
     requested_actions=["action"],
-    cancelled_actions=[],
     codelists_ok=True,
     database_name="dummy",
+    branch="main",
+    created_by="",
+    project="project",
+    orgs=["org1"],
+    force_run_dependencies=False,
+    backend="test",
+    original={},
 )
 test_job_definition = JobDefinition(
     id="job-def",

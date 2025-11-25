@@ -5,7 +5,7 @@ import pytest
 from controller.models import StatusCode
 from tests.factories import (
     job_factory,
-    job_request_factory_raw,
+    rap_create_request_factory_raw,
 )
 
 
@@ -39,9 +39,9 @@ def test_status_code_from_value(value, default, expected):
     assert StatusCode.from_value(value, **kwargs) == expected
 
 
-def test_job_request_get_tracing_span_attributes():
-    job_request = job_request_factory_raw()
-    span_attributes = job_request.get_tracing_span_attributes()
+def test_rap_create_request_get_tracing_span_attributes():
+    rap_create_request = rap_create_request_factory_raw()
+    span_attributes = rap_create_request.get_tracing_span_attributes()
     assert span_attributes == {
         "backend": "test",
         "workspace": "workspace",

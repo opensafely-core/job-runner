@@ -61,7 +61,9 @@ actions:
 
 
 def test_adding_job_creates_dependencies(tmp_work_dir):
-    create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
+    create_jobs_with_project_file(
+        make_create_request(action="analyse_data"), TEST_PROJECT
+    )
     analyse_job = find_one(Job, action="analyse_data")
     prepare_1_job = find_one(Job, action="prepare_data_1")
     prepare_2_job = find_one(Job, action="prepare_data_2")
@@ -74,13 +76,15 @@ def test_adding_job_creates_dependencies(tmp_work_dir):
 
 def test_existing_active_jobs_are_picked_up_when_checking_dependencies(tmp_work_dir):
     create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1"), TEST_PROJECT
+        make_create_request(action="prepare_data_1"), TEST_PROJECT
     )
     prepare_1_job = find_one(Job, action="prepare_data_1")
     generate_job = find_one(Job, action="generate_dataset")
     assert prepare_1_job.wait_for_job_ids == [generate_job.id]
     # Now schedule a job which has the above jobs as dependencies
-    create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
+    create_jobs_with_project_file(
+        make_create_request(action="analyse_data"), TEST_PROJECT
+    )
     # Check that it's waiting on the existing jobs
     analyse_job = find_one(Job, action="analyse_data")
     prepare_2_job = find_one(Job, action="prepare_data_2")
@@ -94,10 +98,10 @@ def test_existing_active_jobs_for_other_backends_are_ignored_when_checking_depen
     monkeypatch.setattr("common.config.BACKENDS", ["foo", "bar"])
     # Schedule the same job on 2 backends
     create_jobs_with_project_file(
-        make_job_request(action="analyse_data", backend="foo"), TEST_PROJECT
+        make_create_request(action="analyse_data", backend="foo"), TEST_PROJECT
     )
     create_jobs_with_project_file(
-        make_job_request(action="analyse_data", backend="bar"), TEST_PROJECT
+        make_create_request(action="analyse_data", backend="bar"), TEST_PROJECT
     )
 
     # There are now 2 of each job
@@ -122,7 +126,7 @@ def test_existing_active_jobs_for_other_backends_are_ignored_when_checking_depen
 
 def test_existing_succeeded_jobs_are_picked_up_when_checking_dependencies(tmp_work_dir):
     create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1"), TEST_PROJECT
+        make_create_request(action="prepare_data_1"), TEST_PROJECT
     )
     prepare_1_job = find_one(Job, action="prepare_data_1")
     generate_job = find_one(Job, action="generate_dataset")
@@ -131,7 +135,9 @@ def test_existing_succeeded_jobs_are_picked_up_when_checking_dependencies(tmp_wo
     update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
 
     # Now schedule a job which has the above jobs as dependencies
-    create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
+    create_jobs_with_project_file(
+        make_create_request(action="analyse_data"), TEST_PROJECT
+    )
     # Check that it's waiting on the existing jobs
     analyse_job = find_one(Job, action="analyse_data")
     prepare_2_job = find_one(Job, action="prepare_data_2")
@@ -144,14 +150,14 @@ def test_existing_cancelled_jobs_are_ignored_up_when_checking_dependencies(
     tmp_work_dir,
 ):
     create_jobs_with_project_file(
-        make_job_request(action="generate_dataset"), TEST_PROJECT
+        make_create_request(action="generate_dataset"), TEST_PROJECT
     )
     cancelled_generate_job = find_one(Job, action="generate_dataset")
     update_where(Job, {"cancelled": True}, id=cancelled_generate_job.id)
 
     # Now schedule a job which has the above job as a dependency
     create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1"), TEST_PROJECT
+        make_create_request(action="prepare_data_1"), TEST_PROJECT
     )
 
     # Check that it's spawned a new instance of the cancelled job and wired up the dependencies correctly
@@ -173,12 +179,13 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
         name: path.csv
     """
     create_jobs_with_project_file(
-        make_job_request(action="obsolete_action"), TEST_PROJECT + obsolete_action_def
+        make_create_request(action="obsolete_action"),
+        TEST_PROJECT + obsolete_action_def,
     )
     update_where(Job, {"state": State.FAILED}, action="obsolete_action")
 
     # Since then all the healthy, vigorous actions have been successfully run individually
-    request = make_job_request(
+    request = make_create_request(
         actions=["generate_dataset", "prepare_data_1", "prepare_data_2", "analyse_data"]
     )
     create_jobs_with_project_file(request, TEST_PROJECT)
@@ -186,7 +193,9 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
 
     with pytest.raises(NothingToDoError):
         # Now this should be a no-op because all the actions that are still part of the study have succeeded
-        create_jobs_with_project_file(make_job_request(action="run_all"), TEST_PROJECT)
+        create_jobs_with_project_file(
+            make_create_request(action="run_all"), TEST_PROJECT
+        )
 
 
 @pytest.mark.parametrize(
@@ -203,7 +212,7 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
         ),
     ],
 )
-def test_validate_job_request(params, exc_msg, exc_cls, monkeypatch):
+def test_validate_rap_create_request(params, exc_msg, exc_cls, monkeypatch):
     repo_url = str(FIXTURES_PATH / "git-repo")
     kwargs = dict(
         id="123",
@@ -220,6 +229,7 @@ def test_validate_job_request(params, exc_msg, exc_cls, monkeypatch):
         created_by="",
         project="",
         orgs=[],
+        analysis_scope={},
         original=dict(
             created_by="user",
             project="project",
@@ -227,10 +237,10 @@ def test_validate_job_request(params, exc_msg, exc_cls, monkeypatch):
         ),
     )
     kwargs.update(params)
-    job_request = CreateRequest(**kwargs)
+    rap_create_request = CreateRequest(**kwargs)
 
     with pytest.raises(exc_cls, match=exc_msg):
-        validate_rap_create_request(job_request)
+        validate_rap_create_request(rap_create_request)
 
 
 @pytest.mark.parametrize(
@@ -264,26 +274,27 @@ def test_validate_rap_create_request_repos(repo_url, exc_msg, exc_cls, monkeypat
         created_by="",
         project="",
         orgs=[],
+        analysis_scope={},
         original=dict(
             created_by="user",
             project="project",
             orgs=["org1", "org2"],
         ),
     )
-    job_request = CreateRequest(**kwargs)
+    rap_create_request = CreateRequest(**kwargs)
 
     with pytest.raises(exc_cls, match=exc_msg):
-        validate_rap_create_request(job_request)
+        validate_rap_create_request(rap_create_request)
 
 
-def make_job_request(action=None, actions=None, **kwargs):
+def make_create_request(action=None, actions=None, **kwargs):
     assert not (actions and action)
     if not actions:
         if action:
             actions = [action]
         else:
             actions = ["generate_dataset"]
-    job_request = CreateRequest(
+    rap_create_request = CreateRequest(
         id=str(uuid.uuid4()),
         # do not use a http url so we bypass repo validation
         repo_url="/some/url/repo",
@@ -298,6 +309,7 @@ def make_job_request(action=None, actions=None, **kwargs):
         created_by="",
         project="",
         orgs=[],
+        analysis_scope={},
         original=dict(
             created_by="user",
             project="project",
@@ -305,29 +317,31 @@ def make_job_request(action=None, actions=None, **kwargs):
         ),
     )
     for key, value in kwargs.items():
-        setattr(job_request, key, value)
-    return job_request
+        setattr(rap_create_request, key, value)
+    return rap_create_request
 
 
 def test_create_jobs_already_requested(db, tmp_work_dir):
-    create_jobs_with_project_file(make_job_request(action="analyse_data"), TEST_PROJECT)
+    create_jobs_with_project_file(
+        make_create_request(action="analyse_data"), TEST_PROJECT
+    )
 
     with pytest.raises(NothingToDoError):
         create_jobs_with_project_file(
-            make_job_request(action="analyse_data"), TEST_PROJECT
+            make_create_request(action="analyse_data"), TEST_PROJECT
         )
 
 
 def test_create_jobs_already_succeeded_is_rerun(db, tmp_work_dir):
     create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1"), TEST_PROJECT
+        make_create_request(action="prepare_data_1"), TEST_PROJECT
     )
     prepare_1_job = find_one(Job, action="prepare_data_1")
     generate_job = find_one(Job, action="generate_dataset")
     update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
     update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
     create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1"), TEST_PROJECT
+        make_create_request(action="prepare_data_1"), TEST_PROJECT
     )
     generate_jobs = find_where(Job, action="generate_dataset")
     assert len(generate_jobs) == 1
@@ -337,14 +351,14 @@ def test_create_jobs_already_succeeded_is_rerun(db, tmp_work_dir):
 
 def test_create_jobs_force_run_dependencies(db, tmp_work_dir):
     create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1"), TEST_PROJECT
+        make_create_request(action="prepare_data_1"), TEST_PROJECT
     )
     prepare_1_job = find_one(Job, action="prepare_data_1")
     generate_job = find_one(Job, action="generate_dataset")
     update_where(Job, {"state": State.SUCCEEDED}, id=generate_job.id)
     update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
     create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1", force_run_dependencies=True),
+        make_create_request(action="prepare_data_1", force_run_dependencies=True),
         TEST_PROJECT,
     )
     generate_jobs = find_where(Job, action="generate_dataset")
@@ -355,14 +369,14 @@ def test_create_jobs_force_run_dependencies(db, tmp_work_dir):
 
 def test_create_jobs_reruns_failed_dependencies(db, tmp_work_dir):
     create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1"), TEST_PROJECT
+        make_create_request(action="prepare_data_1"), TEST_PROJECT
     )
     prepare_1_job = find_one(Job, action="prepare_data_1")
     generate_job = find_one(Job, action="generate_dataset")
     update_where(Job, {"state": State.FAILED}, id=generate_job.id)
     update_where(Job, {"state": State.SUCCEEDED}, id=prepare_1_job.id)
     create_jobs_with_project_file(
-        make_job_request(action="prepare_data_1"), TEST_PROJECT
+        make_create_request(action="prepare_data_1"), TEST_PROJECT
     )
     generate_jobs = find_where(Job, action="generate_dataset")
     assert len(generate_jobs) == 2
@@ -370,10 +384,10 @@ def test_create_jobs_reruns_failed_dependencies(db, tmp_work_dir):
     assert len(prepare_1_jobs) == 2
 
 
-def create_jobs_with_project_file(job_request, project_file):
+def create_jobs_with_project_file(rap_create_request, project_file):
     with mock.patch("controller.create_or_update_jobs.get_project_file") as f:
         f.return_value = project_file
-        return create_jobs(job_request)
+        return create_jobs(rap_create_request)
 
 
 def test_create_jobs_tracing(db, tmp_work_dir):
@@ -383,7 +397,7 @@ def test_create_jobs_tracing(db, tmp_work_dir):
         CreateRequest, "get_tracing_span_attributes", return_value={"foo": "bar"}
     ):
         create_jobs_with_project_file(
-            make_job_request(action="prepare_data_1"), TEST_PROJECT
+            make_create_request(action="prepare_data_1"), TEST_PROJECT
         )
     spans = get_trace("create_or_update_jobs")
 
@@ -413,7 +427,9 @@ def test_create_jobs_with_out_of_date_codelists(
         something: done.txt
 """
     )
-    job_request = make_job_request(action=requested_action, codelists_ok=False)
+    rap_create_request = make_create_request(
+        action=requested_action, codelists_ok=False
+    )
     if expect_error:
         # The error reports the action that needed the up-to-date codelists, even if that
         # wasn't the action explicitly requested
@@ -423,6 +439,6 @@ def test_create_jobs_with_out_of_date_codelists(
                 "Codelists are out of date (required by action generate_dataset)"
             ),
         ):
-            create_jobs_with_project_file(job_request, project)
+            create_jobs_with_project_file(rap_create_request, project)
     else:
-        assert create_jobs_with_project_file(job_request, project) == 1
+        assert create_jobs_with_project_file(rap_create_request, project) == 1

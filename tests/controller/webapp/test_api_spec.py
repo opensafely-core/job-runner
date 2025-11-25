@@ -8,7 +8,7 @@ import schemathesis
 from controller.lib import database
 from controller.models import Job, State
 from controller.webapp.api_spec.utils import load_api_spec_json
-from tests.factories import job_factory, job_request_factory
+from tests.factories import job_factory, rap_create_request_factory
 
 
 FIXTURES_PATH = Path(__file__).parent.parent.parent.resolve() / "fixtures"
@@ -110,12 +110,12 @@ def setup_jobs(db):
     ]
     for rap_id, actions, backend in example_jobs:
         if not database.exists_where(Job, rap_id=rap_id):
-            job_req = job_request_factory(id=rap_id)
+            rap_req = rap_create_request_factory(id=rap_id)
             for action in actions:
                 job_factory(
                     state=State.PENDING,
                     action=action,
-                    job_request=job_req,
+                    rap_create_request=rap_req,
                     backend=backend,
                 )
 

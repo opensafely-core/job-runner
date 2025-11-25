@@ -15,8 +15,8 @@ from controller.webapp.views.rap_views import job_to_api_format
 from tests.conftest import get_trace
 from tests.factories import (
     job_factory,
-    job_request_factory,
     rap_api_v1_factory_raw,
+    rap_create_request_factory,
     runjob_db_task_factory,
 )
 
@@ -261,20 +261,29 @@ def test_cancel_view_multiple(db, client, monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    job_request = job_request_factory()
+    rap_create_request = rap_create_request_factory()
     job1 = job_factory(
-        state=State.PENDING, action="action1", backend="test", job_request=job_request
+        state=State.PENDING,
+        action="action1",
+        backend="test",
+        rap_create_request=rap_create_request,
     )
     job2 = job_factory(
-        state=State.RUNNING, action="action2", backend="test", job_request=job_request
+        state=State.RUNNING,
+        action="action2",
+        backend="test",
+        rap_create_request=rap_create_request,
     )
     job3 = job_factory(
-        state=State.RUNNING, action="action3", backend="test", job_request=job_request
+        state=State.RUNNING,
+        action="action3",
+        backend="test",
+        rap_create_request=rap_create_request,
     )
     jobs = (job1, job2, job3)
     assert all(not job.cancelled for job in jobs)
     post_data = {
-        "rap_id": job_request.id,
+        "rap_id": rap_create_request.id,
         "actions": ["action1", "action2", "action3"],
     }
 
