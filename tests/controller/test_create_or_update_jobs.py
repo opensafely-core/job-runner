@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 
 import common.config
+import controller
 from common.lib.github_validators import GithubValidationError
 from controller.create_or_update_jobs import (
     NothingToDoError,
@@ -430,3 +431,91 @@ def test_create_jobs_with_out_of_date_codelists(
             create_jobs_with_project_file(rap_create_request, project)
     else:
         assert create_jobs_with_project_file(rap_create_request, project) == 1
+
+
+def test_create_non_db_job_with_analysis_scope(tmp_work_dir):
+    create_rap_request = make_create_request(action="analyse_data")
+    create_jobs_with_project_file(create_rap_request, TEST_PROJECT)
+    job = find_one(Job, action="analyse_data")
+    assert job.analysis_scope == {}
+
+
+@pytest.mark.parametrize(
+    "rap_api_analysis_scope,project,expected_job_analysis_scope",
+    [
+        (None, "project-with-no-permissions", {"dataset_permissions": []}),
+        ({}, "project-with-no-permissions", {"dataset_permissions": []}),
+        ({}, "project-with-permissions", {"dataset_permissions": ["table1", "table2"]}),
+        (
+            {"dataset_permissions": ["table3"]},
+            "project-with-permissions",
+            {"dataset_permissions": ["table1", "table2", "table3"]},
+        ),
+    ],
+)
+def test_create_db_job_with_dataset_permissions(
+    tmp_work_dir,
+    monkeypatch,
+    rap_api_analysis_scope,
+    project,
+    expected_job_analysis_scope,
+):
+    monkeypatch.setattr(
+        controller.permissions.datasets,
+        "PERMISSIONS",
+        {
+            "project-with-permissions": ["table1", "table2"],
+        },
+    )
+    create_rap_request = make_create_request(
+        action="generate_dataset",
+        analysis_scope=rap_api_analysis_scope,
+        project=project,
+    )
+    create_jobs_with_project_file(create_rap_request, TEST_PROJECT)
+    job = find_one(Job, action="generate_dataset")
+
+    assert job.analysis_scope == expected_job_analysis_scope
+
+
+@pytest.mark.parametrize(
+    "rap_api_analysis_scope,repo_url,expected_job_analysis_scope",
+    [
+        ({}, "https://github.com/opensafely/not-ok-repo", {"dataset_permissions": []}),
+        (
+            {},
+            "https://github.com/opensafely/ok-repo",
+            {"dataset_permissions": [], "component_access": ["event_level_data"]},
+        ),
+        (
+            {"component_access": ["some_other_component"]},
+            "https://github.com/opensafely/ok-repo",
+            {
+                "dataset_permissions": [],
+                "component_access": ["event_level_data", "some_other_component"],
+            },
+        ),
+    ],
+)
+def test_create_db_job_with_component_access(
+    tmp_work_dir,
+    monkeypatch,
+    rap_api_analysis_scope,
+    repo_url,
+    expected_job_analysis_scope,
+):
+    monkeypatch.setattr(
+        controller.config,
+        "REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS",
+        {"https://github.com/opensafely/ok-repo"},
+    )
+    create_rap_request = make_create_request(
+        action="generate_dataset",
+        analysis_scope=rap_api_analysis_scope,
+        repo_url=repo_url,
+    )
+    with mock.patch("controller.create_or_update_jobs.validate_rap_create_request"):
+        create_jobs_with_project_file(create_rap_request, TEST_PROJECT)
+    job = find_one(Job, action="generate_dataset")
+
+    assert job.analysis_scope == expected_job_analysis_scope

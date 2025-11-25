@@ -17,10 +17,11 @@ from pipeline import RUN_ALL_COMMAND, load_pipeline
 from common import config as common_config
 from common.lib.git import GitFileNotFoundError, read_file_from_repo
 from common.lib.github_validators import validate_repo_and_commit
-from controller import tracing
+from controller import config, tracing
 from controller.actions import get_action_specification
 from controller.lib.database import exists_where, insert, transaction, update_where
 from controller.models import Job, State, StatusCode
+from controller.permissions import datasets
 from controller.queries import calculate_workspace_state
 from controller.reusable_actions import (
     resolve_reusable_action_references,
@@ -199,6 +200,23 @@ def recursively_build_jobs(jobs_by_action, rap_create_request, pipeline_config, 
             wait_for_job_ids.append(required_job.id)
 
     timestamp = time.time()
+
+    analysis_scope = {}
+    if action_spec.action.is_database_action:
+        analysis_scope = rap_create_request.analysis_scope or {}
+        # In future we expect all analysis_scope to be be passed from the RAP API
+        # However, currently dataset permissions and event level data access live in this repo,
+        # so we combine info from both sources (sorted for reproducibility and readability in tracing)
+        dataset_permissions = set(analysis_scope.get("dataset_permissions", [])) | set(
+            datasets.PERMISSIONS.get(rap_create_request.project, [])
+        )
+        analysis_scope["dataset_permissions"] = sorted(dataset_permissions)
+        if rap_create_request.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
+            component_access = set(analysis_scope.get("component_access", [])) | {
+                "event_level_data"
+            }
+            analysis_scope["component_access"] = sorted(component_access)
+
     job = Job(
         rap_id=rap_create_request.id,
         state=State.PENDING,
@@ -223,6 +241,7 @@ def recursively_build_jobs(jobs_by_action, rap_create_request, pipeline_config, 
         user=rap_create_request.created_by,
         project=rap_create_request.project,
         orgs=rap_create_request.orgs,
+        analysis_scope=analysis_scope,
     )
     tracing.initialise_job_trace(job)
 
