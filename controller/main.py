@@ -405,7 +405,7 @@ def job_to_job_definition(job, task_id, image_sha=None):
         output_spec=outputs,
         allow_database_access=job.requires_db,
         database_name=job.database_name if job.requires_db else None,
-        # in future, these may come from the JobRequest, but for now, we have
+        # in future, these may come from the CreateRequest, but for now, we have
         # config defaults.
         cpu_count=config.DEFAULT_JOB_CPU_COUNT[job.backend],
         memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT[job.backend],

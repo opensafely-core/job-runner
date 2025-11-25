@@ -5,7 +5,7 @@ from controller.cli import add_job
 
 class Command(BaseCommand):
     """
-    Development utility for creating and submitting a JobRequest without having a
+    Development utility for creating and submitting a RAP without having a
     job-server
     """
 
