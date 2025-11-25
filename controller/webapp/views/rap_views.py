@@ -11,8 +11,8 @@ from common.lib.git import GitError
 from common.lib.github_validators import GithubValidationError
 from common.tracing import duration_ms_as_span_attr, set_span_attributes
 from controller.create_or_update_jobs import (
-    JobRequestError,
     NothingToDoError,
+    RapCreateRequestError,
     create_jobs,
     related_jobs_exist,
     set_cancelled_flag_for_actions,
@@ -295,7 +295,7 @@ def create(request, *, token_backends, request_obj: CreateRequest):
     try:
         log.info(f"Handling new rap_id:\n{request_obj.id}")
 
-        # TODO: create_jobs calls a method called validate_job_request() which checks
+        # TODO: create_jobs calls a method called validate_rap_create_request() which checks
         # various job request properties, and then calls validate_repo_and_commit
         # Everything other than validate_repo_and_commit should be covered by the jsonschema
         # validation in CreateRequest and so is not required now. It is left in for now
@@ -331,7 +331,7 @@ def create(request, *, token_backends, request_obj: CreateRequest):
         GithubValidationError,
         ProjectValidationError,
         ReusableActionError,
-        JobRequestError,
+        RapCreateRequestError,
     ) as e:
         log.error("Failed to create jobs for rap_id %s:\n%s", request_obj.id, e)
         # Note: we return the error in the response for these specific handled errors, as
