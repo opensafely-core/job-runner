@@ -120,38 +120,9 @@ StatusCode._RESET_STATUS_CODES = [
 ]
 
 
-# This is our internal representation of a JobRequest which we pass around but
-# never save to the database (hence no __tablename__ attribute)
-@dataclasses.dataclass
-class JobRequest:
-    id: str  # noqa: A003
-    repo_url: str
-    commit: str
-    requested_actions: list
-    cancelled_actions: list
-    workspace: str
-    codelists_ok: bool
-    database_name: str
-    force_run_dependencies: bool = False
-    branch: str = None
-    backend: str = None
-    original: dict = None
-
-    def get_tracing_span_attributes(self) -> dict:
-        """Provide useful attributes for telemetry suitable for passing
-        as the `attributes` parameter to `start_as_current_span`."""
-        return {
-            "backend": self.backend,
-            "workspace": self.workspace,
-            "user": self.original["created_by"],
-            "project": self.original["project"],
-            "orgs": self.original["orgs"],
-        }
-
-
-# This stores the original JobRequest as received from the job-server. Once
-# we've created the relevant Jobs we have no real need for the JobRequest
-# object, but elements from the original JSON data from job-server can be
+# This stores the original request body as received from the job-server in the
+# /rap/create endpoint. Once we've created the relevant Jobs we have no real need
+# for this object, but elements from the original JSON data from job-server can be
 # useful for debugging/audit purposes. Certain fields are also added as telemetry
 # trace attributes (e.g. created_by user, project, orgs); these could change in
 # future depending on telemetry needs, so we just retrieve them from the
