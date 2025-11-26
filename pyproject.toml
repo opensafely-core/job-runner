@@ -81,6 +81,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:opentelemetry.*:",
     "ignore::DeprecationWarning:pytest_freezegun:17",
     "ignore::DeprecationWarning:pytest_responses:9",
+    "ignore::DeprecationWarning:schemathesis.*:",
     "ignore:.*dynamic_context.*:pytest_cov.CentralCovContextWarning",
 ]
 DJANGO_SETTINGS_MODULE = "controller.webapp.settings"
