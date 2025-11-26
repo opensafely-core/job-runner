@@ -81,6 +81,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:opentelemetry.*:",
     "ignore::DeprecationWarning:pytest_freezegun:17",
     "ignore::DeprecationWarning:pytest_responses:9",
+    "ignore::DeprecationWarning:schemathesis.*:",
     "ignore:.*dynamic_context.*:pytest_cov.CentralCovContextWarning",
 ]
 DJANGO_SETTINGS_MODULE = "controller.webapp.settings"
@@ -92,7 +93,7 @@ include = ["jobrunner*"]
 # See https://github.com/opensafely-core/repo-template/blob/main/DEVELOPERS.md for details
 [tool.uv]
 required-version = ">=0.9"
-exclude-newer = "2025-11-12T00:00:00Z"
+exclude-newer = "2025-11-19T00:00:00Z"
 exclude-newer-package = {}
 
 [dependency-groups]
