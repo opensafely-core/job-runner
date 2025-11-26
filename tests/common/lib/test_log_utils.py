@@ -10,7 +10,6 @@ from common.job_executor import JobDefinition
 from common.lib import log_utils
 from common.schema import AgentTask
 from controller.models import Job, TaskType
-from controller.webapp.views.validators.dataclasses import CreateRequest
 
 
 FROZEN_TIMESTAMP = 1608568119.1467905
@@ -22,22 +21,6 @@ test_job = Job(
     action="action",
     repo_url=repo_url,
     workspace="workspace",
-)
-test_request = CreateRequest(
-    id="request",
-    repo_url=repo_url,
-    workspace="workspace",
-    commit="commit",
-    requested_actions=["action"],
-    codelists_ok=True,
-    database_name="dummy",
-    branch="main",
-    created_by="",
-    project="project",
-    orgs=["org1"],
-    force_run_dependencies=False,
-    backend="test",
-    original={},
 )
 test_job_definition = JobDefinition(
     id="job-def",
@@ -87,9 +70,9 @@ def test_formatting_filter():
     assert log_utils.formatting_filter(record)
     assert record.tags == "status=code workspace=workspace action=action id=id"
 
-    record = logging.makeLogRecord({"job": test_job, "job_request": test_request})
+    record = logging.makeLogRecord({"job": test_job})
     assert log_utils.formatting_filter(record)
-    assert record.tags == "workspace=workspace action=action id=id req=request"
+    assert record.tags == "workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({"status_code": ""})
     assert log_utils.formatting_filter(record)
@@ -118,9 +101,9 @@ def test_formatting_filter_with_context():
     assert record.tags == "status=code workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({})
-    with log_utils.set_log_context(job=test_job, job_request=test_request):
+    with log_utils.set_log_context(job=test_job):
         assert log_utils.formatting_filter(record)
-    assert record.tags == "workspace=workspace action=action id=id req=request"
+    assert record.tags == "workspace=workspace action=action id=id"
 
     record = logging.makeLogRecord({})
     with log_utils.set_log_context(job_definition=test_job_definition):
@@ -139,7 +122,6 @@ def test_jobrunner_formatter_default(monkeypatch):
         {
             "msg": "message",
             "job": test_job,
-            "job_request": test_request,
             "status_code": "status",
         }
     )
@@ -147,7 +129,7 @@ def test_jobrunner_formatter_default(monkeypatch):
     formatter = log_utils.JobRunnerFormatter(log_utils.DEFAULT_FORMAT, style="{")
     assert formatter.format(record) == (
         "2020-12-21 16:28:39.146Z message "
-        "status=status workspace=workspace action=action id=id req=request"
+        "status=status workspace=workspace action=action id=id"
     )
 
 
