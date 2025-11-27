@@ -166,6 +166,7 @@ paths:
                     project: test-project
                     orgs:
                      - opensafely
+                    analysis_scope:
                 example2:
                   value:
                     backend: test
@@ -183,6 +184,14 @@ paths:
                     project: my-project
                     orgs:
                      - opensafely
+                    analysis_scope:
+                      dataset_permissions:
+                        - appointments
+                      population_permissions:
+                        - include_t1oo
+                        - include_ndoo
+                      component_access:
+                        - event_level_data
         responses:
           201:
             description: OK; jobs created
@@ -557,6 +566,41 @@ components:
           type: array
           items:
             type: string
+        analysis_scope:
+          description: Permissions and configuration to be applied to the execution of actions in this RAP.
+          type: object
+          nullable: true
+          properties:
+            dataset_permissions:
+              description: A list of restricted datasets that this RAP has permission to use.
+              type: array
+              items:
+                type: string
+                enum:
+                  - appointments
+                  - icnarc
+                  - isaric
+                  - open_prompt
+                  - ukrr
+                  - waiting_list
+            population_permissions:
+              description: A list of population filters that this RAP is allowed to access.
+              type: array
+              items:
+                type: string
+                enum:
+                  - include_ndoo
+                  - include_t1oo
+                  - include_gp_unactivated
+            component_access:
+              description: A list of analysis components that this RAP is allowed or required to apply.
+              type: array
+              items:
+                type: string
+                enum:
+                  - event_level_data
+                  - patient_id_detection
+
     backendFlagStatus:
       # Can be referenced as '#/components/schemas/backendFlagStatus'
       type: string

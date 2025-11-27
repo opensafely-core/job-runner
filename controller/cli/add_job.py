@@ -52,6 +52,7 @@ def main(
             created_by="controller",
             project="unknown",
             orgs=[],
+            analysis_scope={},
         )
     )
     print("Submitting JobRequest:\n")
@@ -93,6 +94,7 @@ def _make_create_request(args_dict: dict) -> CreateRequest:
         created_by=args_dict["created_by"],
         project=args_dict["project"],
         orgs=args_dict["orgs"],
+        analysis_scope=args_dict["analysis_scope"],
         original=args_dict,
     )
 
