@@ -176,6 +176,10 @@ class Job:
             level4_excluded_files TEXT,
             requires_db BOOLEAN,
             backend TEXT,
+            branch TEXT,
+            user TEXT,
+            project TEXT,
+            orgs TEXT,
 
             PRIMARY KEY (id)
         );
@@ -223,6 +227,16 @@ class Job:
         10,
         """
         ALTER TABLE job RENAME COLUMN job_request_id TO rap_id;
+        """,
+    )
+
+    migration(
+        11,
+        """
+        ALTER TABLE job ADD COLUMN branch TEXT;
+        ALTER TABLE job ADD COLUMN user TEXT;
+        ALTER TABLE job ADD COLUMN project TEXT;
+        ALTER TABLE job ADD COLUMN orgs TEXT;
         """,
     )
 
@@ -292,6 +306,14 @@ class Job:
 
     # the backend that this job runs on
     backend: str = None
+
+    # workspace branch
+    branch: str = None
+    # user who created the RAP this job is part of
+    user: str = None
+    # project and orgs for the workspace
+    project: str = None
+    orgs: list = None
 
     # used to cache the job_request json by the tracing code
     _job_request = None
