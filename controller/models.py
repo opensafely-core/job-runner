@@ -218,6 +218,13 @@ class Job:
         """,
     )
 
+    migration(
+        12,
+        """
+        DROP TABLE job_request;
+        """,
+    )
+
     id: str = None  # noqa: A003
     rap_id: str = None
     state: State = None
