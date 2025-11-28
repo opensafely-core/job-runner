@@ -296,9 +296,9 @@ def make_create_request(action=None, actions=None, **kwargs):
         backend="test",
         branch="main",
         force_run_dependencies=False,
-        created_by="",
-        project="",
-        orgs=[],
+        created_by="testuser",
+        project="project",
+        orgs=["org1", "org2"],
         analysis_scope={},
     )
     for key, value in kwargs.items():
@@ -379,7 +379,9 @@ def test_create_jobs_tracing(db, tmp_work_dir):
     assert count_where(Job) == 0
 
     with mock.patch.object(
-        CreateRequest, "get_tracing_span_attributes", return_value={"foo": "bar"}
+        CreateRequest,
+        "get_tracing_span_attributes",
+        return_value={"foo": "bar", "orgs": ["o1", "o2"]},
     ):
         create_jobs_with_project_file(
             make_create_request(action="prepare_data_1"), TEST_PROJECT
@@ -392,6 +394,7 @@ def test_create_jobs_tracing(db, tmp_work_dir):
 
     assert spans[0].name == "create_jobs"
     assert spans[0].attributes["foo"] == "bar"  # patched
+    assert spans[0].attributes["orgs"] == ("o1", "o2")  # patched
 
     assert count_where(Job) == 2
 

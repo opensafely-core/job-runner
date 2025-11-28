@@ -24,7 +24,7 @@ def test_trace_attributes(db):
         backend="test",
         project="project",
         orgs=["org1", "org2"],
-        user="user",
+        user="testuser",
     )
 
     results = job_task_results_factory(
