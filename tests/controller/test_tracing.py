@@ -10,20 +10,11 @@ from tests.conftest import get_trace
 from tests.factories import (
     job_factory,
     job_task_results_factory,
-    rap_create_request_factory,
 )
 
 
 def test_trace_attributes(db):
-    jr = rap_create_request_factory(
-        original=dict(
-            created_by="testuser",
-            project="project",
-            orgs=["org1", "org2"],
-        )
-    )
     job = job_factory(
-        jr,
         workspace="workspace",
         action="action",
         commit="commit",
@@ -31,6 +22,9 @@ def test_trace_attributes(db):
         action_commit="commit",
         status_message="message",
         backend="test",
+        project="project",
+        orgs=["org1", "org2"],
+        user="user",
     )
 
     results = job_task_results_factory(
@@ -71,20 +65,15 @@ def test_trace_attributes(db):
 
 
 def test_trace_attributes_missing(db):
-    jr = rap_create_request_factory(
-        original=dict(
-            created_by="testuser",
-            project="project",
-            orgs=["org1", "org2"],
-        )
-    )
     job = job_factory(
-        jr,
         workspace="workspace",
         action="action",
         status_message="message",
         commit="abc123def",
         backend="test",
+        user="testuser",
+        project="project",
+        orgs=["org1", "org2"],
         # no reusable action
     )
 
@@ -268,8 +257,7 @@ def test_complete_job(db):
 
 
 def test_set_span_job_metadata_attrs(db):
-    rap_create_request = rap_create_request_factory()
-    job = job_factory(rap_create_request=rap_create_request)
+    job = job_factory()
     tracer = trace.get_tracer("test")
 
     class Test:
@@ -292,16 +280,13 @@ def test_set_span_job_metadata_attrs(db):
     assert span.attributes["job.action"] == job.action
     assert span.attributes["job.state"] == job.state.name  # not "should be ignored"
     assert span.attributes["job.custom_attr"] == "test"
-
-    # job request attrs
-    assert span.attributes["job.user"] == rap_create_request.original["created_by"]
-    assert span.attributes["job.project"] == rap_create_request.original["project"]
-    assert span.attributes["job.orgs"] == ",".join(rap_create_request.original["orgs"])
+    assert span.attributes["job.user"] == job.user
+    assert span.attributes["job.project"] == job.project
+    assert span.attributes["job.orgs"] == ",".join(job.orgs)
 
 
 def test_set_span_job_metadata_attrs_bwcompat(db):
-    rap_create_request = rap_create_request_factory()
-    job = job_factory(rap_create_request=rap_create_request)
+    job = job_factory()
     tracer = trace.get_tracer("test")
 
     span = tracer.start_span("test")
@@ -315,11 +300,9 @@ def test_set_span_job_metadata_attrs_bwcompat(db):
     assert span.attributes["action"] == job.action
     assert span.attributes["state"] == job.state.name
     assert span.attributes["custom_attr"] == "test"
-
-    # job request attrs
-    assert span.attributes["user"] == rap_create_request.original["created_by"]
-    assert span.attributes["project"] == rap_create_request.original["project"]
-    assert span.attributes["orgs"] == ",".join(rap_create_request.original["orgs"])
+    assert span.attributes["job.user"] == job.user
+    assert span.attributes["job.project"] == job.project
+    assert span.attributes["job.orgs"] == ",".join(job.orgs)
 
 
 def test_set_span_job_metadata_failure(db):

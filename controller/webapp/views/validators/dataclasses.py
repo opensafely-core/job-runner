@@ -66,9 +66,6 @@ class CancelRequest(RequestBody):
 class CreateRequest(RequestBody):
     """
     Represents a request to create a RAP
-
-    Note: a RAP is currently still referred to as a `job_request`
-    in other parts of the code
     """
 
     id: str
@@ -85,7 +82,6 @@ class CreateRequest(RequestBody):
     project: str
     orgs: list[str]
     analysis_scope: dict
-    original: dict
 
     @classmethod
     def from_request(cls, body_data: dict):
@@ -93,12 +89,6 @@ class CreateRequest(RequestBody):
 
         workspace_name = body_data["workspace"]
         branch = body_data["branch"]
-        # Construct the "original" dict with the workspace construction we need in
-        # controller.main.job_to_job_definition()
-        original = {
-            **body_data,
-            "workspace": {"name": workspace_name, "branch": branch},
-        }
 
         return cls(
             id=body_data["rap_id"],
@@ -115,7 +105,6 @@ class CreateRequest(RequestBody):
             project=body_data["project"],
             orgs=body_data["orgs"],
             analysis_scope=body_data.get("analysis_scope") or {},
-            original=original,
         )
 
     def get_tracing_span_attributes(self) -> dict:

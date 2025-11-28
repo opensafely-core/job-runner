@@ -230,11 +230,6 @@ def test_validate_rap_create_request(params, exc_msg, exc_cls, monkeypatch):
         project="",
         orgs=[],
         analysis_scope={},
-        original=dict(
-            created_by="user",
-            project="project",
-            orgs=["org1", "org2"],
-        ),
     )
     kwargs.update(params)
     rap_create_request = CreateRequest(**kwargs)
@@ -275,11 +270,6 @@ def test_validate_rap_create_request_repos(repo_url, exc_msg, exc_cls, monkeypat
         project="",
         orgs=[],
         analysis_scope={},
-        original=dict(
-            created_by="user",
-            project="project",
-            orgs=["org1", "org2"],
-        ),
     )
     rap_create_request = CreateRequest(**kwargs)
 
@@ -310,11 +300,6 @@ def make_create_request(action=None, actions=None, **kwargs):
         project="",
         orgs=[],
         analysis_scope={},
-        original=dict(
-            created_by="user",
-            project="project",
-            orgs=["org1", "org2"],
-        ),
     )
     for key, value in kwargs.items():
         setattr(rap_create_request, key, value)

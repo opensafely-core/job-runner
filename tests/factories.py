@@ -33,18 +33,6 @@ CREATE_REQUEST_DEFAULTS = {
     "project": "project",
     "orgs": ["org1", "org2"],
     "analysis_scope": {},
-    "original": {
-        "created_by": "testuser",
-        "project": "project",
-        "orgs": ["org1", "org2"],
-        "backend": "test",
-        "workspace": {
-            "name": "workspace",
-            "repo": DEFAULT_REPO,
-            "commit": DEFAULT_COMMIT,
-            "branch": "main",
-        },
-    },
 }
 
 # Represents a RAP request body received at /controller/v1/rap/create
@@ -96,8 +84,6 @@ def rap_create_request_factory(**kwargs):
 
     values = deepcopy(CREATE_REQUEST_DEFAULTS)
     values.update(kwargs)
-    if "backend" in kwargs:
-        values["original"]["backend"] = kwargs["backend"]
     return CreateRequest(**values)
 
 
