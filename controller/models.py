@@ -315,9 +315,6 @@ class Job:
     project: str = None
     orgs: list = None
 
-    # used to cache the job_request json by the tracing code
-    _job_request = None
-
     def __post_init__(self):
         # Generate a Job ID based on the Job Request ID and action. This means
         # we will always generate the same set of job IDs from a given Job
