@@ -219,6 +219,10 @@ def recursively_build_jobs(jobs_by_action, rap_create_request, pipeline_config, 
         created_at=int(timestamp),
         updated_at=int(timestamp),
         backend=rap_create_request.backend,
+        branch=rap_create_request.branch,
+        user=rap_create_request.created_by,
+        project=rap_create_request.project,
+        orgs=rap_create_request.orgs,
     )
     tracing.initialise_job_trace(job)
 

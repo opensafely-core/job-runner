@@ -74,6 +74,10 @@ JOB_DEFAULTS = {
     "created_at": 0,
     "status_code": StatusCode.CREATED,
     "backend": "test",
+    "branch": "main",
+    "user": "testuser",
+    "project": "project",
+    "orgs": ["org1", "org2"],
 }
 
 
