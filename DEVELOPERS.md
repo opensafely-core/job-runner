@@ -715,7 +715,7 @@ Deployment is handled automatically on merge to main. See the [DEPLOY](./DEPLOY.
 documentation for more details.
 
 
-## Running commands in production
+## Running controller commands in production
 
 Certain actions can be run in production via controller manage commands.
 

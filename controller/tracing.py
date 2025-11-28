@@ -9,7 +9,6 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from common.lib import warn_assertions
 from common.tracing import backwards_compatible_job_attrs, set_span_attributes
 from controller.models import Job, State, StatusCode
-from controller.queries import get_saved_job_request
 
 
 logger = logging.getLogger(__name__)
@@ -231,10 +230,6 @@ def trace_attributes(job, results=None):
     """These attributes are added to every span in order to slice and dice by
     each as needed.
     """
-    # grab job request metadata, caching it on the job instance to avoid excess
-    # queries/jsoning
-    if job._job_request is None:
-        job._job_request = get_saved_job_request(job)
 
     attrs = {
         "job.backend": job.backend,
@@ -244,9 +239,9 @@ def trace_attributes(job, results=None):
         "job.action": job.action,
         "job.commit": job.commit,
         "job.run_command": job.run_command,
-        "job.user": job._job_request.get("created_by", "unknown"),
-        "job.project": job._job_request.get("project", "unknown"),
-        "job.orgs": ",".join(job._job_request.get("orgs", [])),
+        "job.user": job.user or "unknown",
+        "job.project": job.project or "unknown",
+        "job.orgs": ",".join(job.orgs or []),
         "job.state": job.state.name,
         "job.message": job.status_message,
         # convert float seconds to ns integer

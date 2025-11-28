@@ -34,11 +34,7 @@ from controller.lib.database import (
 )
 from controller.models import Job, State, StatusCode, Task, TaskType
 from controller.permissions import datasets
-from controller.queries import (
-    calculate_workspace_state,
-    get_flag_value,
-    get_saved_job_request,
-)
+from controller.queries import calculate_workspace_state, get_flag_value
 from controller.task_api import insert_task, mark_task_inactive
 
 
@@ -356,23 +352,15 @@ def job_to_job_definition(job, task_id, image_sha=None):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
 
     if job.requires_db:
-        job_request = get_saved_job_request(job)
-        permissions = datasets.PERMISSIONS.get(job_request["project"], [])
+        permissions = datasets.PERMISSIONS.get(job.project, [])
         if job.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
             permissions = [*permissions, "event_level_data"]
         env["EHRQL_PERMISSIONS"] = json.dumps(permissions)
 
-    # we need branch information, which is currently only in the original job
-    # request data. We are trying to avoid changing the db schema whilst RAP
-    # API step 2 work is going on, so we just grab the original request. In
-    # future, I expect rewriting the ORM to use django will fix this.
-    original_job_request = get_saved_job_request(job)
-    # Jobs which are running reusable actions pull their code from the reusable
-    # action repo, all other jobs pull their code from the study repo
     study = Study(
         job.action_repo_url or job.repo_url,
         job.action_commit or job.commit,
-        original_job_request["workspace"]["branch"],
+        job.branch,
     )
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
@@ -609,12 +597,10 @@ def update_job(job):
 
 
 def get_attributes_for_job_task(job):
-    job_request = get_saved_job_request(job)
-
     return {
-        "user": job_request.get("created_by", "unknown"),
-        "project": job_request.get("project", "unknown"),
-        "orgs": ",".join(job_request.get("orgs", [])),
+        "user": job.user or "unknown",
+        "project": job.project or "unknown",
+        "orgs": ",".join(job.orgs or []),
     }
 
 
