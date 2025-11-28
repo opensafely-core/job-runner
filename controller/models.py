@@ -120,28 +120,6 @@ StatusCode._RESET_STATUS_CODES = [
 ]
 
 
-# This stores the original request body as received from the job-server in the
-# /rap/create endpoint. Once we've created the relevant Jobs we have no real need
-# for this object, but elements from the original JSON data from job-server can be
-# useful for debugging/audit purposes. Certain fields are also added as telemetry
-# trace attributes (e.g. created_by user, project, orgs); these could change in
-# future depending on telemetry needs, so we just retrieve them from the
-# original JSON blob.
-@databaseclass
-class SavedJobRequest:
-    __tablename__ = "job_request"
-    __tableschema__ = """
-        CREATE TABLE job_request (
-            id TEXT,
-            original TEXT,
-            PRIMARY KEY (id)
-        );
-    """
-
-    id: str  # noqa: A003
-    original: dict
-
-
 @databaseclass
 class Job:
     __tablename__ = "job"
