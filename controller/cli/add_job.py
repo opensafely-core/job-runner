@@ -1,5 +1,5 @@
 """
-Development utility for creating and submitting a JobRequest without having a
+Development utility for creating and submitting a RAP without having a
 job-server
 """
 
@@ -55,7 +55,7 @@ def main(
             analysis_scope={},
         )
     )
-    print("Submitting JobRequest:\n")
+    print("Submitting RAP:\n")
     display_obj(create_request)
     create_jobs(create_request)
     jobs = find_where(Job, rap_id=create_request.id)

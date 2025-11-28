@@ -31,39 +31,39 @@ log = logging.getLogger(__name__)
 tracer = trace.get_tracer("create_or_update_jobs")
 
 
-class JobRequestError(Exception):
+class RapCreateRequestError(Exception):
     pass
 
 
-class StaleCodelistError(JobRequestError):
+class StaleCodelistError(RapCreateRequestError):
     pass
 
 
-class NothingToDoError(JobRequestError):
+class NothingToDoError(RapCreateRequestError):
     pass
 
 
-def create_jobs(job_request):
+def create_jobs(rap_create_request):
     with tracer.start_as_current_span(
-        "create_jobs", attributes=job_request.get_tracing_span_attributes()
+        "create_jobs", attributes=rap_create_request.get_tracing_span_attributes()
     ):
-        validate_job_request(job_request)
-        project_file = get_project_file(job_request)
+        validate_rap_create_request(rap_create_request)
+        project_file = get_project_file(rap_create_request)
 
         pipeline_config = load_pipeline(project_file)
 
         latest_jobs = get_latest_jobs_for_actions_in_project(
-            job_request.backend, job_request.workspace, pipeline_config
+            rap_create_request.backend, rap_create_request.workspace, pipeline_config
         )
 
-        new_jobs = get_new_jobs_to_run(job_request, pipeline_config, latest_jobs)
-        assert_new_jobs_created(job_request, new_jobs, latest_jobs)
+        new_jobs = get_new_jobs_to_run(rap_create_request, pipeline_config, latest_jobs)
+        assert_new_jobs_created(rap_create_request, new_jobs, latest_jobs)
 
         resolve_reusable_action_references(new_jobs)
 
         # check for database actions in the new jobs, and raise an exception if
         # codelists are out of date
-        assert_codelists_ok(job_request, new_jobs)
+        assert_codelists_ok(rap_create_request, new_jobs)
 
         # There is a delay between getting the current jobs (which we fetch from
         # the database and the disk) and inserting our new jobs below. This means
@@ -79,30 +79,30 @@ def create_jobs(job_request):
         # (It is also possible that someone could delete files off disk that are
         # needed by a particular job, but there's not much we can do about that
         # other than fail gracefully when trying to start the job.)
-        insert_into_database(job_request, new_jobs)
+        insert_into_database(rap_create_request, new_jobs)
 
         return len(new_jobs)
 
 
-def validate_job_request(job_request):
-    if not job_request.requested_actions:
-        raise JobRequestError("At least one action must be supplied")
-    if not job_request.workspace:
-        raise JobRequestError("Workspace name cannot be blank")
-    if re.search(r"[^a-zA-Z0-9_\-]", job_request.workspace):
-        raise JobRequestError(
+def validate_rap_create_request(rap_create_request):
+    if not rap_create_request.requested_actions:
+        raise RapCreateRequestError("At least one action must be supplied")
+    if not rap_create_request.workspace:
+        raise RapCreateRequestError("Workspace name cannot be blank")
+    if re.search(r"[^a-zA-Z0-9_\-]", rap_create_request.workspace):
+        raise RapCreateRequestError(
             "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
         )
 
-    if job_request.backend not in common_config.BACKENDS:
-        raise JobRequestError(
-            f"Invalid backend '{job_request.backend}', allowed are: "
+    if rap_create_request.backend not in common_config.BACKENDS:
+        raise RapCreateRequestError(
+            f"Invalid backend '{rap_create_request.backend}', allowed are: "
             + ", ".join(common_config.BACKENDS)
         )
 
-    if job_request.database_name not in common_config.VALID_DATABASE_NAMES:
-        raise JobRequestError(
-            f"Invalid database name '{job_request.database_name}', allowed are: "
+    if rap_create_request.database_name not in common_config.VALID_DATABASE_NAMES:
+        raise RapCreateRequestError(
+            f"Invalid database name '{rap_create_request.database_name}', allowed are: "
             + ", ".join(common_config.VALID_DATABASE_NAMES)
         )
 
@@ -110,19 +110,21 @@ def validate_job_request(job_request):
     # the end once all other checks have passed
     validate_repo_and_commit(
         common_config.ALLOWED_GITHUB_ORGS,
-        job_request.repo_url,
-        job_request.commit,
-        job_request.branch,
+        rap_create_request.repo_url,
+        rap_create_request.commit,
+        rap_create_request.branch,
     )
 
 
-def get_project_file(job_request):
+def get_project_file(rap_create_request):
     try:
         return read_file_from_repo(
-            job_request.repo_url, job_request.commit, "project.yaml"
+            rap_create_request.repo_url, rap_create_request.commit, "project.yaml"
         )
     except GitFileNotFoundError:  # pragma: no cover
-        raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
+        raise RapCreateRequestError(
+            f"No project.yaml file found in {rap_create_request.repo_url}"
+        )
 
 
 def get_latest_jobs_for_actions_in_project(backend, workspace, pipeline_config):
@@ -134,47 +136,49 @@ def get_latest_jobs_for_actions_in_project(backend, workspace, pipeline_config):
     ]
 
 
-def get_new_jobs_to_run(job_request, pipeline_config, current_jobs):
+def get_new_jobs_to_run(rap_create_request, pipeline_config, current_jobs):
     """
-    Returns a list of new jobs to run in response to the supplied JobReqeust
+    Returns a list of new jobs to run in response to the supplied RAP CreateRequest
 
     Args:
-        job_request: JobRequest instance
-        project: dict representing the parsed project file from the JobRequest
+        rap_create_request: CreateRequest instance
+        project: dict representing the parsed project file from the CreateRequest RAP
         current_jobs: list containing the most recent Job for each action in
             the workspace
     """
     # Build a dict mapping action names to job instances
     jobs_by_action = {job.action: job for job in current_jobs}
     # Add new jobs to it by recursing through the dependency tree
-    for action in get_actions_to_run(job_request, pipeline_config):
-        recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
+    for action in get_actions_to_run(rap_create_request, pipeline_config):
+        recursively_build_jobs(
+            jobs_by_action, rap_create_request, pipeline_config, action
+        )
 
     # Pick out the new jobs we've added and return them
     current_job_ids = {job.id for job in current_jobs}
     return [job for job in jobs_by_action.values() if job.id not in current_job_ids]
 
 
-def get_actions_to_run(job_request, pipeline_config):
+def get_actions_to_run(rap_create_request, pipeline_config):
     # Handle the special `run_all` action
-    if RUN_ALL_COMMAND in job_request.requested_actions:
+    if RUN_ALL_COMMAND in rap_create_request.requested_actions:
         return pipeline_config.all_actions
     else:
-        return job_request.requested_actions
+        return rap_create_request.requested_actions
 
 
-def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action):
+def recursively_build_jobs(jobs_by_action, rap_create_request, pipeline_config, action):
     """
     Recursively populate the `jobs_by_action` dict with jobs
 
     Args:
         jobs_by_action: A dict mapping action ID strings to Job instances
-        job_request: An instance of JobRequest representing the job request.
+        rap_create_request: An instance of CreateRequest representing the RAP.
         pipeline_config: A Pipeline instance representing the pipeline configuration.
         action: The string ID of the action to be added as a job.
     """
     existing_job = jobs_by_action.get(action)
-    if existing_job and not job_should_be_rerun(job_request, existing_job):
+    if existing_job and not job_should_be_rerun(rap_create_request, existing_job):
         return
 
     action_spec = get_action_specification(
@@ -188,7 +192,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
     wait_for_job_ids = []
     for required_action in action_spec.needs:
         recursively_build_jobs(
-            jobs_by_action, job_request, pipeline_config, required_action
+            jobs_by_action, rap_create_request, pipeline_config, required_action
         )
         required_job = jobs_by_action[required_action]
         if required_job.state in [State.PENDING, State.RUNNING]:
@@ -196,16 +200,16 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
 
     timestamp = time.time()
     job = Job(
-        rap_id=job_request.id,
+        rap_id=rap_create_request.id,
         state=State.PENDING,
         status_code=StatusCode.CREATED,
         # time in nanoseconds
         status_code_updated_at=int(timestamp * 1e9),
         status_message="Created",
-        repo_url=job_request.repo_url,
-        commit=job_request.commit,
-        workspace=job_request.workspace,
-        database_name=job_request.database_name,
+        repo_url=rap_create_request.repo_url,
+        commit=rap_create_request.commit,
+        workspace=rap_create_request.workspace,
+        database_name=rap_create_request.database_name,
         requires_db=action_spec.action.is_database_action,
         action=action,
         wait_for_job_ids=wait_for_job_ids,
@@ -214,7 +218,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         output_spec=action_spec.outputs,
         created_at=int(timestamp),
         updated_at=int(timestamp),
-        backend=job_request.backend,
+        backend=rap_create_request.backend,
     )
     tracing.initialise_job_trace(job)
 
@@ -222,7 +226,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
     jobs_by_action[action] = job
 
 
-def job_should_be_rerun(job_request, job):
+def job_should_be_rerun(rap_create_request, job):
     """
     Do we need to run the action referenced by this job again?
     """
@@ -230,11 +234,11 @@ def job_should_be_rerun(job_request, job):
     if job.state in [State.PENDING, State.RUNNING]:
         return False
     # Explicitly requested actions always get re-run
-    if job.action in job_request.requested_actions:
+    if job.action in rap_create_request.requested_actions:
         return True
     # If it's not an explicilty requested action then it's a dependency, and if
     # we're forcing all dependencies to run then we need to run this one
-    if job_request.force_run_dependencies:
+    if rap_create_request.force_run_dependencies:
         return True
 
     # Otherwise if it succeeded last time there's no need to run again
@@ -247,7 +251,7 @@ def job_should_be_rerun(job_request, job):
         raise ValueError(f"Invalid state: {job}")
 
 
-def assert_new_jobs_created(job_request, new_jobs, current_jobs):
+def assert_new_jobs_created(rap_create_request, new_jobs, current_jobs):
     if new_jobs:
         return
 
@@ -257,14 +261,15 @@ def assert_new_jobs_created(job_request, new_jobs, current_jobs):
     # successfully or is already running. We raise the special `NothingToDoError` which
     # is treated as a successful outcome because we've already done everything that was
     # requested.
-    if RUN_ALL_COMMAND in job_request.requested_actions:
+    if RUN_ALL_COMMAND in rap_create_request.requested_actions:
         raise NothingToDoError("All actions have already completed successfully")
 
     # The other reason is that every requested action is already running or pending,
     # this is considered a user error.
     current_job_states = {job.action: job.state for job in current_jobs}
     requested_action_states = {
-        current_job_states.get(action) for action in job_request.requested_actions
+        current_job_states.get(action)
+        for action in rap_create_request.requested_actions
     }
     if requested_action_states <= {State.PENDING, State.RUNNING}:
         raise NothingToDoError("All requested actions were already scheduled to run")
@@ -276,8 +281,8 @@ def assert_new_jobs_created(job_request, new_jobs, current_jobs):
     )  # pragma: no cover
 
 
-def assert_codelists_ok(job_request, new_jobs):
-    if job_request.codelists_ok:
+def assert_codelists_ok(rap_create_request, new_jobs):
+    if rap_create_request.codelists_ok:
         return True
     for job in new_jobs:
         # Codelists are out of date; fail the entire job request if any job
@@ -288,15 +293,19 @@ def assert_codelists_ok(job_request, new_jobs):
             )
 
 
-def insert_into_database(job_request, jobs):
+def insert_into_database(rap_create_request, jobs):
     with transaction():
-        insert(SavedJobRequest(id=job_request.id, original=job_request.original))
+        insert(
+            SavedJobRequest(
+                id=rap_create_request.id, original=rap_create_request.original
+            )
+        )
         for job in jobs:
             insert(job)
 
 
-def related_jobs_exist(job_request):
-    return exists_where(Job, rap_id=job_request.id)
+def related_jobs_exist(rap_create_request):
+    return exists_where(Job, rap_id=rap_create_request.id)
 
 
 def set_cancelled_flag_for_actions(rap_id, actions):

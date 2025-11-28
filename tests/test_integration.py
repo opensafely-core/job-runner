@@ -1,6 +1,6 @@
 """
 Big integration tests that create a basic project in a git repo, mocks out a
-JobRequest from the job-server to run it, and then exercises the sync and run
+CreateRequest from the job-server to run it, and then exercises the sync and run
 loops to run entire pipeline
 """
 
@@ -102,24 +102,21 @@ def test_integration(
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"test_token": ["test"]})
     headers = {"Authorization": "test_token"}
 
-    # Set up a mock job-server with a single job request
-    job_request_1 = {
-        "identifier": "12345678abcdefgh",
+    # Set up a mock job-server request to be posted to the /rap/create endpoint
+    create_request_1 = {
+        "rap_id": "12345678abcdefgh",
         "requested_actions": [
             "analyse_data_ehrql",
             "test_reusable_action_ehrql",
             "test_cancellation_ehrql",
         ],
-        "cancelled_actions": [],
         "force_run_dependencies": False,
-        "workspace": {
-            "name": "testing",
-            "repo": str(test_repo.path),
-            "branch": "main",
-        },
+        "workspace": "testing",
+        "repo_url": str(test_repo.path),
+        "branch": "main",
         "codelists_ok": True,
         "database_name": "default",
-        "sha": test_repo.commit,
+        "commit": test_repo.commit,
         "created_by": "user",
         "project": "project",
         "orgs": ["org"],
@@ -131,13 +128,13 @@ def test_integration(
 
     # Mock job-server post to the RAP API create endpoint to create jobs
     headers = {"Authorization": "test_token"}
-    create_response = create_jobs_via_api(live_server, headers, job_request_1)
+    create_response = create_jobs_via_api(live_server, headers, create_request_1)
     # See test/fixtures/full_project/project.yaml - the 3 requests actions require 7 jobs
     # to be created
     assert create_response["count"] == 7
 
     # Check that expected number of pending jobs are created via status API
-    jobs = check_status_via_api(live_server, headers, [job_request_1["identifier"]])
+    jobs = check_status_via_api(live_server, headers, [create_request_1["rap_id"]])
     for job in jobs.values():
         assert job["status"] == "pending"
         assert job["status_code"] == "created"
@@ -158,7 +155,7 @@ def test_integration(
     assert active_tasks[0].agent_stage is None
 
     # We should now have one running (initiated, i.e. task created) job and all others waiting on dependencies
-    jobs = check_status_via_api(live_server, headers, [job_request_1["identifier"]])
+    jobs = check_status_via_api(live_server, headers, [create_request_1["rap_id"]])
     # started_at should not change after job is first initiated
     started_at = jobs["generate_dataset"]["started_at"]
 
@@ -193,7 +190,7 @@ def test_integration(
     # Run the controller loop again to update the job status code
     controller.main.handle_jobs()
     # still one running job (now prepared) and all others waiting on dependencies
-    jobs = check_status_via_api(live_server, headers, [job_request_1["identifier"]])
+    jobs = check_status_via_api(live_server, headers, [create_request_1["rap_id"]])
     assert_generate_dataset_dependency_running(jobs, "prepared")
 
     # AGENT
@@ -209,41 +206,36 @@ def test_integration(
     # Run the controller loop again to update the job status code
     controller.main.handle_jobs()
     # still one running job (now executing) and all others waiting on dependencies
-    jobs = check_status_via_api(live_server, headers, [job_request_1["identifier"]])
+    jobs = check_status_via_api(live_server, headers, [create_request_1["rap_id"]])
     assert_generate_dataset_dependency_running(jobs, "executing")
 
-    # Update the existing job request to mark a (not-started) job as cancelled, add a new job
-    # request to be run and then check status via API
-    job_request_1["cancelled_actions"] = ["test_cancellation_ehrql"]
-    job_request_2 = {
-        "identifier": "87654321hgfedcba",
+    # set up a new create request POST body and then check status via API
+    create_request_2 = {
+        "rap_id": "87654321hgfedcba",
         "requested_actions": [
             "generate_dataset_with_dummy_data",
         ],
-        "cancelled_actions": [],
         "force_run_dependencies": False,
-        "workspace": {
-            "name": "testing",
-            "repo": str(test_repo.path),
-            "branch": "HEAD",
-        },
+        "workspace": "testing",
+        "repo_url": str(test_repo.path),
+        "branch": "HEAD",
         "codelists_ok": True,
         "database_name": "default",
-        "sha": test_repo.commit,
+        "commit": test_repo.commit,
         "created_by": "user",
         "project": "project",
         "orgs": ["org"],
         "backend": "test",
     }
 
-    # Call RAP API to cancel the job from the first job request
+    # Call RAP API to cancel the job from the first AP
     cancel_response = cancel_job_via_api(
-        live_server, headers, job_request_1["identifier"], "test_cancellation_ehrql"
+        live_server, headers, create_request_1["rap_id"], "test_cancellation_ehrql"
     )
     assert cancel_response["count"] == 1
 
-    # Call RAP API to create the jobs for this new job request
-    create_response = create_jobs_via_api(live_server, headers, job_request_2)
+    # Call RAP API to create the jobs for this new RAP
+    create_response = create_jobs_via_api(live_server, headers, create_request_2)
     assert create_response["count"] == 1
 
     # Execute one tick of the controller run loop again to pick up the
@@ -262,7 +254,7 @@ def test_integration(
 
     # check status
     jobs = check_status_via_api(
-        live_server, headers, [job_request_1["identifier"], job_request_2["identifier"]]
+        live_server, headers, [create_request_1["rap_id"], create_request_2["rap_id"]]
     )
     assert jobs["generate_dataset"]["status"] == "running"
     assert jobs["generate_dataset"]["status_code"] == "executing"
@@ -310,7 +302,7 @@ def test_integration(
         assert task_id.startswith(job_id)
 
     jobs = check_status_via_api(
-        live_server, headers, [job_request_1["identifier"], job_request_2["identifier"]]
+        live_server, headers, [create_request_1["rap_id"], create_request_2["rap_id"]]
     )
     for action in ["generate_dataset", "generate_dataset_with_dummy_data"]:
         assert jobs[action]["status"] == "succeeded"
@@ -343,7 +335,7 @@ def test_integration(
     assert len(active_tasks) == 1
 
     jobs = check_status_via_api(
-        live_server, headers, [job_request_1["identifier"], job_request_2["identifier"]]
+        live_server, headers, [create_request_1["rap_id"], create_request_2["rap_id"]]
     )
     assert jobs["analyse_data_ehrql"]["status"] == "running"
     for action in [
@@ -368,7 +360,7 @@ def test_integration(
     assert not len(active_tasks)
 
     jobs = check_status_via_api(
-        live_server, headers, [job_request_1["identifier"], job_request_2["identifier"]]
+        live_server, headers, [create_request_1["rap_id"], create_request_2["rap_id"]]
     )
     cancellation_job = jobs.pop("test_cancellation_ehrql")
     for job in jobs.values():
@@ -438,30 +430,15 @@ def check_status_via_api(live_server, headers, rap_ids):
     return jobs
 
 
-def create_jobs_via_api(live_server, headers, job_request_dict):
+def create_jobs_via_api(live_server, headers, rap_create_request_body):
     """Do a request to the RAP API to create new jobs"""
 
-    # Convert the job request dict (expected response from job-server job requests endpoint)
+    # Convert the rap create request dict (expected response from job-server job requests endpoint)
     # to the data we expect to be posted to the RAP API create endoint
-    post_data = {
-        "backend": job_request_dict["backend"],
-        "rap_id": job_request_dict["identifier"],
-        "workspace": job_request_dict["workspace"]["name"],
-        "repo_url": job_request_dict["workspace"]["repo"],
-        "branch": job_request_dict["workspace"]["branch"],
-        "commit": job_request_dict["sha"],
-        "database_name": job_request_dict["database_name"],
-        "requested_actions": job_request_dict["requested_actions"],
-        "codelists_ok": job_request_dict["codelists_ok"],
-        "force_run_dependencies": job_request_dict["force_run_dependencies"],
-        "created_by": job_request_dict["created_by"],
-        "project": job_request_dict["project"],
-        "orgs": job_request_dict["orgs"],
-    }
 
     response = requests.post(
         live_server + "/controller/v1/rap/create/",
-        json.dumps(post_data),
+        json.dumps(rap_create_request_body),
         headers=headers,
     )
     return response.json()

@@ -7,11 +7,15 @@ from opentelemetry import trace
 from common import config as common_config
 from controller import models, tracing
 from tests.conftest import get_trace
-from tests.factories import job_factory, job_request_factory, job_task_results_factory
+from tests.factories import (
+    job_factory,
+    job_task_results_factory,
+    rap_create_request_factory,
+)
 
 
 def test_trace_attributes(db):
-    jr = job_request_factory(
+    jr = rap_create_request_factory(
         original=dict(
             created_by="testuser",
             project="project",
@@ -67,7 +71,7 @@ def test_trace_attributes(db):
 
 
 def test_trace_attributes_missing(db):
-    jr = job_request_factory(
+    jr = rap_create_request_factory(
         original=dict(
             created_by="testuser",
             project="project",
@@ -264,8 +268,8 @@ def test_complete_job(db):
 
 
 def test_set_span_job_metadata_attrs(db):
-    job_request = job_request_factory()
-    job = job_factory(job_request=job_request)
+    rap_create_request = rap_create_request_factory()
+    job = job_factory(rap_create_request=rap_create_request)
     tracer = trace.get_tracer("test")
 
     class Test:
@@ -290,14 +294,14 @@ def test_set_span_job_metadata_attrs(db):
     assert span.attributes["job.custom_attr"] == "test"
 
     # job request attrs
-    assert span.attributes["job.user"] == job_request.original["created_by"]
-    assert span.attributes["job.project"] == job_request.original["project"]
-    assert span.attributes["job.orgs"] == ",".join(job_request.original["orgs"])
+    assert span.attributes["job.user"] == rap_create_request.original["created_by"]
+    assert span.attributes["job.project"] == rap_create_request.original["project"]
+    assert span.attributes["job.orgs"] == ",".join(rap_create_request.original["orgs"])
 
 
 def test_set_span_job_metadata_attrs_bwcompat(db):
-    job_request = job_request_factory()
-    job = job_factory(job_request=job_request)
+    rap_create_request = rap_create_request_factory()
+    job = job_factory(rap_create_request=rap_create_request)
     tracer = trace.get_tracer("test")
 
     span = tracer.start_span("test")
@@ -313,9 +317,9 @@ def test_set_span_job_metadata_attrs_bwcompat(db):
     assert span.attributes["custom_attr"] == "test"
 
     # job request attrs
-    assert span.attributes["user"] == job_request.original["created_by"]
-    assert span.attributes["project"] == job_request.original["project"]
-    assert span.attributes["orgs"] == ",".join(job_request.original["orgs"])
+    assert span.attributes["user"] == rap_create_request.original["created_by"]
+    assert span.attributes["project"] == rap_create_request.original["project"]
+    assert span.attributes["orgs"] == ",".join(rap_create_request.original["orgs"])
 
 
 def test_set_span_job_metadata_failure(db):

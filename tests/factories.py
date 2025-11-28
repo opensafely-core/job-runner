@@ -11,22 +11,28 @@ from common.schema import JobTaskResults, TaskType
 from controller import task_api, tracing
 from controller.lib.database import count_where, insert, update
 from controller.main import create_task_for_job, job_to_job_definition
-from controller.models import Job, JobRequest, SavedJobRequest, State, StatusCode, Task
+from controller.models import Job, SavedJobRequest, State, StatusCode, Task
+from controller.webapp.views.validators.dataclasses import CreateRequest
 from tests.conftest import test_exporter
 
 
 DEFAULT_COMMIT = "commit"
 DEFAULT_REPO = "repo"
 
-JOB_REQUEST_DEFAULTS = {
+CREATE_REQUEST_DEFAULTS = {
     "repo_url": DEFAULT_REPO,
     "commit": DEFAULT_COMMIT,
+    "branch": "main",
     "requested_actions": ["action"],
-    "cancelled_actions": [],
     "workspace": "workspace",
     "codelists_ok": True,
     "database_name": "default",
     "backend": "test",
+    "force_run_dependencies": True,
+    "created_by": "testuser",
+    "project": "project",
+    "orgs": ["org1", "org2"],
+    "analysis_scope": {},
     "original": {
         "created_by": "testuser",
         "project": "project",
@@ -55,6 +61,7 @@ RAP_API_V1_DEFAULTS = {
     "created_by": "test_user",
     "project": "test_project",
     "orgs": ["test_org"],
+    "analysis_scope": {},
 }
 
 
@@ -79,15 +86,15 @@ JOB_TASK_RESULTS_DEFAULTS = {
 }
 
 
-def job_request_factory_raw(**kwargs):
+def rap_create_request_factory_raw(**kwargs):
     if "id" not in kwargs:
         kwargs["id"] = base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
-    values = deepcopy(JOB_REQUEST_DEFAULTS)
+    values = deepcopy(CREATE_REQUEST_DEFAULTS)
     values.update(kwargs)
     if "backend" in kwargs:
         values["original"]["backend"] = kwargs["backend"]
-    return JobRequest(**values)
+    return CreateRequest(**values)
 
 
 def rap_api_v1_factory_raw(**kwargs):
@@ -101,24 +108,26 @@ def rap_api_v1_factory_raw(**kwargs):
     return values
 
 
-def job_request_factory(**kwargs):
-    job_request = job_request_factory_raw(**kwargs)
-    insert(SavedJobRequest(id=job_request.id, original=job_request.original))
-    return job_request
+def rap_create_request_factory(**kwargs):
+    rap_create_request = rap_create_request_factory_raw(**kwargs)
+    insert(
+        SavedJobRequest(id=rap_create_request.id, original=rap_create_request.original)
+    )
+    return rap_create_request
 
 
-def job_factory(job_request=None, **kwargs):
-    if job_request is None:
+def job_factory(rap_create_request=None, **kwargs):
+    if rap_create_request is None:
         # if there's a job backend, make sure the job request is consistent
-        job_request_kwargs = {}
+        rap_create_request_kwargs = {}
         if job_backend := kwargs.get("backend"):
-            job_request_kwargs = {"backend": job_backend}
-        job_request = job_request_factory(**job_request_kwargs)
+            rap_create_request_kwargs = {"backend": job_backend}
+        rap_create_request = rap_create_request_factory(**rap_create_request_kwargs)
 
     values = deepcopy(JOB_DEFAULTS)
-    values["workspace"] = job_request.workspace
-    values["repo_url"] = job_request.repo_url
-    values["commit"] = job_request.commit
+    values["workspace"] = rap_create_request.workspace
+    values["repo_url"] = rap_create_request.repo_url
+    values["commit"] = rap_create_request.commit
 
     # default times
     timestamp = time.time()
@@ -137,7 +146,7 @@ def job_factory(job_request=None, **kwargs):
 
     values.update(kwargs)
 
-    values["rap_id"] = job_request.id
+    values["rap_id"] = rap_create_request.id
     job = Job(**values)
 
     # initialise tracing

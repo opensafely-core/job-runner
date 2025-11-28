@@ -12,7 +12,7 @@ from controller.lib.database import update_where
 from controller.models import Task, TaskType
 from tests.agent.stubs import StubExecutorAPI
 from tests.conftest import get_trace
-from tests.factories import job_request_factory
+from tests.factories import rap_create_request_factory
 
 
 def assert_state_change_logs(caplog, state_changes):
@@ -76,10 +76,10 @@ def test_handle_tasks_github_validation(
 
     api = StubExecutorAPI()
 
-    job_request = job_request_factory(repo_url=repo, commit=commit)
+    rap_create_request = rap_create_request_factory(repo_url=repo, commit=commit)
 
     task, job_id = api.add_test_runjob_task(
-        ExecutorState.UNKNOWN, job_request=job_request
+        ExecutorState.UNKNOWN, rap_create_request=rap_create_request
     )
 
     msg = "Some tasks failed, restarting agent loop"
