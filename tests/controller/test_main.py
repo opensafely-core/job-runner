@@ -924,6 +924,14 @@ def test_job_definition_ehrql_event_level_access(db, monkeypatch, repo_url, expe
         assert job_definition.env["EHRQL_PERMISSIONS"] == "[]"
 
 
+def test_job_definition_ehrql_event_level_access_with_analysis_scope(db):
+    job = job_factory(
+        requires_db=True, analysis_scope={"component_access": ["event_level_data"]}
+    )
+    job_definition = main.job_to_job_definition(job, task_id="")
+    assert job_definition.env["EHRQL_PERMISSIONS"] == '["event_level_data"]'
+
+
 @pytest.mark.parametrize(
     "project,expected_env",
     [
@@ -948,6 +956,14 @@ def test_job_definition_ehrql_permissions(db, monkeypatch, project, expected_env
     )
     job_definition = main.job_to_job_definition(job, task_id="")
     assert job_definition.env["EHRQL_PERMISSIONS"] == expected_env
+
+
+def test_job_definition_dataset_permissions_with_analysis_scope(db):
+    job = job_factory(
+        requires_db=True, analysis_scope={"dataset_permissions": ["table1", "table2"]}
+    )
+    job_definition = main.job_to_job_definition(job, task_id="")
+    assert job_definition.env["EHRQL_PERMISSIONS"] == '["table1", "table2"]'
 
 
 @patch("controller.main.handle_job")
