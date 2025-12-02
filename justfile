@@ -97,7 +97,7 @@ upgrade-pipeline: && devenv
 
 # Run the tests
 test *ARGS: _checkenv
-    uv run coverage run --module pytest "$@"
+    IMAGE_PULL_TIMEOUT=300 uv run coverage run --module pytest "$@"
     uv run coverage report || uv run coverage html
 
 test-fast *ARGS: _checkenv

@@ -97,6 +97,8 @@ services:
     # override command
     command: >
       bash -c pytest
+    environment:
+      IMAGE_PULL_TIMEOUT: 300
 
   # functional test services - note these intentionally extend prod rather than dev
   test-agent:
