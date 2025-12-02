@@ -6,7 +6,7 @@ from operator import attrgetter
 from opentelemetry import trace
 
 from controller.lib.database import find_one, find_where, upsert
-from controller.models import Flag, Job, SavedJobRequest
+from controller.models import Flag, Job
 
 
 tracer = trace.get_tracer("db")
@@ -87,10 +87,3 @@ def set_flag(name, value, backend, timestamp=None):
 def get_current_flags(backend):
     """Get all currently set flags for a backend"""
     return find_where(Flag, backend=backend)
-
-
-def get_saved_job_request(job):
-    try:
-        return find_one(SavedJobRequest, id=job.rap_id).original
-    except ValueError:
-        return {}

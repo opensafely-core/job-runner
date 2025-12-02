@@ -11,7 +11,7 @@ from common.schema import JobTaskResults, TaskType
 from controller import task_api, tracing
 from controller.lib.database import count_where, insert, update
 from controller.main import create_task_for_job, job_to_job_definition
-from controller.models import Job, SavedJobRequest, State, StatusCode, Task
+from controller.models import Job, State, StatusCode, Task
 from controller.webapp.views.validators.dataclasses import CreateRequest
 from tests.conftest import test_exporter
 
@@ -33,18 +33,6 @@ CREATE_REQUEST_DEFAULTS = {
     "project": "project",
     "orgs": ["org1", "org2"],
     "analysis_scope": {},
-    "original": {
-        "created_by": "testuser",
-        "project": "project",
-        "orgs": ["org1", "org2"],
-        "backend": "test",
-        "workspace": {
-            "name": "workspace",
-            "repo": DEFAULT_REPO,
-            "commit": DEFAULT_COMMIT,
-            "branch": "main",
-        },
-    },
 }
 
 # Represents a RAP request body received at /controller/v1/rap/create
@@ -90,14 +78,12 @@ JOB_TASK_RESULTS_DEFAULTS = {
 }
 
 
-def rap_create_request_factory_raw(**kwargs):
+def rap_create_request_factory(**kwargs):
     if "id" not in kwargs:
         kwargs["id"] = base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
     values = deepcopy(CREATE_REQUEST_DEFAULTS)
     values.update(kwargs)
-    if "backend" in kwargs:
-        values["original"]["backend"] = kwargs["backend"]
     return CreateRequest(**values)
 
 
@@ -110,14 +96,6 @@ def rap_api_v1_factory_raw(**kwargs):
     values = deepcopy(RAP_API_V1_DEFAULTS)
     values.update(kwargs)
     return values
-
-
-def rap_create_request_factory(**kwargs):
-    rap_create_request = rap_create_request_factory_raw(**kwargs)
-    insert(
-        SavedJobRequest(id=rap_create_request.id, original=rap_create_request.original)
-    )
-    return rap_create_request
 
 
 def job_factory(rap_create_request=None, **kwargs):

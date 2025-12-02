@@ -17,7 +17,6 @@ from tests.controller.cli.test_flags import TEST_DATESTR, TEST_TIME
 from tests.controller.cli.test_prepare_for_reboot import pause_backend
 from tests.factories import (
     job_factory,
-    rap_create_request_factory,
     runjob_db_task_factory,
 )
 
@@ -162,58 +161,3 @@ def test_snapshot_database_errors_when_misconfigured(monkeypatch):
     monkeypatch.setattr("controller.config.BACKUPS_PATH", Path("/no/such/path"))
     with pytest.raises(RuntimeError, match="does not exist"):
         call_command("snapshot_database")
-
-
-@pytest.mark.parametrize(
-    "original,expected",
-    [
-        (
-            {},
-            [None, None, None, None],
-        ),
-        (
-            {"identifier": "1"},
-            ["unknown", [], "unknown", "unknown"],
-        ),
-        (
-            {
-                "identifier": "1",
-                "project": "project1",
-                "orgs": ["org1", "org2"],
-            },
-            ["project1", ["org1", "org2"], "unknown", "unknown"],
-        ),
-        (
-            {
-                "identifier": "1",
-                "project": "project3",
-                "orgs": ["org3"],
-                "created_by": "a_user",
-                "workspace": {"branch": "main"},
-            },
-            ["project3", ["org3"], "a_user", "main"],
-        ),
-    ],
-)
-def test_backpopulate_from_saved_job_request(db, original, expected):
-    rap_create_request = rap_create_request_factory(original=original)
-    job = job_factory(
-        rap_create_request=rap_create_request,
-        project=None,
-        orgs=None,
-        user=None,
-        branch=None,
-    )
-
-    assert job.project is None
-    assert job.orgs is None
-    assert job.user is None
-    assert job.branch is None
-
-    call_command("backpopulate_from_saved_job_request")
-    job = database.find_one(Job, id=job.id)
-    project, orgs, user, branch = expected
-    assert job.project == project
-    assert job.orgs == orgs
-    assert job.user == user
-    assert job.branch == branch

@@ -939,22 +939,13 @@ def test_job_definition_ehrql_permissions(db, monkeypatch, project, expected_env
             "project-with-some-permissions": ["table1", "table2"],
         },
     )
-    jr = rap_create_request_factory(
-        original={
-            "created_by": "testuser",
-            "project": project,
-            "orgs": ["org1", "org2"],
-            "backend": "test",
-            "workspace": {
-                "name": "workspace",
-                "repo": "repo",
-                "commit": "commit",
-                "branch": "main",
-            },
-        }
+    job = job_factory(
+        requires_db=True,
+        project=project,
+        orgs=["org1", "org2"],
+        user="testuser",
+        branch="main",
     )
-
-    job = job_factory(requires_db=True, rap_create_request=jr)
     job_definition = main.job_to_job_definition(job, task_id="")
     assert job_definition.env["EHRQL_PERMISSIONS"] == expected_env
 

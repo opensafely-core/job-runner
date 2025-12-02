@@ -95,7 +95,6 @@ def _make_create_request(args_dict: dict) -> CreateRequest:
         project=args_dict["project"],
         orgs=args_dict["orgs"],
         analysis_scope=args_dict["analysis_scope"],
-        original=args_dict,
     )
 
 

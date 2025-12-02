@@ -20,7 +20,7 @@ from common.lib.github_validators import validate_repo_and_commit
 from controller import tracing
 from controller.actions import get_action_specification
 from controller.lib.database import exists_where, insert, transaction, update_where
-from controller.models import Job, SavedJobRequest, State, StatusCode
+from controller.models import Job, State, StatusCode
 from controller.queries import calculate_workspace_state
 from controller.reusable_actions import (
     resolve_reusable_action_references,
@@ -79,7 +79,7 @@ def create_jobs(rap_create_request):
         # (It is also possible that someone could delete files off disk that are
         # needed by a particular job, but there's not much we can do about that
         # other than fail gracefully when trying to start the job.)
-        insert_into_database(rap_create_request, new_jobs)
+        insert_into_database(new_jobs)
 
         return len(new_jobs)
 
@@ -297,13 +297,8 @@ def assert_codelists_ok(rap_create_request, new_jobs):
             )
 
 
-def insert_into_database(rap_create_request, jobs):
+def insert_into_database(jobs):
     with transaction():
-        insert(
-            SavedJobRequest(
-                id=rap_create_request.id, original=rap_create_request.original
-            )
-        )
         for job in jobs:
             insert(job)
 
