@@ -33,7 +33,7 @@ DEFAULT_TIMEOUT = 5 * 60
 # sometimes take a significant amount of time. We want some form of timeout here to
 # catch cases where something hangs indefinitely, but it needs to be much larger than
 # the default.
-IMAGE_PULL_TIMEOUT = 20 * 60
+IMAGE_PULL_TIMEOUT = int(os.getenv("IMAGE_PULL_TIMEOUT", 20 * 60))
 
 
 class DockerTimeoutError(Exception):
