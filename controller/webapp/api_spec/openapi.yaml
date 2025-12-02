@@ -599,8 +599,6 @@ components:
                 type: string
                 enum:
                   - event_level_data
-                  - patient_id_detection
-
     backendFlagStatus:
       # Can be referenced as '#/components/schemas/backendFlagStatus'
       type: string
