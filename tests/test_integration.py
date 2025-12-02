@@ -94,7 +94,7 @@ def test_integration(
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
-    ensure_docker_images_present("ehrql:v1", "python:v2")
+    ensure_docker_images_present("ehrql:v1", "python:v2", "python:latest")
 
     # we need to talk to the ghcr.io api to resolve image shas
     responses.add_passthru("https://ghcr.io/")
