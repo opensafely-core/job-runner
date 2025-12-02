@@ -267,6 +267,10 @@ def trace_attributes(job, results=None):
         attrs["job.base_revision"] = results.base_revision
         attrs["job.base_created"] = results.base_created
 
+    if job.analysis_scope:
+        for key, value in job.analysis_scope.items():
+            attrs[f"job.analysis_scope.{key}"] = ",".join(value)
+
     return attrs
 
 

@@ -64,6 +64,46 @@ def test_trace_attributes(db):
     }
 
 
+def test_trace_attributes_analysis_scope(db):
+    job = job_factory(
+        workspace="workspace",
+        action="generate_dataset",
+        commit="commit",
+        action_repo_url="action_repo",
+        action_commit="commit",
+        status_message="message",
+        backend="test",
+        project="project",
+        orgs=["org1", "org2"],
+        user="testuser",
+        requires_db=True,
+        analysis_scope={"foo": ["bar1", "bar2"]},
+    )
+
+    attrs = tracing.trace_attributes(job, results=None)
+
+    assert attrs == {
+        "job.backend": "test",
+        "job.id": job.id,
+        "job.request": job.rap_id,
+        "job.workspace": "workspace",
+        "job.action": "generate_dataset",
+        "job.commit": "commit",
+        "job.run_command": job.run_command,
+        "job.user": "testuser",
+        "job.project": "project",
+        "job.orgs": "org1,org2",
+        "job.state": "PENDING",
+        "job.message": "message",
+        "job.created_at": int(job.created_at * 1e9),
+        "job.started_at": None,
+        "job.status_code_updated_at": job.status_code_updated_at,
+        "job.reusable_action": "action_repo:commit",
+        "job.requires_db": True,
+        "job.analysis_scope.foo": "bar1,bar2",
+    }
+
+
 def test_trace_attributes_missing(db):
     job = job_factory(
         workspace="workspace",
