@@ -364,7 +364,7 @@ def deterministic_id(seed):
 
 
 def new_id():
-    return secrets.token_hex(5)
+    return base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
 
 def timestamp_to_isoformat(ts):
