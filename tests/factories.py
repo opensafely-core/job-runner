@@ -1,5 +1,3 @@
-import base64
-import secrets
 import subprocess
 import time
 from copy import deepcopy
@@ -11,7 +9,7 @@ from common.schema import JobTaskResults, TaskType
 from controller import task_api, tracing
 from controller.lib.database import count_where, insert, update
 from controller.main import create_task_for_job, job_to_job_definition
-from controller.models import Job, State, StatusCode, Task
+from controller.models import Job, State, StatusCode, Task, new_id
 from controller.webapp.views.validators.dataclasses import CreateRequest
 from tests.conftest import test_exporter
 
@@ -80,7 +78,7 @@ JOB_TASK_RESULTS_DEFAULTS = {
 
 def rap_create_request_factory(**kwargs):
     if "id" not in kwargs:
-        kwargs["id"] = base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
+        kwargs["id"] = new_id()
 
     values = deepcopy(CREATE_REQUEST_DEFAULTS)
     values.update(kwargs)
@@ -89,9 +87,7 @@ def rap_create_request_factory(**kwargs):
 
 def rap_api_v1_factory_raw(**kwargs):
     if "rap_id" not in kwargs:
-        kwargs["rap_id"] = (
-            base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
-        )
+        kwargs["rap_id"] = new_id()
 
     values = deepcopy(RAP_API_V1_DEFAULTS)
     values.update(kwargs)

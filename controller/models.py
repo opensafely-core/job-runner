@@ -363,8 +363,8 @@ def deterministic_id(seed):
     return base64.b32encode(digest[:10]).decode("ascii").lower()
 
 
-def random_id():
-    return secrets.token_hex(5)
+def new_id():
+    return base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
 
 def timestamp_to_isoformat(ts):
