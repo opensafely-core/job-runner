@@ -17,7 +17,7 @@ from common.lib.log_utils import configure_logging
 from controller.cli.utils import add_backend_argument
 from controller.create_or_update_jobs import create_jobs
 from controller.lib.database import find_where
-from controller.models import Job, random_id
+from controller.models import Job, new_id
 from controller.webapp.views.validators.dataclasses import CreateRequest
 
 
@@ -41,7 +41,7 @@ def main(
         commit = get_sha_from_remote_ref(repo_url, branch)
     create_request = _make_create_request(
         dict(
-            identifier=random_id(),
+            identifier=new_id(),
             sha=commit,
             database_name=database,
             workspace=dict(name=workspace, repo=repo_url, branch=branch),

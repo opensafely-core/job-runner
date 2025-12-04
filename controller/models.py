@@ -363,7 +363,7 @@ def deterministic_id(seed):
     return base64.b32encode(digest[:10]).decode("ascii").lower()
 
 
-def random_id():
+def new_id():
     return secrets.token_hex(5)
 
 
