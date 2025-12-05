@@ -11,6 +11,7 @@ import logging
 import secrets
 import sys
 import time
+from itertools import chain
 
 from opentelemetry import trace
 
@@ -33,7 +34,7 @@ from controller.lib.database import (
     update_where,
 )
 from controller.models import Job, State, StatusCode, Task, TaskType
-from controller.permissions import datasets
+from controller.permissions.utils import build_analysis_scope
 from controller.queries import calculate_workspace_state, get_flag_value
 from controller.task_api import insert_task, mark_task_inactive
 
@@ -350,12 +351,17 @@ def job_to_job_definition(job, task_id, image_sha=None):
 
     if image.startswith("stata-mp"):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
-
+    # Create the flattened list of permissions that ehrql expects as an environment variable
     if job.requires_db:
-        permissions = datasets.PERMISSIONS.get(job.project, [])
-        if job.repo_url in config.REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS:
-            permissions = [*permissions, "event_level_data"]
-        env["EHRQL_PERMISSIONS"] = json.dumps(permissions)
+        # Build the full analysis scope dict to ensure that we have nay permissions that
+        # are stored within this repo (this should be unnecessary once any jobs created before
+        # controller.create_or_update_jobs.create_jobs() did this have completed)
+        analysis_scope = build_analysis_scope(
+            job.analysis_scope, job.project, job.repo_url
+        )
+        env["EHRQL_PERMISSIONS"] = json.dumps(
+            list(chain.from_iterable(analysis_scope.values()))
+        )
 
     study = Study(
         job.action_repo_url or job.repo_url,

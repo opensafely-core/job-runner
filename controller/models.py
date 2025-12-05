@@ -158,6 +158,7 @@ class Job:
             user TEXT,
             project TEXT,
             orgs TEXT,
+            analysis_scope TEXT,
 
             PRIMARY KEY (id)
         );
@@ -225,6 +226,13 @@ class Job:
         """,
     )
 
+    migration(
+        13,
+        """
+        ALTER TABLE job ADD COLUMN analysis_scope TEXT;
+        """,
+    )
+
     id: str = None  # noqa: A003
     rap_id: str = None
     state: State = None
@@ -234,7 +242,7 @@ class Job:
     commit: str = None
     # Name of workspace (effectively, the output directory)
     workspace: str = None
-    # Only applicable to "generate_cohort" jobs: the name of the database to
+    # Only applicable to "generate_dataset" jobs: the name of the database to
     # query against
     database_name: str = None
     # Name of the action (one of the keys in the `actions` dict in
@@ -299,6 +307,8 @@ class Job:
     # project and orgs for the workspace
     project: str = None
     orgs: list = None
+    # analysis_scope for this job; includes permissions and components jobs are allowed to access
+    analysis_scope: dict = None
 
     def __post_init__(self):
         # Generate a Job ID based on the Job Request ID and action. This means

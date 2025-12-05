@@ -21,6 +21,7 @@ from controller import tracing
 from controller.actions import get_action_specification
 from controller.lib.database import exists_where, insert, transaction, update_where
 from controller.models import Job, State, StatusCode
+from controller.permissions.utils import build_analysis_scope
 from controller.queries import calculate_workspace_state
 from controller.reusable_actions import (
     resolve_reusable_action_references,
@@ -199,6 +200,15 @@ def recursively_build_jobs(jobs_by_action, rap_create_request, pipeline_config, 
             wait_for_job_ids.append(required_job.id)
 
     timestamp = time.time()
+
+    analysis_scope = {}
+    if action_spec.action.is_database_action:
+        analysis_scope = build_analysis_scope(
+            rap_create_request.analysis_scope,
+            rap_create_request.project,
+            rap_create_request.repo_url,
+        )
+
     job = Job(
         rap_id=rap_create_request.id,
         state=State.PENDING,
@@ -223,6 +233,7 @@ def recursively_build_jobs(jobs_by_action, rap_create_request, pipeline_config, 
         user=rap_create_request.created_by,
         project=rap_create_request.project,
         orgs=rap_create_request.orgs,
+        analysis_scope=analysis_scope,
     )
     tracing.initialise_job_trace(job)
 
