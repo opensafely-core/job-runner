@@ -39,6 +39,14 @@ GIT_REPO_DIR = WORKDIR / "repos"
 GITHUB_PROXY_DOMAIN = os.environ.get(
     "GITHUB_PROXY_DOMAIN", "github-proxy.opensafely.org"
 )
+# This is a token belonging to the `opensafely-readonly` Github user:
+#
+#  * the controller uses a token called `rap-controller-token`
+#  * the agents use tokens called `rap-agent-token-<backend>` e.g.
+#    `rap-agent-token-tpp`
+#
+# The tokens are not stored anywhere else, but login details for the user are in
+# Bitwarden so they can be regenerated.
 PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 
 # Used by the controller to validate database name passed in a job request

@@ -73,8 +73,11 @@ space to exclude from bash history):
   TEST_CLIENT_TOKENS='[XXXXX]'
   TPP_CLIENT_TOKENS='[XXXXX]'
 
-  # Get these from Bitwarden:
+  # This is a token called `rap-controller-token` belonging to the `opensafely-readonly`
+  # Github user. The token is not stored anywhere else but login details for the user
+  # are in Bitwarden so the token can be regenerated.
   PRIVATE_REPO_ACCESS_TOKEN='[XXXXX]'
+  # This is stored in Bitwarden
   STATA_LICENSE='[XXXXX]'
 
   # Use the "jobrunner" key from:
