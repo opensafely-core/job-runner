@@ -25,7 +25,6 @@ jobs:
         id: scan
         with:
           path: '.'
-          acs-report-enable: true
           fail-build: ${{ inputs.fail-build }}
 
       - name: Upload SARIF report to GitHub
