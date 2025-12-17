@@ -660,6 +660,8 @@ def persist_outputs(job_definition, outputs, job_metadata):
         if filename in excluded_file_msgs:
             message_file.parent.mkdir(exist_ok=True, parents=True)
             message_file.write_text(excluded_file_msgs[filename])
+            # Remove any previous output if it exists
+            delete_files_from_directory(medium_privacy_dir, [filename])
         else:
             volumes.copy_file(src, dst)
             # if it previously had a message, delete it

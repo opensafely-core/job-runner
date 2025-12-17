@@ -663,6 +663,11 @@ def test_finalize_large_level4_outputs(docker_cleanup, job_definition, tmp_work_
 
     api = local.LocalDockerAPI()
 
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    output_file = level4_dir / "output/output.txt"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text("previous results")
+
     api.prepare(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
@@ -685,7 +690,7 @@ def test_finalize_large_level4_outputs(docker_cleanup, job_definition, tmp_work_
         "output/output.txt  - File size of 1.0Mb is larger that limit of 0.5Mb." in log
     )
 
-    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    assert not output_file.exists()
 
     message_file = level4_dir / "output/output.txt.txt"
     txt = message_file.read_text()
