@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Scan current project with Grype
         uses: anchore/scan-action@568b89d27fc18c60e56937bff480c91c772cd993  # v6
