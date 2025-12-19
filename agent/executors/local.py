@@ -185,6 +185,21 @@ class LocalDockerAPI(ExecutorAPI):
             return current
 
         extra_args = []
+        # Configure logging
+        extra_args.extend(
+            [
+                "--log-driver",
+                "local",
+                "--log-opt",
+                f"max-file={config.DOCKER_MAX_LOG_SEGMENTS_PER_JOB}",
+                # Below values are the Docker defaults, but better to set them explictly
+                # so they can't change from under us
+                "--log-opt",
+                "max-size=20m",
+                "--log-opt",
+                "compress=true",
+            ]
+        )
         if job_definition.cpu_count:
             extra_args.extend(["--cpus", str(job_definition.cpu_count)])
         if job_definition.memory_limit:
