@@ -140,6 +140,10 @@ DATABASE_EXIT_CODES = {
     ),
     4: "New data is being imported into the database, please try again in a few hours",
     5: "Something went wrong with the database, please contact tech support",
+    6: (
+        "Your ehrQL is valid but it produced SQL which is too complex for the database"
+        " to run; please contact tech-support so we can help you simplify it."
+    ),
     # Other ehrQL exit codes with specific meanings, see:
     # https://github.com/opensafely-core/ehrql/blob/e0c47acdb887/ehrql/__main__.py#L123-L134
     10: "There was a problem reading your ehrQL code; please confirm that it runs locally",
