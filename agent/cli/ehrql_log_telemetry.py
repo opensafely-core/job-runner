@@ -28,9 +28,9 @@ def main(argv):
         choices=["generate-dataset", "generate-measures"],
         help="type of ehrql operation",
     )
-    parser.add_argument("workspace", help="name of workspace")
-    parser.add_argument("commit", help="Commit used to run this action")
-    parser.add_argument("action", help="action that this log represents")
+    parser.add_argument("--workspace", help="name of workspace")
+    parser.add_argument("--commit", help="Commit used to run this action")
+    parser.add_argument("--action", help="action that this log represents")
     parser.add_argument(
         "--attrs", nargs="+", help="additional attributes to trace, in k=v pairs"
     )
@@ -58,9 +58,11 @@ def main(argv):
     extra_attrs = [attr.partition("=")[::2] for attr in extra_attrs]
 
     attrs = {
-        "workspace": args.workspace,
-        "action": args.action,
-        "commit": args.commit,
+        **{
+            k: getattr(args, k)
+            for k in ["workspace", "commit", "action"]
+            if getattr(args, k)
+        },
         **{k: v for k, v in extra_attrs},
     }
 

@@ -58,7 +58,7 @@ def test_ehrql_telemetry_run_with_events():
     assert event.attributes == exc_event["attributes"]
 
 
-def test_ehrql_telemetry_main_with_dir(tmp_path, monkeypatch):
+def test_ehrql_telemetry_main(tmp_path, monkeypatch):
     set_logs(
         monkeypatch,
         [
@@ -72,8 +72,11 @@ def test_ehrql_telemetry_main_with_dir(tmp_path, monkeypatch):
             "dataset",
             str(tmp_path),
             "generate-dataset",
+            "--workspace",
             "workspace",
+            "--commit",
             "abcde",
+            "--action",
             "action1",
             "--attrs",
             "apply-filtering=True",
@@ -94,6 +97,31 @@ def test_ehrql_telemetry_main_with_dir(tmp_path, monkeypatch):
         span.attributes["foo"] == "bar"
 
 
+def test_ehrql_telemetry_main_no_optional_attrs(tmp_path, monkeypatch):
+    set_logs(
+        monkeypatch,
+        [
+            json.dumps(logdata(name="first")),
+            json.dumps(logdata(name="second")),
+        ],
+    )
+
+    ehrql_log_telemetry.main(
+        [
+            "dataset",
+            str(tmp_path),
+            "generate-dataset",
+        ]
+    )
+    spans = get_trace()
+    assert spans[0].name == "first"
+    assert spans[1].name == "second"
+    assert spans[2].name == "ehrql.generate-dataset"
+
+    for span in spans:
+        assert set(span.attributes.keys()) & {"workspace", "commit", "action"} == set()
+
+
 def test_ehrql_telemetry_main_bad_json_line(tmp_path, monkeypatch):
     set_logs(
         monkeypatch,
@@ -110,9 +138,6 @@ def test_ehrql_telemetry_main_bad_json_line(tmp_path, monkeypatch):
             "dataset",
             str(tmp_path),
             "generate-dataset",
-            "workspace",
-            "abcde",
-            "action1",
         ]
     )
     spans = get_trace()
