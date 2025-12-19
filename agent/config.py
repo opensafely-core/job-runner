@@ -156,3 +156,12 @@ TASK_API_TOKEN = os.environ.get("CONTROLLER_TASK_API_TOKEN", "token")
 DOCKER_PROXY = os.environ.get(
     "DOCKER_PROXY", "docker-proxy.opensafely.org/opensafely-core"
 )
+
+# Docker's local log driver partitions log output into separate files (optionally
+# compressed) in JSONL format. Its default settings create 20MB files and retain the
+# last 5 which results in 100MB of JSONL logs equating to roughly 50MB of plaintext
+# logs. While we generally don't produce anywhere near this, on the rare occasions that
+# we do we want to retain the full output so we increase the limit significantly. (This
+# output is not all available to the user but we want it for debugging.)
+# https://docs.docker.com/engine/logging/drivers/local/#options
+DOCKER_MAX_LOG_SEGMENTS_PER_JOB = 200
