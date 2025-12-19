@@ -60,17 +60,20 @@ def main(argv):
 
 
 def run(metadata, queries):
-    tracer = trace.get_tracer("queries")
-
     # get the start/end times from the docker container metadata
     container = metadata["container_metadata"]
     start_time_ns = docker_datestr_to_ns(container["State"]["StartedAt"])
     end_time_ns = docker_datestr_to_ns(container["State"]["FinishedAt"])
     operation = "ehrql." + container["Args"][0]  # e.g. 'ehrql.generate-dataset'
-
     attrs = get_attrs(metadata)
+    trace_queries(queries, operation, start_time_ns, end_time_ns, attrs)
+
+
+def trace_queries(queries, span_name, start_time_ns, end_time_ns, attrs):
+    tracer = trace.get_tracer("queries")
+
     root = tracer.start_span(
-        operation, context={}, start_time=start_time_ns, attributes=attrs
+        span_name, context={}, start_time=start_time_ns, attributes=attrs
     )
 
     # Set it as the active span
