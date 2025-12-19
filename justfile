@@ -114,9 +114,9 @@ test-verbose *ARGS: _checkenv
 test-no-docker *ARGS: _checkenv
     uv run python -m pytest -m "not needs_docker" "$@"
 
-# Run a cli command locally
+# Run an agent cli command locally
 cli command *ARGS: _checkenv
-    uv run python -m jobrunner.cli.{{ command }} {{ ARGS }}
+    uv run python -m agent.cli.{{ command }} {{ ARGS }}
 
 format *args:
     uv run ruff format --diff --quiet {{ args }} .
