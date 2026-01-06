@@ -670,6 +670,8 @@ def cancel_job(job):
 def update_scheduled_tasks():
     for backend in config.MAINTENANCE_ENABLED_BACKENDS:
         update_scheduled_task_for_db_maintenance_for_backend(backend)
+    for backend in config.DATA_CHECK_ENABLED_BACKENDS:
+        update_scheduled_task_for_db_data_check_for_backend(backend)
 
 
 def update_scheduled_task_for_db_maintenance_for_backend(backend):
@@ -679,6 +681,18 @@ def update_scheduled_task_for_db_maintenance_for_backend(backend):
         task_definition={"database_name": "default"},
         task_interval=config.MAINTENANCE_POLL_INTERVAL,
         is_active=not get_flag_value("manual-db-maintenance", backend),
+    )
+
+
+def update_scheduled_task_for_db_data_check_for_backend(backend):
+    schedule_regular_task(
+        backend=backend,
+        task_type=TaskType.DBDATACHECK,
+        task_definition={
+            "hes_expected_activity_month": config.DATA_CHECK_HES_EXPECTED_ACTIVITY_MONTH
+        },
+        task_interval=config.DATA_CHECK_POLL_INTERVAL,
+        is_active=get_flag_value("mode", backend) != "db-maintenance",
     )
 
 
