@@ -501,6 +501,31 @@ def test_handle_db_status_job_with_error(mock_update_controller):
     )
 
 
+@patch("agent.main.tpp_database_utils", autospec=True)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
+def test_handle_db_data_check_task(mock_update_controller, mock_tpp_database_utils):
+    mock_tpp_database_utils.return_value = "OK"
+
+    task = Task(
+        id="test_id",
+        backend="test",
+        type=TaskType.DBDATACHECK,
+        definition={"hes_expected_activity_month": "202304"},
+        created_at=time.time(),
+    )
+
+    main.handle_single_task(task, api=None)
+
+    mock_tpp_database_utils.assert_called_with(["hes_cutoff_date_check", "202304"])
+
+    mock_update_controller.assert_called_with(
+        task,
+        stage="",
+        results={"results": {"status": "OK"}, "error": None},
+        complete=True,
+    )
+
+
 @patch("agent.main.docker", autospec=True)
 def test_db_status_task_rejects_unexpected_status(mock_docker, monkeypatch):
     monkeypatch.setattr(
@@ -509,6 +534,17 @@ def test_db_status_task_rejects_unexpected_status(mock_docker, monkeypatch):
     mock_docker.return_value = Mock(stdout="unexpected value")
     with pytest.raises(ValueError, match="Invalid status") as exc:
         main.db_status_task(database_name="default")
+    assert "unexpected value" not in str(exc.value)
+
+
+@patch("agent.main.docker", autospec=True)
+def test_db_data_check_task_rejects_unexpected_status(mock_docker, monkeypatch):
+    monkeypatch.setattr(
+        config, "DATABASE_URLS", {"default": "database://localhost:1234"}
+    )
+    mock_docker.return_value = Mock(stdout="unexpected value")
+    with pytest.raises(ValueError, match="Invalid status") as exc:
+        main.db_data_check_task(hes_expected_activity_month="202501")
     assert "unexpected value" not in str(exc.value)
 
 
