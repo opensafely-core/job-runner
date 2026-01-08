@@ -83,6 +83,8 @@ def handle_single_task(task, api):
                     handle_cancel_job_task(task, api)
                 case TaskType.DBSTATUS:
                     handle_simple_task(db_status_task, task)
+                case TaskType.DBDATACHECK:
+                    handle_simple_task(db_data_check_task, task)
                 case _:
                     assert False, f"Unknown task type {task.type}"
         except Exception as exc:
@@ -396,6 +398,39 @@ def handle_simple_task(task_function, task):
 
 def db_status_task(*, database_name):
     log.info(f"Running DBSTATUS task on database {database_name!r}")
+    output = tpp_database_utils(["in_maintenance_mode"], database_name=database_name)
+    last_line = output.split("\n")[-1].strip()
+    # Restrict the status messages that can be returned so that even in the case of a
+    # compromised status check container it's not possible to extract significant
+    # quantities of data
+    status_allowlist = {"", "db-maintenance"}
+    if last_line not in status_allowlist:
+        raise ValueError(
+            f"Invalid status, expected one of: {','.join(status_allowlist)}"
+        )
+    span = trace.get_current_span()
+    span.set_attribute("agent.db-maintenance", last_line == "db-maintenance")
+    return {"status": last_line}
+
+
+def db_data_check_task(*, hes_expected_activity_month):
+    log.info("Running DBDATACHECK task")
+    output = tpp_database_utils(["hes_cutoff_date_check", hes_expected_activity_month])
+    status = output.split("\n")[-1].strip()
+    # Restrict the status messages that can be returned so that even in the case of a
+    # compromised status check container it's not possible to extract significant
+    # quantities of data
+    status_allowlist = {"OK", "FAILED"}
+    if status not in status_allowlist:
+        raise ValueError(
+            f"Invalid status, expected one of: {','.join(status_allowlist)}"
+        )
+    span = trace.get_current_span()
+    span.set_attribute("agent.db-data-check", status == "OK")
+    return {"status": status}
+
+
+def tpp_database_utils(args, database_name="default"):
     database_url = config.DATABASE_URLS[database_name]
     # Restrict network access to just the database
     network_config_args = get_network_config_args(
@@ -409,25 +444,14 @@ def db_status_task(*, database_name):
             "DATABASE_URL",
             *network_config_args,
             "ghcr.io/opensafely-core/tpp-database-utils",
-            "in_maintenance_mode",
+            *args,
         ],
         env={"DATABASE_URL": database_url},
         check=True,
         capture_output=True,
         text=True,
     )
-    last_line = ps.stdout.strip().split("\n")[-1].strip()
-    # Restrict the status messages that can be returned so that even in the case of a
-    # compromised status check container it's not possible to extract significant
-    # quantities of data
-    status_allowlist = {"", "db-maintenance"}
-    if last_line not in status_allowlist:
-        raise ValueError(
-            f"Invalid status, expected one of: {','.join(status_allowlist)}"
-        )
-    span = trace.get_current_span()
-    span.set_attribute("agent.db-maintenance", last_line == "db-maintenance")
-    return {"status": last_line}
+    return ps.stdout.strip()
 
 
 if __name__ == "__main__":

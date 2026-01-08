@@ -130,6 +130,22 @@ MAINTENANCE_ENABLED_BACKENDS = (
     os.environ.get("MAINTENANCE_ENABLED_BACKENDS", "tpp").strip().split(",")
 )
 
+DATA_CHECK_POLL_INTERVAL = float(
+    os.environ.get("DATA_CHECK_POLL_INTERVAL", 24 * 60 * 60)
+)
+DATA_CHECK_ENABLED_BACKENDS = (
+    os.environ.get("DATA_CHECK_ENABLED_BACKENDS", "tpp").strip().split(",")
+)
+# The date (in YYYYMM format) at which we expect to switch from live to archived HES data.
+# See this issue for breadcrumbs to the relevent context here:
+# https://github.com/opensafely-core/tpp-database-utils/issues/32
+#
+# The current value for this date is set in ehrQL here:
+# https://github.com/opensafely-core/ehrql/blob/2586a9d245/ehrql/backends/tpp.py#L310-L311
+DATA_CHECK_HES_EXPECTED_ACTIVITY_MONTH = os.environ.get(
+    "DATA_CHECK_HES_EXPECTED_ACTIVITY_MONTH", "202304"
+)
+
 # Map known exit codes to user-friendly messages
 DATABASE_EXIT_CODES = {
     # Custom database-related exit codes return from ehrQL, see e.g.

@@ -668,23 +668,44 @@ def cancel_job(job):
 
 
 def update_scheduled_tasks():
-    # This is the only scheduled task we currently have
-    update_scheduled_task_for_db_maintenance()
-
-
-def update_scheduled_task_for_db_maintenance():
     for backend in config.MAINTENANCE_ENABLED_BACKENDS:
         update_scheduled_task_for_db_maintenance_for_backend(backend)
+    for backend in config.DATA_CHECK_ENABLED_BACKENDS:
+        update_scheduled_task_for_db_data_check_for_backend(backend)
 
 
 def update_scheduled_task_for_db_maintenance_for_backend(backend):
-    # If we're in manual maintenance mode then deactivate any running status check tasks
-    # and exit
-    if get_flag_value("manual-db-maintenance", backend):
+    schedule_regular_task(
+        backend=backend,
+        task_type=TaskType.DBSTATUS,
+        task_definition={"database_name": "default"},
+        task_interval=config.MAINTENANCE_POLL_INTERVAL,
+        is_active=not get_flag_value("manual-db-maintenance", backend),
+    )
+
+
+def update_scheduled_task_for_db_data_check_for_backend(backend):
+    schedule_regular_task(
+        backend=backend,
+        task_type=TaskType.DBDATACHECK,
+        task_definition={
+            "hes_expected_activity_month": config.DATA_CHECK_HES_EXPECTED_ACTIVITY_MONTH
+        },
+        task_interval=config.DATA_CHECK_POLL_INTERVAL,
+        is_active=get_flag_value("mode", backend) != "db-maintenance",
+    )
+
+
+def schedule_regular_task(
+    *, backend, task_type, task_definition, task_interval, is_active
+):
+    # If we're not supposed to be active then deactivate any currently active tasks and
+    # exit
+    if not is_active:
         update_where(
             Task,
             {"active": False},
-            type=TaskType.DBSTATUS,
+            type=task_type,
             active=True,
             backend=backend,
         )
@@ -693,18 +714,18 @@ def update_scheduled_task_for_db_maintenance_for_backend(backend):
     # If there's already an active task then there's nothing to do
     if exists_where(
         Task,
-        type=TaskType.DBSTATUS,
+        type=task_type,
         backend=backend,
         active=True,
     ):
         return
 
-    # If there's a task that was completed within MAINTENANCE_POLL_INTERVAL seconds of now then
+    # If there's a task that was completed within task_interval seconds of now then
     # there's nothing to do
-    cutoff_time = int(time.time() - config.MAINTENANCE_POLL_INTERVAL)
+    cutoff_time = int(time.time() - task_interval)
     if exists_where(
         Task,
-        type=TaskType.DBSTATUS,
+        type=task_type,
         backend=backend,
         active=False,
         finished_at__gt=cutoff_time,
@@ -716,10 +737,10 @@ def update_scheduled_task_for_db_maintenance_for_backend(backend):
         Task(
             # Add a bit of structure to the ID: this isn't strictly necessary – truly
             # random IDs should work just fine – but it may help with future debugging
-            id=f"dbstatus-{datetime.date.today()}-{secrets.token_hex(10)}",
-            type=TaskType.DBSTATUS,
+            id=f"{task_type.value}-{datetime.date.today()}-{secrets.token_hex(10)}",
+            type=task_type,
             backend=backend,
-            definition={"database_name": "default"},
+            definition=task_definition,
         )
     )
 

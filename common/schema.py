@@ -8,6 +8,7 @@ class TaskType(Enum):
     CANCELJOB = "canceljob"
     # TODO: delete job
     DBSTATUS = "dbstatus"
+    DBDATACHECK = "dbdatacheck"
 
     @classmethod
     def from_value(cls, value):

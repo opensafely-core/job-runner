@@ -1119,3 +1119,51 @@ def test_handle_task_update_dbstatus(
 
     # We should now be out of maintenance mode
     assert not get_flag_value("mode", backend=backend)
+
+
+def test_update_scheduled_task_for_db_data_check(db, monkeypatch, freezer):
+    monkeypatch.setattr(config, "DATA_CHECK_ENABLED_BACKENDS", ["test"])
+    # We start with no DBDATACHECK tasks
+    tasks = database.find_where(Task, type=TaskType.DBDATACHECK)
+    assert len(tasks) == 0
+
+    # Running the controller loop should automatically schedule one
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBDATACHECK)
+    assert len(tasks) == 1
+
+    # It should have the attributes we expect
+    assert tasks[0].backend == "test"
+    assert tasks[0].definition == {"hes_expected_activity_month": "202304"}
+
+
+def test_update_scheduled_task_for_db_data_check_in_db_maintenance(
+    db, monkeypatch, freezer
+):
+    monkeypatch.setattr(config, "DATA_CHECK_ENABLED_BACKENDS", ["test"])
+
+    # Enable database maintenance mode
+    set_flag("mode", "db-maintenance", backend="test")
+
+    # Confirm controller loop does not schedule a DBDATACHECK task
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBDATACHECK)
+    assert len(tasks) == 0
+
+    # Disable maintenance
+    set_flag("mode", "", backend="test")
+
+    # Running the controller loop should now schedule an active task
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBDATACHECK)
+    assert len(tasks) == 1
+    assert tasks[0].active
+
+    # Renable database maintenance mode
+    set_flag("mode", "db-maintenance", backend="test")
+
+    # The task should now be inactive
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBDATACHECK)
+    assert len(tasks) == 1
+    assert not tasks[0].active
