@@ -62,7 +62,7 @@ def handle_task_update(*, task_id, stage, results, complete, timestamp_ns=None):
         task.finished_at = int(time.time())
 
     match task.type:
-        case TaskType.RUNJOB | TaskType.CANCELJOB:
+        case TaskType.RUNJOB | TaskType.CANCELJOB | TaskType.DBDATACHECK:
             database.update(task)
         case TaskType.DBSTATUS:
             handle_task_update_dbstatus(task)
