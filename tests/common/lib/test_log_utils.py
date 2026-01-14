@@ -30,6 +30,7 @@ test_job_definition = JobDefinition(
     workspace="workspace",
     action="",
     created_at=None,
+    user="testuser",
     image="",
     image_sha=None,
     args=[],

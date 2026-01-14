@@ -43,6 +43,8 @@ class JobDefinition:
     allow_database_access: bool  # whether this job should have access to the database
     level4_max_csv_rows: int
     level4_max_filesize: int
+    # the user who requested this job; may be None for tasks that pre-date addition of this field
+    user: str = None
     # our internal name for the database this job uses (actual connection details are
     # passed in `env`)
     database_name: str = None
