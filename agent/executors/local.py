@@ -554,6 +554,7 @@ def get_job_metadata(
     job_metadata["job_definition_rap_id"] = job_definition.rap_id
     job_metadata["task_id"] = job_definition.task_id
     job_metadata["created_at"] = job_definition.created_at
+    job_metadata["user"] = job_definition.user
     job_metadata["completed_at"] = int(time.time())
     job_metadata["docker_image_id"] = container_metadata.get("Image")
     job_metadata["expected_image_id"] = job_definition.image_sha
@@ -602,6 +603,7 @@ METADATA_DEFAULTS = {
     "cancelled": False,
     "error": False,
     "job_metrics": MappingProxyType({}),
+    "user": None,
 }
 
 
@@ -695,6 +697,7 @@ def persist_outputs(job_definition, outputs, job_metadata):
             commit=job_definition.study.commit,
             repo=job_definition.study.git_repo_url,
             excluded=filename in excluded_file_msgs,
+            user=job_definition.user,
             message=excluded_job_msgs.get(filename),
             csv_counts=csv_metadata.get(filename),
         )
@@ -716,6 +719,7 @@ def get_output_metadata(
     commit,
     repo,
     excluded,
+    user,
     message=None,
     csv_counts=None,
 ):
@@ -728,6 +732,7 @@ def get_output_metadata(
         "job_id": job_id,
         "job_request": job_request,
         "action": action,
+        "user": user,
         "repo": repo,
         "commit": commit,
         "size": stat.st_size,

@@ -37,6 +37,7 @@ def job_definition(request, test_repo, responses):
         workspace="test",
         action="action",
         created_at=int(time.time()),
+        user="testuser",
         image="ghcr.io/opensafely-core/busybox:latest",
         image_sha=IMAGE_SHA if request.param else None,
         args=["true"],
