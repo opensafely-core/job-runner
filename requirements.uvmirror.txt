@@ -277,7 +277,7 @@ virtualenv==20.36.0
     # via pre-commit
 webcolors==25.10.0
     # via jsonschema
-werkzeug==3.1.4
+werkzeug==3.1.5
     # via schemathesis
 wrapt==1.17.3
     # via opentelemetry-instrumentation
