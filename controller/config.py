@@ -161,10 +161,11 @@ DATABASE_EXIT_CODES = {
         " to run; please contact tech-support so we can help you simplify it."
     ),
     # Other ehrQL exit codes with specific meanings, see:
-    # https://github.com/opensafely-core/ehrql/blob/e0c47acdb887/ehrql/__main__.py#L123-L134
+    # https://github.com/opensafely-core/ehrql/blob/d229b8f/ehrql/__main__.py#L123-L139
     10: "There was a problem reading your ehrQL code; please confirm that it runs locally",
     11: "There was a problem reading one of the supplied data files",
     12: "You do not have the required permissions for the ehrQL you are trying to run",
+    13: "Assurance tests failed; please confirm the tests pass locally",
 }
 
 
