@@ -44,7 +44,7 @@ exceptiongroup==1.3.1 ; python_full_version < '3.11'
     #   anyio
     #   hypothesis
     #   pytest
-filelock==3.20.2
+filelock==3.20.3
     # via virtualenv
 fqdn==1.5.1
     # via jsonschema
@@ -64,7 +64,7 @@ httpcore==1.0.9
     # via httpx
 httpx==0.28.1
     # via schemathesis
-hypothesis==6.150.0
+hypothesis==6.150.2
     # via
     #   hypothesis-graphql
     #   hypothesis-jsonschema
@@ -73,7 +73,7 @@ hypothesis-graphql==0.11.1
     # via schemathesis
 hypothesis-jsonschema==0.23.1
     # via schemathesis
-identify==2.6.15
+identify==2.6.16
     # via pre-commit
 idna==3.11
     # via
@@ -162,7 +162,7 @@ pluggy==1.6.0
     #   pytest
     #   pytest-cov
 pre-commit==4.5.1
-protobuf==6.33.2
+protobuf==6.33.4
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
@@ -224,10 +224,10 @@ ruamel-yaml-clib==0.2.8
     # via
     #   opensafely-pipeline
     #   ruamel-yaml
-ruff==0.14.10
+ruff==0.14.11
 ruyaml==0.91.0
     # via opensafely-pipeline
-schemathesis==4.8.0
+schemathesis==4.9.0
 setuptools==80.9.0
     # via ruyaml
 six==1.17.0
@@ -239,13 +239,13 @@ sortedcontainers==2.4.0
     # via hypothesis
 sqlparse==0.5.5
     # via django
-starlette==0.50.0
+starlette==0.51.0
     # via starlette-testclient
 starlette-testclient==0.4.1
     # via schemathesis
 tenacity==9.1.2
     # via schemathesis
-tomli==2.3.0 ; python_full_version <= '3.11'
+tomli==2.4.0 ; python_full_version <= '3.11'
     # via
     #   coverage
     #   pytest
@@ -273,11 +273,11 @@ urllib3==2.6.3
     # via
     #   requests
     #   responses
-virtualenv==20.36.0
+virtualenv==20.36.1
     # via pre-commit
 webcolors==25.10.0
     # via jsonschema
-werkzeug==3.1.4
+werkzeug==3.1.5
     # via schemathesis
 wrapt==1.17.3
     # via opentelemetry-instrumentation
