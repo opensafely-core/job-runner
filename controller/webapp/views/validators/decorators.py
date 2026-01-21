@@ -59,7 +59,7 @@ def validate_request_body(dataclass: RequestBody):
             # request.body
             try:
                 body_data = json.loads(request.body.decode())
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 return JsonResponse(
                     {
                         "error": "Validation error",

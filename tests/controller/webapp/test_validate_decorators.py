@@ -75,6 +75,21 @@ def test_validate_request_body_bad_json(rf):
     }
 
 
+def test_validate_request_body_bad_utf8(rf):
+    request = rf.post(
+        "/",
+        b"\xed",
+        headers={"Authorization": "test_token"},
+        content_type="text/html",
+    )
+    response = view(request)
+    response.status_code == 400
+    assert json.loads(response.content.decode()) == {
+        "error": "Validation error",
+        "details": "could not parse JSON from request body",
+    }
+
+
 @validate_request_body(DummyRequestBody)
 @get_backends_for_client_token
 def view_with_bad_decorator_order(
