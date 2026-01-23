@@ -704,6 +704,21 @@ def persist_outputs(job_definition, outputs, job_metadata):
 
     # Update manifest with file metdata
     manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
+
+    # find existing filenames for this action from previous jobs
+    previous_outputs_for_action = {
+        filename
+        for filename, output_metadata in manifest["outputs"].items()
+        if output_metadata["action"] == job_definition.action
+    }
+    # Remove any previous outputs for this action. Previous jobs may have written file to
+    # different paths, e.g. if a job writes dynamic filenames which have changed, or if the output
+    # path is updated so files are now written to a different location. We remove all
+    # these old filepaths, so we don't persist obsolete files from old jobs. In the next
+    # step, we'll update the manifest with the newly created outputs
+    for filename in previous_outputs_for_action:
+        del manifest["outputs"][filename]
+
     manifest["outputs"].update(**new_outputs)
     write_manifest_file(medium_privacy_dir, manifest)
 
