@@ -162,7 +162,7 @@ pluggy==1.6.0
     #   pytest
     #   pytest-cov
 pre-commit==4.5.1
-protobuf==6.33.4
+protobuf==6.33.5
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto

@@ -94,7 +94,7 @@ include = ["jobrunner*"]
 [tool.uv]
 required-version = ">=0.9"
 exclude-newer = "2026-01-21T00:00:00Z"
-exclude-newer-package = {}
+exclude-newer-package = {"protobuf"="2026-01-30T00:00:00Z"}
 
 [dependency-groups]
 dev = [
