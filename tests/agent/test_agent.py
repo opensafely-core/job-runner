@@ -433,11 +433,26 @@ def test_handle_cancel_job(
 
 @patch("agent.main.docker", autospec=True)
 @patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_db_status_job(mock_update_controller, mock_docker, monkeypatch):
+@pytest.mark.parametrize(
+    "docker_stdout,status,build_count",
+    [
+        ("line 1\nline 2\ndb-maintenance ", "db-maintenance", ""),
+        (" ", "", ""),
+        ("db-maintenance;0", "db-maintenance", "0"),
+        ("db-maintenance;1", "db-maintenance", "1"),
+        ("db-maintenance;2", "db-maintenance", "2"),
+        ("none;0", "", "0"),
+        ("none;1", "", "1"),
+        ("none;2", "", "2"),
+    ],
+)
+def test_handle_db_status_job(
+    mock_update_controller, mock_docker, monkeypatch, docker_stdout, status, build_count
+):
     monkeypatch.setattr(
         config, "DATABASE_URLS", {"default": "database://localhost:1234"}
     )
-    mock_docker.return_value = Mock(stdout="line 1\nline 2\ndb-maintenance ")
+    mock_docker.return_value = Mock(stdout=docker_stdout)
 
     task = Task(
         id="test_id",
@@ -473,9 +488,15 @@ def test_handle_db_status_job(mock_update_controller, mock_docker, monkeypatch):
     mock_update_controller.assert_called_with(
         task,
         stage="",
-        results={"results": {"status": "db-maintenance"}, "error": None},
+        results={"results": {"status": status}, "error": None},
         complete=True,
     )
+
+    spans = get_trace("agent_loop")
+    assert len(spans) == 1
+    span = spans[0]
+    assert span.attributes["agent.db-maintenance"] == (status == "db-maintenance")
+    assert span.attributes["agent.db-build-count"] == build_count
 
 
 @patch("agent.task_api.update_controller", spec=task_api.update_controller)
