@@ -10,6 +10,7 @@ from agent.executors import local, volumes
 from agent.lib import docker
 from common.job_executor import ExecutorState, JobDefinition, Privacy, Study
 from common.lib import datestr_to_ns_timestamp
+from common.lib.git import GitRepoNotReachableError
 from controller.lib.docker import get_current_image_sha
 from tests.factories import ensure_docker_images_present, metrics_factory
 
@@ -899,9 +900,11 @@ def test_finalize_large_level4_outputs_cleanup(
 
 
 @pytest.mark.needs_docker
-def test_finalize_old_outputs_removed_from_manifest(
+def test_finalize_manifest_old_outputs_and_actions_cleaned_up(
     docker_cleanup, job_definition, tmp_work_dir
 ):
+    # On finalize, old outputs are removed from the manifest and outputs for old
+    # actions are marked as out of date
     job_definition.args = [
         "sh",
         "-c",
@@ -919,8 +922,10 @@ def test_finalize_old_outputs_removed_from_manifest(
             "outputs": {
                 # this job's action previous wrote to a different path
                 "output/old_output.txt": {"action": job_definition.action},
-                # previous output from a different action
+                # previous output from a different action which is no longer in the project.yaml
                 "output/output_from_another_action.txt": {"action": "another_action"},
+                # previous output from a different action which IS in the project.yaml (see fixtures/full_project)
+                "output/dataset.csv": {"action": "generate_dataset"},
             }
         },
     )
@@ -942,8 +947,73 @@ def test_finalize_old_outputs_removed_from_manifest(
     # The old output for this action has been removed and only the current output path remains
     assert "output/output.txt" in manifest["outputs"]
     assert "output/old_output.txt" not in manifest["outputs"]
-    # outputs from other actions are unaffected
+    assert "out_of_date_action" not in manifest["outputs"]["output/output.txt"]
+    # outputs from other actions are unaffected, but are marked as out of date if they're not in the current project.yaml
     assert "output/output_from_another_action.txt" in manifest["outputs"]
+    assert "output/dataset.csv" in manifest["outputs"]
+    assert manifest["outputs"]["output/output_from_another_action.txt"][
+        "out_of_date_action"
+    ]
+    assert "out_of_date_action" not in manifest["outputs"]["output/dataset.csv"]
+
+
+@pytest.mark.needs_docker
+@mock.patch(
+    "agent.executors.local.read_file_from_repo", side_effect=GitRepoNotReachableError
+)
+def test_finalize_manifest_old_outputs_and_actions_with_git_error(
+    mock_read_file, docker_cleanup, job_definition, tmp_work_dir
+):
+    # On finalize, old outputs are removed from the manifest and outputs for old
+    # actions are marked as out of date; if we encounter a git error, the old action
+    # outputs aren't marked as out of date but the job is still finalised correctly
+    job_definition.args = [
+        "sh",
+        "-c",
+        "echo 'foo' > /workspace/output/output.txt",
+    ]
+    job_definition.output_spec = {
+        "output/output.txt": "moderately_sensitive",
+    }
+
+    # Write manifest data for outputs from previous runs
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    local.write_manifest_file(
+        level4_dir,
+        {
+            "outputs": {
+                # previous output from a different action which is no longer in the project.yaml
+                "output/output_from_another_action.txt": {"action": "another_action"},
+                # previous output from a different action which IS in the project.yaml (see fixtures/full_project)
+                "output/dataset.csv": {"action": "generate_dataset"},
+            }
+        },
+    )
+
+    api = local.LocalDockerAPI()
+
+    api.prepare(job_definition)
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    api.execute(job_definition)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    api.finalize(job_definition)
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+    assert status.results["exit_code"] == "0"
+
+    manifest = local.read_manifest_file(level4_dir, job_definition)
+    # The output for this action has been written to the manifest
+    assert "output/output.txt" in manifest["outputs"]
+    # outputs from other actions are unaffected
+    # not marked as out of date due to error fetching project.yaml
+    assert "output/output_from_another_action.txt" in manifest["outputs"]
+    assert "output/dataset.csv" in manifest["outputs"]
+    assert (
+        "out_of_date_action"
+        not in manifest["outputs"]["output/output_from_another_action.txt"]
+    )
 
 
 @pytest.mark.needs_docker
