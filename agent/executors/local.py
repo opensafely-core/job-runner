@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 from types import MappingProxyType
 
+from pipeline import load_pipeline
+
 from agent import config
 from agent.executors import volumes
 from agent.lib import docker
@@ -22,7 +24,7 @@ from common.job_executor import (
     Privacy,
 )
 from common.lib import datestr_to_ns_timestamp, file_digest
-from common.lib.git import checkout_commit
+from common.lib.git import GitError, checkout_commit, read_file_from_repo
 from common.lib.string_utils import tabulate
 
 
@@ -705,6 +707,31 @@ def persist_outputs(job_definition, outputs, job_metadata):
     # Update manifest with file metdata
     manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
 
+    manifest = update_manifest_outputs_and_actions(
+        manifest, job_definition, new_outputs
+    )
+
+    write_manifest_file(medium_privacy_dir, manifest)
+
+    return excluded_job_msgs
+
+
+def update_manifest_outputs_and_actions(manifest, job_definition, new_outputs):
+    """
+    Update an existing manifest file when finalizing a job.
+     - Flags any previous outputs for actions that no longer exist in the workspace
+       project.yaml
+     - Removes any previous outputs for the current job's action
+     - Adds the new outputs from the just completed job
+    """
+    # flag any outputs for outdated actions
+    if manifest["outputs"]:
+        outputs = {**manifest["outputs"]}
+        if workspace_action_names := get_workspace_action_names(job_definition):
+            for output, output_metadata in outputs.items():
+                if output_metadata["action"] not in workspace_action_names:
+                    manifest["outputs"][output]["out_of_date_action"] = True
+
     # find existing filenames for this action from previous jobs
     previous_outputs_for_action = {
         filename
@@ -720,9 +747,26 @@ def persist_outputs(job_definition, outputs, job_metadata):
         del manifest["outputs"][filename]
 
     manifest["outputs"].update(**new_outputs)
-    write_manifest_file(medium_privacy_dir, manifest)
 
-    return excluded_job_msgs
+    return manifest
+
+
+def get_workspace_action_names(job_definition):
+    try:
+        project_file = read_file_from_repo(
+            job_definition.study.git_repo_url,
+            job_definition.study.commit,
+            "project.yaml",
+        )
+    except GitError:
+        # If we get any sort of GitError, we just continue, as we don't want it to prevent
+        # outputs from the just-completed job being written. In practice, this is
+        # unlikely to happen, because the commit will have already been fetched locally
+        # for the job and won't be re-fetched.
+        return
+    else:
+        pipeline_config = load_pipeline(project_file)
+        return set(pipeline_config.all_actions)
 
 
 def get_output_metadata(
