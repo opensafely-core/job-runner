@@ -403,14 +403,36 @@ def db_status_task(*, database_name):
     # Restrict the status messages that can be returned so that even in the case of a
     # compromised status check container it's not possible to extract significant
     # quantities of data
-    status_allowlist = {"", "db-maintenance"}
+    # Note "" and "db-maintenance" are old possible statuses, kept here for backwards compatibilty
+    status_allowlist = {
+        "",
+        "db-maintenance",
+        "db-maintenance;0",
+        "db-maintenance;1",
+        "db-maintenance;2",
+        "none;0",
+        "none;1",
+        "none;2",
+    }
     if last_line not in status_allowlist:
         raise ValueError(
             f"Invalid status, expected one of: {','.join(status_allowlist)}"
         )
+    results = last_line.split(";")
+    in_maintenance_mode = results[0] == "db-maintenance"
+    if len(results) > 1:
+        build_count = results[1]
+    else:
+        build_count = ""
+
     span = trace.get_current_span()
-    span.set_attribute("agent.db-maintenance", last_line == "db-maintenance")
-    return {"status": last_line}
+    span.set_attributes(
+        {
+            "agent.db-maintenance": in_maintenance_mode,
+            "agent.db-build-count": build_count,
+        }
+    )
+    return {"status": "db-maintenance" if in_maintenance_mode else ""}
 
 
 def db_data_check_task(*, hes_expected_activity_month):
