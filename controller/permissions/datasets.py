@@ -63,7 +63,11 @@ PERMISSIONS = {
     ],
     # project 185
     # opensafely/post-covid-renal opensafely/post-covid-neurodegenerative opensafely/post-covid-cvd opensafely/post-covid-cvd-methods opensafely/post-covid-respiratory
-    "investigating-events-following-covid-19": ["appointments"],
+    "investigating-events-following-covid-19": [
+        "appointments",
+        "sgss_covid_all_tests",
+        "occupation_on_covid_vaccine_record",
+    ],
     # project 78
     # opensafely/post-covid-kidney-outcomes
     "long-term-kidney-outcomes-after-sars-cov-2-infection": ["appointments"],
@@ -76,14 +80,26 @@ PERMISSIONS = {
     # opensafely/winter-pressures
     "gp-appointments-during-covid": ["appointments"],
     # project 172
-    # opensafely/winter-pressures-phase-II
+    # opensafely/winter-pressures-phase-II opensafely/winter_pressures_inequalities opensafely/WinterPressuresDescriptive
     "impact-and-inequalities-of-winter-pressures-in-primary-care-providing-the-evidence-base-for-mitigation-strategies": [
-        "appointments"
+        "appointments",
+        "sgss_covid_all_tests",
+        "occupation_on_covid_vaccine_record",
     ],
     # project 34
     # opensafely/deaths-at-home-covid19 opensafely/end-of-life-carequality
     "deaths-at-home-during-covid-19": ["appointments"],
     # project 175
     # opensafely/metformin_covid
-    "implications-of-metformin-for-long-covid": ["appointments"],
+    "implications-of-metformin-for-long-covid": [
+        "appointments",
+        "sgss_covid_all_tests",
+        "occupation_on_covid_vaccine_record",
+    ],
+    # project 177
+    # opensafely/tocilizumab_sarilumab
+    "effectiveness-and-safety-of-covid-19-treatments-for-hospitalised-patients": [
+        "covid_therapeutics",
+        "sgss_covid_all_tests",
+    ],
 }

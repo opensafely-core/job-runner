@@ -583,6 +583,9 @@ components:
                   - open_prompt
                   - ukrr
                   - waiting_list
+                  - sgss_covid_all_tests
+                  - occupation_on_covid_vaccine_record
+                  - covid_therapeutics
             population_permissions:
               description: A list of population filters that this RAP is allowed to access.
               type: array
