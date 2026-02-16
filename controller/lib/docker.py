@@ -17,6 +17,16 @@ token = None
 docker_sha_cache = {}
 
 
+# Tell ghcr.io exactly what kind of manifest we want, since multi-arch
+# manfiests requires us to be explicit.
+MANIFEST_ACCEPT = (
+    "application/vnd.oci.image.index.v1+json,"
+    "application/vnd.docker.distribution.manifest.list.v2+json,"
+    "application/vnd.docker.distribution.manifest.v2+json,"
+    "application/vnd.oci.image.manifest.v1+json"
+)
+
+
 def get_current_image_sha(image_with_tag):
     """Get the current sha for a tag from a docker registry.
 
@@ -28,7 +38,9 @@ def get_current_image_sha(image_with_tag):
 
     parsed = urlparse("https://" + full_image)
     try:
-        response = dockerhub_api(f"/v2/{parsed.path.lstrip('/')}/manifests/{tag}")
+        response = dockerhub_api(
+            f"/v2/{parsed.path.lstrip('/')}/manifests/{tag}", accept=MANIFEST_ACCEPT
+        )
     except requests.exceptions.RequestException as exc:
         # do not block on failure, use stale sha, if available
         if image_with_tag in docker_sha_cache:
@@ -43,7 +55,7 @@ def get_current_image_sha(image_with_tag):
     return sha
 
 
-def dockerhub_api(path):
+def dockerhub_api(path, accept):
     """Generic wrapper for calling the dockerhub api.
 
     Handles 401 and authentication, which is needed even for public images.
@@ -58,12 +70,16 @@ def dockerhub_api(path):
         response = session.get(url)
         token = get_auth_token(response.headers["www-authenticate"])
 
-    response = session.get(url, headers={"Authorization": f"Bearer {token}"})
+    response = session.get(
+        url, headers={"Authorization": f"Bearer {token}", "Accept": accept}
+    )
 
     # refresh token if needed
     if response.status_code == 401:
         token = get_auth_token(response.headers["www-authenticate"])
-        response = session.get(url, headers={"Authorization": f"Bearer {token}"})
+        response = session.get(
+            url, headers={"Authorization": f"Bearer {token}", "Accept": accept}
+        )
 
     response.raise_for_status()
     return response

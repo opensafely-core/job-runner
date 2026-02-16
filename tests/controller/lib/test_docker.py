@@ -11,7 +11,9 @@ def test_dockerhub_api_refresh_functional(responses, monkeypatch):
     responses.add_passthru("https://ghcr.io/")
 
     # ensure there is a valid token cached
-    response = docker.dockerhub_api("/v2/opensafely-core/busybox/manifests/latest")
+    response = docker.dockerhub_api(
+        "/v2/opensafely-core/busybox/manifests/latest", accept=docker.MANIFEST_ACCEPT
+    )
     assert response.status_code == 200
     previous_token = docker.token
 
@@ -41,7 +43,9 @@ def test_dockerhub_api_refresh_functional(responses, monkeypatch):
     )
 
     # make the call again, should now exercise the refresh logic
-    response = docker.dockerhub_api("/v2/opensafely-core/busybox/manifests/latest")
+    response = docker.dockerhub_api(
+        "/v2/opensafely-core/busybox/manifests/latest", accept=docker.MANIFEST_ACCEPT
+    )
     assert response.status_code == 200
     assert docker.token != previous_token
 
