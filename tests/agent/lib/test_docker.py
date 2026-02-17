@@ -6,6 +6,13 @@ from agent.executors.local import get_proxy_image_sha
 from agent.lib import docker
 
 
+def idempotant_manifest(image_ref):
+    manifest = docker.image_inspect(image_ref)
+    # this can be updated locally, and make comparisons in tests hard, so nix it.
+    manifest["Metadata"].pop("LastTagTime", None)
+    return manifest
+
+
 def test_disk_space_detection(monkeypatch):
     def error(stdout, stderr):
         def run(args, timeout, **kwargs):
@@ -119,15 +126,15 @@ def test_ensure_docker_sha_present_no_version_exists(remove_current_labels):
 
     docker.ensure_docker_sha_present(proxy_image_with_sha, registry_image_with_label)
 
-    image_metadata = docker.image_inspect(proxy_image_with_sha)
-    assert docker.image_inspect(proxy_image_with_label) == image_metadata
-    assert docker.image_inspect(registry_image_with_label) == image_metadata
+    image_metadata = idempotant_manifest(proxy_image_with_sha)
+    assert idempotant_manifest(proxy_image_with_label) == image_metadata
+    assert idempotant_manifest(registry_image_with_label) == image_metadata
 
     # check idempotance
     docker.ensure_docker_sha_present(proxy_image_with_sha, registry_image_with_label)
-    assert docker.image_inspect(proxy_image_with_sha) == image_metadata
-    assert docker.image_inspect(proxy_image_with_label) == image_metadata
-    assert docker.image_inspect(registry_image_with_label) == image_metadata
+    assert idempotant_manifest(proxy_image_with_sha) == image_metadata
+    assert idempotant_manifest(proxy_image_with_label) == image_metadata
+    assert idempotant_manifest(registry_image_with_label) == image_metadata
 
 
 @pytest.mark.needs_docker
@@ -147,17 +154,17 @@ def test_ensure_docker_sha_present_image_exists(remove_current_labels):
         proxy_image_with_old_sha, registry_image_with_label
     )
 
-    image_metadata = docker.image_inspect(proxy_image_with_old_sha)
-    assert docker.image_inspect(proxy_image_with_label) == image_metadata
-    assert docker.image_inspect(registry_image_with_label) == image_metadata
+    image_metadata = idempotant_manifest(proxy_image_with_old_sha)
+    assert idempotant_manifest(proxy_image_with_label) == image_metadata
+    assert idempotant_manifest(registry_image_with_label) == image_metadata
 
     docker.ensure_docker_sha_present(
         proxy_image_with_new_sha, registry_image_with_label
     )
 
-    image_metadata = docker.image_inspect(proxy_image_with_new_sha)
-    assert docker.image_inspect(proxy_image_with_label) == image_metadata
-    assert docker.image_inspect(registry_image_with_label) == image_metadata
+    image_metadata = idempotant_manifest(proxy_image_with_new_sha)
+    assert idempotant_manifest(proxy_image_with_label) == image_metadata
+    assert idempotant_manifest(registry_image_with_label) == image_metadata
 
 
 @pytest.mark.needs_docker
@@ -177,9 +184,9 @@ def test_ensure_docker_sha_present_old_image_doesnot_update_tag(remove_current_l
         proxy_image_with_new_sha, registry_image_with_label
     )
 
-    image_metadata = docker.image_inspect(proxy_image_with_new_sha)
-    assert docker.image_inspect(proxy_image_with_label) == image_metadata
-    assert docker.image_inspect(registry_image_with_label) == image_metadata
+    image_metadata = idempotant_manifest(proxy_image_with_new_sha)
+    assert idempotant_manifest(proxy_image_with_label) == image_metadata
+    assert idempotant_manifest(registry_image_with_label) == image_metadata
 
     docker.ensure_docker_sha_present(
         proxy_image_with_old_sha, registry_image_with_label
@@ -187,6 +194,6 @@ def test_ensure_docker_sha_present_old_image_doesnot_update_tag(remove_current_l
 
     # assert label is still pointing to newer sha, has not been overwritten to
     # point to old sha
-    image_metadata = docker.image_inspect(proxy_image_with_new_sha)
-    assert docker.image_inspect(proxy_image_with_label) == image_metadata
-    assert docker.image_inspect(registry_image_with_label) == image_metadata
+    image_metadata = idempotant_manifest(proxy_image_with_new_sha)
+    assert idempotant_manifest(proxy_image_with_label) == image_metadata
+    assert idempotant_manifest(registry_image_with_label) == image_metadata
