@@ -7,15 +7,18 @@ on:
   workflow_dispatch:
 
 env:
+  APP_NAME: rap-controller
   IMAGE_NAME: job-runner
-  IMAGE_ID: ghcr.io/opensafely-core/job-runner
+  PUBLIC_IMAGE_NAME: ghcr.io/opensafely-core/job-runner
+  REGISTRY: ghcr.io
+  HOST: dokku4.ebmdatalab.net
   PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
   STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
   SSH_AUTH_SOCK: /tmp/agent.sock
 
 permissions:
   packages: write
-  contents: write
+  contents: read
 
 jobs:
   build-publish-and-deploy-docker-image:
@@ -32,15 +35,37 @@ jobs:
         just docker/build prod # explicitly build prod as well
     - name: Test image
       run: just docker/test
-    - name: Log into GitHub Container Registry
-      run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
-    - name: Push image to GitHub Container Registry
+    
+    - name: Publish docker image
       run: |
-        docker tag "$IMAGE_NAME" "$IMAGE_ID:latest"
-        docker push "$IMAGE_ID:latest"
+        echo ${{ secrets.GITHUB_TOKEN }} | docker login "$REGISTRY" -u ${{ github.actor }} --password-stdin
+        docker tag "$IMAGE_NAME" "$PUBLIC_IMAGE_NAME:latest"
+        docker push "$PUBLIC_IMAGE_NAME:latest"
+        # dump the full local container metadata into the logs in case its useful
+        docker inspect "$PUBLIC_IMAGE_NAME:latest"
+
     - name: Deploy image
       run: |
+        set -euo pipefail
+
+        # Find the full qualified "repo digest" for this image
+        IMAGE_DIGEST="$(
+          docker inspect --format='{{join .RepoDigests "\n"}}' "$PUBLIC_IMAGE_NAME:latest" \
+            | grep --fixed-strings "$PUBLIC_IMAGE_NAME" || true
+        )"
+        # Fail if we have none or more than one (as indicated by the presence of whitespace)
+        if [[ -z "$IMAGE_DIGEST" || "$IMAGE_DIGEST" =~ [[:space:]] ]]; then
+          echo "Expected exactly one value in IMAGE_DIGEST, got: $IMAGE_DIGEST"
+          echo
+          echo "Debug info:"
+          set -x
+          docker inspect --format='{{join .RepoDigests "\n"}}' "$PUBLIC_IMAGE_NAME:latest"
+          exit 1
+        fi
+
+        echo "Deploying to $HOST"
+        echo "dokku git:from-image $APP_NAME $IMAGE_DIGEST"
         ssh-agent -a "$SSH_AUTH_SOCK" > /dev/null
         ssh-add - <<< "${{ secrets.DOKKU4_DEPLOY_SSH_KEY }}"
-        SHA=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_ID:latest")
-        ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" dokku@dokku4.ebmdatalab.net git:from-image rap-controller "$SHA"
+        ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" \
+          "dokku@$HOST" git:from-image "$APP_NAME" "$IMAGE_DIGEST"
