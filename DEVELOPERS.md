@@ -137,7 +137,7 @@ just migrate
 
 This will apply the required schema and prepare the database for use by the
 components. If the components are run and attempt to access it before this step
-has been done the database may end up ina bad state that can't be recovered
+has been done the database may end up in a bad state that can't be recovered
 with `just migrate` and need to be removed.
 
 ### Optional
@@ -245,7 +245,7 @@ Ensure that the following variables are set in your `.env` file:
 CONTROLLER_TASK_API_TOKEN=<token obtained from local job-server for the test backend>
 TEST_JOB_SERVER_TOKEN=<token obtained from local job-server for the test backend>
 # This is a comma-separated list of tokens that can access the backend called "test" using
-# The RAP API; it should correspond to `RAP_API_TOKEN` inyour local job-server.
+# The RAP API; it should correspond to `RAP_API_TOKEN` in your local job-server.
 TEST_CLIENT_TOKENS=<tokens>
 
 # These are all set by default in dotenv-sample
@@ -319,7 +319,7 @@ Alternatively, to run 2 agents at the same time, one for the test backend and on
 Clone repo again to new dir and set up initial dev environments:
 ```
 git clone git@github.com:opensafely-core/job-runner.git job-runner-expectations-agent
-cd git clone git@github.com:opensafely-core/job-runner.git job-runner-expectations-agent
+cd job-runner-expectations-agent
 just devenv
 ```
 
