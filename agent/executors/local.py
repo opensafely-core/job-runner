@@ -5,6 +5,7 @@ import logging
 import subprocess
 import tempfile
 import time
+from copy import deepcopy
 from pathlib import Path
 from types import MappingProxyType
 
@@ -707,9 +708,7 @@ def persist_outputs(job_definition, outputs, job_metadata):
     # Update manifest with file metdata
     manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
 
-    manifest = update_manifest_outputs_and_actions(
-        manifest, job_definition, new_outputs
-    )
+    update_manifest_outputs_and_actions(manifest, job_definition, new_outputs)
 
     write_manifest_file(medium_privacy_dir, manifest)
 
@@ -725,10 +724,10 @@ def update_manifest_outputs_and_actions(manifest, job_definition, new_outputs):
      - Adds the new outputs from the just completed job
     """
     # flag any outputs for outdated actions
-    if manifest["outputs"]:
-        outputs = {**manifest["outputs"]}
+    existing_outputs = deepcopy(manifest["outputs"])
+    if existing_outputs:
         if workspace_action_names := get_workspace_action_names(job_definition):
-            for output, output_metadata in outputs.items():
+            for output, output_metadata in existing_outputs.items():
                 if output_metadata["action"] not in workspace_action_names:
                     manifest["outputs"][output]["out_of_date_action"] = True
 
@@ -747,8 +746,6 @@ def update_manifest_outputs_and_actions(manifest, job_definition, new_outputs):
         del manifest["outputs"][filename]
 
     manifest["outputs"].update(**new_outputs)
-
-    return manifest
 
 
 def get_workspace_action_names(job_definition):
