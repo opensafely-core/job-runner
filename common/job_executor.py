@@ -63,6 +63,7 @@ class JobDefinition:
     @classmethod
     def from_dict(cls, data: dict):
         data = data.copy()
+
         # Create the nested Study instance
         study_data = data.pop("study", {})
         study = Study(
@@ -70,6 +71,13 @@ class JobDefinition:
             commit=study_data.get("commit"),
             branch=study_data.get("branch"),
         )
+
+        if "repo_url" not in data:  # pragma: no cover
+            # For existing tasks that pre-date the new repo_url and commit attributes,
+            # set them from the Study data
+            data["repo_url"] = study_data.get("git_repo_url")
+            data["commit"] = study_data.get("commit")
+
         # Ensure any dict used to construct a JobDefinition has a task_id key
         if "task_id" not in data:
             data["task_id"] = ""
