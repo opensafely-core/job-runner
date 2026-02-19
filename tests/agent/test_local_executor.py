@@ -927,6 +927,12 @@ def test_finalize_manifest_old_outputs_and_actions_cleaned_up(
                 "output/output_from_another_action.txt": {"action": "another_action"},
                 # previous output from a different action which IS in the project.yaml (see fixtures/full_project)
                 "output/dataset.csv": {"action": "generate_dataset"},
+                # previous output from a different action which was previous marked out of date but is
+                # in the project.yaml
+                "output/extra/dataset.csv": {
+                    "action": "generate_dataset_with_dummy_data",
+                    "out_of_date_action": True,
+                },
             }
         },
     )
@@ -952,10 +958,70 @@ def test_finalize_manifest_old_outputs_and_actions_cleaned_up(
     # outputs from other actions are unaffected, but are marked as out of date if they're not in the current project.yaml
     assert "output/output_from_another_action.txt" in manifest["outputs"]
     assert "output/dataset.csv" in manifest["outputs"]
+    assert "output/extra/dataset.csv" in manifest["outputs"]
     assert manifest["outputs"]["output/output_from_another_action.txt"][
         "out_of_date_action"
     ]
-    assert "out_of_date_action" not in manifest["outputs"]["output/dataset.csv"]
+    assert not manifest["outputs"]["output/extra/dataset.csv"]["out_of_date_action"]
+    assert not manifest["outputs"]["output/dataset.csv"]["out_of_date_action"]
+
+
+@pytest.mark.needs_docker
+def test_finalize_manifest_old_outputs_and_actions_cleaned_up_reusable_action_job(
+    docker_cleanup, job_definition, tmp_work_dir, test_action_repo
+):
+    # Change the repo_url and commit on this job definition to user the reusable action repo
+    # The action clean up will use the job's project.yaml
+    job_definition.repo_url = test_action_repo.repo_url
+    job_definition.commit = test_action_repo.commit
+    job_definition.args = [
+        "sh",
+        "-c",
+        "echo 'foo' > /workspace/foo.txt",
+    ]
+    job_definition.output_spec = {
+        "foo.txt": "moderately_sensitive",
+    }
+
+    # Write manifest data for outputs from previous runs
+    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+    local.write_manifest_file(
+        level4_dir,
+        {
+            "outputs": {
+                # this job's action previously wrote to a different path
+                "output/old_output.txt": {"action": job_definition.action},
+                # previous output from a different action which is no longer in the project.yaml
+                "output/other_output.txt": {"action": "another_action"},
+                # previous output from a different action which IS in the project.yaml (see fixtures/full_project)
+                "output/dataset.csv": {"action": "generate_dataset"},
+            }
+        },
+    )
+
+    api = local.LocalDockerAPI()
+
+    api.prepare(job_definition)
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.PREPARED
+    api.execute(job_definition)
+    wait_for_state(api, job_definition, ExecutorState.EXECUTED)
+
+    api.finalize(job_definition)
+    status = api.get_status(job_definition)
+    assert status.state == ExecutorState.FINALIZED
+    assert status.results["exit_code"] == "0"
+
+    manifest = local.read_manifest_file(level4_dir, job_definition)
+    # The old output for this action has been removed and only the current output path remains
+    assert "foo.txt" in manifest["outputs"]
+    assert "output/old_output.txt" not in manifest["outputs"]
+    assert "out_of_date_action" not in manifest["outputs"]["foo.txt"]
+    # outputs from other actions are unaffected, but are marked as out of date if they're not in the current project.yaml
+    assert "output/other_output.txt" in manifest["outputs"]
+    assert "output/dataset.csv" in manifest["outputs"]
+    assert manifest["outputs"]["output/other_output.txt"]["out_of_date_action"]
+    assert not manifest["outputs"]["output/dataset.csv"]["out_of_date_action"]
 
 
 @pytest.mark.needs_docker
