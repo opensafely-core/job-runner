@@ -64,7 +64,7 @@ functional-test: (build 'prod')
     docker compose up -d test-agent
     attempts=""
     # use docker logs rather than docker compose logs, as those will include previous run's logs
-    while ! docker logs -n 10 $container |& grep -q "Completed successfully";
+    while ! docker logs -n 100 $container |& grep -q "Completed successfully";
     do
         if test "$attempts" = ".........."; then
             docker compose logs test-agent
@@ -76,7 +76,7 @@ functional-test: (build 'prod')
         echo "waiting..."
         sleep 1
     done
-    docker logs -n 10 $container |& grep "Completed successfully"
+    docker logs -n 100 $container |& grep "Completed successfully"
 
 # run command in dev container
 run env="dev" *args="": (build env) _workdir

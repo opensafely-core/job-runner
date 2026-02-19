@@ -884,6 +884,8 @@ def test_job_definition_defaults(db):
         },
         "task_id": "task_id",
         "workspace": "workspace",
+        "repo_url": "repo",
+        "commit": "commit",
     }
 
 
