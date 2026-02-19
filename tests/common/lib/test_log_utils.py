@@ -16,16 +16,20 @@ FROZEN_TIMESTAMP = 1608568119.1467905
 FROZEN_TIMESTRING = datetime.utcfromtimestamp(FROZEN_TIMESTAMP).isoformat()
 
 repo_url = "https://github.com/opensafely/project"
+commit = "abcdef"
 test_job = Job(
     id="id",
     action="action",
     repo_url=repo_url,
     workspace="workspace",
+    commit=commit,
 )
 test_job_definition = JobDefinition(
     id="job-def",
     rap_id="request1",
     task_id="job-def-001",
+    repo_url=repo_url,
+    commit=commit,
     study=None,
     workspace="workspace",
     action="",

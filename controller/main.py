@@ -363,11 +363,6 @@ def job_to_job_definition(job, task_id, image_sha=None):
             list(chain.from_iterable(analysis_scope.values()))
         )
 
-    study = Study(
-        job.action_repo_url or job.repo_url,
-        job.action_commit or job.commit,
-        job.branch,
-    )
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
@@ -386,7 +381,9 @@ def job_to_job_definition(job, task_id, image_sha=None):
         id=job.id,
         rap_id=job.rap_id,
         task_id=task_id,
-        study=study,
+        repo_url=job.action_repo_url or job.repo_url,
+        commit=job.action_commit or job.commit,
+        study=Study(job.repo_url, job.commit, job.branch),
         workspace=job.workspace,
         action=job.action,
         created_at=job.created_at,

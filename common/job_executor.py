@@ -25,7 +25,12 @@ class JobDefinition:
     # constructed multiple times for the same job (e.g. run the job, cancel the
     # job, run it again), each time with a  different task ID
     task_id: str
-    study: Study  # the study defining the action for this job
+    # The repo url and commit defining the action for this job
+    # Note: this may be different from the job's workspace itself (ie. if the action is
+    # a reusuable action, this will define the reusable action's repo and commit)
+    repo_url: str
+    commit: str
+    study: Study  # Git repo/commit/branch underlying the workspace when this job was created
     workspace: str  # the workspace to run the job in
     action: str  # the name of the action that the job is running
     created_at: int  # UNIX timestamp, time job created

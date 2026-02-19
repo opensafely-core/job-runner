@@ -15,7 +15,6 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 from agent import config as agent_config
 from agent import metrics
-from common.job_executor import Study
 from common.tracing import add_exporter, get_provider
 from controller import config as controller_config
 from controller.lib import database, docker
@@ -162,7 +161,7 @@ class TestRepo:
     source: str
     path: str
     commit: str
-    study: Study
+    repo_url: str
 
 
 @pytest.fixture
@@ -170,7 +169,6 @@ def test_repo(tmp_work_dir):
     """Take our test project fixture and commit it to a temporary git repo"""
     directory = Path(__file__).parent.resolve() / "fixtures/full_project"
     repo_path = tmp_work_dir / "test-repo"
-
     env = {"GIT_WORK_TREE": str(directory), "GIT_DIR": repo_path}
     subprocess.run(
         ["git", "init", "--bare", "--initial-branch=main", "--quiet", repo_path],
@@ -191,10 +189,7 @@ def test_repo(tmp_work_dir):
     )
     commit = response.stdout.strip()
     return TestRepo(
-        source=directory,
-        path=repo_path,
-        commit=commit,
-        study=Study(git_repo_url=str(repo_path), commit=commit, branch="main"),
+        source=directory, path=repo_path, commit=commit, repo_url=str(repo_path)
     )
 
 

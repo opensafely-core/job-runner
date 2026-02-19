@@ -34,7 +34,9 @@ def job_definition(request, test_repo, responses):
         id=clean_name,
         rap_id=f"job-request-{clean_name}",
         task_id=f"{clean_name}-001",
-        study=test_repo.study,
+        study=Study(test_repo.repo_url, test_repo.commit, "main"),
+        repo_url=str(test_repo.path),
+        commit=test_repo.commit,
         workspace="test",
         action="action",
         created_at=int(time.time()),
@@ -292,14 +294,13 @@ def test_prepare_archived(ext, job_definition):
 
 @pytest.mark.needs_docker
 def test_prepare_job_bad_commit(docker_cleanup, job_definition, test_repo):
-    job_definition.study = Study(
-        git_repo_url=str(test_repo.path), commit="bad-commit", branch="main"
-    )
+    job_definition.repo_url = test_repo.repo_url
+    job_definition.commit = "bad-commit"
 
     with pytest.raises(local.LocalDockerError) as exc_info:
         local.prepare_job(job_definition)
 
-    assert job_definition.study.commit in str(exc_info.value)
+    assert job_definition.commit in str(exc_info.value)
 
 
 @pytest.mark.needs_docker

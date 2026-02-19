@@ -429,13 +429,13 @@ def prepare_job(job_definition):
     try:
         copy_git_commit_to_volume(
             job_definition,
-            job_definition.study.git_repo_url,
-            job_definition.study.commit,
+            job_definition.repo_url,
+            job_definition.commit,
             extra_dirs,
         )
     except subprocess.CalledProcessError:
         raise LocalDockerError(
-            f"Could not checkout commit {job_definition.study.commit} from {job_definition.study.git_repo_url}"
+            f"Could not checkout commit {job_definition.commit} from {job_definition.repo_url}"
         )
 
     for filename in job_input_files:
@@ -730,6 +730,11 @@ def update_manifest_outputs_and_actions(manifest, job_definition, new_outputs):
             for output, output_metadata in existing_outputs.items():
                 if output_metadata["action"] not in workspace_action_names:
                     manifest["outputs"][output]["out_of_date_action"] = True
+                else:
+                    # A user could remove an action from a project.yaml and then put it
+                    # back - we don't want actions that reappear to be marked out of
+                    # date forever
+                    manifest["outputs"][output]["out_of_date_action"] = False
 
     # find existing filenames for this action from previous jobs
     previous_outputs_for_action = {
@@ -750,6 +755,9 @@ def update_manifest_outputs_and_actions(manifest, job_definition, new_outputs):
 
 def get_workspace_action_names(job_definition):
     try:
+        # Note: we are using the repo url and commit from the job's study here, NOT the repo_url and
+        # commit used to run the job itself, as the action could be running can be a reusable action
+        # (and using the repo/commit of the reusable action, not the workspace itself.)
         project_file = read_file_from_repo(
             job_definition.study.git_repo_url,
             job_definition.study.commit,
