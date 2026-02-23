@@ -736,19 +736,19 @@ def update_manifest_outputs_and_actions(manifest, job_definition, new_outputs):
                     # date forever
                     manifest["outputs"][output]["out_of_date_action"] = False
 
-    # find existing filenames for this action from previous jobs
-    previous_outputs_for_action = {
+    # find existing filenames for this action from previous jobs which are have not
+    # been produced by this just-run job
+    old_outputs_for_action = {
         filename
         for filename, output_metadata in manifest["outputs"].items()
         if output_metadata["action"] == job_definition.action
+        and filename not in new_outputs
     }
-    # Remove any previous outputs for this action. Previous jobs may have written file to
-    # different paths, e.g. if a job writes dynamic filenames which have changed, or if the output
-    # path is updated so files are now written to a different location. We remove all
-    # these old filepaths, so we don't persist obsolete files from old jobs. In the next
-    # step, we'll update the manifest with the newly created outputs
-    for filename in previous_outputs_for_action:
-        del manifest["outputs"][filename]
+    # Mark any previous outputs for this action as out-of-date. Previous jobs may have written files
+    # to different paths, e.g. if a job writes dynamic filenames which have changed, or if the output
+    # path is updated so files are now written to a different location.
+    for filename in old_outputs_for_action:
+        manifest["outputs"][filename]["out_of_date_output"] = True
 
     manifest["outputs"].update(**new_outputs)
 
