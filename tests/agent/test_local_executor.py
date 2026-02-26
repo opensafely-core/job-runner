@@ -914,6 +914,8 @@ def test_finalize_manifest_old_outputs_and_actions_cleaned_up(
     job_definition.output_spec = {
         "output/output.txt": "moderately_sensitive",
     }
+    # Make sure action is a named action from the fixture's project.yaml
+    job_definition.action = "analyse_data_ehrql"
 
     # Write manifest data for outputs from previous runs
     level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
@@ -951,10 +953,14 @@ def test_finalize_manifest_old_outputs_and_actions_cleaned_up(
     assert status.results["exit_code"] == "0"
 
     manifest = local.read_manifest_file(level4_dir, job_definition)
-    # The old output for this action has been removed and only the current output path remains
+    # The old output for this action still exists but is marked as out of date output
     assert "output/output.txt" in manifest["outputs"]
-    assert "output/old_output.txt" not in manifest["outputs"]
-    assert "out_of_date_action" not in manifest["outputs"]["output/output.txt"]
+    for flag in ["out_of_date_action", "out_of_date_output"]:
+        assert not manifest["outputs"]["output/output.txt"].get(flag)
+    assert "output/old_output.txt" in manifest["outputs"]
+    assert not manifest["outputs"]["output/old_output.txt"].get("out_of_date_action")
+    assert manifest["outputs"]["output/old_output.txt"].get("out_of_date_output")
+
     # outputs from other actions are unaffected, but are marked as out of date if they're not in the current project.yaml
     assert "output/output_from_another_action.txt" in manifest["outputs"]
     assert "output/dataset.csv" in manifest["outputs"]
@@ -974,6 +980,8 @@ def test_finalize_manifest_old_outputs_and_actions_cleaned_up_reusable_action_jo
     # The action clean up will use the job's project.yaml
     job_definition.repo_url = test_action_repo.repo_url
     job_definition.commit = test_action_repo.commit
+    # Make sure action is a named action from the fixture's project.yaml
+    job_definition.action = "analyse_data_ehrql"
     job_definition.args = [
         "sh",
         "-c",
@@ -1013,10 +1021,14 @@ def test_finalize_manifest_old_outputs_and_actions_cleaned_up_reusable_action_jo
     assert status.results["exit_code"] == "0"
 
     manifest = local.read_manifest_file(level4_dir, job_definition)
-    # The old output for this action has been removed and only the current output path remains
+    # The old output for this action still exists but is marked as out of date output
     assert "foo.txt" in manifest["outputs"]
-    assert "output/old_output.txt" not in manifest["outputs"]
-    assert "out_of_date_action" not in manifest["outputs"]["foo.txt"]
+    for flag in ["out_of_date_action", "out_of_date_output"]:
+        assert not manifest["outputs"]["foo.txt"].get(flag)
+    assert "output/old_output.txt" in manifest["outputs"]
+    assert not manifest["outputs"]["output/old_output.txt"].get("out_of_date_action")
+    assert manifest["outputs"]["output/old_output.txt"].get("out_of_date_output")
+
     # outputs from other actions are unaffected, but are marked as out of date if they're not in the current project.yaml
     assert "output/other_output.txt" in manifest["outputs"]
     assert "output/dataset.csv" in manifest["outputs"]
@@ -1042,6 +1054,8 @@ def test_finalize_manifest_old_outputs_and_actions_with_git_error(
     job_definition.output_spec = {
         "output/output.txt": "moderately_sensitive",
     }
+    # Make sure action is a named action from the fixture's project.yaml
+    job_definition.action = "analyse_data_ehrql"
 
     # Write manifest data for outputs from previous runs
     level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
