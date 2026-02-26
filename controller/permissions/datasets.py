@@ -102,4 +102,9 @@ PERMISSIONS = {
         "covid_therapeutics",
         "sgss_covid_all_tests",
     ],
+    # project 209
+    # opensafely/COVID-19_vacci_and_MACE_after_hip_fracture
+    "sars-covid-19-vaccination-and-risk-of-major-adverse-cardiac-events-after-hip-fracture": [
+        "sgss_covid_all_tests",
+    ],
 }
