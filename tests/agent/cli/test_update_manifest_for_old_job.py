@@ -267,8 +267,7 @@ def test_update_manifest_multiple_matching_jobs(
     assert "out_of_date_output" in output_metadata
 
 
-@pytest.mark.needs_docker
-def test_update_manifest_no_matching_manifest(docker_cleanup, tmp_work_dir, capsys):
+def test_update_manifest_no_matching_manifest(tmp_work_dir):
     # try to update the manifest with this job
     with pytest.raises(AssertionError, match="Could not find existing manifest file"):
         update_manifest_for_old_job.run(
@@ -280,8 +279,7 @@ def test_update_manifest_no_matching_manifest(docker_cleanup, tmp_work_dir, caps
         )
 
 
-@pytest.mark.needs_docker
-def test_update_manifest_no_matching_job(docker_cleanup, tmp_work_dir, capsys):
+def test_update_manifest_no_matching_job(tmp_work_dir, capsys):
     level4_dir = local.get_medium_privacy_workspace("workspace")
     local.write_manifest_file(level4_dir, {})
 
