@@ -126,7 +126,7 @@ def get_existing_manifest_and_job_metadata(
 
 def job_id_from_log_path(log_path):
     job_log_dir = log_path.stem
-    return job_log_dir.lstrip("os-job-")
+    return job_log_dir.removeprefix("os-job-")
 
 
 def get_full_job_id(partial_job_id):
