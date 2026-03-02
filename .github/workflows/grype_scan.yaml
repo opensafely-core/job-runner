@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Scan current project with Grype
-        uses: anchore/scan-action@3c9a191a0fbab285ca6b8530b5de5a642cba332f  # v6
+        uses: anchore/scan-action@7037fa011853d5a11690026fb85feee79f4c946c  # v6
         id: scan
         with:
           path: '.'
