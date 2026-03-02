@@ -92,6 +92,9 @@ def parse_job_resource_weights(config_file_template):
     """
     Parse a simple ini file per backend which looks like this:
 
+        [default]
+        action:v[//d]+//s+generate-foo.+ = 2
+
         [some-workspace-name]
         my-ram-hungry-action = 4
         other-actions.* = 1.5
@@ -101,8 +104,12 @@ def parse_job_resource_weights(config_file_template):
 
     Any jobs in the specified workspace will have their action names matched
     against the regex patterns specified in the config file and will be
-    assigned the weight of the first matching pattern. All other jobs are
+    assigned the weight of the first matching   pattern. All other jobs are
     assigned a weight of 1.
+
+    The default section allows for specifying a default weighting for all jobs
+    that don't have specific weightings configured for their workspace. These
+    will have their run_command matched against the regex patterns specified.
     """
     weights = {}
     for backend in common_config.BACKENDS:
@@ -111,7 +118,8 @@ def parse_job_resource_weights(config_file_template):
             config_file_template.format(backend=backend.lower())
         )
         if config_file.exists():
-            config = configparser.ConfigParser()
+            # default delimiters are = and :, we only want to use =
+            config = configparser.ConfigParser(delimiters=["="])
             config.read_string(config_file.read_text(), source=str(config_file))
             for workspace in config.sections():
                 weights[backend][workspace] = {
