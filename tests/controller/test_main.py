@@ -12,6 +12,7 @@ from common import config as common_config
 from controller import config, main, task_api
 from controller.lib import database
 from controller.models import Job, State, StatusCode, Task, TaskType
+from controller.permissions.utils import build_analysis_scope
 from controller.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
 from tests.factories import (
@@ -918,7 +919,11 @@ def test_job_definition_ehrql_event_level_access(db, monkeypatch, repo_url, expe
         "REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS",
         {"https://github.com/opensafely/ok-repo"},
     )
-    job = job_factory(requires_db=True, repo_url=repo_url)
+    job = job_factory(
+        requires_db=True,
+        repo_url=repo_url,
+        analysis_scope=build_analysis_scope({}, repo_url),
+    )
     job_definition = main.job_to_job_definition(job, task_id="")
     if expect_env:
         assert job_definition.env["EHRQL_PERMISSIONS"] == '["event_level_data"]'

@@ -34,7 +34,6 @@ from controller.lib.database import (
     update_where,
 )
 from controller.models import Job, State, StatusCode, Task, TaskType
-from controller.permissions.utils import build_analysis_scope
 from controller.queries import calculate_workspace_state, get_flag_value
 from controller.task_api import insert_task, mark_task_inactive
 
@@ -353,12 +352,9 @@ def job_to_job_definition(job, task_id, image_sha=None):
         env["STATA_LICENSE"] = str(config.STATA_LICENSE)
     # Create the flattened list of permissions that ehrql expects as an environment variable
     if job.requires_db:
-        # Build the full analysis scope dict to ensure that we have nay permissions that
-        # are stored within this repo (this should be unnecessary once any jobs created before
-        # controller.create_or_update_jobs.create_jobs() did this have completed)
-        analysis_scope = build_analysis_scope(job.analysis_scope, job.repo_url)
+        # Convert the analysis scope dict to the flattened list that ehrql requires
         env["EHRQL_PERMISSIONS"] = json.dumps(
-            list(chain.from_iterable(analysis_scope.values()))
+            list(chain.from_iterable(job.analysis_scope.values()))
         )
 
     # Both of action commit and repo_url should be set if either are
