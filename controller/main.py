@@ -585,10 +585,16 @@ def get_job_resource_weight(job, weights=None):
     the config file, default to 1 otherwise
     """
     weights = weights or config.JOB_RESOURCE_WEIGHTS
+    defaults = weights.get(job.backend, {}).get("default")
     action_patterns = weights.get(job.backend, {}).get(job.workspace)
     if action_patterns:
         for pattern, weight in action_patterns.items():
             if pattern.fullmatch(job.action):
+                return weight
+    # If we didn't match any workspace-specific weights, try to match the defaults
+    if defaults:
+        for pattern, weight in defaults.items():
+            if pattern.fullmatch(job.run_command):
                 return weight
     return 1
 
