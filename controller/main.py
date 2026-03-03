@@ -356,9 +356,7 @@ def job_to_job_definition(job, task_id, image_sha=None):
         # Build the full analysis scope dict to ensure that we have nay permissions that
         # are stored within this repo (this should be unnecessary once any jobs created before
         # controller.create_or_update_jobs.create_jobs() did this have completed)
-        analysis_scope = build_analysis_scope(
-            job.analysis_scope, job.project, job.repo_url
-        )
+        analysis_scope = build_analysis_scope(job.analysis_scope, job.repo_url)
         env["EHRQL_PERMISSIONS"] = json.dumps(
             list(chain.from_iterable(analysis_scope.values()))
         )

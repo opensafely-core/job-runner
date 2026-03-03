@@ -445,9 +445,8 @@ def test_create_non_db_job_with_analysis_scope(tmp_work_dir):
     [
         (None, "project-with-no-permissions", {"dataset_permissions": []}),
         ({}, "project-with-no-permissions", {"dataset_permissions": []}),
-        ({}, "project-with-permissions", {"dataset_permissions": ["table1", "table2"]}),
         (
-            {"dataset_permissions": ["table3"]},
+            {"dataset_permissions": ["table3", "table1", "table2"]},
             "project-with-permissions",
             {"dataset_permissions": ["table1", "table2", "table3"]},
         ),
@@ -455,18 +454,10 @@ def test_create_non_db_job_with_analysis_scope(tmp_work_dir):
 )
 def test_create_db_job_with_dataset_permissions(
     tmp_work_dir,
-    monkeypatch,
     rap_api_analysis_scope,
     project,
     expected_job_analysis_scope,
 ):
-    monkeypatch.setattr(
-        controller.permissions.datasets,
-        "PERMISSIONS",
-        {
-            "project-with-permissions": ["table1", "table2"],
-        },
-    )
     create_rap_request = make_create_request(
         action="generate_dataset",
         analysis_scope=rap_api_analysis_scope,
