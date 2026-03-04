@@ -6,13 +6,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import controller
 from agent import config as agent_config
 from agent import main as agent_main
 from common import config as common_config
 from controller import config, main, task_api
 from controller.lib import database
 from controller.models import Job, State, StatusCode, Task, TaskType
+from controller.permissions.utils import build_analysis_scope
 from controller.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
 from tests.factories import (
@@ -919,7 +919,11 @@ def test_job_definition_ehrql_event_level_access(db, monkeypatch, repo_url, expe
         "REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS",
         {"https://github.com/opensafely/ok-repo"},
     )
-    job = job_factory(requires_db=True, repo_url=repo_url)
+    job = job_factory(
+        requires_db=True,
+        repo_url=repo_url,
+        analysis_scope=build_analysis_scope({}, repo_url),
+    )
     job_definition = main.job_to_job_definition(job, task_id="")
     if expect_env:
         assert job_definition.env["EHRQL_PERMISSIONS"] == '["event_level_data"]'
@@ -933,32 +937,6 @@ def test_job_definition_ehrql_event_level_access_with_analysis_scope(db):
     )
     job_definition = main.job_to_job_definition(job, task_id="")
     assert job_definition.env["EHRQL_PERMISSIONS"] == '["event_level_data"]'
-
-
-@pytest.mark.parametrize(
-    "project,expected_env",
-    [
-        ("project-with-no-permissions", "[]"),
-        ("project-with-some-permissions", '["table1", "table2"]'),
-    ],
-)
-def test_job_definition_ehrql_permissions(db, monkeypatch, project, expected_env):
-    monkeypatch.setattr(
-        controller.permissions.datasets,
-        "PERMISSIONS",
-        {
-            "project-with-some-permissions": ["table1", "table2"],
-        },
-    )
-    job = job_factory(
-        requires_db=True,
-        project=project,
-        orgs=["org1", "org2"],
-        user="testuser",
-        branch="main",
-    )
-    job_definition = main.job_to_job_definition(job, task_id="")
-    assert job_definition.env["EHRQL_PERMISSIONS"] == expected_env
 
 
 def test_job_definition_dataset_permissions_with_analysis_scope(db):

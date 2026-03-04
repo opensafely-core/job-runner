@@ -64,6 +64,7 @@ JOB_DEFAULTS = {
     "user": "testuser",
     "project": "project",
     "orgs": ["org1", "org2"],
+    "analysis_scope": {},
 }
 
 

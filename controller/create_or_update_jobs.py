@@ -205,7 +205,6 @@ def recursively_build_jobs(jobs_by_action, rap_create_request, pipeline_config, 
     if action_spec.action.is_database_action:
         analysis_scope = build_analysis_scope(
             rap_create_request.analysis_scope,
-            rap_create_request.project,
             rap_create_request.repo_url,
         )
 
