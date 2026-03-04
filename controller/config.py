@@ -46,6 +46,9 @@ CLIENT_TOKENS = client_tokens_from_env(os.environ)
 
 # TICK trace interval
 TICK_POLL_INTERVAL = float(os.environ.get("TICK_POLL_INTERVAL", "30"))
+CONTROLLER_ENABLE_TICKS = os.environ.get(
+    "CONTROLLER_ENABLE_TICKS", "true"
+).lower().strip() in {"1", "true", "yes"}
 
 ALLOWED_IMAGES = {
     "ehrql",
