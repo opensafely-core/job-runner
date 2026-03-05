@@ -107,27 +107,19 @@ services:
     command: /app/docker/scripts/agent.sh
     environment:
       WORKDIR: "/tmp/workdir"
-      CONTROLLER_TASK_API_ENDPOINT: "http://test-controller-web:8000/"
+      CONTROLLER_TASK_API_ENDPOINT: "http://test-controller:8000/"
 
   test-controller:
     extends:
         service: prod
+    command: test-controller test pass
     environment:
+      WORKDIR: "/tmp/test-controller-workdir"
       DJANGO_CONTROLLER_SECRET_KEY: 12345789abcdefghi
       DJANGO_CONTROLLER_ALLOWED_HOSTS: "*"
       DJANGO_DEBUG: "False"
     volumes:
       - ${TMP_WORKDIR:-/tmp/jobrunner-workdir}:/workdir
-
-  test-controller-web:
-    extends:
-        service: test-controller
-    command: gunicorn --config gunicorn.conf.py controller.webapp.wsgi
-
-  test-controller-service:
-    extends:
-        service: test-controller
-    command: python -m controller.service
 
   test-controller-web-dev:
     extends:
