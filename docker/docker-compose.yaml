@@ -96,7 +96,7 @@ services:
     container_name: job-runner-test
     # override command
     command: >
-      bash -c pytest
+      python -m pytest
     environment:
       IMAGE_PULL_TIMEOUT: 300
 
