@@ -39,6 +39,7 @@ omit = [
     "controller/webapp/asgi.py",
     "controller/webapp/wsgi.py",
 ]
+concurrency = ["thread"]
 
 [tool.coverage.report]
 fail_under = 100
