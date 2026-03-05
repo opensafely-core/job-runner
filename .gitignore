@@ -4,7 +4,7 @@
 */input.csv
 *~
 .#*
-.coverage
+.coverage*
 .data
 .env
 .hypothesis/
