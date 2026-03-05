@@ -170,6 +170,9 @@ LABEL org.opencontainers.image.title="job-runner" \
 # copy application code
 COPY . /app
 
+# expose a minimal dummy-controller runtime command for external integration tests
+RUN install -m 755 /app/docker/scripts/test-controller.sh /usr/local/bin/test-controller
+
 # finally, tag with build information. These will change regularly, therefore
 # we do them as the last action.
 ARG BUILD_DATE=unknown
