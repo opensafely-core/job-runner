@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,6 +19,19 @@ from agent import metrics
 from common.tracing import add_exporter, get_provider
 from controller import config as controller_config
 from controller.lib import database, docker
+
+
+_original_excepthook = threading.excepthook
+
+
+def _swallow_shutdown_errors(args):
+    # During interpreter shutdown, sys.stderr may be None but a lingering thread
+    # may try to write to it. Ignore threading errors that happen during shutdown
+    if not sys.is_finalizing():
+        _original_excepthook(args)
+
+
+threading.excepthook = _swallow_shutdown_errors
 
 
 # set up test tracing
