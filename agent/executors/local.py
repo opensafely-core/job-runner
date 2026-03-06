@@ -46,6 +46,9 @@ METADATA_FILE = "metadata.json"
 # Records details of which action created each file
 MANIFEST_FILE = "manifest.json"
 
+# Marker for start of job summary written to the end of the job log files
+JOB_LOG_MARKER = "=============JOB SUMMARY============="
+
 # This is part of a hack we use to track which files in a volume are newly
 # created
 TIMESTAMP_REFERENCE_FILE = ".opensafely-timestamp"
@@ -977,7 +980,7 @@ def write_log_file(job_definition, job_metadata, filename, excluded):
     docker.write_logs_to_file(container_name(job_definition.id), filename)
     outputs = sorted(job_metadata["outputs"].items())
     with open(filename, "a") as f:
-        f.write("\n\n")
+        f.write(f"\n{JOB_LOG_MARKER}\n")
         for key in KEYS_TO_LOG:
             if not job_metadata[key]:
                 continue
