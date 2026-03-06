@@ -1,5 +1,5 @@
 import time
-from copy import deepcopy
+from unittest.mock import patch
 
 import pytest
 
@@ -60,6 +60,39 @@ def run_job(job_definition):
     return status
 
 
+def write_log_file(job_definition, level4_excluded_files=None):
+    # write a mock log file with the metadata that update_manifest_for_old_job needs
+    job_metadata_defaults = {key: "" for key in local.KEYS_TO_LOG}
+    job_metadata = {
+        **job_metadata_defaults,
+        "job_definition_id": job_definition.id,
+        "job_definition_rap_id": job_definition.rap_id,
+        "user": job_definition.user,
+        "level4_excluded_files": level4_excluded_files or {},
+        "container_metadata": {
+            "Config": {
+                "Labels": {
+                    "workspace": job_definition.workspace,
+                    "action": job_definition.action,
+                },
+            }
+        },
+        "commit": job_definition.commit,
+        "outputs": job_definition.output_spec,
+    }
+    with patch("agent.executors.local.docker.write_logs_to_file"):
+        local.write_job_logs(job_definition, job_metadata)
+
+
+def write_mock_manifest_file(job_definition, workspace_dir, outputs=None):
+    # write a mock manifest file with one dummy output (which will be
+    # used to retrieve the repo) and optional additional outputs
+    outputs = outputs or {}
+    manifest = {"outputs": {"dummy.txt": {"repo": job_definition.repo_url}, **outputs}}
+
+    local.write_manifest_file(workspace_dir, manifest)
+
+
 @pytest.mark.parametrize(
     "action,is_current_action", [("generate_dataset", True), ("an_old_action", False)]
 )
@@ -114,54 +147,30 @@ def test_update_manifest_for_old_job(
     assert output_metadata["col_count"] == 2
 
 
-@pytest.mark.needs_docker
-def test_update_manifest_for_old_job_with_excluded_file(
-    docker_cleanup, job_definition, tmp_work_dir
-):
-    # Set up and run a previous job for an action that exists in the project.yaml, which
-    # produced an excluded file
+def test_update_manifest_for_old_job_with_excluded_file(job_definition, tmp_work_dir):
+    # Set up manifest and log files for a previous job for an action that exists in the project.yaml,
+    # which produced an excluded file
     job_definition.action = "generate_dataset"
-    rows = "1,2\n" * 11
-    job_definition.args = [
-        "sh",
-        "-c",
-        f"echo 'foo,bar\n{rows}' > /workspace/output/output.csv",
-    ]
     job_definition.output_spec = {
         "output/output.csv": "moderately_sensitive",
     }
-    job_definition.level4_max_csv_rows = 10
-
-    # Run job, confirm this file was excluded and written to a message file
-    status = run_job(job_definition)
-    assert status.results["level4_excluded_files"] == {
-        "output/output.csv": "File row count (11) exceeds maximum allowed rows (10)",
-    }
 
     level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
-
-    message_file = level4_dir / "output/output.csv.txt"
-    txt = message_file.read_text()
-    assert "output/output.csv" in txt
-    assert "contained 11 rows" in txt
-
-    # check manifest file
-    manifest = local.read_manifest_file(level4_dir, job_definition)
-
-    assert manifest["outputs"]["output/output.csv"]["excluded"]
-    assert (
-        manifest["outputs"]["output/output.csv"]["message"]
-        == "File row count (11) exceeds maximum allowed rows (10)"
+    # Write the message file for the too big CSV output file, it'll be used for file size etc
+    (level4_dir / "output").mkdir(parents=True)
+    (level4_dir / "output/output.csv.txt").write_text(
+        "File row count (11) exceeds maximum allowed rows (10)"
     )
-    assert manifest["outputs"]["output/output.csv"]["row_count"] == 11
-    assert manifest["outputs"]["output/output.csv"]["col_count"] == 2
 
-    # update the outputs in the manifest file to include only a mock
-    # previous job output with the repo url which we'll extract for the
-    # updated output
-    manifest["outputs"] = {"output/other.csv": {"repo": job_definition.repo_url}}
-    # Add a mock existing output
-    local.write_manifest_file(level4_dir, manifest)
+    # write mock manifest file (does not contain the output)
+    write_mock_manifest_file(job_definition, level4_dir)
+    # write the log file for the old job
+    write_log_file(
+        job_definition,
+        level4_excluded_files={
+            "output/output.csv": "File row count (11) exceeds maximum allowed rows (10)"
+        },
+    )
 
     # update the manifest with the old job metadata
     update_manifest_for_old_job.run(
@@ -185,22 +194,23 @@ def test_update_manifest_for_old_job_with_excluded_file(
     assert output_metadata["col_count"] is None
 
 
-@pytest.mark.needs_docker
 def test_update_manifest_does_not_overwrite_manifest_outputs(
-    docker_cleanup, job_definition, tmp_work_dir, capsys
+    job_definition, tmp_work_dir
 ):
-    job_definition.args = [
-        "sh",
-        "-c",
-        "echo 'foo' > /workspace/output/output.txt",
-    ]
+    # Set up manifest and log files for a previous job
+    job_definition.action = "generate_dataset"
     job_definition.output_spec = {
-        "output/output.txt": "moderately_sensitive",
+        "output/output.csv": "moderately_sensitive",
     }
 
-    run_job(job_definition)
-
     level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
+
+    # write mock manifest file (contains the output)
+    write_mock_manifest_file(
+        job_definition, level4_dir, outputs={"output/output.csv": {}}
+    )
+    # write the log file for the job
+    write_log_file(job_definition)
 
     # try to update the manifest with this job
     update_manifest_for_old_job.run(
@@ -212,59 +222,10 @@ def test_update_manifest_does_not_overwrite_manifest_outputs(
     )
 
     updated_manifest = local.read_manifest_file(level4_dir, job_definition)
-    output_metadata = updated_manifest["outputs"]["output/output.txt"]
+    # The output exists in the manifest already, so is not marked as out of date
+    output_metadata = updated_manifest["outputs"]["output/output.csv"]
     assert "out_of_date_output" not in output_metadata
-
-    stdout = capsys.readouterr().out
-    assert "output/output.txt exists in manifest.json, skipping" in stdout
-
-
-def test_update_manifest_multiple_matching_jobs(
-    docker_cleanup, job_definition, tmp_work_dir, monkeypatch
-):
-    monkeypatch.setattr("builtins.input", lambda _: "1")
-    # Setup 2 jobs for the same action, writing to different output paths
-    job_definition1 = deepcopy(job_definition)
-    job_definition1.id = job_definition.id + "1"
-
-    job_definition.args = [
-        "sh",
-        "-c",
-        "echo 'foo' > /workspace/output/output.txt",
-    ]
-    job_definition.output_spec = {
-        "output/output.txt": "moderately_sensitive",
-    }
-    job_definition1.args = [
-        "sh",
-        "-c",
-        "echo 'bar' > /workspace/output/output1.txt",
-    ]
-    job_definition1.output_spec = {
-        "output/output1.txt": "moderately_sensitive",
-    }
-
-    run_job(job_definition)
-    run_job(job_definition1)
-
-    level4_dir = local.get_medium_privacy_workspace(job_definition.workspace)
-    manifest = local.read_manifest_file(level4_dir, job_definition.workspace)
-    # remove output from first job
-    del manifest["outputs"]["output/output.txt"]
-    local.write_manifest_file(level4_dir, manifest)
-
-    # update the manifest with this job; the job id matches both jobs
-    update_manifest_for_old_job.run(
-        [
-            job_definition.workspace,
-            job_definition.id,
-            "main",
-        ]
-    )
-
-    updated_manifest = local.read_manifest_file(level4_dir, job_definition)
-    output_metadata = updated_manifest["outputs"]["output/output.txt"]
-    assert "out_of_date_output" in output_metadata
+    assert "out_of_date_action" not in output_metadata
 
 
 def test_update_manifest_no_matching_manifest(tmp_work_dir):
@@ -279,16 +240,26 @@ def test_update_manifest_no_matching_manifest(tmp_work_dir):
         )
 
 
-def test_update_manifest_no_matching_job(tmp_work_dir, capsys):
+def test_update_manifest_no_matching_job(tmp_work_dir):
     level4_dir = local.get_medium_privacy_workspace("workspace")
     local.write_manifest_file(level4_dir, {})
-
-    update_manifest_for_old_job.run(
-        [
+    assert (
+        update_manifest_for_old_job.main(
             "workspace",
             "unknown_job_id",
             "main",
-        ]
+        )
+        is None
     )
-    stdout = capsys.readouterr().out
-    assert "No match found for job id unknown_job_id" in stdout
+
+
+def test_get_full_job_id_no_matching_jobs(tmp_work_dir):
+    assert update_manifest_for_old_job.get_full_job_id("foo") is None
+
+
+def test_get_full_job_id_multiple_matching_jobs(tmp_work_dir, monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda _: "1")
+    log_dir = tmp_work_dir / "job_log_dir"
+    for job_id in ["os-job-1234566", "os-job-1234567"]:
+        (log_dir / "2026-03" / job_id).mkdir(parents=True)
+    assert update_manifest_for_old_job.get_full_job_id("123456") == "1234566"
