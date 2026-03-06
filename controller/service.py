@@ -37,7 +37,10 @@ def main():
     try:
         log.info("controller.service started")
 
-        start_thread(ticks_main, "tick", config.TICK_POLL_INTERVAL)
+        if config.CONTROLLER_ENABLE_TICKS:
+            start_thread(ticks_main, "tick", config.TICK_POLL_INTERVAL)
+        else:
+            log.info("controller.service ticks disabled")
         controller_main()
     except KeyboardInterrupt:
         log.info("controller.service stopped")

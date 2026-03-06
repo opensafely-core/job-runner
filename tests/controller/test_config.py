@@ -18,6 +18,16 @@ def test_config_imports_with_clean_env():
     import_cfg({})
 
 
+def test_controller_enable_ticks_defaults_to_true():
+    cfg = import_cfg({})
+    assert cfg["CONTROLLER_ENABLE_TICKS"] == "True"
+
+
+def test_controller_enable_ticks_can_be_disabled():
+    cfg = import_cfg({"CONTROLLER_ENABLE_TICKS": "false"})
+    assert cfg["CONTROLLER_ENABLE_TICKS"] == "False"
+
+
 def test_job_limits_from_env(monkeypatch):
     monkeypatch.setattr("common.config.BACKENDS", ["tpp", "test", "emis"])
     env = {
