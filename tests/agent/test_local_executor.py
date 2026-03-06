@@ -132,13 +132,16 @@ def log_dir_log_file_exists(job_definition):
     return log_file.exists()
 
 
-def workspace_log_file_exists(job_definition):
-    workspace_log_file = (
+def get_workspace_log_filepath(job_definition):
+    return (
         local.get_high_privacy_workspace(job_definition.workspace)
         / local.METADATA_DIR
         / f"{job_definition.action}.log"
     )
-    return workspace_log_file.exists()
+
+
+def workspace_log_file_exists(job_definition):
+    return get_workspace_log_filepath(job_definition).exists()
 
 
 def test_read_metadata_path(job_definition):
@@ -462,6 +465,9 @@ def test_finalize_success(docker_cleanup, job_definition, tmp_work_dir):
         "timestamp_ns",
     }:
         assert key in job_metadata.keys()
+
+    workspace_log_file = get_workspace_log_filepath(job_definition)
+    assert local.JOB_LOG_MARKER in workspace_log_file.read_text()
 
 
 @pytest.mark.needs_docker
