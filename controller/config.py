@@ -63,16 +63,19 @@ ALLOWED_IMAGES = {
 # determine if there are enough resources available to start a new
 # job running.
 default_workers = {"test": 2, "tpp": 10, "emis": 10}
+# if there is not a configured default for a backend
+unknown_max_workers = 4
 MAX_WORKERS = {
     backend: int(
         os.environ.get(f"{backend.upper()}_MAX_WORKERS")
-        or default_workers.get(backend, 10)
+        or default_workers.get(backend, unknown_max_workers)
     )
     for backend in common_config.BACKENDS
 }
 MAX_DB_WORKERS = {
     backend: int(
-        os.environ.get(f"{backend.upper()}_MAX_DB_WORKERS") or MAX_WORKERS[backend]
+        os.environ.get(f"{backend.upper()}_MAX_DB_WORKERS")
+        or MAX_WORKERS.get(backend, unknown_max_workers)
     )
     for backend in common_config.BACKENDS
 }
