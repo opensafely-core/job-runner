@@ -170,6 +170,10 @@ DATABASE_EXIT_CODES = {
     ),
     # Other ehrQL exit codes with specific meanings, see:
     # https://github.com/opensafely-core/ehrql/blob/d229b8f/ehrql/__main__.py#L123-L139
+    2: (
+        "There was a problem with the command line arguments in your ehrQL action; "
+        "please confirm that it runs locally"
+    ),
     10: "There was a problem reading your ehrQL code; please confirm that it runs locally",
     11: "There was a problem reading one of the supplied data files",
     12: "You do not have the required permissions for the ehrQL you are trying to run",
