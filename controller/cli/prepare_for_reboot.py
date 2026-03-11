@@ -12,7 +12,7 @@ from controller.models import Job, State, StatusCode, Task, TaskType
 from controller.queries import get_flag_value
 
 
-def main(backend, status=False, require_confirmation=True):
+def main(backend, status=False, skip_confirm=False):
     # We MUST be paused in order to run prepare-for-reboot, otherwise the
     # controller will just pick tasks right back up again
     paused = str(get_flag_value("paused", backend, default="False")).lower() == "true"
@@ -27,7 +27,7 @@ def main(backend, status=False, require_confirmation=True):
         )
         return
 
-    if require_confirmation and not status:
+    if not skip_confirm and not status:
         print(
             "== DANGER ZONE ==\n"
             "\n"
@@ -87,6 +87,13 @@ def add_parser_args(parser):
         action="store_true",
         default=False,
         help="Report on status of system in prepration for reboot",
+    )
+    parser.add_argument(
+        "-y",
+        "--skip-confirm",
+        action="store_true",
+        default=False,
+        help="Skip confirmation prompt",
     )
 
 

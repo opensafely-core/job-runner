@@ -38,7 +38,7 @@ def test_prepare_for_reboot(db):
     assert t1.active
     assert not t2.active
 
-    prepare_for_reboot.main("test", require_confirmation=False)
+    prepare_for_reboot.main("test", skip_confirm=True)
 
     job1 = database.find_one(Job, id=j1.id)
     assert job1.state == State.PENDING
@@ -73,7 +73,7 @@ def test_prepare_for_reboot(db):
 
 
 @pytest.mark.parametrize("input_response", ["y", "n"])
-def test_prepare_for_reboot_require_confirmation(input_response, db, monkeypatch):
+def test_prepare_for_reboot_no_skip_confirm(input_response, db, monkeypatch):
     monkeypatch.setattr("builtins.input", lambda _: input_response)
     pause_backend()
 
@@ -82,9 +82,9 @@ def test_prepare_for_reboot_require_confirmation(input_response, db, monkeypatch
 
     if input_response != "y":
         with pytest.raises(AssertionError):
-            prepare_for_reboot.main("test", require_confirmation=True)
+            prepare_for_reboot.main("test", skip_confirm=False)
     else:
-        prepare_for_reboot.main("test", require_confirmation=True)
+        prepare_for_reboot.main("test", skip_confirm=False)
 
     job = database.find_one(Job, id=j1.id)
     task = database.find_one(Task, id=t1.id)
@@ -112,7 +112,7 @@ def test_prepare_for_reboot_backend_not_paused(db):
     j1 = database.find_one(Job, id=t1.id.split("-")[0])
 
     # Run prepare_for_reboot without pausing the backend; nothing is changed
-    prepare_for_reboot.main("test", require_confirmation=False)
+    prepare_for_reboot.main("test", skip_confirm=True)
     job = database.find_one(Job, id=j1.id)
     task = database.find_one(Task, id=t1.id)
     assert job.state == State.RUNNING
@@ -121,7 +121,7 @@ def test_prepare_for_reboot_backend_not_paused(db):
 
     # Pause backend and try again
     pause_backend()
-    prepare_for_reboot.main("test", require_confirmation=False)
+    prepare_for_reboot.main("test", skip_confirm=True)
     job = database.find_one(Job, id=j1.id)
     task = database.find_one(Task, id=t1.id)
     assert job.state == State.PENDING
@@ -140,7 +140,7 @@ def test_prepare_for_reboot_status_with_running_job(db, paused, capsys):
     )
     j1 = database.find_one(Job, id=t1.id.split("-")[0])
 
-    prepare_for_reboot.main("test", status=True, require_confirmation=False)
+    prepare_for_reboot.main("test", status=True, skip_confirm=True)
     job = database.find_one(Job, id=j1.id)
     task = database.find_one(Task, id=t1.id)
     assert job.state == State.RUNNING
@@ -161,7 +161,7 @@ def test_prepare_for_reboot_status_with_cancelled_job(db, paused, capsys):
     )
     t1 = canceljob_db_task_factory(job=j1)
 
-    prepare_for_reboot.main("test", status=True, require_confirmation=False)
+    prepare_for_reboot.main("test", status=True, skip_confirm=True)
     job = database.find_one(Job, id=j1.id)
     task = database.find_one(Task, id=t1.id)
     assert job.state == State.PENDING
@@ -182,7 +182,7 @@ def test_prepare_for_reboot_status_ready_to_reboot(db, paused, capsys):
     )
     t1 = canceljob_db_task_factory(job=j1, active=False)
 
-    prepare_for_reboot.main("test", status=True, require_confirmation=False)
+    prepare_for_reboot.main("test", status=True, skip_confirm=True)
     job = database.find_one(Job, id=j1.id)
     task = database.find_one(Task, id=t1.id)
     assert job.state == State.PENDING
