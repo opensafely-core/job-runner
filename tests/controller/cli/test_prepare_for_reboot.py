@@ -3,7 +3,7 @@ import pytest
 from controller.cli import prepare_for_reboot
 from controller.lib import database
 from controller.models import Job, State, StatusCode, Task, TaskType
-from controller.queries import set_flag
+from controller.queries import get_flag_value, set_flag
 from tests.conftest import get_trace
 from tests.factories import (
     canceljob_db_task_factory,
@@ -16,8 +16,9 @@ def pause_backend(paused=True):
     set_flag("paused", str(paused), backend="test")
 
 
-def test_prepare_for_reboot(db):
-    pause_backend()
+@pytest.mark.parametrize("setup", [lambda: None, pause_backend])
+def test_prepare_for_reboot(db, setup):
+    setup()  # test when already paused and when not
     j1 = job_factory(
         state=State.RUNNING, status_code=StatusCode.EXECUTING, backend="test"
     )
@@ -39,6 +40,8 @@ def test_prepare_for_reboot(db):
     assert not t2.active
 
     prepare_for_reboot.main("test", skip_confirm=True)
+
+    assert get_flag_value("paused", "test") == "true"
 
     job1 = database.find_one(Job, id=j1.id)
     assert job1.state == State.PENDING
@@ -75,7 +78,6 @@ def test_prepare_for_reboot(db):
 @pytest.mark.parametrize("input_response", ["y", "n"])
 def test_prepare_for_reboot_no_skip_confirm(input_response, db, monkeypatch):
     monkeypatch.setattr("builtins.input", lambda _: input_response)
-    pause_backend()
 
     j1 = job_factory(state=State.RUNNING, status_code=StatusCode.EXECUTING)
     t1 = runjob_db_task_factory(j1)
@@ -91,6 +93,7 @@ def test_prepare_for_reboot_no_skip_confirm(input_response, db, monkeypatch):
     cancel_tasks = database.find_where(Task, type=TaskType.CANCELJOB)
 
     if input_response == "y":
+        assert get_flag_value("paused", "test") == "true"
         assert job.state == State.PENDING
         assert job.status_code == StatusCode.WAITING_ON_REBOOT
         assert not task.active
@@ -98,37 +101,12 @@ def test_prepare_for_reboot_no_skip_confirm(input_response, db, monkeypatch):
         assert len(cancel_tasks) == 1
         assert cancel_tasks[0].id.startswith(j1.id)
     else:
+        assert get_flag_value("paused", "test") is None
         assert job.state == State.RUNNING
         assert job.status_code == StatusCode.EXECUTING
         assert task.active
         assert task.finished_at is None
         assert len(cancel_tasks) == 0
-
-
-def test_prepare_for_reboot_backend_not_paused(db):
-    t1 = runjob_db_task_factory(
-        state=State.RUNNING, status_code=StatusCode.EXECUTING, backend="test"
-    )
-    j1 = database.find_one(Job, id=t1.id.split("-")[0])
-
-    # Run prepare_for_reboot without pausing the backend; nothing is changed
-    prepare_for_reboot.main("test", skip_confirm=True)
-    job = database.find_one(Job, id=j1.id)
-    task = database.find_one(Task, id=t1.id)
-    assert job.state == State.RUNNING
-    assert task.active
-    assert not database.exists_where(Task, type=TaskType.CANCELJOB)
-
-    # Pause backend and try again
-    pause_backend()
-    prepare_for_reboot.main("test", skip_confirm=True)
-    job = database.find_one(Job, id=j1.id)
-    task = database.find_one(Task, id=t1.id)
-    assert job.state == State.PENDING
-    assert job.status_code == StatusCode.WAITING_ON_REBOOT
-    assert not task.active
-    assert task.finished_at is not None
-    assert database.exists_where(Task, type=TaskType.CANCELJOB)
 
 
 @pytest.mark.parametrize("paused", [True, False])
