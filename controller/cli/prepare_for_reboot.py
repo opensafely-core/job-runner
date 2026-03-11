@@ -27,19 +27,6 @@ def main(backend, status=False, skip_confirm=False):
         )
         return
 
-    if not skip_confirm and not status:
-        print(
-            "== DANGER ZONE ==\n"
-            "\n"
-            f"This will kill all running jobs on backend '{backend}' and reset them to the PENDING state, ready\n"
-            "to be restarted following a reboot.\n"
-            "\n"
-            "It should only be run when the job-runner service has been paused on the backend."
-            "\n"
-        )
-        confirm = input("Are you sure you want to continue? (y/N)")
-        assert confirm.strip().lower() == "y"
-
     running_jobs = find_where(Job, state=State.RUNNING, backend=backend)
 
     if status:
@@ -65,6 +52,19 @@ def main(backend, status=False, skip_confirm=False):
 
         print(report)
         return
+
+    if not skip_confirm:
+        print(
+            "== DANGER ZONE ==\n"
+            "\n"
+            f"This will kill all running jobs on backend '{backend}' and reset them to the PENDING state, ready\n"
+            "to be restarted following a reboot.\n"
+            "\n"
+            "It should only be run when the job-runner service has been paused on the backend."
+            "\n"
+        )
+        confirm = input("Are you sure you want to continue? (y/N)")
+        assert confirm.strip().lower() == "y"
 
     for job in running_jobs:
         print(f"resetting job {job.slug} to PENDING")
