@@ -767,12 +767,11 @@ dokku run rap-controller python manage.py pause on test
 
 ### Prepare for reboot
 
-Prepare for a backend reboot. This will cancel all running jobs and reset them to PENDING so they will be
-automatically re-run after a reboot.
+Prepare for a backend reboot. This will pause the backend, then cancel all
+running jobs and reset them to PENDING so they will be automatically re-run
+after a reboot.
 
-First [pause the backend](#pause-a-backend).
-
-Then run:
+Run:
 ```
 dokku run rap-controller python manage.py prepare_for_reboot --backend <backend slug>
 ```
