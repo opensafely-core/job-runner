@@ -160,24 +160,11 @@ class LocalDockerAPI(ExecutorAPI):
                 )
 
         # validate image is present
-        if job_definition.image_sha:
-            # new world: we have been told to run a specific sha
-            proxy_image = get_proxy_image_sha(
-                job_definition.image, job_definition.image_sha
-            )
-            docker.ensure_docker_sha_present(proxy_image, job_definition.image)
-
-        # TODO: remove once new definition migrated
-        elif not docker.image_exists_locally(job_definition.image):
-            # old world: we run at whatever sha has been
-            # manually pulled, but we check if a version of it
-            # is present first
-            log.info(
-                f"Image not found, may need to run: docker pull {job_definition.image}"
-            )
-            raise LocalExecutorError(
-                f"Docker image {job_definition.image} is not currently available"
-            )
+        # new world: we have been told to run a specific sha
+        proxy_image = get_proxy_image_sha(
+            job_definition.image, job_definition.image_sha
+        )
+        docker.ensure_docker_sha_present(proxy_image, job_definition.image)
 
         current = self.get_status(job_definition)
         if current.state != ExecutorState.UNKNOWN:
@@ -238,13 +225,9 @@ class LocalDockerAPI(ExecutorAPI):
             ]
         )
 
-        if job_definition.image_sha:
-            # label is ignored when there is a sha, but we include it in the
-            # command as extra information
-            image = get_proxy_image_sha(job_definition.image, job_definition.image_sha)
-        # TODO: remove once new definition migrated
-        else:
-            image = job_definition.image
+        # label is ignored when there is a sha, but we include it in the
+        # command as extra information
+        image = get_proxy_image_sha(job_definition.image, job_definition.image_sha)
 
         docker.run(
             container_name(job_definition.id),
