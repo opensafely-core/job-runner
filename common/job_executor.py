@@ -18,6 +18,14 @@ class Study:
 
 @dataclass
 class JobDefinition:
+    """
+    A representation of a job, used by the Controller to create a task definition to
+    be passed to the Agent.
+
+    WARNING: Changes to attributes on this class require handling to ensure backwards
+    compatibility with any existing tasks that may be in progress.
+    """
+
     id: str  # a unique identifier for the job  # noqa: A003
     rap_id: str  # a unique identifier for the job's RAP (formerly known as job request)
     # a unique identifier for the task associated with this job. Note that a

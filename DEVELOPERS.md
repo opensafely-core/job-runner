@@ -709,6 +709,22 @@ To initialise or migrate the database, you can use the migrate command:
 just migrate
 ```
 
+### The JobDefinition class
+
+The [JobDefinition class](common/job_executor.py) is not a database model, but does
+require care in order to ensure that changes do not impact running tasks.
+
+`JobDefinition` is a representation of a job, used by the Controller to create a task
+definition to be passed to the Agent (via [job_to_job_definition()](controller/main.py)).
+The Agent in turn converts a task definition into a job definition using
+`JobDefinition.from_dict()`.
+
+If you add, remove or change any attributes on `JobDefinition`, be sure to include
+code to ensure backwards compatibility with any existing tasks that may be in progress
+and that have been created using code that predated your change. This can be marked with
+a `# TODO` for removing later, as it will only be required until tasks created pre-change
+have completed.
+
 ## Deploying
 
 Deployment is handled automatically on merge to main. See the [DEPLOY](./DEPLOY.md)
