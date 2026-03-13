@@ -72,20 +72,9 @@ class JobDefinition:
             branch=study_data.get("branch"),
         )
 
-        if "repo_url" not in data:  # pragma: no cover
-            # For existing tasks that pre-date the new repo_url and commit attributes,
-            # set them from the Study data
-            data["repo_url"] = study_data.get("git_repo_url")
-            data["commit"] = study_data.get("commit")
-
         # Ensure any dict used to construct a JobDefinition has a task_id key
         if "task_id" not in data:
             data["task_id"] = ""
-
-        # TODO: remove once new definition migrated
-        if "image_sha" not in data:
-            # ensure old definition dict conforms to new format
-            data["image_sha"] = None
 
         # Create the JobDefinition instance with the Study object
         return cls(study=study, **{k: v for k, v in data.items()})
