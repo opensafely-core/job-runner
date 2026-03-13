@@ -6,7 +6,7 @@ import pytest
 from agent.cli import update_manifest_for_old_job
 from agent.executors import local
 from common.job_executor import ExecutorState, JobDefinition, Study
-from tests.agent.test_local_executor import wait_for_state
+from tests.agent.test_local_executor import IMAGE_SHA, wait_for_state
 from tests.factories import ensure_docker_images_present
 
 
@@ -32,7 +32,7 @@ def job_definition(request, test_repo, responses):
         created_at=int(time.time()),
         user="testuser",
         image="ghcr.io/opensafely-core/busybox:latest",
-        image_sha=None,
+        image_sha=IMAGE_SHA,
         args=["true"],
         inputs=[],
         input_job_ids=[],

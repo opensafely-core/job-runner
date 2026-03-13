@@ -20,7 +20,7 @@ pytestmark = pytest.mark.needs_ghcr
 IMAGE_SHA = get_current_image_sha("busybox:latest")
 
 
-@pytest.fixture(params=[True, False], ids=["image_sha", "no_image_sha"])
+@pytest.fixture
 def job_definition(request, test_repo, responses):
     """Basic simple action with no inputs as base for testing."""
     if "needs_docker" in list(m.name for m in request.node.iter_markers()):
@@ -42,7 +42,7 @@ def job_definition(request, test_repo, responses):
         created_at=int(time.time()),
         user="testuser",
         image="ghcr.io/opensafely-core/busybox:latest",
-        image_sha=IMAGE_SHA if request.param else None,
+        image_sha=IMAGE_SHA,
         args=["true"],
         inputs=[],
         input_job_ids=[],
@@ -1251,6 +1251,9 @@ def test_pending_job_terminated_not_finalized(
     api.terminate(job_definition)
     status = api.get_status(job_definition)
     job_definition.cancelled = "user"
+
+    # job definition for a cancel task has no image sha
+    job_definition.image_sha = None
     assert status.state == ExecutorState.UNKNOWN
     assert api.get_status(job_definition).state == ExecutorState.UNKNOWN
 
@@ -1268,6 +1271,8 @@ def test_prepared_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.PREPARED
 
+    # job definition for a cancel task has no image sha
+    job_definition.image_sha = None
     # Finalizing the job as cancelled sets cancelled metadata
     api.finalize(job_definition, cancelled=True)
     status = api.get_status(job_definition)
@@ -1296,6 +1301,8 @@ def test_running_job_cancelled(docker_cleanup, job_definition, tmp_work_dir):
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.EXECUTING
 
+    # job definition for a cancel task has no image sha
+    job_definition.image_sha = None
     api.terminate(job_definition)
     status = api.get_status(job_definition)
     assert status.state == ExecutorState.EXECUTED
