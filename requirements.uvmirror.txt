@@ -99,7 +99,7 @@ mdurl==0.1.2
     # via markdown-it-py
 nodeenv==1.10.0
     # via pre-commit
-opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip
+opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.03.12.140752.zip
     # via opensafely-jobrunner
 opentelemetry-api==1.39.1
     # via
@@ -206,7 +206,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruamel-yaml==0.18.6
+ruamel-yaml==0.18.15
     # via opensafely-pipeline
 ruamel-yaml-clib==0.2.8
     # via
