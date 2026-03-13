@@ -753,7 +753,7 @@ requires-dist = [
     { name = "django" },
     { name = "gunicorn" },
     { name = "jsonschema" },
-    { name = "opensafely-pipeline", extras = ["fastparser"], url = "https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip" },
+    { name = "opensafely-pipeline", extras = ["fastparser"], url = "https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.03.12.140752.zip" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation-django" },
     { name = "opentelemetry-instrumentation-requests" },
@@ -774,12 +774,12 @@ dev = [
 
 [[package]]
 name = "opensafely-pipeline"
-version = "2025.3.6.161237"
-source = { url = "https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip" }
+version = "2026.3.12.140752"
+source = { url = "https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.03.12.140752.zip" }
 dependencies = [
     { name = "ruyaml" },
 ]
-sdist = { hash = "sha256:1b63f0ea0d6df2d3ecedbb6fc0550185e96b5164b956bc2b5d5eb47cb0d0611f" }
+sdist = { hash = "sha256:e6e45b5b17f884af263a4c01ead72347d0e63899a0eb1811d7c3d0d5e802401b" }
 
 [package.optional-dependencies]
 fastparser = [
@@ -789,7 +789,7 @@ fastparser = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ruamel-yaml", marker = "extra == 'fastparser'", specifier = "==0.18.6" },
+    { name = "ruamel-yaml", marker = "extra == 'fastparser'", specifier = "==0.18.15" },
     { name = "ruamel-yaml-clib", marker = "extra == 'fastparser'", specifier = "==0.2.8" },
     { name = "ruyaml" },
 ]
@@ -1361,14 +1361,14 @@ wheels = [
 
 [[package]]
 name = "ruamel-yaml"
-version = "0.18.6"
+version = "0.18.15"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ruamel-yaml-clib", marker = "python_full_version < '3.13' and platform_python_implementation == 'CPython'" },
+    { name = "ruamel-yaml-clib", marker = "python_full_version < '3.14' and platform_python_implementation == 'CPython'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/29/81/4dfc17eb6ebb1aac314a3eb863c1325b907863a1b8b1382cdffcb6ac0ed9/ruamel.yaml-0.18.6.tar.gz", hash = "sha256:8b27e6a217e786c6fbe5634d8f3f11bc63e0f80f6a5890f28863d9c45aac311b", size = 143362, upload-time = "2024-02-07T06:47:20.283Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/db/f3950f5e5031b618aae9f423a39bf81a55c148aecd15a34527898e752cf4/ruamel.yaml-0.18.15.tar.gz", hash = "sha256:dbfca74b018c4c3fba0b9cc9ee33e53c371194a9000e694995e620490fd40700", size = 146865, upload-time = "2025-08-19T11:15:10.694Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/67/8ece580cc363331d9a53055130f86b096bf16e38156e33b1d3014fffda6b/ruamel.yaml-0.18.6-py3-none-any.whl", hash = "sha256:57b53ba33def16c4f3d807c0ccbc00f8a6081827e81ba2491691b76882d0c636", size = 117761, upload-time = "2024-02-07T06:47:14.898Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/e5/f2a0621f1781b76a38194acae72f01e37b1941470407345b6e8653ad7640/ruamel.yaml-0.18.15-py3-none-any.whl", hash = "sha256:148f6488d698b7a5eded5ea793a025308b25eca97208181b6a026037f391f701", size = 119702, upload-time = "2025-08-19T11:15:07.696Z" },
 ]
 
 [[package]]
