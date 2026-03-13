@@ -7,7 +7,7 @@ from opentelemetry.trace import propagation
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from common.lib import warn_assertions
-from common.tracing import backwards_compatible_job_attrs, set_span_attributes
+from common.tracing import set_span_attributes
 from controller.models import Job, State, StatusCode
 
 
@@ -206,9 +206,6 @@ def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
         attributes.update(trace_attributes(job, results))
 
         set_span_attributes(span, attributes)
-
-        # temporary backwards compatibility, can remove after a few months
-        set_span_attributes(span, backwards_compatible_job_attrs(attributes))
 
         if exception:
             span.record_exception(exception)

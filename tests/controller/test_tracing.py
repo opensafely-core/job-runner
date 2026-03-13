@@ -325,26 +325,6 @@ def test_set_span_job_metadata_attrs(db):
     assert span.attributes["job.orgs"] == ",".join(job.orgs)
 
 
-def test_set_span_job_metadata_attrs_bwcompat(db):
-    job = job_factory()
-    tracer = trace.get_tracer("test")
-
-    span = tracer.start_span("test")
-    tracing.set_span_job_metadata(span, job, extra={"job.custom_attr": "test"})
-
-    # special cased
-    assert span.attributes["job"] == job.id
-    assert span.attributes["job_request"] == job.rap_id
-
-    assert span.attributes["workspace"] == job.workspace
-    assert span.attributes["action"] == job.action
-    assert span.attributes["state"] == job.state.name
-    assert span.attributes["custom_attr"] == "test"
-    assert span.attributes["job.user"] == job.user
-    assert span.attributes["job.project"] == job.project
-    assert span.attributes["job.orgs"] == ",".join(job.orgs)
-
-
 def test_set_span_job_metadata_failure(db):
     job = job_factory()
     tracer = trace.get_tracer("test")
