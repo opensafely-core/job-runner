@@ -79,28 +79,6 @@ def setup_default_tracing(service, set_global=True):
 OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 
-BACKWARDS_MAPPING = {}
-
-
-def backwards_compatible_job_attrs(attributes):
-    bwcompat = {}
-
-    for k, v in attributes.items():
-        if not k.startswith("job."):
-            continue
-
-        if k == "job.id":
-            k = "job"
-        elif k == "job.request":
-            k = "job_request"
-        else:
-            k = k.replace("job.", "")
-
-        bwcompat[k] = v
-
-    return bwcompat
-
-
 def set_span_attributes(span, attributes):
     # opentelemetry can only handle serializing certain attribute types
     clean_attrs = {}
