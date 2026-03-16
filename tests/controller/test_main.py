@@ -1017,7 +1017,11 @@ def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
 
     # It should have the attributes we expect
     assert tasks[0].backend == "test"
-    assert tasks[0].definition == {"database_name": "default"}
+    assert tasks[0].definition == {
+        "database_name": "default",
+        "image": "https://ghcr.io/tpp-database-utils:latest",
+        "image_sha": "test-sha-for-tpp-database-utils:latest",
+    }
 
     # Running it again should not create another
     run_controller_loop_once()
@@ -1115,7 +1119,11 @@ def test_update_scheduled_task_for_db_data_check(db, monkeypatch, freezer):
 
     # It should have the attributes we expect
     assert tasks[0].backend == "test"
-    assert tasks[0].definition == {"hes_expected_activity_month": "202304"}
+    assert tasks[0].definition == {
+        "hes_expected_activity_month": "202304",
+        "image": "https://ghcr.io/tpp-database-utils:latest",
+        "image_sha": "test-sha-for-tpp-database-utils:latest",
+    }
 
 
 def test_update_scheduled_task_for_db_data_check_in_db_maintenance(

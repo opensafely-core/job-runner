@@ -325,6 +325,7 @@ def patch_image_shas(request, monkeypatch, responses):
     sha_map = {
         "ehrql:v1": "test-sha-for-ehrql-v1",
         "python:v2": "test-sha-for-python-v2",
+        "tpp-database-utils:latest": "test-sha-for-tpp-database-utils:latest",
     }
 
     def get_current_image_sha(name):

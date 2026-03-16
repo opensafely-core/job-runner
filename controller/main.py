@@ -666,28 +666,45 @@ def cancel_job(job):
 
 
 def update_scheduled_tasks():
+    image_name = "tpp-database-utils:latest"
+    db_task_image = f"{common_config.DOCKER_REGISTRY}/{image_name}"
+    db_task_image_sha = docker.get_current_image_sha(image_name)
     for backend in config.MAINTENANCE_ENABLED_BACKENDS:
-        update_scheduled_task_for_db_maintenance_for_backend(backend)
+        update_scheduled_task_for_db_maintenance_for_backend(
+            backend, db_task_image, db_task_image_sha
+        )
     for backend in config.DATA_CHECK_ENABLED_BACKENDS:
-        update_scheduled_task_for_db_data_check_for_backend(backend)
+        update_scheduled_task_for_db_data_check_for_backend(
+            backend, db_task_image, db_task_image_sha
+        )
 
 
-def update_scheduled_task_for_db_maintenance_for_backend(backend):
+def update_scheduled_task_for_db_maintenance_for_backend(
+    backend, db_task_image, db_task_image_sha
+):
     schedule_regular_task(
         backend=backend,
         task_type=TaskType.DBSTATUS,
-        task_definition={"database_name": "default"},
+        task_definition={
+            "database_name": "default",
+            "image": db_task_image,
+            "image_sha": db_task_image_sha,
+        },
         task_interval=config.MAINTENANCE_POLL_INTERVAL,
         is_active=not get_flag_value("manual-db-maintenance", backend),
     )
 
 
-def update_scheduled_task_for_db_data_check_for_backend(backend):
+def update_scheduled_task_for_db_data_check_for_backend(
+    backend, db_task_image, db_task_image_sha
+):
     schedule_regular_task(
         backend=backend,
         task_type=TaskType.DBDATACHECK,
         task_definition={
-            "hes_expected_activity_month": config.DATA_CHECK_HES_EXPECTED_ACTIVITY_MONTH
+            "hes_expected_activity_month": config.DATA_CHECK_HES_EXPECTED_ACTIVITY_MONTH,
+            "image": db_task_image,
+            "image_sha": db_task_image_sha,
         },
         task_interval=config.DATA_CHECK_POLL_INTERVAL,
         is_active=get_flag_value("mode", backend) != "db-maintenance",

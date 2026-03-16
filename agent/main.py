@@ -396,7 +396,7 @@ def handle_simple_task(task_function, task):
     )
 
 
-def db_status_task(*, database_name):
+def db_status_task(*, database_name, image=None, image_sha=None):
     log.info(f"Running DBSTATUS task on database {database_name!r}")
     output = tpp_database_utils(["in_maintenance_mode"], database_name=database_name)
     last_line = output.split("\n")[-1].strip()
@@ -435,7 +435,7 @@ def db_status_task(*, database_name):
     return {"status": "db-maintenance" if in_maintenance_mode else ""}
 
 
-def db_data_check_task(*, hes_expected_activity_month):
+def db_data_check_task(*, hes_expected_activity_month, image=None, image_sha=None):
     log.info("Running DBDATACHECK task")
     output = tpp_database_utils(["hes_cutoff_date_check", hes_expected_activity_month])
     status = output.split("\n")[-1].strip()
