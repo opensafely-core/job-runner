@@ -476,7 +476,7 @@ def test_handle_db_status_job(
             "192.0.2.0",
             "--add-host",
             "localhost:127.0.0.1",
-            "ghcr.io/opensafely-core/tpp-database-utils",
+            "docker-proxy.opensafely.org/opensafely-core/tpp-database-utils:latest",
             "in_maintenance_mode",
         ],
         env={"DATABASE_URL": "database://localhost:1234"},
@@ -522,10 +522,10 @@ def test_handle_db_status_job_with_error(mock_update_controller):
     )
 
 
-@patch("agent.main.tpp_database_utils", autospec=True)
+@patch("agent.main.run_db_task", autospec=True)
 @patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_db_data_check_task(mock_update_controller, mock_tpp_database_utils):
-    mock_tpp_database_utils.return_value = "OK"
+def test_handle_db_data_check_task(mock_update_controller, mock_run_db_task):
+    mock_run_db_task.return_value = "OK"
 
     task = Task(
         id="test_id",
@@ -537,7 +537,11 @@ def test_handle_db_data_check_task(mock_update_controller, mock_tpp_database_uti
 
     main.handle_single_task(task, api=None)
 
-    mock_tpp_database_utils.assert_called_with(["hes_cutoff_date_check", "202304"])
+    mock_run_db_task.assert_called_with(
+        ["hes_cutoff_date_check", "202304"],
+        image="ghcr.io/opensafely-core/tpp-database-utils:latest",
+        image_sha=None,
+    )
 
     mock_update_controller.assert_called_with(
         task,
