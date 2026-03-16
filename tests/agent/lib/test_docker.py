@@ -2,7 +2,6 @@ import subprocess
 
 import pytest
 
-from agent.executors.local import get_proxy_image_sha
 from agent.lib import docker
 
 
@@ -118,7 +117,7 @@ def remove_current_labels():
 def test_ensure_docker_sha_present_no_version_exists(remove_current_labels):
     registry_image_with_label = "ghcr.io/opensafely-core/busybox:latest"
 
-    proxy_image_with_sha = get_proxy_image_sha(
+    proxy_image_with_sha = docker.get_proxy_image_sha(
         registry_image_with_label, CURRENT_BUSYBOX_SHA
     )
     # image with label is same for both
@@ -141,10 +140,10 @@ def test_ensure_docker_sha_present_no_version_exists(remove_current_labels):
 @pytest.mark.needs_ghcr
 def test_ensure_docker_sha_present_image_exists(remove_current_labels):
     registry_image_with_label = "ghcr.io/opensafely-core/busybox:latest"
-    proxy_image_with_old_sha = get_proxy_image_sha(
+    proxy_image_with_old_sha = docker.get_proxy_image_sha(
         registry_image_with_label, PREVIOUS_BUSYBOX_SHA
     )
-    proxy_image_with_new_sha = get_proxy_image_sha(
+    proxy_image_with_new_sha = docker.get_proxy_image_sha(
         registry_image_with_label, CURRENT_BUSYBOX_SHA
     )
     # image with label is same for both
@@ -171,10 +170,10 @@ def test_ensure_docker_sha_present_image_exists(remove_current_labels):
 @pytest.mark.needs_ghcr
 def test_ensure_docker_sha_present_old_image_doesnot_update_tag(remove_current_labels):
     registry_image_with_label = "ghcr.io/opensafely-core/busybox:latest"
-    proxy_image_with_old_sha = get_proxy_image_sha(
+    proxy_image_with_old_sha = docker.get_proxy_image_sha(
         registry_image_with_label, PREVIOUS_BUSYBOX_SHA
     )
-    proxy_image_with_new_sha = get_proxy_image_sha(
+    proxy_image_with_new_sha = docker.get_proxy_image_sha(
         registry_image_with_label, CURRENT_BUSYBOX_SHA
     )
     # image with label is same for both
