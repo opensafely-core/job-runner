@@ -183,7 +183,7 @@ def image_exists_locally(image_name_and_version):
             capture_output=True,
         )
         return True
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError as e:  # pragma: no cover
         if e.returncode == 1 and b"no such image" in e.stderr.lower():
             return False
         raise  # pragma: no cover
