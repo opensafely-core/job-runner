@@ -445,6 +445,8 @@ def db_status_task(
         {
             "agent.db-maintenance": in_maintenance_mode,
             "agent.db-build-count": build_count,
+            "agent.db-image": image,
+            "agent.db-image_id": image_sha,
         }
     )
     return {"status": "db-maintenance" if in_maintenance_mode else ""}
@@ -472,7 +474,13 @@ def db_data_check_task(
             f"Invalid status, expected one of: {','.join(status_allowlist)}"
         )
     span = trace.get_current_span()
-    span.set_attribute("agent.db-data-check", status == "OK")
+    span.set_attributes(
+        {
+            "agent.db-data-check": status == "OK",
+            "agent.db-image": image,
+            "agent.db-image_id": image_sha,
+        }
+    )
     return {"status": status}
 
 

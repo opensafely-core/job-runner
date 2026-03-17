@@ -567,6 +567,8 @@ def test_handle_db_status_job(
     span = spans[0]
     assert span.attributes["agent.db-maintenance"] == (status == "db-maintenance")
     assert span.attributes["agent.db-build-count"] == build_count
+    assert span.attributes["agent.db-image"] == "ghcr.io/opensafely-core/test:v1"
+    assert span.attributes["agent.db-image_id"] == "dummy-sha"
 
 
 @patch("agent.main.docker", autospec=True)
@@ -688,6 +690,12 @@ def test_handle_db_data_check_task(
         results={"results": {"status": "OK"}, "error": None},
         complete=True,
     )
+    spans = get_trace("agent_loop")
+    assert len(spans) == 1
+    span = spans[0]
+    assert span.attributes["agent.db-data-check"]
+    assert span.attributes["agent.db-image"] == "ghcr.io/opensafely-core/test:v1"
+    assert span.attributes["agent.db-image_id"] == "sha123456"
 
 
 @patch("agent.main.ensure_docker_sha_present", autospec=True)
