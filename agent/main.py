@@ -7,7 +7,12 @@ from opentelemetry import trace
 
 from agent import config, task_api, tracing
 from agent.executors import get_executor_api
-from agent.lib.docker import docker, get_network_config_args
+from agent.lib.docker import (
+    docker,
+    ensure_docker_sha_present,
+    get_network_config_args,
+    get_proxy_image_sha,
+)
 from common import config as common_config
 from common.job_executor import ExecutorAPI, ExecutorState, JobDefinition, JobStatus
 from common.lib.github_validators import (
@@ -396,9 +401,19 @@ def handle_simple_task(task_function, task):
     )
 
 
-def db_status_task(*, database_name):
+def db_status_task(
+    *,
+    database_name,
+    image="ghcr.io/opensafely-core/tpp-database-utils:latest",
+    image_sha=None,
+):
     log.info(f"Running DBSTATUS task on database {database_name!r}")
-    output = tpp_database_utils(["in_maintenance_mode"], database_name=database_name)
+    output = run_db_task(
+        ["in_maintenance_mode"],
+        database_name=database_name,
+        image=image,
+        image_sha=image_sha,
+    )
     last_line = output.split("\n")[-1].strip()
     # Restrict the status messages that can be returned so that even in the case of a
     # compromised status check container it's not possible to extract significant
@@ -430,14 +445,25 @@ def db_status_task(*, database_name):
         {
             "agent.db-maintenance": in_maintenance_mode,
             "agent.db-build-count": build_count,
+            "agent.db-image": image,
+            "agent.db-image_id": image_sha,
         }
     )
     return {"status": "db-maintenance" if in_maintenance_mode else ""}
 
 
-def db_data_check_task(*, hes_expected_activity_month):
+def db_data_check_task(
+    *,
+    hes_expected_activity_month,
+    image="ghcr.io/opensafely-core/tpp-database-utils:latest",
+    image_sha=None,
+):
     log.info("Running DBDATACHECK task")
-    output = tpp_database_utils(["hes_cutoff_date_check", hes_expected_activity_month])
+    output = run_db_task(
+        ["hes_cutoff_date_check", hes_expected_activity_month],
+        image=image,
+        image_sha=image_sha,
+    )
     status = output.split("\n")[-1].strip()
     # Restrict the status messages that can be returned so that even in the case of a
     # compromised status check container it's not possible to extract significant
@@ -448,16 +474,35 @@ def db_data_check_task(*, hes_expected_activity_month):
             f"Invalid status, expected one of: {','.join(status_allowlist)}"
         )
     span = trace.get_current_span()
-    span.set_attribute("agent.db-data-check", status == "OK")
+    span.set_attributes(
+        {
+            "agent.db-data-check": status == "OK",
+            "agent.db-image": image,
+            "agent.db-image_id": image_sha,
+        }
+    )
     return {"status": status}
 
 
-def tpp_database_utils(args, database_name="default"):
+def run_db_task(
+    args,
+    *,
+    database_name="default",
+    image=None,
+    image_sha=None,
+):
+    # Run a task that requires db access in the given image
     database_url = config.DATABASE_URLS[database_name]
     # Restrict network access to just the database
     network_config_args = get_network_config_args(
         config.DATABASE_ACCESS_NETWORK, target_url=database_url
     )
+    # validate specific image sha is present
+    proxy_image = get_proxy_image_sha(image, image_sha)
+    # TODO: For backwards compatibility; this if block, and the defaults for image and image sha
+    # can be removed once existing db tasks have completed
+    if image_sha is not None:
+        ensure_docker_sha_present(proxy_image, image)
     ps = docker(
         [
             "run",
@@ -465,7 +510,7 @@ def tpp_database_utils(args, database_name="default"):
             "-e",
             "DATABASE_URL",
             *network_config_args,
-            "ghcr.io/opensafely-core/tpp-database-utils",
+            proxy_image,
             *args,
         ],
         env={"DATABASE_URL": database_url},

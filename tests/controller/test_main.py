@@ -1017,7 +1017,11 @@ def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
 
     # It should have the attributes we expect
     assert tasks[0].backend == "test"
-    assert tasks[0].definition == {"database_name": "default"}
+    assert tasks[0].definition == {
+        "database_name": "default",
+        "image": "ghcr.io/opensafely-core/tpp-database-utils:latest",
+        "image_sha": "test-sha-for-tpp-database-utils:latest",
+    }
 
     # Running it again should not create another
     run_controller_loop_once()
@@ -1060,9 +1064,16 @@ def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
 # rather than just a test of `handle_task_update_dbstatus()`. But I feel more confident
 # in the code by exercising both elements, and there didn't feel like an obvious
 # alternative place to put this test.
+@patch("agent.main.ensure_docker_sha_present", autospec=True)
 @patch("agent.main.docker", autospec=True)
 def test_handle_task_update_dbstatus(
-    mock_docker, monkeypatch, db, freezer, responses, live_server
+    mock_docker,
+    mock_ensure_docker_sha_present,
+    monkeypatch,
+    db,
+    freezer,
+    responses,
+    live_server,
 ):
     responses.add_passthru(live_server.url)
     backend = "test"
@@ -1115,7 +1126,11 @@ def test_update_scheduled_task_for_db_data_check(db, monkeypatch, freezer):
 
     # It should have the attributes we expect
     assert tasks[0].backend == "test"
-    assert tasks[0].definition == {"hes_expected_activity_month": "202304"}
+    assert tasks[0].definition == {
+        "hes_expected_activity_month": "202304",
+        "image": "ghcr.io/opensafely-core/tpp-database-utils:latest",
+        "image_sha": "test-sha-for-tpp-database-utils:latest",
+    }
 
 
 def test_update_scheduled_task_for_db_data_check_in_db_maintenance(
