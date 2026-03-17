@@ -5,6 +5,7 @@ automatically re-run after a reboot.
 
 import argparse
 
+from controller.cli import flags
 from controller.cli.utils import add_backend_argument
 from controller.lib.database import find_where, transaction
 from controller.main import cancel_job, set_code
@@ -12,34 +13,9 @@ from controller.models import Job, State, StatusCode, Task, TaskType
 from controller.queries import get_flag_value
 
 
-def main(backend, status=False, require_confirmation=True):
-    # We MUST be paused in order to run prepare-for-reboot, otherwise the
-    # controller will just pick tasks right back up again
+def main(backend, status=False, skip_confirm=False):
+
     paused = str(get_flag_value("paused", backend, default="False")).lower() == "true"
-    if not paused and not status:
-        print(
-            f"\nBackend '{backend}' must be paused in order to prepare for a reboot\n"
-            "\n"
-            "Pause with:\n"
-            f"\tjust jobrunner/pause {backend}\n"
-            "\n"
-            "Then try again.\n"
-        )
-        return
-
-    if require_confirmation and not status:
-        print(
-            "== DANGER ZONE ==\n"
-            "\n"
-            f"This will kill all running jobs on backend '{backend}' and reset them to the PENDING state, ready\n"
-            "to be restarted following a reboot.\n"
-            "\n"
-            "It should only be run when the job-runner service has been paused on the backend."
-            "\n"
-        )
-        confirm = input("Are you sure you want to continue? (y/N)")
-        assert confirm.strip().lower() == "y"
-
     running_jobs = find_where(Job, state=State.RUNNING, backend=backend)
 
     if status:
@@ -58,13 +34,28 @@ def main(backend, status=False, require_confirmation=True):
         if not running_jobs and not cancel_tasks:
             # No jobs are running, and there are no active canceljob tasks, we are ready to reboot
             report += "\n== READY TO REBOOT ==\n"
-            if paused:
-                report += "Safe to reboot now\n"
-            else:
-                report += f"Pause backend '{backend}' before rebooting\n"
+            report += "Safe to reboot now\n"
 
         print(report)
         return
+
+    if not skip_confirm:
+        print(
+            "== DANGER ZONE ==\n"
+            "\n"
+            f"This will kill all running jobs on backend '{backend}' and reset them to the PENDING state, ready\n"
+            "to be restarted following a reboot.\n"
+            "\n"
+            "It should only be run when the job-runner service has been paused on the backend."
+            "\n"
+        )
+        confirm = input("Are you sure you want to continue? (y/N)")
+        assert confirm.strip().lower() == "y"
+
+    # We MUST be paused in order to cancel jobs in preparation for reboot, otherwise the
+    # controller will just pick tasks right back up again
+    print(f"pausing backend {backend}...")
+    flags.main(backend, "set", [("paused", "true")])
 
     for job in running_jobs:
         print(f"resetting job {job.slug} to PENDING")
@@ -87,6 +78,13 @@ def add_parser_args(parser):
         action="store_true",
         default=False,
         help="Report on status of system in prepration for reboot",
+    )
+    parser.add_argument(
+        "-y",
+        "--skip-confirm",
+        action="store_true",
+        default=False,
+        help="Skip confirmation prompt",
     )
 
 
