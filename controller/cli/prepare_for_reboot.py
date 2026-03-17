@@ -52,7 +52,7 @@ def main(backend, status=False, skip_confirm=False):
         confirm = input("Are you sure you want to continue? (y/N)")
         assert confirm.strip().lower() == "y"
 
-    # We MUST be paused in order to run prepare-for-reboot, otherwise the
+    # We MUST be paused in order to cancel jobs in preparation for reboot, otherwise the
     # controller will just pick tasks right back up again
     print(f"pausing backend {backend}...")
     flags.main(backend, "set", [("paused", "true")])
