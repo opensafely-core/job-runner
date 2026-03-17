@@ -433,6 +433,66 @@ def test_handle_cancel_job(
 
 @patch("agent.main.docker", autospec=True)
 @patch("agent.task_api.update_controller", spec=task_api.update_controller)
+def test_handle_db_status_job_with_image_sha(
+    mock_update_controller, mock_docker, monkeypatch
+):
+    busybox_sha = (
+        "sha256:dacd1aa51e0b27c0e36c4981a7a8d9d8ec2c4a74bf125c0a44d0709497a522e9"
+    )
+    monkeypatch.setattr(
+        config, "DATABASE_URLS", {"default": "database://localhost:1234"}
+    )
+
+    mock_docker.return_value = Mock(stdout="line 1\nline 2\ndb-maintenance")
+
+    # Test that the call to ensure_docker_sha_present succeed with a real image and sha
+    # In other tests we patch this
+    task = Task(
+        id="test_id",
+        backend="test",
+        type=TaskType.DBSTATUS,
+        definition={
+            "database_name": "default",
+            "image": "ghcr.io/opensafely-core/busybox:latest",
+            "image_sha": busybox_sha,
+        },
+        created_at=time.time(),
+    )
+
+    main.handle_single_task(task, api=None)
+
+    mock_docker.assert_called_with(
+        [
+            "run",
+            "--rm",
+            "-e",
+            "DATABASE_URL",
+            "--network",
+            "jobrunner-db",
+            "--dns",
+            "192.0.2.0",
+            "--add-host",
+            "localhost:127.0.0.1",
+            f"docker-proxy.opensafely.org/opensafely-core/busybox:latest@{busybox_sha}",
+            "in_maintenance_mode",
+        ],
+        env={"DATABASE_URL": "database://localhost:1234"},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    mock_update_controller.assert_called_with(
+        task,
+        stage="",
+        results={"results": {"status": "db-maintenance"}, "error": None},
+        complete=True,
+    )
+
+
+@patch("agent.main.ensure_docker_sha_present", autospec=True)
+@patch("agent.main.docker", autospec=True)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 @pytest.mark.parametrize(
     "docker_stdout,status,build_count",
     [
@@ -447,12 +507,83 @@ def test_handle_cancel_job(
     ],
 )
 def test_handle_db_status_job(
-    mock_update_controller, mock_docker, monkeypatch, docker_stdout, status, build_count
+    mock_update_controller,
+    mock_docker,
+    mock_ensure_docker_sha_present,
+    monkeypatch,
+    docker_stdout,
+    status,
+    build_count,
 ):
     monkeypatch.setattr(
         config, "DATABASE_URLS", {"default": "database://localhost:1234"}
     )
     mock_docker.return_value = Mock(stdout=docker_stdout)
+
+    task = Task(
+        id="test_id",
+        backend="test",
+        type=TaskType.DBSTATUS,
+        definition={
+            "database_name": "default",
+            "image": "ghcr.io/opensafely-core/test:v1",
+            "image_sha": "dummy-sha",
+        },
+        created_at=time.time(),
+    )
+
+    main.handle_single_task(task, api=None)
+
+    mock_docker.assert_called_with(
+        [
+            "run",
+            "--rm",
+            "-e",
+            "DATABASE_URL",
+            "--network",
+            "jobrunner-db",
+            "--dns",
+            "192.0.2.0",
+            "--add-host",
+            "localhost:127.0.0.1",
+            "docker-proxy.opensafely.org/opensafely-core/test:v1@dummy-sha",
+            "in_maintenance_mode",
+        ],
+        env={"DATABASE_URL": "database://localhost:1234"},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    mock_update_controller.assert_called_with(
+        task,
+        stage="",
+        results={"results": {"status": status}, "error": None},
+        complete=True,
+    )
+
+    spans = get_trace("agent_loop")
+    assert len(spans) == 1
+    span = spans[0]
+    assert span.attributes["agent.db-maintenance"] == (status == "db-maintenance")
+    assert span.attributes["agent.db-build-count"] == build_count
+
+
+@patch("agent.main.docker", autospec=True)
+@patch("agent.task_api.update_controller", spec=task_api.update_controller)
+def test_handle_db_status_job_with_default_image(
+    mock_update_controller, mock_docker, monkeypatch
+):
+    # Note: this tests the defaults that are included for backwards compatibility
+    # to handle existing tasks that don't have an image and image_sha in their
+    # task definitions. We don't mock ensure_docker_sha_present so we cover the
+    # case where it receives only an image and no sha
+    # Can be removed if/when the defaults are removed
+    monkeypatch.setattr(
+        config, "DATABASE_URLS", {"default": "database://localhost:1234"}
+    )
+
+    mock_docker.return_value = Mock(stdout="line 1\nline 2\ndb-maintenance")
 
     task = Task(
         id="test_id",
@@ -488,24 +619,25 @@ def test_handle_db_status_job(
     mock_update_controller.assert_called_with(
         task,
         stage="",
-        results={"results": {"status": status}, "error": None},
+        results={"results": {"status": "db-maintenance"}, "error": None},
         complete=True,
     )
 
-    spans = get_trace("agent_loop")
-    assert len(spans) == 1
-    span = spans[0]
-    assert span.attributes["agent.db-maintenance"] == (status == "db-maintenance")
-    assert span.attributes["agent.db-build-count"] == build_count
 
-
+@patch("agent.main.ensure_docker_sha_present", autospec=True)
 @patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_db_status_job_with_error(mock_update_controller):
+def test_handle_db_status_job_with_error(
+    mock_update_controller, mock_ensure_docker_sha_present
+):
     task = Task(
         id="test_id",
         backend="test",
         type=TaskType.DBSTATUS,
-        definition={"database_name": "no_such_database"},
+        definition={
+            "database_name": "no_such_database",
+            "image": "ghcr.io/opensafely-core/test:v1",
+            "image_sha": "sha123456",
+        },
         created_at=time.time(),
     )
 
@@ -522,16 +654,23 @@ def test_handle_db_status_job_with_error(mock_update_controller):
     )
 
 
+@patch("agent.main.ensure_docker_sha_present", autospec=True)
 @patch("agent.main.run_db_task", autospec=True)
 @patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_db_data_check_task(mock_update_controller, mock_run_db_task):
+def test_handle_db_data_check_task(
+    mock_update_controller, mock_run_db_task, mock_ensure_docker_sha_present
+):
     mock_run_db_task.return_value = "OK"
 
     task = Task(
         id="test_id",
         backend="test",
         type=TaskType.DBDATACHECK,
-        definition={"hes_expected_activity_month": "202304"},
+        definition={
+            "hes_expected_activity_month": "202304",
+            "image": "ghcr.io/opensafely-core/test:v1",
+            "image_sha": "sha123456",
+        },
         created_at=time.time(),
     )
 
@@ -539,8 +678,8 @@ def test_handle_db_data_check_task(mock_update_controller, mock_run_db_task):
 
     mock_run_db_task.assert_called_with(
         ["hes_cutoff_date_check", "202304"],
-        image="ghcr.io/opensafely-core/tpp-database-utils:latest",
-        image_sha=None,
+        image="ghcr.io/opensafely-core/test:v1",
+        image_sha="sha123456",
     )
 
     mock_update_controller.assert_called_with(
@@ -551,25 +690,39 @@ def test_handle_db_data_check_task(mock_update_controller, mock_run_db_task):
     )
 
 
+@patch("agent.main.ensure_docker_sha_present", autospec=True)
 @patch("agent.main.docker", autospec=True)
-def test_db_status_task_rejects_unexpected_status(mock_docker, monkeypatch):
+def test_db_status_task_rejects_unexpected_status(
+    mock_docker, mock_ensure_docker_sha_present, monkeypatch
+):
     monkeypatch.setattr(
         config, "DATABASE_URLS", {"default": "database://localhost:1234"}
     )
     mock_docker.return_value = Mock(stdout="unexpected value")
     with pytest.raises(ValueError, match="Invalid status") as exc:
-        main.db_status_task(database_name="default")
+        main.db_status_task(
+            database_name="default",
+            image="ghcr.io/opensafely-core/test:v1",
+            image_sha="sha123456",
+        )
     assert "unexpected value" not in str(exc.value)
 
 
+@patch("agent.main.ensure_docker_sha_present", autospec=True)
 @patch("agent.main.docker", autospec=True)
-def test_db_data_check_task_rejects_unexpected_status(mock_docker, monkeypatch):
+def test_db_data_check_task_rejects_unexpected_status(
+    mock_docker, mock_ensure_docker_sha_present, monkeypatch
+):
     monkeypatch.setattr(
         config, "DATABASE_URLS", {"default": "database://localhost:1234"}
     )
     mock_docker.return_value = Mock(stdout="unexpected value")
     with pytest.raises(ValueError, match="Invalid status") as exc:
-        main.db_data_check_task(hes_expected_activity_month="202501")
+        main.db_data_check_task(
+            hes_expected_activity_month="202501",
+            image="ghcr.io/opensafely-core/test:v1",
+            image_sha="sha123456",
+        )
     assert "unexpected value" not in str(exc.value)
 
 
