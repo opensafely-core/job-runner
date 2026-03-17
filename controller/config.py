@@ -203,3 +203,8 @@ REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS = {
     "https://github.com/opensafely/ve-ccw",
     "https://github.com/opensafely/covid-vaccine-history",
 }
+
+
+SCHEDULED_TASK_IMAGES = {
+    "db": os.environ.get("DB_SCHEDULED_TASK_IMAGE", "tpp-database-utils:latest")
+}
