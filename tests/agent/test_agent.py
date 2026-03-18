@@ -571,61 +571,6 @@ def test_handle_db_status_job(
     assert span.attributes["agent.db-image_id"] == "dummy-sha"
 
 
-@patch("agent.main.docker", autospec=True)
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_db_status_job_with_default_image(
-    mock_update_controller, mock_docker, monkeypatch
-):
-    # Note: this tests the defaults that are included for backwards compatibility
-    # to handle existing tasks that don't have an image and image_sha in their
-    # task definitions. We don't mock ensure_docker_sha_present so we cover the
-    # case where it receives only an image and no sha
-    # Can be removed if/when the defaults are removed
-    monkeypatch.setattr(
-        config, "DATABASE_URLS", {"default": "database://localhost:1234"}
-    )
-
-    mock_docker.return_value = Mock(stdout="line 1\nline 2\ndb-maintenance")
-
-    task = Task(
-        id="test_id",
-        backend="test",
-        type=TaskType.DBSTATUS,
-        definition={"database_name": "default"},
-        created_at=time.time(),
-    )
-
-    main.handle_single_task(task, api=None)
-
-    mock_docker.assert_called_with(
-        [
-            "run",
-            "--rm",
-            "-e",
-            "DATABASE_URL",
-            "--network",
-            "jobrunner-db",
-            "--dns",
-            "192.0.2.0",
-            "--add-host",
-            "localhost:127.0.0.1",
-            "docker-proxy.opensafely.org/opensafely-core/tpp-database-utils:latest",
-            "in_maintenance_mode",
-        ],
-        env={"DATABASE_URL": "database://localhost:1234"},
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    mock_update_controller.assert_called_with(
-        task,
-        stage="",
-        results={"results": {"status": "db-maintenance"}, "error": None},
-        complete=True,
-    )
-
-
 @patch("agent.main.ensure_docker_sha_present", autospec=True)
 @patch("agent.task_api.update_controller", spec=task_api.update_controller)
 def test_handle_db_status_job_with_error(
