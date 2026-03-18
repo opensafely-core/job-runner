@@ -265,20 +265,6 @@ def test_prepare_volume_exists_unprepared(docker_cleanup, job_definition):
     assert status.state == ExecutorState.PREPARED
 
 
-# TODO: remove once new definition migrated
-@pytest.mark.needs_docker
-def test_prepare_no_image(docker_cleanup, job_definition, request):
-    if job_definition.image_sha:
-        pytest.skip("test only valid without image_sha")
-    job_definition.image = "invalid-test-image"
-    api = local.LocalDockerAPI()
-
-    with pytest.raises(local.LocalExecutorError) as exc:
-        api.prepare(job_definition)
-
-    assert job_definition.image in str(exc)
-
-
 @pytest.mark.needs_docker
 @pytest.mark.parametrize("ext", config.ARCHIVE_FORMATS)
 def test_prepare_archived(ext, job_definition):
