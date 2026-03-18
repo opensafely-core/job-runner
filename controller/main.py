@@ -666,10 +666,9 @@ def cancel_job(job):
 
 
 def update_scheduled_tasks():
-    db_task_image = (
-        f"{common_config.DOCKER_REGISTRY}/{config.SCHEDULED_TASK_IMAGES['db']}"
-    )
-    db_task_image_sha = docker.get_current_image_sha(config.SCHEDULED_TASK_IMAGES["db"])
+    db_image_name = "tpp-database-utils:latest"
+    db_task_image = f"{common_config.DOCKER_REGISTRY}/{db_image_name}"
+    db_task_image_sha = docker.get_current_image_sha(db_image_name)
     for backend in config.MAINTENANCE_ENABLED_BACKENDS:
         update_scheduled_task_for_db_maintenance_for_backend(
             backend, db_task_image, db_task_image_sha

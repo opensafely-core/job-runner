@@ -204,8 +204,3 @@ PROJECTS_WITH_EHRQL_EVENT_LEVEL_ACCESS = {
     # changes to porject ID or something we will need to update this.
     "echo-evaluation-of-covid-19-vaccine-histories-using-opensafely"
 }
-
-
-SCHEDULED_TASK_IMAGES = {
-    "db": os.environ.get("DB_SCHEDULED_TASK_IMAGE", "tpp-database-utils:latest")
-}
