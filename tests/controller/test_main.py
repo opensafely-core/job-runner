@@ -907,22 +907,22 @@ def test_job_definition_stata_license(db, monkeypatch, run_command, expect_env):
 
 
 @pytest.mark.parametrize(
-    "repo_url,expect_env",
+    "project,expect_env",
     [
-        ("https://github.com/opensafely/ok-repo", True),
-        ("https://github.com/opensafely/not-ok-repo", False),
+        ("ok-project", True),
+        ("not-ok-project", False),
     ],
 )
-def test_job_definition_ehrql_event_level_access(db, monkeypatch, repo_url, expect_env):
+def test_job_definition_ehrql_event_level_access(db, monkeypatch, project, expect_env):
     monkeypatch.setattr(
         config,
-        "REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS",
-        {"https://github.com/opensafely/ok-repo"},
+        "PROJECTS_WITH_EHRQL_EVENT_LEVEL_ACCESS",
+        {"ok-project"},
     )
     job = job_factory(
         requires_db=True,
-        repo_url=repo_url,
-        analysis_scope=build_analysis_scope({}, repo_url),
+        project=project,
+        analysis_scope=build_analysis_scope({}, project),
     )
     job_definition = main.job_to_job_definition(job, task_id="")
     if expect_env:

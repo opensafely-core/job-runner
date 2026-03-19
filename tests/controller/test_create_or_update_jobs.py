@@ -470,17 +470,17 @@ def test_create_db_job_with_dataset_permissions(
 
 
 @pytest.mark.parametrize(
-    "rap_api_analysis_scope,repo_url,expected_job_analysis_scope",
+    "rap_api_analysis_scope,project,expected_job_analysis_scope",
     [
-        ({}, "https://github.com/opensafely/not-ok-repo", {"dataset_permissions": []}),
+        ({}, "not-ok-project", {"dataset_permissions": []}),
         (
             {},
-            "https://github.com/opensafely/ok-repo",
+            "ok-project",
             {"dataset_permissions": [], "component_access": ["event_level_data"]},
         ),
         (
             {"component_access": ["some_other_component"]},
-            "https://github.com/opensafely/ok-repo",
+            "ok-project",
             {
                 "dataset_permissions": [],
                 "component_access": ["event_level_data", "some_other_component"],
@@ -492,18 +492,18 @@ def test_create_db_job_with_component_access(
     tmp_work_dir,
     monkeypatch,
     rap_api_analysis_scope,
-    repo_url,
+    project,
     expected_job_analysis_scope,
 ):
     monkeypatch.setattr(
         controller.config,
-        "REPOS_WITH_EHRQL_EVENT_LEVEL_ACCESS",
-        {"https://github.com/opensafely/ok-repo"},
+        "PROJECTS_WITH_EHRQL_EVENT_LEVEL_ACCESS",
+        {"ok-project"},
     )
     create_rap_request = make_create_request(
         action="generate_dataset",
         analysis_scope=rap_api_analysis_scope,
-        repo_url=repo_url,
+        project=project,
     )
     with mock.patch("controller.create_or_update_jobs.validate_rap_create_request"):
         create_jobs_with_project_file(create_rap_request, TEST_PROJECT)
