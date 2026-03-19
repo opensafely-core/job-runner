@@ -296,9 +296,7 @@ def ensure_docker_sha_present(proxy_image_with_sha, registry_image_with_label):
         )
 
 
-def get_proxy_image_sha(full_image, sha=None):
+def get_proxy_image_sha(full_image, sha):
     assert common_config.DOCKER_REGISTRY in full_image
     proxy_image = full_image.replace(common_config.DOCKER_REGISTRY, config.DOCKER_PROXY)
-    if sha:
-        return f"{proxy_image}@{sha}"
-    return proxy_image
+    return f"{proxy_image}@{sha}"
