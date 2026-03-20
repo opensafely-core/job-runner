@@ -218,6 +218,36 @@ Outputs and logs from the job can be found at `workdir/high_privacy` and `workdi
 Note that `add-job` adds a job with a workspace named `test` by default, so e.g. high privacy
 outputs will be found in `workdir/high_privacy/workspaces/test`.
 
+### Docker Test controller
+
+The production image provides a `test-controller` command for running a dummy
+controller (web API + controller loop) with ephemeral local state. It is used
+in this repo's functional tests, but also can be used by other code than need
+to test an agent.
+
+```sh
+docker run --rm -p 8000:8000 ghcr.io/opensafely-core/job-runner:<tag> test-controller <backend> <token>
+```
+
+The command requires exactly two arguments:
+
+1. backend name
+2. token value
+
+All other settings are set internally by the script. The database and working
+directories are created under `/tmp` in the container and are not persisted by
+default.
+
+The script runs the two main processes:
+ - `controller.service` (with `CONTROLLER_ENABLE_TICKS=False`)
+ - `controller.webapp`
+
+You can add a job for the controller to run with:
+
+```
+docker compose exec test-controller python3 -m controller.cli.add_job --backend test https://github.com/opensafely/research-template generate_dataset
+```
+
 ### Running locally with a local job-server
 
 To run a more complete system locally, you can connect your local agent and controller components to
