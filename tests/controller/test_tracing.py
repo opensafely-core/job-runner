@@ -36,6 +36,7 @@ def test_trace_attributes(db):
     attrs = tracing.trace_attributes(job, results)
 
     assert attrs == {
+        "rap.backend": "test",
         "job.backend": "test",
         "job.id": job.id,
         "job.request": job.rap_id,
@@ -83,6 +84,7 @@ def test_trace_attributes_analysis_scope(db):
     attrs = tracing.trace_attributes(job, results=None)
 
     assert attrs == {
+        "rap.backend": "test",
         "job.backend": "test",
         "job.id": job.id,
         "job.request": job.rap_id,
@@ -120,6 +122,7 @@ def test_trace_attributes_missing(db):
     attrs = tracing.trace_attributes(job)
 
     assert attrs == {
+        "rap.backend": "test",
         "job.backend": "test",
         "job.id": job.id,
         "job.request": job.rap_id,
@@ -199,6 +202,7 @@ def test_finish_current_job_state(db):
     assert spans[-1].start_time == start_time
     assert spans[-1].end_time == ts
     assert spans[-1].attributes["job.extra"] == "extra"
+    assert spans[-1].attributes["rap.backend"] == job.backend
     assert spans[-1].attributes["job.id"] == job.id
     assert spans[-1].attributes["job.exit_code"] == 0
 
@@ -211,11 +215,13 @@ def test_record_final_job_state_success(db):
 
     spans = get_trace("jobs")
     assert spans[-2].name == "SUCCEEDED"
+    assert spans[-2].attributes["rap.backend"] == job.backend
     assert spans[-2].attributes["job.exit_code"] == 0
     assert spans[-2].attributes["job.succeeded"] is True
     assert spans[-2].status.is_ok
 
     assert spans[-1].name == "JOB"
+    assert spans[-1].attributes["rap.backend"] == job.backend
     assert spans[-1].attributes["job.exit_code"] == 0
     assert spans[-1].attributes["job.succeeded"] is True
     assert spans[-2].status.is_ok

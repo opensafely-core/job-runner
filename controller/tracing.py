@@ -229,6 +229,9 @@ def trace_attributes(job, results=None):
     """
 
     attrs = {
+        # global filtering attribute for a backend, inferred from the job
+        "rap.backend": job.backend,
+        # job specific metadata
         "job.backend": job.backend,
         "job.id": job.id,
         "job.request": job.rap_id,
