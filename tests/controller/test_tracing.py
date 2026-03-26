@@ -227,6 +227,40 @@ def test_record_final_job_state_success(db):
     assert spans[-2].status.is_ok
 
 
+def test_set_span_scope_metadata():
+    tracer = trace.get_tracer("test")
+
+    with tracer.start_as_current_span("test") as span:
+        tracing.set_span_scope_metadata(
+            span,
+            backend="test-backend",
+            workspace="test-workspace",
+            extra={"job_count": 3},
+        )
+
+    span = get_trace("test")[0]
+    assert span.attributes == {
+        "rap.backend": "test-backend",
+        "rap.workspace": "test-workspace",
+        "job_count": 3,
+    }
+
+
+def test_set_span_scope_metadata_without_backend_or_workspace():
+    tracer = trace.get_tracer("test")
+
+    with tracer.start_as_current_span("test") as span:
+        tracing.set_span_scope_metadata(
+            span,
+            extra={"job_count": 3},
+        )
+
+    span = get_trace("test")[0]
+    assert span.attributes == {
+        "job_count": 3,
+    }
+
+
 def test_record_final_job_state_job_failure(db):
     job = job_factory(status_code=models.StatusCode.NONZERO_EXIT)
     ts = int(time.time() * 1e9)

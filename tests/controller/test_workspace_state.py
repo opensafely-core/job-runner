@@ -25,8 +25,16 @@ def test_gets_one_job(db):
     assert len(spans) == 2
     assert spans[0].name == "calculate_workspace_state_db"
     assert spans[0].attributes["job_count"] == 1
+    assert spans[0].attributes["rap.backend"] == "the-backend"
+    assert spans[0].attributes["rap.workspace"] == "the-workspace"
+    assert "job.backend" not in spans[0].attributes
+    assert "job.workspace" not in spans[0].attributes
     assert spans[1].name == "calculate_workspace_state_python"
     assert spans[1].attributes["job_count"] == 1
+    assert spans[1].attributes["rap.backend"] == "the-backend"
+    assert spans[1].attributes["rap.workspace"] == "the-workspace"
+    assert "job.backend" not in spans[1].attributes
+    assert "job.workspace" not in spans[1].attributes
 
 
 def test_gets_a_job_for_each_action(db):
