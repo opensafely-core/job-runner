@@ -12,6 +12,7 @@
   - [The RAP Agent](#the-rap-agent)
   - [The RAP Controller](#the-rap-controller)
   - [The RAP Controller APIs](#the-rap-controller-apis)
+  - [Telemetry](#telemetry)
   - [Configuration](#configuration)
   - [Job State](#job-state)
 - [Running jobs on the test backend](#running-jobs-on-the-test-backend)
@@ -530,6 +531,30 @@ The RAP API is used by non-agent clients to communicate with the RAP Controller.
 - `/rap/status/`: returns current status of jobs in the controller database for the requested RAP IDs. This endpoint is polled by job-server every minute.
 
 We use the OpenAPI specification to describe the API. See the [RAP API](./controller/webapp/api_spec/RAP_API_DEVELOPERS.md) documentation for more details.
+
+
+### Telemetry
+
+Tracing is configured in [common/tracing.py](./common/tracing.py). Both the
+agent and controller export spans with shared resource attributes such as
+`rap.service`, while span-specific metadata is attached closer to the business
+logic.
+
+Use the following naming conventions for span attributes:
+
+- `rap.*` for cross-service routing or scope fields that are useful for filtering
+  telemetry regardless of which service emitted it.
+- `job.*` for attributes that describe a concrete job.
+
+Current controller helpers follow this contract:
+
+- Use [controller.tracing.set_span_job_metadata()](./controller/tracing.py) when
+  the span is about a specific job. This sets the full `job.*` payload and also
+  sets `rap.backend` from the job so job-related controller telemetry can be
+  filtered by backend in Honeycomb.
+- Use [controller.tracing.set_span_scope_metadata()](./controller/tracing.py)
+  when the span is scoped to a backend or workspace but is not about a specific
+  job, for example controller query spans.
 
 
 ### Configuration
