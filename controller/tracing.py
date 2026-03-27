@@ -223,12 +223,28 @@ def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
         logger.exception(f"failed to trace job {job.id}")
 
 
+def set_span_scope_metadata(span, *, backend=None, workspace=None, extra=None):
+    """Set controller span metadata for non-job backend/workspace scope."""
+    attributes = dict(extra or {})
+
+    if backend is not None:
+        attributes["rap.backend"] = backend
+
+    if workspace is not None:
+        attributes["rap.workspace"] = workspace
+
+    set_span_attributes(span, attributes)
+
+
 def trace_attributes(job, results=None):
     """These attributes are added to every span in order to slice and dice by
     each as needed.
     """
 
     attrs = {
+        # global filtering attribute for a backend, inferred from the job
+        "rap.backend": job.backend,
+        # job specific metadata
         "job.backend": job.backend,
         "job.id": job.id,
         "job.request": job.rap_id,
