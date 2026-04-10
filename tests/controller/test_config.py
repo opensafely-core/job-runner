@@ -46,9 +46,9 @@ def test_max_workers():
     cfg = import_cfg(
         {"BACKENDS": "foo,bar,test", "FOO_MAX_DB_WORKERS": "3", "BAR_MAX_WORKERS": "7"}
     )
-    # overall default is 10 if no default specified in config
+    # overall default is 4 if no default specified in config
     # (test backend is set at 2)
-    assert cfg["MAX_WORKERS"] == str({"foo": 10, "bar": 7, "test": 2})
+    assert cfg["MAX_WORKERS"] == str({"foo": 4, "bar": 7, "test": 2})
 
     assert cfg["MAX_DB_WORKERS"] == str(
         {
