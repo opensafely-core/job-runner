@@ -59,6 +59,9 @@ def main(exit_callback=lambda _: False):
 
 
 def handle_jobs():
+    # Not strictly necessary but minimises the potential for weird issues
+    invalidate_resource_usage_cache()
+
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -563,8 +566,11 @@ def get_resource_usage(backend):
     return resource_usage
 
 
-def invalidate_resource_usage_cache(backend):
-    RESOURCE_USAGE_CACHE.pop(backend, None)
+def invalidate_resource_usage_cache(backend=None):
+    if backend is not None:
+        RESOURCE_USAGE_CACHE.pop(backend, None)
+    else:
+        RESOURCE_USAGE_CACHE.clear()
 
 
 def calculate_resource_usage(backend):
