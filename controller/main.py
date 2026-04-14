@@ -432,6 +432,8 @@ def set_code(
     collisions when states transition in <1s. Due to this, timestamp parameter
     should be the output of time.time() i.e. a float representing seconds.
     """
+    original_state = job.state
+
     current_timestamp_ns = int(time.time() * 1e9)
     if task_timestamp_ns is None:
         task_timestamp_ns = current_timestamp_ns
@@ -531,6 +533,9 @@ def set_code(
         if datetime.datetime.fromtimestamp(timestamp_s).minute % 10 == 0:
             log.info(job.status_message, extra={"status_code": job.status_code})
 
+    if job.state != original_state:
+        invalidate_resource_usage_cache(job.backend)
+
 
 def refresh_job_timestamps(job):
     # `set_code()` already contains logic to handle updating timestamps at an
@@ -545,7 +550,24 @@ class ResourceUsage:
     running_db_jobs: int
 
 
+RESOURCE_USAGE_CACHE = {}
+
+
 def get_resource_usage(backend):
+    try:
+        return RESOURCE_USAGE_CACHE[backend]
+    except KeyError:
+        pass
+    resource_usage = calculate_resource_usage(backend)
+    RESOURCE_USAGE_CACHE[backend] = resource_usage
+    return resource_usage
+
+
+def invalidate_resource_usage_cache(backend):
+    RESOURCE_USAGE_CACHE.pop(backend, None)
+
+
+def calculate_resource_usage(backend):
     running_jobs = find_where(Job, state=State.RUNNING, backend=backend)
     total = sum(get_job_resource_weight(job) for job in running_jobs)
     running_db_jobs = len([job for job in running_jobs if job.requires_db])
