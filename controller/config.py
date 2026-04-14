@@ -178,6 +178,10 @@ DATABASE_EXIT_CODES = {
     11: "There was a problem reading one of the supplied data files",
     12: "You do not have the required permissions for the ehrQL you are trying to run",
     13: "Assurance tests failed; please confirm the tests pass locally",
+    14: (
+        "Your job was making such slow progress that it was unlikely to complete "
+        "successfully; please contact tech support so we can help you to simplify it."
+    ),
 }
 
 
