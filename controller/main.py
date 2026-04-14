@@ -5,6 +5,7 @@ updates its state as appropriate.
 """
 
 import collections
+import dataclasses
 import datetime
 import json
 import logging
@@ -538,15 +539,23 @@ def refresh_job_timestamps(job):
     set_code(job, job.status_code, job.status_message)
 
 
+@dataclasses.dataclass(frozen=True)
+class ResourceUsage:
+    total: float
+    running_db_jobs: int
+
+
+def get_resource_usage(backend):
+    running_jobs = find_where(Job, state=State.RUNNING, backend=backend)
+    total = sum(get_job_resource_weight(job) for job in running_jobs)
+    running_db_jobs = len([job for job in running_jobs if job.requires_db])
+    return ResourceUsage(total=total, running_db_jobs=running_db_jobs)
+
+
 def get_reason_job_not_started(job):
-    log.debug("Querying for running jobs")
-    running_jobs = find_where(Job, state=State.RUNNING, backend=job.backend)
-    log.debug("Query done")
-    used_resources = sum(
-        get_job_resource_weight(running_job) for running_job in running_jobs
-    )
+    resource_usage = get_resource_usage(job.backend)
     required_resources = get_job_resource_weight(job)
-    if used_resources + required_resources > config.MAX_WORKERS[job.backend]:
+    if resource_usage.total + required_resources > config.MAX_WORKERS[job.backend]:
         if required_resources > 1:
             return (
                 StatusCode.WAITING_ON_WORKERS,
@@ -556,8 +565,7 @@ def get_reason_job_not_started(job):
             return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
 
     if job.requires_db:
-        running_db_jobs = len([j for j in running_jobs if j.requires_db])
-        if running_db_jobs >= config.MAX_DB_WORKERS[job.backend]:
+        if resource_usage.running_db_jobs >= config.MAX_DB_WORKERS[job.backend]:
             return (
                 StatusCode.WAITING_ON_DB_WORKERS,
                 "Waiting on available database workers",
