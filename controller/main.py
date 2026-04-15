@@ -5,6 +5,7 @@ updates its state as appropriate.
 """
 
 import collections
+import dataclasses
 import datetime
 import json
 import logging
@@ -58,6 +59,9 @@ def main(exit_callback=lambda _: False):
 
 
 def handle_jobs():
+    # Not strictly necessary but minimises the potential for weird issues
+    invalidate_resource_usage_cache()
+
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -431,6 +435,8 @@ def set_code(
     collisions when states transition in <1s. Due to this, timestamp parameter
     should be the output of time.time() i.e. a float representing seconds.
     """
+    original_state = job.state
+
     current_timestamp_ns = int(time.time() * 1e9)
     if task_timestamp_ns is None:
         task_timestamp_ns = current_timestamp_ns
@@ -530,6 +536,9 @@ def set_code(
         if datetime.datetime.fromtimestamp(timestamp_s).minute % 10 == 0:
             log.info(job.status_message, extra={"status_code": job.status_code})
 
+    if job.state != original_state:
+        invalidate_resource_usage_cache(job.backend)
+
 
 def refresh_job_timestamps(job):
     # `set_code()` already contains logic to handle updating timestamps at an
@@ -538,15 +547,43 @@ def refresh_job_timestamps(job):
     set_code(job, job.status_code, job.status_message)
 
 
+@dataclasses.dataclass(frozen=True)
+class ResourceUsage:
+    total: float
+    running_db_jobs: int
+
+
+RESOURCE_USAGE_CACHE = {}
+
+
+def get_resource_usage(backend):
+    try:
+        return RESOURCE_USAGE_CACHE[backend]
+    except KeyError:
+        pass
+    resource_usage = calculate_resource_usage(backend)
+    RESOURCE_USAGE_CACHE[backend] = resource_usage
+    return resource_usage
+
+
+def invalidate_resource_usage_cache(backend=None):
+    if backend is not None:
+        RESOURCE_USAGE_CACHE.pop(backend, None)
+    else:
+        RESOURCE_USAGE_CACHE.clear()
+
+
+def calculate_resource_usage(backend):
+    running_jobs = find_where(Job, state=State.RUNNING, backend=backend)
+    total = sum(get_job_resource_weight(job) for job in running_jobs)
+    running_db_jobs = len([job for job in running_jobs if job.requires_db])
+    return ResourceUsage(total=total, running_db_jobs=running_db_jobs)
+
+
 def get_reason_job_not_started(job):
-    log.debug("Querying for running jobs")
-    running_jobs = find_where(Job, state=State.RUNNING, backend=job.backend)
-    log.debug("Query done")
-    used_resources = sum(
-        get_job_resource_weight(running_job) for running_job in running_jobs
-    )
+    resource_usage = get_resource_usage(job.backend)
     required_resources = get_job_resource_weight(job)
-    if used_resources + required_resources > config.MAX_WORKERS[job.backend]:
+    if resource_usage.total + required_resources > config.MAX_WORKERS[job.backend]:
         if required_resources > 1:
             return (
                 StatusCode.WAITING_ON_WORKERS,
@@ -556,8 +593,7 @@ def get_reason_job_not_started(job):
             return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
 
     if job.requires_db:
-        running_db_jobs = len([j for j in running_jobs if j.requires_db])
-        if running_db_jobs >= config.MAX_DB_WORKERS[job.backend]:
+        if resource_usage.running_db_jobs >= config.MAX_DB_WORKERS[job.backend]:
             return (
                 StatusCode.WAITING_ON_DB_WORKERS,
                 "Waiting on available database workers",

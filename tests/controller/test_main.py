@@ -1163,3 +1163,33 @@ def test_update_scheduled_task_for_db_data_check_in_db_maintenance(
     tasks = database.find_where(Task, type=TaskType.DBDATACHECK)
     assert len(tasks) == 1
     assert not tasks[0].active
+
+
+def test_resource_usage_cache(monkeypatch, db):
+    monkeypatch.setattr(config, "MAX_WORKERS", {"test": 1})
+
+    # Create a single job which should be started
+    job_1 = job_factory()
+    main.handle_single_job(job_1)
+    assert job_1.state == State.RUNNING
+
+    # Confirm there's no cache value for this backend
+    assert "test" not in main.RESOURCE_USAGE_CACHE
+
+    # Create a second job which will be waiting on workers
+    job_2 = job_factory()
+    main.handle_single_job(job_2)
+    assert job_2.state == State.PENDING
+
+    # Confirm that we've created a cache for this backend
+    assert "test" in main.RESOURCE_USAGE_CACHE
+
+    # Visit both jobs again and confirm the cache persists
+    main.handle_single_job(job_1)
+    main.handle_single_job(job_2)
+    assert "test" in main.RESOURCE_USAGE_CACHE
+
+    # Complete job 1 and confirm this invalidates the cache
+    set_job_task_results(job_1, job_task_results_factory())
+    main.handle_single_job(job_1)
+    assert "test" not in main.RESOURCE_USAGE_CACHE
