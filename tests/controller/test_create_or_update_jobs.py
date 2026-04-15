@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 from unittest import mock
 
+import pipeline.loading
 import pytest
 
 import common.config
@@ -59,6 +60,14 @@ actions:
       moderately_sensitive:
         analysis: analysis.txt
 """
+
+
+def test_opensafely_pipeline_fastparser_available():
+    assert pipeline.loading.FAST_PARSER is not None, (
+        "opensafely-pipeline[fastparser] does not seem to be installed.\n"
+        "YAML parsing will fallback to the pure Python parser which is "
+        "significantly slower."
+    )
 
 
 def test_adding_job_creates_dependencies(tmp_work_dir):
