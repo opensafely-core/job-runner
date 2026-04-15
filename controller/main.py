@@ -685,7 +685,7 @@ def update_scheduled_task_for_db_maintenance_for_backend(
     schedule_regular_task(
         backend=backend,
         task_type=TaskType.DBSTATUS,
-        task_definition={
+        get_task_definition=lambda: {
             "database_name": "default",
             "image": db_task_image,
             "image_sha": db_task_image_sha,
@@ -701,7 +701,7 @@ def update_scheduled_task_for_db_data_check_for_backend(
     schedule_regular_task(
         backend=backend,
         task_type=TaskType.DBDATACHECK,
-        task_definition={
+        get_task_definition=lambda: {
             "hes_expected_activity_month": config.DATA_CHECK_HES_EXPECTED_ACTIVITY_MONTH,
             "image": db_task_image,
             "image_sha": db_task_image_sha,
@@ -712,7 +712,7 @@ def update_scheduled_task_for_db_data_check_for_backend(
 
 
 def schedule_regular_task(
-    *, backend, task_type, task_definition, task_interval, is_active
+    *, backend, task_type, get_task_definition, task_interval, is_active
 ):
     # If we're not supposed to be active then deactivate any currently active tasks and
     # exit
@@ -755,7 +755,7 @@ def schedule_regular_task(
             id=f"{task_type.value}-{datetime.date.today()}-{secrets.token_hex(10)}",
             type=task_type,
             backend=backend,
-            definition=task_definition,
+            definition=get_task_definition(),
         )
     )
 
