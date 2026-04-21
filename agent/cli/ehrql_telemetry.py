@@ -54,6 +54,12 @@ def main(argv):
 
     # force our name to be used as dataset
     os.environ["OTEL_SERVICE_NAME"] = args.dataset
+    # This script is designed to dump a whole job's worth of telemetry over a very short
+    # time, so if we don't change some of the defaults we can end up overflowing the
+    # queue and dropping spans
+    # https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#batch-span-processor
+    os.environ["OTEL_BSP_MAX_QUEUE_SIZE"] = "102400"  # default is 2048
+    os.environ["OTEL_BSP_EXPORT_TIMEOUT"] = "120000"  # default = 30000ms
     setup_default_tracing("agent")
 
     run(metadata, logs)
