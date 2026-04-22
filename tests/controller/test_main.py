@@ -280,6 +280,39 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     assert spans[-1].name == "CREATED"
 
 
+def test_handle_job_waiting_on_db_workers_resource_intensive_job(monkeypatch, db):
+    monkeypatch.setattr(config, "MAX_DB_WORKERS", {"test": 3})
+    monkeypatch.setattr(
+        config,
+        "JOB_RESOURCE_WEIGHTS",
+        {"test": {"workspace": {re.compile(r"high_load.*"): 2.0}}},
+    )
+    # Set this high so we're only constrained by the db worker limit
+    monkeypatch.setattr(config, "MAX_WORKERS", {"test": 10})
+
+    # We have 3 available db workers and this job consumes 2 units, so it should start
+    # running
+    job1 = job_factory(workspace="workspace", action="high_load_1", requires_db=True)
+    run_controller_loop_once()
+    job1 = database.find_one(Job, id=job1.id)
+    assert job1.state == State.RUNNING
+
+    # We now have only 1 available db worker and this job consumes 2 units, so it should
+    # remaining pending
+    job2 = job_factory(workspace="workspace", action="high_load_2", requires_db=True)
+    run_controller_loop_once()
+    job2 = database.find_one(Job, id=job2.id)
+    assert job2.state == State.PENDING
+    assert job2.status_code == StatusCode.WAITING_ON_DB_WORKERS
+
+    # We have 1 available db worker but this job only needs 1 worker, so it should start
+    # running
+    job3 = job_factory(workspace="workspace", action="normal_load", requires_db=True)
+    run_controller_loop_once()
+    job3 = database.find_one(Job, id=job3.id)
+    assert job3.state == State.RUNNING
+
+
 def test_handle_job_finalized_success_with_large_file(db):
     # insert previous outputs
     job_factory(
