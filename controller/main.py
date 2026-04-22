@@ -360,6 +360,13 @@ def job_to_job_definition(job, task_id, image_sha=None):
         env["EHRQL_PERMISSIONS"] = json.dumps(
             list(chain.from_iterable(job.analysis_scope.values()))
         )
+        # Temporary code (pinkie promise! - evansd 2026-04-22) to see what effect
+        # splitting queries into a larger number of smaller joins has on these
+        # problematic database jobs. Slack discussion at:
+        # https://bennettoxford.slack.com/archives/C069YDR4NCA/p1776772327871539
+        if job.workspace == "neurodegenerativediseaseburden-v1":  # pragma: no cover
+            # The default is 16
+            env["EHRQL_MAX_JOIN_COUNT"] = "8"
 
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
