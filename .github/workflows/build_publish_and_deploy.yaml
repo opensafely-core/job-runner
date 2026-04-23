@@ -20,6 +20,10 @@ permissions:
   packages: write
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-publish-and-deploy-docker-image:
     runs-on: ubuntu-22.04
@@ -35,7 +39,7 @@ jobs:
         just docker/build prod # explicitly build prod as well
     - name: Test image
       run: just docker/test
-    
+
     - name: Publish docker image
       run: |
         echo ${{ secrets.GITHUB_TOKEN }} | docker login "$REGISTRY" -u ${{ github.actor }} --password-stdin
