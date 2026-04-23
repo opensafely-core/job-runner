@@ -97,7 +97,7 @@ bump-uv-cutoff days="7":
 update-dependencies: upgrade-pipeline bump-uv-cutoff upgrade-all
 
 # Upgrade version of opensafely-pipeline library
-upgrade-pipeline: && devenv
+upgrade-pipeline: && devenv uvmirror
     ./scripts/upgrade-pipeline.sh pyproject.toml
 
 # Run the tests
