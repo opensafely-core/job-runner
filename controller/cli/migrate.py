@@ -4,6 +4,7 @@ Run any pending database migrations
 
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from common.lib import log_utils
@@ -12,6 +13,9 @@ from controller.lib import database
 
 
 def main(dbpath):
+    # Temporarily write a file to the same location as dbpath, to
+    # test access to mounted storage on deploy
+    (dbpath.parent / f"migrations_run_{datetime.now().isoformat()}").touch()
     database.ensure_db(dbpath, verbose=True)
 
 
