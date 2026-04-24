@@ -9,6 +9,7 @@ import dataclasses
 import datetime
 import json
 import logging
+import os
 import secrets
 import sys
 import time
@@ -364,9 +365,10 @@ def job_to_job_definition(job, task_id, image_sha=None):
         # splitting queries into a larger number of smaller joins has on these
         # problematic database jobs. Slack discussion at:
         # https://bennettoxford.slack.com/archives/C069YDR4NCA/p1776772327871539
-        if job.workspace == "neurodegenerativediseaseburden-v1":  # pragma: no cover
+        join_config = json.loads(os.environ.get("WORKSPACE_EHRQL_MAX_JOIN_COUNT", "{}"))
+        if job.workspace in join_config:  # pragma: no cover
             # The default is 16
-            env["EHRQL_MAX_JOIN_COUNT"] = "8"
+            env["EHRQL_MAX_JOIN_COUNT"] = join_config[job.workspace]
 
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
