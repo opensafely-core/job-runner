@@ -594,13 +594,11 @@ def get_reason_job_not_started(job):
     resource_usage = get_resource_usage(job.backend)
     required_resources = get_job_resource_weight(job)
     if resource_usage.total + required_resources > config.MAX_WORKERS[job.backend]:
-        if required_resources > 1:
-            return (
-                StatusCode.WAITING_ON_WORKERS,
-                "Waiting on available workers for resource intensive job",
-            )
-        else:
-            return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
+        return (
+            StatusCode.WAITING_ON_WORKERS,
+            "Waiting on available workers"
+            + (" for resource intensive job" if required_resources > 1 else ""),
+        )
 
     if job.requires_db:
         if (
