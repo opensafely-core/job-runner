@@ -343,12 +343,10 @@ def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
 
     container_config = docker.container_inspect(local.container_name(job_definition.id))
 
-    # do not test that this config is set on platforms that do not require this config
-    if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:
-        assert (
-            container_config["Config"]["User"]
-            == f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}"
-        )
+    assert (
+        container_config["Config"]["User"]
+        == f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}"
+    )
     assert container_config["State"]["ExitCode"] == 0
 
 

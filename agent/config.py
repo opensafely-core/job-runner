@@ -1,5 +1,4 @@
 import os
-import sys
 from pathlib import Path
 
 from common import config as common_config
@@ -132,12 +131,8 @@ HIGH_PRIVACY_VOLUME_DIR = Path(
 # docker will be looking for.
 DOCKER_HOST_VOLUME_DIR = os.environ.get("DOCKER_HOST_VOLUME_DIR")
 
-if sys.platform == "linux":
-    DOCKER_USER_ID = os.environ.get("DOCKER_USER_ID", str(os.geteuid()))
-    DOCKER_GROUP_ID = os.environ.get("DOCKER_GROUP_ID", str(os.getegid()))
-else:  # pragma: no cover
-    DOCKER_USER_ID = None
-    DOCKER_GROUP_ID = None
+DOCKER_USER_ID = os.environ.get("DOCKER_USER_ID", str(os.geteuid()))
+DOCKER_GROUP_ID = os.environ.get("DOCKER_GROUP_ID", str(os.getegid()))
 
 
 # The name of a Docker network configured to allow access to just the database and
