@@ -229,8 +229,9 @@ def test_handle_job_waiting_on_workers_resource_intensive_job(monkeypatch, db):
 
     # This action requires 1.5 resources. No other jobs are running, so we have 2 resources (i.e.
     # the MAX_WORKERS) currently available.
-    # We set requires_db to ensure it's the first one run
-    job1 = job_factory(workspace="workspace", action="action1", requires_db=True)
+    job1 = job_factory(workspace="workspace", action="action1")
+    # Start it running
+    run_controller_loop_once()
 
     # This action requires 1.5 resources. job1 is already running and using 1.5 resources.
     # We have 2 max workers, so only 0.5 resources are left after first one is running
@@ -278,6 +279,35 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     # tracing
     spans = get_trace("jobs")
     assert spans[-1].name == "CREATED"
+
+
+def test_handle_job_has_separate_worker_pools(monkeypatch, db):
+    monkeypatch.setattr(config, "MAX_WORKERS", {"test": 1})
+    monkeypatch.setattr(config, "MAX_DB_WORKERS", {"test": 1})
+
+    db_job1 = job_factory(requires_db=True)
+    run_controller_loop_once()
+    db_job1 = database.find_one(Job, id=db_job1.id)
+    assert db_job1.state == State.RUNNING
+
+    db_job2 = job_factory(requires_db=True)
+    run_controller_loop_once()
+    db_job2 = database.find_one(Job, id=db_job2.id)
+    assert db_job2.state == State.PENDING
+    assert db_job2.status_code == StatusCode.WAITING_ON_DB_WORKERS
+
+    # Even though there are no workers for the above db job, there should be an
+    # available worker for this non-db job
+    non_db_job1 = job_factory(requires_db=False)
+    run_controller_loop_once()
+    non_db_job1 = database.find_one(Job, id=non_db_job1.id)
+    assert non_db_job1.state == State.RUNNING
+
+    non_db_job2 = job_factory(requires_db=False)
+    run_controller_loop_once()
+    non_db_job2 = database.find_one(Job, id=non_db_job2.id)
+    assert non_db_job2.state == State.PENDING
+    assert non_db_job2.status_code == StatusCode.WAITING_ON_WORKERS
 
 
 def test_handle_job_waiting_on_db_workers_resource_intensive_job(monkeypatch, db):

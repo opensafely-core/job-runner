@@ -558,7 +558,7 @@ def refresh_job_timestamps(job):
 
 @dataclasses.dataclass(frozen=True)
 class ResourceUsage:
-    total: float
+    non_db_jobs: float
     db_jobs: float
 
 
@@ -585,22 +585,25 @@ def invalidate_resource_usage_cache(backend=None):
 def calculate_resource_usage(backend):
     running_jobs = find_where(Job, state=State.RUNNING, backend=backend)
     job_weights = [(job, get_job_resource_weight(job)) for job in running_jobs]
-    total = sum(weight for _, weight in job_weights)
+    non_db_jobs = sum(weight for job, weight in job_weights if not job.requires_db)
     db_jobs = sum(weight for job, weight in job_weights if job.requires_db)
-    return ResourceUsage(total=total, db_jobs=db_jobs)
+    return ResourceUsage(non_db_jobs=non_db_jobs, db_jobs=db_jobs)
 
 
 def get_reason_job_not_started(job):
     resource_usage = get_resource_usage(job.backend)
     required_resources = get_job_resource_weight(job)
-    if resource_usage.total + required_resources > config.MAX_WORKERS[job.backend]:
-        return (
-            StatusCode.WAITING_ON_WORKERS,
-            "Waiting on available workers"
-            + (" for resource intensive job" if required_resources > 1 else ""),
-        )
-
-    if job.requires_db:
+    if not job.requires_db:
+        if (
+            resource_usage.non_db_jobs + required_resources
+            > config.MAX_WORKERS[job.backend]
+        ):
+            return (
+                StatusCode.WAITING_ON_WORKERS,
+                "Waiting on available workers"
+                + (" for resource intensive job" if required_resources > 1 else ""),
+            )
+    else:
         if (
             resource_usage.db_jobs + required_resources
             > config.MAX_DB_WORKERS[job.backend]
