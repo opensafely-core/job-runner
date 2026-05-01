@@ -210,13 +210,12 @@ class LocalDockerAPI(ExecutorAPI):
                 )
             )
 
-        if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:  # pragma: no cover
-            extra_args.extend(
-                [
-                    "--user",
-                    f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}",
-                ]
-            )
+        extra_args.extend(
+            [
+                "--user",
+                f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}",
+            ]
+        )
         extra_args.extend(
             [
                 "-e",
