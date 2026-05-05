@@ -58,7 +58,9 @@ ALLOWED_IMAGES = {
 
 # Set workers per-backend. This will be used by the controller to
 # determine if there are enough resources available to start a new
-# job running.
+# job running. Note there are two separate limits:
+#  * `MAX_WORKERS` applies only to jobs which do not require access to the database
+#  * `MAX_DB_WORKERS` applies only to jobs which do access the database
 default_workers = {"test": 2, "tpp": 10, "emis": 10}
 MAX_WORKERS = {
     backend: int(
