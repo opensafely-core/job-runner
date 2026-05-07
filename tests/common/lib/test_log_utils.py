@@ -2,7 +2,7 @@ import logging
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -13,7 +13,7 @@ from controller.models import Job, TaskType
 
 
 FROZEN_TIMESTAMP = 1608568119.1467905
-FROZEN_TIMESTRING = datetime.utcfromtimestamp(FROZEN_TIMESTAMP).isoformat()
+FROZEN_TIMESTRING = datetime.fromtimestamp(FROZEN_TIMESTAMP, tz=UTC).isoformat()
 
 repo_url = "https://github.com/opensafely/project"
 commit = "abcdef"

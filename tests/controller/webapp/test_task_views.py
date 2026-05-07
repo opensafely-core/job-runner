@@ -1,6 +1,6 @@
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from django.http import JsonResponse
 from django.urls import reverse
@@ -36,7 +36,7 @@ def test_controller_returns_post_request_method(client):
 
 
 def test_active_tasks_view(db, client, monkeypatch, freezer):
-    mock_now = datetime(2025, 6, 1, 10, 30, tzinfo=timezone.utc)
+    mock_now = datetime(2025, 6, 1, 10, 30, tzinfo=UTC)
     freezer.move_to(mock_now)
 
     monkeypatch.setattr("controller.config.JOB_SERVER_TOKENS", {"test": "test_token"})
@@ -64,7 +64,7 @@ def test_active_tasks_view(db, client, monkeypatch, freezer):
     ], response["tasks"][0]["attributes"]
     # Calling the tasks endpoint sets the last-seen-at flag for the backend
     assert get_flag_value("last-seen-at", "test") == mock_now.isoformat()
-    mock_later = datetime(2025, 6, 1, 22, 30, tzinfo=timezone.utc)
+    mock_later = datetime(2025, 6, 1, 22, 30, tzinfo=UTC)
     freezer.move_to(mock_later)
     client.get(reverse("active_tasks", args=("test",)), headers=headers)
     assert get_flag_value("last-seen-at", "test") == mock_later.isoformat()

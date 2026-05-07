@@ -26,7 +26,7 @@ def backup_database(sqlite_file, backups_path):
             f"Refusing to run on the assumption that backups are misconfigured."
         )
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     existing_files = list(backups_path.glob("db.snapshot_*.sqlite"))
     target_file = backups_path / f"db.snapshot_{now:%Y-%m-%d_%H%M%S}Z.sqlite"
     temp_file = target_file.with_name(f"{target_file.name}.tmp.sqlite")
