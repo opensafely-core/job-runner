@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   build-publish-and-deploy-docker-image:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     name: Build, publish and deploy docker image
     steps:
     - name: Checkout
