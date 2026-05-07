@@ -215,7 +215,7 @@ ruamel-yaml-clib==0.2.8
 ruff==0.15.12
 ruyaml==0.91.0
     # via opensafely-pipeline
-schemathesis==4.15.2
+schemathesis==4.16.1
 setuptools==82.0.1
     # via ruyaml
 six==1.17.0

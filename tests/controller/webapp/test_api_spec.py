@@ -137,36 +137,19 @@ def test_expected_status_codes():
 @hypothesis.settings(deadline=None)
 @schema.parametrize()
 def test_api_with_auth(db, case, recorder):
-    # We pass good headers; schemathesis will typically generate a test case
-    # with bad auth too, so the 401 status is covered
-    case.headers = {"Authorization": "token"}
-    call_and_validate(case, recorder)
+    # We pass good headers; schemathesis will typically generate test cases
+    # with bad auth and no auth too, so the 401 status is covered
+    call_and_validate(
+        case, recorder, call_kwargs={"headers": {"Authorization": "token"}}
+    )
 
 
-# Tests for bad/no auth
-# We only test in the explicit phase (i.e. examples) for no/bad tokens, since
-# we expect them always to error
-@hypothesis.settings(deadline=None, phases=[hypothesis.Phase.explicit])
-@schema.parametrize()
-def test_api_no_token(db, case, recorder):
-    # We pass good headers; schemathesis will typically generate a test case
-    # with bad auth too, so the 401 status is covered
-    case.headers = {}
-    call_and_validate(case, recorder)
-
-
-@hypothesis.settings(deadline=None, phases=[hypothesis.Phase.explicit])
-@schema.parametrize()
-def test_api_bad_token(db, case, recorder):
-    case.headers = {"Authorization": "bad-token"}
-    call_and_validate(case, recorder)
-
-
-def call_and_validate(case, recorder):
+def call_and_validate(case, recorder, call_kwargs=None):
+    call_kwargs = call_kwargs or {}
     # Note: we're not using case.call_and_validate() here so that we can record the status
     # code prior to validating the response (otherwise status codes for check failures
     # won't be recorded).
-    response = case.call()
+    response = case.call(**call_kwargs)
     recorder.record_status_code(case.path, response.status_code)
     case.validate_response(response)
 
