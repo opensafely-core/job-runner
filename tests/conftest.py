@@ -241,6 +241,10 @@ def db(monkeypatch, request):
     monkeypatch.setattr(controller_config, "DATABASE_FILE", database_file)
     database.ensure_db(controller_config.DATABASE_FILE)
     yield
+    # explicitly close the connection and then delete it from the cache
+    # Note: in python 3.10, deleting the cache entry was enough to close the connection,
+    # in python 3.12 we need to close it explicitly otherwise the db may still exist
+    database.CONNECTION_CACHE.__dict__[controller_config.DATABASE_FILE].close()
     del database.CONNECTION_CACHE.__dict__[controller_config.DATABASE_FILE]
 
 

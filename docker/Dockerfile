@@ -29,8 +29,8 @@
 # These build args have defaults, but are usually set from docker/.env. They
 # are used in FROM lines, so need to be declared globally and have defaults
 # set.
-ARG UBUNTU_VERSION=22.04
-ARG UV_VERSION=0.9
+ARG UBUNTU_VERSION=24.04
+ARG UV_VERSION=0.11
 
 # DL3007 ignored because base-docker we specifically always want to build on
 # the latest base image, by design.
@@ -41,17 +41,6 @@ FROM ghcr.io/opensafely-core/base-docker:${UBUNTU_VERSION} AS base-python
 # we are going to use an apt cache on the host, so disable the default debian
 # docker clean up that deletes that cache on every apt install
 RUN rm -f /etc/apt/apt.conf.d/docker-clean
-
-# use deadsnakes ppa to install a fully working base python installation
-# see: https://gist.github.com/tiran/2dec9e03c6f901814f6d1e8dad09528e
-# use space efficient utility from base image
-RUN --mount=type=cache,target=/var/cache/apt <<'EOF'
-UBUNTU_CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
-KEY_PATH=/usr/share/keyrings/deadsnakes.asc
-KEY_URL='https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xf23c5a6cf475977595c89f51ba6932366a755776'
-/usr/lib/apt/apt-helper download-file "$KEY_URL" "$KEY_PATH"
-echo "deb [signed-by=$KEY_PATH] https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu ${UBUNTU_CODENAME} main" > /etc/apt/sources.list.d/deadsnakes-ppa.list
-EOF
 
 # install any additional system dependencies
 # NOTE: ensure .python-version is not excluded in .dockerignore
@@ -65,7 +54,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 ENV UV_LINK_MODE=copy
 # compile at installation time, not import time
 ENV UV_COMPILE_BYTECODE=1
-# we are providing python via deadsnakes ppa
+# we are using system python
 # (as we require dynamic linking of openssl for security reasons)
 ENV UV_PYTHON_DOWNLOADS=never
 # set the directory for the venv
