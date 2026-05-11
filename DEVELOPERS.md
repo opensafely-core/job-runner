@@ -769,7 +769,8 @@ dokku run rap-controller python manage.py <command>
 ### Turn manual database maintenance mode on/off on a specific backend
 
 Maintenance mode is triggered automatically, but in some circumstances we may need to
-manually enable or disable it. Enabling db maintenance mode will cancel any running jobs.
+manually enable or disable it.
+Enabling db maintenance mode will cancel any running database jobs.
 
 ```
 dokku run rap-controller python manage.py db_maintenance <on/off> <backend slug>
