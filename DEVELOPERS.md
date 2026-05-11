@@ -206,7 +206,7 @@ just run-agent
 ```
 
 You should see the controller pick up the new job and create a RUNJOB task for it.
-Then you'll see the agent poll for new tasks every second or so (in the In the controller app terminal,
+Then you'll see the agent poll for new tasks every second or so (in the controller app terminal,
 if you're running the services separately).
 Then the agent will receive the new task, execute the job, and call the controller app
 to update the controller after each step.
@@ -694,9 +694,9 @@ Building the docker image:
 
 jobrunner uses a minimal ORM-lite wrapper to talk to the DB.
 
-The current version of a tables schema definition is stored in the the
+The current version of a tables schema definition is stored in the
 `__tableschema__` attribute for that model's class, i.e. `Job.__tableschema__`.
-This is use to create the table in dev and test, so migrations are not usually
+This is used to create the table in dev and test, so migrations are not usually
 needed in those cases.
 
 ### Adding a migration
@@ -769,7 +769,8 @@ dokku run rap-controller python manage.py <command>
 ### Turn manual database maintenance mode on/off on a specific backend
 
 Maintenance mode is triggered automatically, but in some circumstances we may need to
-manually enable or disable it. Enabling db maintenance mode will cancel any running jobs.
+manually enable or disable it.
+Enabling db maintenance mode will cancel any running database jobs.
 
 ```
 dokku run rap-controller python manage.py db_maintenance <on/off> <backend slug>
@@ -792,9 +793,9 @@ dokku run rap-controller python manage.py pause on test
 
 ### Prepare for reboot
 
-Prepare for a backend reboot. This will pause the backend, then cancel all
-running jobs and reset them to PENDING so they will be automatically re-run
-after a reboot.
+Prepare for a backend reboot. This will pause the backend, then
+cancel all running jobs (regardless of whether they are database or analysis jobs) and
+reset them to PENDING so they will be automatically re-run after a reboot.
 
 Run:
 ```
@@ -822,3 +823,5 @@ $dokku4 dokku run rap-controller python manage.py prepare_for_reboot --backend t
 == READY TO REBOOT ==
 Safe to reboot now
 ```
+
+After the reboot, unpause the backend (see [Pause a backend](#pause-a-backend)).
