@@ -206,7 +206,7 @@ just run-agent
 ```
 
 You should see the controller pick up the new job and create a RUNJOB task for it.
-Then you'll see the agent poll for new tasks every second or so (in the In the controller app terminal,
+Then you'll see the agent poll for new tasks every second or so (in the controller app terminal,
 if you're running the services separately).
 Then the agent will receive the new task, execute the job, and call the controller app
 to update the controller after each step.
@@ -694,9 +694,9 @@ Building the docker image:
 
 jobrunner uses a minimal ORM-lite wrapper to talk to the DB.
 
-The current version of a tables schema definition is stored in the the
+The current version of a tables schema definition is stored in the
 `__tableschema__` attribute for that model's class, i.e. `Job.__tableschema__`.
-This is use to create the table in dev and test, so migrations are not usually
+This is used to create the table in dev and test, so migrations are not usually
 needed in those cases.
 
 ### Adding a migration
