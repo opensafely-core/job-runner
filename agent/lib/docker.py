@@ -7,6 +7,7 @@ import logging
 import os
 import socket
 import subprocess
+import time
 import urllib.parse
 
 from agent import config
@@ -272,12 +273,25 @@ def get_hostname_ip_from_url(url):
 def ensure_docker_sha_present(proxy_image_with_sha, registry_image_with_label):
     """Pull the image sha via the proxy."""
 
-    # ensure the image/sha is present
-    docker(
-        ["pull", "--quiet", proxy_image_with_sha],
-        check=True,
-        timeout=IMAGE_PULL_TIMEOUT,
-    )
+    # Retry on transient registry errors (e.g. intermittent network failures).
+    retry_delay = 1
+    for attempt in range(1, 4):  # pragma: no cover
+        try:
+            docker(
+                ["pull", "--quiet", proxy_image_with_sha],
+                check=True,
+                timeout=IMAGE_PULL_TIMEOUT,
+            )
+            break
+        except subprocess.CalledProcessError:  # pragma: no cover
+            if attempt == 3:
+                raise
+            logger.warning(
+                "docker pull failed (attempt %d/3), retrying in %ds",
+                attempt,
+                retry_delay,
+            )
+            time.sleep(retry_delay)
 
     proxy_image_with_label, _, _ = proxy_image_with_sha.partition("@")
 
