@@ -30,17 +30,18 @@ def main(exit_callback=lambda _: False):  # pragma: no cover
     log.info("agent.main loop started")
     api = get_executor_api()
 
-    while True:
-        active_tasks = handle_tasks(api)
+    with task_api.TaskAPI() as task_api_client:
+        while True:
+            active_tasks = handle_tasks(api, task_api_client)
 
-        if exit_callback(active_tasks):
-            break
+            if exit_callback(active_tasks):
+                break
 
-        time.sleep(common_config.JOB_LOOP_INTERVAL)
+            time.sleep(common_config.JOB_LOOP_INTERVAL)
 
 
-def handle_tasks(api: ExecutorAPI | None):
-    active_tasks = task_api.get_active_tasks()
+def handle_tasks(api: ExecutorAPI | None, task_api_client: task_api.TaskAPI):
+    active_tasks = task_api_client.get_active_tasks()
 
     handled_tasks = []
     errored_tasks = []
@@ -51,7 +52,7 @@ def handle_tasks(api: ExecutorAPI | None):
             # further down the stack will have `task` set on them
             with set_log_context(task=task):
                 try:
-                    handle_single_task(task, api)
+                    handle_single_task(task, api, task_api_client)
                 except Exception:
                     # do not raise now, but record and move on to the next task, so
                     # we do not block loop.
@@ -70,7 +71,7 @@ def handle_tasks(api: ExecutorAPI | None):
     return handled_tasks
 
 
-def handle_single_task(task, api):
+def handle_single_task(task, api, task_api_client: task_api.TaskAPI):
     """The top level handler for a task.
 
     Calls the appropriate handle_*_job_task function for the new task, and
@@ -83,13 +84,13 @@ def handle_single_task(task, api):
         try:
             match task.type:
                 case TaskType.RUNJOB:
-                    handle_run_job_task(task, api)
+                    handle_run_job_task(task, api, task_api_client)
                 case TaskType.CANCELJOB:
-                    handle_cancel_job_task(task, api)
+                    handle_cancel_job_task(task, api, task_api_client)
                 case TaskType.DBSTATUS:
-                    handle_simple_task(db_status_task, task)
+                    handle_simple_task(db_status_task, task, task_api_client)
                 case TaskType.DBDATACHECK:
-                    handle_simple_task(db_data_check_task, task)
+                    handle_simple_task(db_data_check_task, task, task_api_client)
                 case _:
                     assert False, f"Unknown task type {task.type}"
         except Exception as exc:
@@ -99,6 +100,7 @@ def handle_single_task(task, api):
                     api,
                     task,
                     sys.exc_info(),
+                    task_api_client,
                 )
             else:
                 span.set_attribute("fatal_task_error", False)
@@ -119,7 +121,7 @@ def is_fatal_task_error(exc: Exception) -> bool:
     return "test_hard_failure" in str(exc)
 
 
-def handle_cancel_job_task(task, api):
+def handle_cancel_job_task(task, api, task_api_client: task_api.TaskAPI):
     """
     Handle cancelling a job. The actions required to terminate, finalize and clean
     up a job depend on its state at the point of cancellation.
@@ -138,7 +140,7 @@ def handle_cancel_job_task(task, api):
     pre_finalized_job_status = initial_job_status
 
     # tell the controller what stage we're at now
-    update_job_task(task, initial_job_status, previous_status=None)
+    update_job_task(task, initial_job_status, task_api_client, previous_status=None)
 
     with set_log_context(job_definition=job):
         match initial_job_status.state:
@@ -160,7 +162,10 @@ def handle_cancel_job_task(task, api):
                 api.terminate(job)
                 pre_finalized_job_status = api.get_status(job)
                 update_job_task(
-                    task, pre_finalized_job_status, previous_status=initial_job_status
+                    task,
+                    pre_finalized_job_status,
+                    task_api_client,
+                    previous_status=initial_job_status,
                 )
                 # call finalize to write the job logs
                 api.finalize(job, cancelled=True)
@@ -177,11 +182,15 @@ def handle_cancel_job_task(task, api):
         api.cleanup(job)
 
         update_job_task(
-            task, final_status, previous_status=pre_finalized_job_status, complete=True
+            task,
+            final_status,
+            task_api_client,
+            previous_status=pre_finalized_job_status,
+            complete=True,
         )
 
 
-def handle_run_job_task(task, api):
+def handle_run_job_task(task, api, task_api_client: task_api.TaskAPI):
     """Handle an active task.
 
     This contains the main state machine logic for a task. For the most part,
@@ -204,12 +213,18 @@ def handle_run_job_task(task, api):
             case ExecutorState.ERROR | ExecutorState.FINALIZED:
                 # No action needed, just inform the controller we are in this completed stage
                 update_job_task(
-                    task, job_status, previous_status=job_status, complete=True
+                    task,
+                    job_status,
+                    task_api_client,
+                    previous_status=job_status,
+                    complete=True,
                 )
 
             case ExecutorState.EXECUTING:
                 # Still waitin'
-                update_job_task(task, job_status, previous_status=job_status)
+                update_job_task(
+                    task, job_status, task_api_client, previous_status=job_status
+                )
 
             case ExecutorState.UNKNOWN:
                 # a new job
@@ -224,10 +239,14 @@ def handle_run_job_task(task, api):
                 # before calling  api.prepare(), and we expect it to be PREPARED
                 # when finished
                 preparing_status = JobStatus(ExecutorState.PREPARING)
-                update_job_task(task, preparing_status, previous_status=job_status)
+                update_job_task(
+                    task, preparing_status, task_api_client, previous_status=job_status
+                )
                 api.prepare(job)
                 new_status = api.get_status(job)
-                update_job_task(task, new_status, previous_status=preparing_status)
+                update_job_task(
+                    task, new_status, task_api_client, previous_status=preparing_status
+                )
 
             case ExecutorState.PREPARED:
                 if job.allow_database_access:
@@ -235,12 +254,16 @@ def handle_run_job_task(task, api):
 
                 api.execute(job)
                 new_status = api.get_status(job)
-                update_job_task(task, new_status, previous_status=job_status)
+                update_job_task(
+                    task, new_status, task_api_client, previous_status=job_status
+                )
 
             case ExecutorState.EXECUTED:
                 # finalize is also synchronous
                 finalizing_status = JobStatus(ExecutorState.FINALIZING)
-                update_job_task(task, finalizing_status, previous_status=job_status)
+                update_job_task(
+                    task, finalizing_status, task_api_client, previous_status=job_status
+                )
                 api.finalize(job)
                 new_status = api.get_status(job)
                 api.cleanup(job)
@@ -250,6 +273,7 @@ def handle_run_job_task(task, api):
                 update_job_task(
                     task,
                     new_status,
+                    task_api_client,
                     previous_status=finalizing_status,
                     complete=True,
                 )
@@ -260,6 +284,7 @@ def handle_run_job_task(task, api):
 def update_job_task(
     task,
     status: JobStatus,
+    task_api_client: task_api.TaskAPI,
     previous_status: JobStatus = None,
     complete: bool = False,
 ):
@@ -280,7 +305,7 @@ def update_job_task(
 
     tracing.set_job_results_metadata(span, redacted_results, attributes)
     log_state_change(task, status, previous_status)
-    task_api.update_controller(
+    task_api_client.update_controller(
         task=task,
         stage=status.state.value,
         results=redacted_results,
@@ -327,7 +352,7 @@ def log_state_change(task, status, previous_status):
     log.info(log_message)
 
 
-def mark_task_as_error(api, task, exc_info):
+def mark_task_as_error(api, task, exc_info, task_api_client: task_api.TaskAPI):
     """
     Pass error information on to the controller and mark this task as complete
     """
@@ -344,7 +369,7 @@ def mark_task_as_error(api, task, exc_info):
             # this will persist the exception info to disk
             api.finalize(job, error=error)
             status = api.get_status(job)
-            update_job_task(task, status, complete=True)
+            update_job_task(task, status, task_api_client, complete=True)
         case _:
             assert False
 
@@ -372,7 +397,7 @@ def inject_db_secrets(job):
         job.env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
 
 
-def handle_simple_task(task_function, task):
+def handle_simple_task(task_function, task, task_api_client: task_api.TaskAPI):
     """
     A "simple" task function is one which takes keyword arguments as supplied in the
     Task definition and returns a dictionary which will be reported under the `results`
@@ -392,7 +417,7 @@ def handle_simple_task(task_function, task):
             "results": results,
             "error": None,
         }
-    task_api.update_controller(
+    task_api_client.update_controller(
         task,
         # `stage` is not relevant for simple tasks so we leave it blank
         stage="",

@@ -110,18 +110,19 @@ def write_job_metrics(job_id, metrics):
 
 def main():  # pragma: no cover
     last_run = None
-    while True:
-        before = time.time()
-        last_run = record_metrics_tick_trace(last_run)
+    with task_api.TaskAPI() as task_api_client:
+        while True:
+            before = time.time()
+            last_run = record_metrics_tick_trace(last_run, task_api_client)
 
-        # record_tick_trace might have take a while, so sleep the remainding interval
-        # enforce a minimum time of 2s to ensure we don't hammer honeycomb or
-        # the docker api
-        elapsed = time.time() - before
-        time.sleep(max(2, config.STATS_POLL_INTERVAL - elapsed))
+            # record_tick_trace might have take a while, so sleep the remainding interval
+            # enforce a minimum time of 2s to ensure we don't hammer honeycomb or
+            # the docker api
+            elapsed = time.time() - before
+            time.sleep(max(2, config.STATS_POLL_INTERVAL - elapsed))
 
 
-def record_metrics_tick_trace(last_run):
+def record_metrics_tick_trace(last_run, task_api_client: task_api.TaskAPI):
     """Record a periodic metrics tick trace of current docker containers"""
 
     # first run since restart, do nothing.
@@ -150,7 +151,7 @@ def record_metrics_tick_trace(last_run):
         error_attrs["exit_code"] = exc.returncode
         error_attrs["output"] = exc.stderr + "\n\n" + exc.output
 
-    tasks = task_api.get_active_tasks()
+    tasks = task_api_client.get_active_tasks()
     # any task definition with an id is assumed to be a job id
     tasks_by_job_id = {t.definition["id"]: t for t in tasks if "id" in t.definition}
 
