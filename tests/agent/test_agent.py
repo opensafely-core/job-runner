@@ -28,7 +28,9 @@ def assert_state_change_logs(caplog, state_changes):
         ]
 
 
-def test_handle_tasks_executor_error(db, caplog, responses, live_server, monkeypatch):
+def test_handle_tasks_executor_error(
+    db, caplog, responses, live_server, monkeypatch, task_api_client
+):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
@@ -41,7 +43,7 @@ def test_handle_tasks_executor_error(db, caplog, responses, live_server, monkeyp
 
     msg = "Some tasks failed, restarting agent loop"
     with pytest.raises(Exception, match=msg):
-        main.handle_tasks(api)
+        main.handle_tasks(api, task_api_client)
 
     spans = get_trace("agent_loop")
 
@@ -69,7 +71,16 @@ def test_handle_tasks_executor_error(db, caplog, responses, live_server, monkeyp
     ],
 )
 def test_handle_tasks_github_validation(
-    db, caplog, responses, live_server, monkeypatch, tmp_work_dir, repo, commit, exc_msg
+    db,
+    caplog,
+    responses,
+    live_server,
+    monkeypatch,
+    tmp_work_dir,
+    repo,
+    commit,
+    exc_msg,
+    task_api_client,
 ):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
@@ -84,13 +95,13 @@ def test_handle_tasks_github_validation(
 
     msg = "Some tasks failed, restarting agent loop"
     with pytest.raises(Exception, match=msg):
-        main.handle_tasks(api)
+        main.handle_tasks(api, task_api_client)
 
     assert exc_msg in str(caplog.records[-1].exc_info[1]), caplog.records
 
 
 def test_handle_job_full_execution(
-    db, freezer, caplog, responses, live_server, monkeypatch
+    db, freezer, caplog, responses, live_server, monkeypatch, task_api_client
 ):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
@@ -114,7 +125,7 @@ def test_handle_job_full_execution(
         hook=lambda j: freezer.tick(1),
     )
 
-    main.handle_single_task(task, api)
+    main.handle_single_task(task, api, task_api_client)
 
     task = controller_task_api.get_task(task.id)
     assert task.agent_stage == ExecutorState.PREPARED.value
@@ -128,7 +139,7 @@ def test_handle_job_full_execution(
     assert_state_change_logs(caplog, state_changes)
 
     freezer.tick(1)
-    main.handle_single_task(task, api)
+    main.handle_single_task(task, api, task_api_client)
     task = controller_task_api.get_task(task.id)
     assert task.agent_stage == ExecutorState.EXECUTING.value
 
@@ -150,7 +161,7 @@ def test_handle_job_full_execution(
         job_id, ExecutorState.FINALIZED, finalized_timestamp_ns, hook=finalize
     )
     assert job_id not in api.tracker["finalize"]
-    main.handle_single_task(task, api)
+    main.handle_single_task(task, api, task_api_client)
     assert job_id in api.tracker["finalize"]
     task = controller_task_api.get_task(task.id)
     assert task.agent_stage == ExecutorState.FINALIZED.value
@@ -200,18 +211,16 @@ def test_handle_job_stable_states(db, executor_state):
     task, job_id = api.add_test_runjob_task(executor_state, timestamp_ns=timestamp_ns)
     job = JobDefinition.from_dict(task.definition)
 
-    with patch(
-        "agent.task_api.update_controller", spec=task_api.update_controller
-    ) as mock_update_controller:
-        main.handle_single_task(task, api)
+    mock_client = Mock(spec=task_api.TaskAPI)
+    main.handle_single_task(task, api, mock_client)
 
     # should be in the same state
-    mock_update_controller.assert_called_with(
-        task,
-        executor_state.value,
-        {},
-        False if executor_state == ExecutorState.EXECUTING else True,
-        timestamp_ns,
+    mock_client.update_controller.assert_called_with(
+        task=task,
+        stage=executor_state.value,
+        results={},
+        complete=False if executor_state == ExecutorState.EXECUTING else True,
+        timestamp_ns=timestamp_ns,
     )
 
     assert job.id not in api.tracker["prepare"]
@@ -228,8 +237,7 @@ def test_handle_job_stable_states(db, executor_state):
     assert spans[0].attributes["final_job_status"] == executor_state.name
 
 
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_job_requires_db_has_secrets(mock_update_controller, db, monkeypatch):
+def test_handle_job_requires_db_has_secrets(db, monkeypatch):
     api = StubExecutorAPI()
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
     monkeypatch.setattr(config, "DATABASE_URLS", {None: "dburl"})
@@ -241,13 +249,13 @@ def test_handle_job_requires_db_has_secrets(mock_update_controller, db, monkeypa
 
     api.set_job_transition(job_id, ExecutorState.EXECUTING, hook=check_env)
 
-    main.handle_run_job_task(task, api)
+    mock_client = Mock(spec=task_api.TaskAPI)
+    main.handle_run_job_task(task, api, mock_client)
 
-    assert mock_update_controller.call_count == 1
+    assert mock_client.update_controller.call_count == 1
 
 
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_runjob_with_fatal_error(mock_update_controller, db):
+def test_handle_runjob_with_fatal_error(db):
     api = StubExecutorAPI()
 
     preprared_timestamp_ns = time.time_ns()
@@ -262,11 +270,12 @@ def test_handle_runjob_with_fatal_error(mock_update_controller, db):
         timestamp_ns=executing_timestamp_ns,
         hook=Mock(side_effect=Exception("test_hard_failure")),
     )
+    mock_client = Mock(spec=task_api.TaskAPI)
     with pytest.raises(Exception, match="test_hard_failure"):
-        main.handle_single_task(task, api)
+        main.handle_single_task(task, api, mock_client)
 
-    assert mock_update_controller.call_count == 1
-    call_kwargs = mock_update_controller.call_args[1]
+    assert mock_client.update_controller.call_count == 1
+    call_kwargs = mock_client.update_controller.call_args[1]
     assert call_kwargs["task"] == task
     assert call_kwargs["stage"] == ExecutorState.ERROR.value
     results = call_kwargs["results"]
@@ -300,8 +309,7 @@ def test_handle_runjob_with_fatal_error(mock_update_controller, db):
         AssertionError("a bad thing"),
     ],
 )
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_runjob_with_not_fatal_error(mock_update_controller, db, exc):
+def test_handle_runjob_with_not_fatal_error(db, exc):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.PREPARED)
@@ -312,11 +320,12 @@ def test_handle_runjob_with_not_fatal_error(mock_update_controller, db, exc):
         hook=Mock(side_effect=exc),
     )
 
+    mock_client = Mock(spec=task_api.TaskAPI)
     with pytest.raises(Exception, match=str(exc)):
-        main.handle_single_task(task, api)
+        main.handle_single_task(task, api, mock_client)
 
     # Controller is not notified of transient error
-    assert mock_update_controller.call_count == 0
+    assert mock_client.update_controller.call_count == 0
 
     spans = get_trace("agent_loop")
     assert spans[0].status.status_code.name == "ERROR"
@@ -324,8 +333,7 @@ def test_handle_runjob_with_not_fatal_error(mock_update_controller, db, exc):
     assert spans[0].attributes["fatal_task_error"] is False
 
 
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_canceljob_with_fatal_error(mock_update_controller, db):
+def test_handle_canceljob_with_fatal_error(db):
     api = StubExecutorAPI()
 
     executed_timestamp_ns = time.time_ns()
@@ -341,12 +349,13 @@ def test_handle_canceljob_with_fatal_error(mock_update_controller, db):
         hook=Mock(side_effect=Exception("test_hard_failure")),
     )
 
+    mock_client = Mock(spec=task_api.TaskAPI)
     with pytest.raises(Exception):
-        main.handle_single_task(task, api)
+        main.handle_single_task(task, api, mock_client)
 
     # canceljob handler always calls update first
-    assert mock_update_controller.call_count == 2
-    call_kwargs = mock_update_controller.call_args[1]
+    assert mock_client.update_controller.call_count == 2
+    call_kwargs = mock_client.update_controller.call_args[1]
     assert call_kwargs["task"] == task
     assert call_kwargs["stage"] == ExecutorState.ERROR.value
     results = call_kwargs["results"]
@@ -390,6 +399,7 @@ def test_handle_cancel_job(
     monkeypatch,
     responses,
     live_server,
+    task_api_client,
 ):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
@@ -400,7 +410,7 @@ def test_handle_cancel_job(
 
     task, job_id = api.add_test_canceljob_task(initial_state)
 
-    main.handle_single_task(task, api)
+    main.handle_single_task(task, api, task_api_client)
 
     # expected status transitions
     state_changes = [
@@ -432,10 +442,7 @@ def test_handle_cancel_job(
 
 
 @patch("agent.main.docker", autospec=True)
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_db_status_job_with_image_sha(
-    mock_update_controller, mock_docker, monkeypatch
-):
+def test_handle_db_status_job_with_image_sha(mock_docker, monkeypatch):
     busybox_sha = (
         "sha256:dacd1aa51e0b27c0e36c4981a7a8d9d8ec2c4a74bf125c0a44d0709497a522e9"
     )
@@ -459,7 +466,8 @@ def test_handle_db_status_job_with_image_sha(
         created_at=time.time(),
     )
 
-    main.handle_single_task(task, api=None)
+    mock_client = Mock(spec=task_api.TaskAPI)
+    main.handle_single_task(task, api=None, task_api_client=mock_client)
 
     mock_docker.assert_called_with(
         [
@@ -482,7 +490,7 @@ def test_handle_db_status_job_with_image_sha(
         text=True,
     )
 
-    mock_update_controller.assert_called_with(
+    mock_client.update_controller.assert_called_with(
         task,
         stage="",
         results={"results": {"status": "db-maintenance"}, "error": None},
@@ -492,7 +500,6 @@ def test_handle_db_status_job_with_image_sha(
 
 @patch("agent.main.ensure_docker_sha_present", autospec=True)
 @patch("agent.main.docker", autospec=True)
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
 @pytest.mark.parametrize(
     "docker_stdout,status,build_count",
     [
@@ -507,7 +514,6 @@ def test_handle_db_status_job_with_image_sha(
     ],
 )
 def test_handle_db_status_job(
-    mock_update_controller,
     mock_docker,
     mock_ensure_docker_sha_present,
     monkeypatch,
@@ -532,7 +538,8 @@ def test_handle_db_status_job(
         created_at=time.time(),
     )
 
-    main.handle_single_task(task, api=None)
+    mock_client = Mock(spec=task_api.TaskAPI)
+    main.handle_single_task(task, api=None, task_api_client=mock_client)
 
     mock_docker.assert_called_with(
         [
@@ -555,7 +562,7 @@ def test_handle_db_status_job(
         text=True,
     )
 
-    mock_update_controller.assert_called_with(
+    mock_client.update_controller.assert_called_with(
         task,
         stage="",
         results={"results": {"status": status}, "error": None},
@@ -572,10 +579,7 @@ def test_handle_db_status_job(
 
 
 @patch("agent.main.ensure_docker_sha_present", autospec=True)
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_db_status_job_with_error(
-    mock_update_controller, mock_ensure_docker_sha_present
-):
+def test_handle_db_status_job_with_error(mock_ensure_docker_sha_present):
     task = Task(
         id="test_id",
         backend="test",
@@ -588,9 +592,10 @@ def test_handle_db_status_job_with_error(
         created_at=time.time(),
     )
 
-    main.handle_single_task(task, api=None)
+    mock_client = Mock(spec=task_api.TaskAPI)
+    main.handle_single_task(task, api=None, task_api_client=mock_client)
 
-    mock_update_controller.assert_called_with(
+    mock_client.update_controller.assert_called_with(
         task,
         stage="",
         results={
@@ -603,10 +608,7 @@ def test_handle_db_status_job_with_error(
 
 @patch("agent.main.ensure_docker_sha_present", autospec=True)
 @patch("agent.main.run_db_task", autospec=True)
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_handle_db_data_check_task(
-    mock_update_controller, mock_run_db_task, mock_ensure_docker_sha_present
-):
+def test_handle_db_data_check_task(mock_run_db_task, mock_ensure_docker_sha_present):
     mock_run_db_task.return_value = "OK"
 
     task = Task(
@@ -621,7 +623,8 @@ def test_handle_db_data_check_task(
         created_at=time.time(),
     )
 
-    main.handle_single_task(task, api=None)
+    mock_client = Mock(spec=task_api.TaskAPI)
+    main.handle_single_task(task, api=None, task_api_client=mock_client)
 
     mock_run_db_task.assert_called_with(
         ["hes_cutoff_date_check", "202304"],
@@ -629,7 +632,7 @@ def test_handle_db_data_check_task(
         image_sha="sha123456",
     )
 
-    mock_update_controller.assert_called_with(
+    mock_client.update_controller.assert_called_with(
         task,
         stage="",
         results={"results": {"status": "OK"}, "error": None},
@@ -680,7 +683,7 @@ def test_db_data_check_task_rejects_unexpected_status(
 
 
 def test_handle_job_no_task_id_in_definition(
-    db, freezer, caplog, responses, live_server, monkeypatch
+    db, freezer, caplog, responses, live_server, monkeypatch, task_api_client
 ):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
@@ -696,7 +699,7 @@ def test_handle_job_no_task_id_in_definition(
     task.definition.pop("task_id")
     update_where(Task, {"definition": task.definition}, id=task.id)
 
-    main.handle_single_task(task, api)
+    main.handle_single_task(task, api, task_api_client)
 
     task = controller_task_api.get_task(task.id)
     assert task.agent_stage == ExecutorState.PREPARED.value

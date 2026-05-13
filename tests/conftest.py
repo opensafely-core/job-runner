@@ -3,7 +3,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import threading
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -41,45 +40,10 @@ def pytest_configure(config):
     )
 
 
-@pytest.fixture(scope="session", autouse=True)
-def close_task_api_session():
-    # agent.task_api uses a module-level requests.Session. Disable keep-alive
-    # by sending Connection: close in the session headers so that the
-    # server's daemon request-handler threads exit after each response rather than
-    # lingering into interpreter shutdown.
-    task_api.session.headers["Connection"] = "close"
-    # On its own, the above fixed the intermittent threading errors, but introduced another
-    # intermittent RemoteDisconnected error.
-    # This appears to be because Django's ServerHandler.cleanup_headers() only writes
-    # Connection: close to the response when the response has no Content-Length
-    # or the server isn't a ThreadingMixIn. The live server is a ThreadingMixIn
-    # and API responses have Content-Length, so
-    # urllib3 never sees Connection: close in the response headers:
-    # https://github.com/django/django/blob/141e791f48592011b0f38fb30d44291e3ce74ee0/django/core/servers/basehttp.py
-    # Add a retry to avoid the RemoteDisconnected errors
-    task_api.session.mount(
-        "http://",
-        requests.adapters.HTTPAdapter(
-            max_retries=urllib3.util.Retry(
-                total=3,
-                read=3,
-                backoff_factor=0,
-                allowed_methods=urllib3.util.Retry.DEFAULT_ALLOWED_METHODS
-                | frozenset(["POST"]),
-            )
-        ),
-    )
-    yield
-
-    # If any process_request_thread threads are still alive the threading fix has regressed.
-    for t in threading.enumerate():
-        if t.daemon and "process_request_thread" in t.name:
-            t.join(timeout=2.0)
-            if t.is_alive():
-                raise RuntimeError(
-                    f"Daemon thread {t.name!r} still alive after session teardown — "
-                    "Connection: close may not be taking effect"
-                )
+@pytest.fixture
+def task_api_client():
+    with task_api.TaskAPI() as client:
+        yield client
 
 
 @pytest.fixture(autouse=True)

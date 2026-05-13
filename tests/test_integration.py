@@ -83,7 +83,13 @@ def set_controller_config(monkeypatch):
 @pytest.mark.needs_docker
 @pytest.mark.needs_ghcr
 def test_integration(
-    live_server, tmp_work_dir, docker_cleanup, monkeypatch, test_repo, responses
+    live_server,
+    tmp_work_dir,
+    docker_cleanup,
+    monkeypatch,
+    test_repo,
+    responses,
+    task_api_client,
 ):
     api = get_executor_api()
     monkeypatch.setattr("common.config.BACKENDS", ["test"])
@@ -180,7 +186,7 @@ def test_integration(
     set_agent_config(monkeypatch, tmp_work_dir)
     # Execute one tick of the agent run loop to pick up the runjob task
     # After one tick, the task should have moved to the PREPARED stage
-    agent.main.handle_tasks(api)
+    agent.main.handle_tasks(api, task_api_client)
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 1
     assert active_tasks[0].agent_stage == "prepared"
@@ -196,7 +202,7 @@ def test_integration(
     # AGENT
     set_agent_config(monkeypatch, tmp_work_dir)
     # After one tick of the agent loop, the task should have moved to EXECUTING status
-    agent.main.handle_tasks(api)
+    agent.main.handle_tasks(api, task_api_client)
     active_tasks = get_active_db_tasks()
     assert len(active_tasks) == 1
     assert active_tasks[0].agent_stage == "executing"

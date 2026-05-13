@@ -1,8 +1,8 @@
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
-from agent import config, main
+from agent import config, main, task_api
 from common.job_executor import ExecutorState, JobStatus
 from tests.factories import job_definition_factory, runjob_db_task_factory
 
@@ -69,7 +69,6 @@ def test_inject_db_secrets_invalid_db_name(monkeypatch, db):
 
 
 @patch("agent.tracing.set_job_results_metadata")
-@patch("agent.task_api.update_controller")
 @pytest.mark.parametrize(
     "output_results,expected_redacted_results",
     [
@@ -124,7 +123,6 @@ def test_inject_db_secrets_invalid_db_name(monkeypatch, db):
     ],
 )
 def test_update_job_task_results_redacted(
-    mock_update_controller,
     mock_set_job_results_metadata,
     db,
     output_results,
@@ -140,9 +138,12 @@ def test_update_job_task_results_redacted(
     job_status = JobStatus(ExecutorState.FINALIZED, results=job_results)
     previous_job_status = JobStatus(ExecutorState.EXECUTED, results={})
 
-    main.update_job_task(task, job_status, previous_job_status, complete=True)
+    mock_client = Mock(spec=task_api.TaskAPI)
+    main.update_job_task(
+        task, job_status, mock_client, previous_job_status, complete=True
+    )
 
-    mock_update_controller.assert_called_with(
+    mock_client.update_controller.assert_called_with(
         task=task,
         stage=job_status.state.value,
         results=expected_redacted_results,

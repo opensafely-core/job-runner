@@ -1,5 +1,5 @@
 import time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from opentelemetry import trace
 
@@ -19,14 +19,13 @@ from tests.conftest import get_trace
 from tests.factories import job_definition_factory, runjob_db_task_factory
 
 
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_tracing_state_change_attributes(mock_update_controller, db):
+def test_tracing_state_change_attributes(db):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.UNKNOWN)
     # prepare is synchronous
     api.set_job_transition(job_id, ExecutorState.PREPARED)
-    main.handle_single_task(task, api)
+    main.handle_single_task(task, api, Mock(spec=task_api.TaskAPI))
 
     spans = get_trace("agent_loop")
     # one span each time we called main.handle_single_task
@@ -75,15 +74,14 @@ def test_tracing_state_change_attributes(mock_update_controller, db):
     assert not spans[0].attributes["complete"]
 
 
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_tracing_final_state_attributes(mock_update_controller, db):
+def test_tracing_final_state_attributes(db):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.EXECUTED)
     api.set_job_transition(
         job_id, ExecutorState.FINALIZED, hook=lambda job: api.set_job_metadata(job.id)
     )
-    main.handle_single_task(task, api)
+    main.handle_single_task(task, api, Mock(spec=task_api.TaskAPI))
 
     spans = get_trace("agent_loop")
     # one span each time we called main.handle_single_task
@@ -252,10 +250,7 @@ def test_set_task_span_metadata_tracing_errors_do_not_raise(db, caplog):
     assert f"failed to trace task {task.id}" in caplog.text
 
 
-@patch("agent.task_api.update_controller", spec=task_api.update_controller)
-def test_tracing_final_state_attributes_tracing_errors(
-    mock_update_controller, db, caplog
-):
+def test_tracing_final_state_attributes_tracing_errors(db, caplog):
     api = StubExecutorAPI()
 
     task, job_id = api.add_test_runjob_task(ExecutorState.EXECUTED)
@@ -263,7 +258,7 @@ def test_tracing_final_state_attributes_tracing_errors(
         job_id, ExecutorState.FINALIZED, hook=lambda job: api.set_job_metadata(job.id)
     )
     with patch("agent.tracing.set_span_attributes", side_effect=Exception("foo")):
-        main.handle_single_task(task, api)
+        main.handle_single_task(task, api, Mock(spec=task_api.TaskAPI))
 
     spans = get_trace("agent_loop")
     assert len(spans) == 1

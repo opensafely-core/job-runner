@@ -4,7 +4,7 @@ import pytest
 import requests
 from responses import matchers
 
-from agent import config, task_api
+from agent import config
 from common.schema import AgentTask
 from controller import task_api as controller_api
 from tests.factories import runjob_db_task_factory
@@ -26,7 +26,7 @@ def setup_config(monkeypatch):
     )
 
 
-def test_get_active_tasks(db, monkeypatch, responses):
+def test_get_active_tasks(db, monkeypatch, responses, task_api_client):
     monkeypatch.setattr("agent.config.BACKEND", "dummy")
 
     task1 = runjob_db_task_factory(backend="dummy")
@@ -49,18 +49,18 @@ def test_get_active_tasks(db, monkeypatch, responses):
         match=[matchers.header_matcher({"Authorization": config.TASK_API_TOKEN})],
     )
 
-    active = task_api.get_active_tasks()
+    active = task_api_client.get_active_tasks()
     assert len(active) == 1
     assert active[0].id == task1.id
 
     monkeypatch.setattr("agent.config.BACKEND", "another")
 
-    active = task_api.get_active_tasks()
+    active = task_api_client.get_active_tasks()
     assert len(active) == 1
     assert active[0].id == task3.id
 
 
-def test_get_active_tasks_api_error(db, monkeypatch, responses):
+def test_get_active_tasks_api_error(db, monkeypatch, responses, task_api_client):
     monkeypatch.setattr("agent.config.BACKEND", "dummy")
 
     runjob_db_task_factory(backend="dummy")
@@ -73,16 +73,16 @@ def test_get_active_tasks_api_error(db, monkeypatch, responses):
     )
 
     with pytest.raises(requests.HTTPError):
-        task_api.get_active_tasks()
+        task_api_client.get_active_tasks()
 
 
-def test_update_controller(db, monkeypatch, responses, live_server):
+def test_update_controller(db, monkeypatch, responses, live_server, task_api_client):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     task = runjob_db_task_factory(backend="test")
 
-    task_api.update_controller(
+    task_api_client.update_controller(
         task,
         stage="FINALIZED",
         results={"test": "test"},
@@ -96,14 +96,16 @@ def test_update_controller(db, monkeypatch, responses, live_server):
     assert db_task.agent_timestamp_ns is None
 
 
-def test_update_controller_with_timestamp(db, monkeypatch, responses, live_server):
+def test_update_controller_with_timestamp(
+    db, monkeypatch, responses, live_server, task_api_client
+):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
 
     task = runjob_db_task_factory(backend="dummy")
 
     timestamp = time.time_ns()
-    task_api.update_controller(
+    task_api_client.update_controller(
         task,
         stage="FINALIZED",
         results={"test": "test"},
@@ -118,7 +120,7 @@ def test_update_controller_with_timestamp(db, monkeypatch, responses, live_serve
     assert db_task.agent_timestamp_ns == timestamp
 
 
-def test_full_job_stages(db, responses, monkeypatch, live_server):
+def test_full_job_stages(db, responses, monkeypatch, live_server, task_api_client):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
     task = runjob_db_task_factory(backend="dummy")
@@ -131,14 +133,15 @@ def test_full_job_stages(db, responses, monkeypatch, live_server):
     ]
 
     for stage in stages:
-        task_api.update_controller(task, stage)
+        task_api_client.update_controller(task, stage)
         db_task = controller_api.get_task(task.id)
         assert db_task.agent_stage == stage
         assert bool(db_task.agent_complete) is False
 
-    task_api.update_controller(
+    task_api_client.update_controller(
         task, "FINALIZED", results={"test": "test"}, complete=True
     )
+
     db_task = controller_api.get_task(task.id)
     assert db_task.agent_stage == "FINALIZED"
     assert db_task.agent_results == {"test": "test"}

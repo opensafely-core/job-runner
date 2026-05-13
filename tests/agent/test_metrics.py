@@ -57,7 +57,7 @@ def test_read_write_job_metrics():
 
 @pytest.mark.parametrize("task_present", [True, False])
 def test_record_metrics_tick_trace(
-    db, freezer, monkeypatch, live_server, responses, task_present
+    db, freezer, monkeypatch, live_server, responses, task_present, task_api_client
 ):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
@@ -86,12 +86,12 @@ def test_record_metrics_tick_trace(
         },
     )
 
-    last_run1 = metrics.record_metrics_tick_trace(None)
+    last_run1 = metrics.record_metrics_tick_trace(None, task_api_client)
     assert len(get_trace("metrics")) == 0
 
     freezer.tick(10)
 
-    last_run2 = metrics.record_metrics_tick_trace(last_run1)
+    last_run2 = metrics.record_metrics_tick_trace(last_run1, task_api_client)
     assert last_run2 == last_run1 + 10 * 1e9
 
     spans = get_trace("metrics")
@@ -141,7 +141,7 @@ def test_record_metrics_tick_trace(
 
 
 def test_record_metrics_tick_trace_stats_timeout(
-    db, freezer, live_server, responses, monkeypatch
+    db, freezer, live_server, responses, monkeypatch, task_api_client
 ):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
@@ -154,7 +154,7 @@ def test_record_metrics_tick_trace_stats_timeout(
     last_run = time.time()
     freezer.tick(10)
 
-    metrics.record_metrics_tick_trace(last_run)
+    metrics.record_metrics_tick_trace(last_run, task_api_client)
     assert len(get_trace("metrics")) == 2
 
     spans = get_trace("metrics")
@@ -171,7 +171,7 @@ def test_record_metrics_tick_trace_stats_timeout(
 
 
 def test_record_metrics_tick_trace_stats_error(
-    db, freezer, monkeypatch, live_server, responses
+    db, freezer, monkeypatch, live_server, responses, task_api_client
 ):
     monkeypatch.setattr("agent.config.TASK_API_ENDPOINT", live_server.url)
     responses.add_passthru(live_server.url)
@@ -184,7 +184,7 @@ def test_record_metrics_tick_trace_stats_error(
     monkeypatch.setattr(metrics, "get_job_stats", error)
 
     last_run = time.time()
-    metrics.record_metrics_tick_trace(last_run)
+    metrics.record_metrics_tick_trace(last_run, task_api_client)
     assert len(get_trace("metrics")) == 2
 
     spans = get_trace("metrics")
