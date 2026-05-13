@@ -38,14 +38,14 @@ def test_job_resource_weights(tmp_path):
 def test_job_resource_weights_defaults(tmp_path):
     config_file_template = "config_{backend}.ini"
     config = textwrap.dedent(
-        """
+        r"""
         [default]
-        my-action:v[\\d]+\\s+do-thing.+ = 3
-        ehrql:v[\\d]+\\s+generate-measures.+ = 4.5
+        my-action:v[\d]+\s+do-thing.+ = 3
+        ehrql:v[\d]+\s+generate-measures.+ = 4.5
 
         [my-workspace]
         some_action = 2.5
-        pattern[\\d]+ = 4
+        pattern[\d]+ = 4
         """
     )
     config_file = tmp_path / "config_test.ini"
