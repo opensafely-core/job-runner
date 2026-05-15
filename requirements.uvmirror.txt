@@ -237,7 +237,7 @@ typing-extensions==4.15.0
     #   starlette
 tzdata==2026.2 ; sys_platform == 'win32'
     # via django
-urllib3==2.6.3
+urllib3==2.7.0
     # via
     #   requests
     #   responses
