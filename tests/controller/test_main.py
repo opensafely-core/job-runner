@@ -1112,10 +1112,20 @@ def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
     assert tasks[0].active is False
     assert tasks[1].active is True
 
-    # Enable manual database maintenance mode
+    # Enable manual database maintenance mode; checks remain enabled by default
     set_flag("manual-db-maintenance", "true", backend="test")
 
-    # Now running the loop should deactivate any active tasks
+    # Running the loop should NOT deactivate any active tasks
+    run_controller_loop_once()
+    tasks = database.find_where(Task, type=TaskType.DBSTATUS)
+    assert len(tasks) == 2
+    assert tasks[0].active is False
+    assert tasks[1].active is True
+
+    # Disable checks
+    set_flag("db-maintenance-checks-disabled", "true", backend="test")
+
+    # Running the loop deactivates any active tasks
     run_controller_loop_once()
     tasks = database.find_where(Task, type=TaskType.DBSTATUS)
     assert len(tasks) == 2

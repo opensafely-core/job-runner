@@ -19,7 +19,7 @@
 - [job-runner docker image](#job-runner-docker-image)
 - [Database schema and migrations](#database-schema-and-migrations)
 - [Deployment](#deploying)
-- [Running controller commands in production](running-controller-commands-in-production)
+- [Running controller commands in production](#running-controller-commands-in-production)
   - [Turn manual database maintenance mode on/off](#turn-manual-database-maintenance-mode-onoff-on-a-specific-backend)
   - [Pause a backend](#pause-a-backend)
   - [Prepare for reboot](#prepare-for-reboot)
@@ -777,6 +777,18 @@ dokku run rap-controller python manage.py db_maintenance <on/off> <backend slug>
 
 # i.e. to turn maintenance mode on for the tpp backend
 dokku run rap-controller python manage.py db_maintenance on tpp
+```
+
+By default, checks for db-maintenance via DBSTATUS tasks continue to run during
+manual maintenance mode. If we want to prevent any connections to the database,
+including checks for maintenance mode, disable the checks with the `--disable-checks` option.
+
+i.e. to turn maintenance mode on for the tpp backend, deactivate any existing
+DBSTATUS tasks and prevent new ones being created:
+
+```
+dokku run rap-controller python manage.py db_maintenance on tpp --disable-checks
+
 ```
 
 ### Pause a backend

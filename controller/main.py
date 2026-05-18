@@ -723,6 +723,9 @@ def update_scheduled_tasks():
 
 
 def update_scheduled_task_for_db_maintenance_for_backend(backend):
+    manual_db_maintenance = get_flag_value("manual-db-maintenance", backend)
+    db_checks_disabled = get_flag_value("db-maintenance-checks-disabled", backend)
+
     schedule_regular_task(
         backend=backend,
         task_type=TaskType.DBSTATUS,
@@ -731,7 +734,7 @@ def update_scheduled_task_for_db_maintenance_for_backend(backend):
             **get_database_utils_image_details(),
         },
         task_interval=config.MAINTENANCE_POLL_INTERVAL,
-        is_active=not get_flag_value("manual-db-maintenance", backend),
+        is_active=not (manual_db_maintenance and db_checks_disabled),
     )
 
 
