@@ -105,25 +105,51 @@ def test_pause(db, freezer, capsys, monkeypatch):
 
 def test_db_maintenance(db, freezer, capsys):
     freezer.move_to(TEST_DATESTR)
+    # enable manual maintenance, checks are NOT disabled by default
     call_command("db_maintenance", "on", "test")
     stdout, stderr = capsys.readouterr()
     assert (
         stdout
-        == f"[test] mode=db-maintenance ({TEST_DATESTR})\n[test] manual-db-maintenance=on ({TEST_DATESTR})\n"
+        == f"[test] mode=db-maintenance ({TEST_DATESTR})\n[test] manual-db-maintenance=on ({TEST_DATESTR})\n[test] db-maintenance-checks-disabled=None ({TEST_DATESTR})\n"
     )
     assert stderr == ""
     assert queries.get_flag("mode", "test").value == "db-maintenance"
     assert queries.get_flag("manual-db-maintenance", "test").value == "on"
+    assert queries.get_flag("db-maintenance-checks-disabled", "test").value is None
 
     call_command("db_maintenance", "off", "test")
     stdout, stderr = capsys.readouterr()
     assert (
         stdout
-        == f"[test] mode=None ({TEST_DATESTR})\n[test] manual-db-maintenance=None ({TEST_DATESTR})\n"
+        == f"[test] mode=None ({TEST_DATESTR})\n[test] manual-db-maintenance=None ({TEST_DATESTR})\n[test] db-maintenance-checks-disabled=None ({TEST_DATESTR})\n"
     )
     assert stderr == ""
     assert queries.get_flag("mode", "test").value is None
     assert queries.get_flag("manual-db-maintenance", "test").value is None
+    assert queries.get_flag("db-maintenance-checks-disabled", "test").value is None
+
+    # enable manual maintenance with checks diabled
+    call_command("db_maintenance", "on", "test", disable_checks=True)
+    stdout, stderr = capsys.readouterr()
+    assert (
+        stdout
+        == f"[test] mode=db-maintenance ({TEST_DATESTR})\n[test] manual-db-maintenance=on ({TEST_DATESTR})\n[test] db-maintenance-checks-disabled=true ({TEST_DATESTR})\n"
+    )
+    assert stderr == ""
+    assert queries.get_flag("mode", "test").value == "db-maintenance"
+    assert queries.get_flag("manual-db-maintenance", "test").value == "on"
+    assert queries.get_flag("db-maintenance-checks-disabled", "test").value == "true"
+
+    call_command("db_maintenance", "off", "test")
+    stdout, stderr = capsys.readouterr()
+    assert (
+        stdout
+        == f"[test] mode=None ({TEST_DATESTR})\n[test] manual-db-maintenance=None ({TEST_DATESTR})\n[test] db-maintenance-checks-disabled=None ({TEST_DATESTR})\n"
+    )
+    assert stderr == ""
+    assert queries.get_flag("mode", "test").value is None
+    assert queries.get_flag("manual-db-maintenance", "test").value is None
+    assert queries.get_flag("db-maintenance-checks-disabled", "test").value is None
 
 
 def test_snapshot_database(tmp_path, monkeypatch, freezer):
