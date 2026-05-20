@@ -6,6 +6,6 @@
   },
   "type": "module",
   "devDependencies": {
-    "@redocly/cli": "^2.30.1"
+    "@redocly/cli": "^2.30.5"
   }
 }
