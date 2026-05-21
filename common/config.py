@@ -1,5 +1,9 @@
 import os
+import warnings
 from pathlib import Path
+
+
+warnings.filterwarnings("ignore", message="ProjectWarning", module=r"pipeline\.")
 
 
 # A list of known available backends

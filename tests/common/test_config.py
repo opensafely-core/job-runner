@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 
 from tests.conftest import import_cfg as import_config_from_script
@@ -33,3 +35,37 @@ def test_version_file():
         }
     )
     assert cfg["VERSION"] == "abc1234"
+
+
+_OLD_VERSION_PROJECT_YAML = (
+    'version: "1"\n'
+    "actions:\n"
+    "  my_action:\n"
+    "    run: python:v2 script.py\n"
+    "    outputs:\n"
+    "      moderately_sensitive:\n"
+    "        result: output.csv\n"
+)
+
+
+def test_pipeline_old_version_warning_suppressed():
+    # Script that defines UserWarnings as errors _before_ importing
+    # common.config which contains the "ingore" filter. If our ignore
+    # filter regresses, this will cause the ProjectWarning triggered by
+    # loading an old version project.yaml raise an error.
+    script = f"""
+import warnings
+warnings.filterwarnings("error", category=UserWarning)
+from common import config
+from pipeline import load_pipeline
+load_pipeline({repr(_OLD_VERSION_PROJECT_YAML)})
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"Unexpected warning raised: {result.stderr.strip().splitlines()[-1]}"
+    )
