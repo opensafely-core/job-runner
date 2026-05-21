@@ -58,8 +58,8 @@ upgrade-package package: && uvmirror devenv
 upgrade-all: && uvmirror devenv
     uv lock --upgrade
 
-# update the companion requirements.txt formatted file
-uvmirror file="requirements.uvmirror.txt":
+# update the companion requirements formatted file
+uvmirror file="requirements.uvmirror":
     rm -f {{ file }}
     uv export --format requirements-txt --frozen --no-hashes --all-groups --all-extras > {{ file }}
 
