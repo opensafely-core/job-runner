@@ -14,7 +14,6 @@ from controller.queries import get_flag_value
 
 
 def main(backend, status=False, skip_confirm=False):
-
     paused = str(get_flag_value("paused", backend, default="False")).lower() == "true"
     running_jobs = find_where(Job, state=State.RUNNING, backend=backend)
 
@@ -31,7 +30,10 @@ def main(backend, status=False, skip_confirm=False):
         if cancel_tasks:
             report += f"3) {len(cancel_tasks)} job(s) are being cancelled\n"
 
-        if not running_jobs and not cancel_tasks:
+        if not paused:
+            # prepare_for_reboot was not run as it pauses the backend
+            report += f"Backend '{backend}' is not paused. Run prepare_for_reboot, then check the status again\n"
+        elif not running_jobs and not cancel_tasks:
             # No jobs are running, and there are no active canceljob tasks, we are ready to reboot
             report += "\n== READY TO REBOOT ==\n"
             report += "Safe to reboot now\n"

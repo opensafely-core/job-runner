@@ -169,8 +169,11 @@ def test_prepare_for_reboot_status_ready_to_reboot(db, paused, capsys):
     out, _ = capsys.readouterr()
     assert f"1) backend 'test' is {'not ' if not paused else ''}paused" in out
     assert "2) 0 job(s) are running" in out
-    assert "READY TO REBOOT" in out
     if paused:
-        assert "Safe to reboot now"
+        assert "READY TO REBOOT" in out
+        assert "Safe to reboot now" in out
     else:
-        assert "Pause backend 'test' before rebooting"
+        assert (
+            "Backend 'test' is not paused. Run prepare_for_reboot, then check the status again\n"
+            in out
+        )
