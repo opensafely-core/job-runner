@@ -943,11 +943,11 @@ def test_job_definition_defaults(db):
         "study": {
             "branch": "main",
             "commit": "commit",
-            "git_repo_url": "repo",
+            "git_repo_url": "/repo",
         },
         "task_id": "task_id",
         "workspace": "workspace",
-        "repo_url": "repo",
+        "repo_url": "/repo",
         "commit": "commit",
     }
 

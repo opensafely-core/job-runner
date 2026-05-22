@@ -114,6 +114,7 @@ def validate_rap_create_request(rap_create_request):
         rap_create_request.repo_url,
         rap_create_request.commit,
         rap_create_request.branch,
+        allow_local_git_repos=common_config.ALLOW_LOCAL_GIT_REPOS,
     )
 
 
