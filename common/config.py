@@ -55,7 +55,7 @@ PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 
 # Used by the controller to validate database name passed in a job request
 # Used by the agent to build database URLS
-VALID_DATABASE_NAMES = ["default", "include_t1oo"]
+VALID_DATABASE_NAMES = ["default"]
 
 # What github organisations we are allowed to checkout code from
 ALLOWED_GITHUB_ORGS = (
