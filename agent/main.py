@@ -219,6 +219,7 @@ def handle_run_job_task(task, api):
                     job.study.git_repo_url,
                     job.study.commit,
                     job.study.branch,
+                    allow_local_git_repos=common_config.ALLOW_LOCAL_GIT_REPOS,
                 )
                 # prepare is synchronous, which means set our code to PREPARING
                 # before calling  api.prepare(), and we expect it to be PREPARED

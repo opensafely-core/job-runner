@@ -15,7 +15,7 @@ from tests.conftest import test_exporter
 
 
 DEFAULT_COMMIT = "commit"
-DEFAULT_REPO = "repo"
+DEFAULT_REPO = "/repo"
 
 CREATE_REQUEST_DEFAULTS = {
     "repo_url": DEFAULT_REPO,

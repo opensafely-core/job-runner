@@ -63,3 +63,5 @@ ALLOWED_GITHUB_ORGS = (
     .strip()
     .split(",")
 )
+
+ALLOW_LOCAL_GIT_REPOS = os.environ.get("ALLOW_LOCAL_GIT_REPOS", "").lower() == "true"

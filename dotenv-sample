@@ -14,6 +14,10 @@ BACKENDS=test
 # A Github developer token that has read access to private repos
 PRIVATE_REPO_ACCESS_TOKEN=
 
+# Allow running jobs directly from local git repos to facilitate local development and
+# testing
+ALLOW_LOCAL_GIT_REPOS=True
+
 # How frequently to poll internal database and Docker for the current state of
 # active jobs
 JOB_LOOP_INTERVAL=1.0

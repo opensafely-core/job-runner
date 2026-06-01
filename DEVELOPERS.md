@@ -177,7 +177,8 @@ a backend to run it on e.g.
 just add-job https://github.com/opensafely/test-age-distribution run_all --backend test
 ```
 
-As well as URLs this will accept paths to local git repos e.g.
+As well as URLs this will accept paths to local git repos, as long as the
+`ALLOW_LOCAL_GIT_REPOS` environment variable is set to `True` e.g.
 ```
 git clone git@github.com:opensafely/test-age-distribution.git ../test-age-distribution
 just add-job ../test-age-distribution run_all --backend test

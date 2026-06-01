@@ -18,6 +18,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 from agent import config as agent_config
 from agent import metrics, task_api
+from common import config as common_config
 from common.tracing import add_exporter, get_provider
 from controller import config as controller_config
 from controller.lib import database, docker
@@ -363,3 +364,8 @@ def patch_image_shas(request, monkeypatch, responses):
     monkeypatch.setattr(docker, "get_current_image_sha", get_current_image_sha)
     # caller can modify sha_map if needed
     return sha_map
+
+
+@pytest.fixture(autouse=True)
+def allow_local_git_repos(monkeypatch):
+    monkeypatch.setattr(common_config, "ALLOW_LOCAL_GIT_REPOS", True)
