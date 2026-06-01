@@ -543,7 +543,6 @@ components:
           type: string
           enum:
             - default
-            - include_t1oo
         requested_actions:
           description: |
             The explicitly requested actions to run as part of this RAP.

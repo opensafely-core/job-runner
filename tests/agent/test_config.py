@@ -108,7 +108,8 @@ def test_database_urls_from_env():
             "INCLUDE_T1OO_DATABASE_URL": "mssql://localhost/db2",
         }
     )
+    # only "default" is a valid database name, other X_DATABASE_URL env variables
+    # are ignored
     assert db_urls == {
         "default": "mssql://localhost/db1",
-        "include_t1oo": "mssql://localhost/db2",
     }
