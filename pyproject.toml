@@ -78,6 +78,7 @@ extend-ignore = [
 isort.lines-after-imports = 2
 
 [tool.pytest.ini_options]
+addopts = "--dist=loadgroup"
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:opentelemetry.*:",
@@ -107,6 +108,7 @@ dev = [
     "pytest-django",
     "pytest-freezer",
     "pytest-responses",
+    "pytest-xdist>=3.8.0",
     "ruff",
     # OpenAPI tools
     "schemathesis",

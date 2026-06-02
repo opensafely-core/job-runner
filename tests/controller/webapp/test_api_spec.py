@@ -14,6 +14,12 @@ from tests.factories import job_factory, rap_create_request_factory
 FIXTURES_PATH = Path(__file__).parent.parent.parent.resolve() / "fixtures"
 
 
+# Keep all parametrised schemathesis cases on a single xdist worker so the
+# module-scoped `recorder` fixture sees every status code before its
+# teardown assertion runs.
+pytestmark = pytest.mark.xdist_group("api_spec")
+
+
 @schemathesis.hook
 def before_add_examples(context, examples: list[schemathesis.Case]):
     # Modify the rap/create/ example2 request body to use our fixture repo, so the
