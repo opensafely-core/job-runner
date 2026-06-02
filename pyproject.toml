@@ -27,7 +27,6 @@ Source = "https://github.com/opensafely-core/job-runner"
 
 [tool.coverage.run]
 branch = true
-dynamic_context = "test_function"
 source = ["agent", "controller"]
 omit = [
     # These are covered by subprocess tests which aren't tracked properly
@@ -85,7 +84,6 @@ filterwarnings = [
     "ignore::DeprecationWarning:pytest_freezegun:17",
     "ignore::DeprecationWarning:pytest_responses:9",
     "ignore::DeprecationWarning:schemathesis.*:",
-    "ignore:.*dynamic_context.*:pytest_cov.CentralCovContextWarning",
     "ignore:ProjectWarning:UserWarning:pipeline.*:",
     "ignore:ProjectWarning:UserWarning:tests.*:",
 ]

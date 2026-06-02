@@ -102,7 +102,7 @@ upgrade-pipeline: && devenv uvmirror
 
 # Run the tests
 test *ARGS: _checkenv
-    IMAGE_PULL_TIMEOUT=300 uv run pytest --cov --cov-report=term --cov-report=html "$@"
+    IMAGE_PULL_TIMEOUT=300 uv run pytest --cov --cov-context=test --cov-report=term --cov-report=html "$@"
 
 test-fast *ARGS: _checkenv
     uv run python -m pytest tests -m "not slow_test" "$@"
