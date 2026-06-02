@@ -102,16 +102,16 @@ upgrade-pipeline: && devenv uvmirror
 
 # Run the tests
 test *ARGS: _checkenv
-    IMAGE_PULL_TIMEOUT=300 uv run pytest --cov --cov-context=test --cov-report=term --cov-report=html "$@"
+    IMAGE_PULL_TIMEOUT=300 uv run pytest -n auto --cov --cov-context=test --cov-report=term --cov-report=html "$@"
 
 test-fast *ARGS: _checkenv
-    uv run python -m pytest tests -m "not slow_test" "$@"
+    uv run python -m pytest tests -n auto -m "not slow_test" "$@"
 
 test-verbose *ARGS: _checkenv
     uv run python -m pytest tests/test_integration.py -o log_cli=true -o log_cli_level=INFO "$@"
 
 test-no-docker *ARGS: _checkenv
-    uv run python -m pytest -m "not needs_docker" "$@"
+    uv run python -m pytest -n auto -m "not needs_docker" "$@"
 
 # Run an agent cli command locally
 cli command *ARGS: _checkenv
