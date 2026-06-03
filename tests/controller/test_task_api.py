@@ -4,6 +4,7 @@ from common.job_executor import JobDefinition
 from controller import task_api
 from controller.main import job_to_job_definition
 from controller.models import Task, TaskType
+from controller.queries import get_flag_value, set_flag
 from tests.factories import job_factory
 
 
@@ -70,3 +71,50 @@ def test_handle_task_update(db, task_type, complete):
         assert updated_task.finished_at > 0
     else:
         assert updated_task.finished_at is None
+
+
+@pytest.mark.parametrize(
+    "manual_mode,result_mode,end_mode",
+    [
+        # # manual mode on; always stay in maintenance mode
+        ("on", "db-maintenance", "db-maintenance"),
+        ("on", "", "db-maintenance"),
+        # # manual mode off; results say no-maintenance mode, maintenance mode turned off
+        (None, "", ""),
+        # # manual mode off; results say still in maintenance mode, maintenance mode stays on
+        (None, "db-maintenance", "db-maintenance"),
+    ],
+)
+def test_handle_db_status_task_update(db, manual_mode, result_mode, end_mode):
+
+    # Start in db-maintenance mode
+    set_flag("mode", "db-maintenance", backend="test")
+    set_flag("manual-db-maintenance", manual_mode, backend="test")
+
+    task = Task(
+        id="task1",
+        backend="test",
+        type=TaskType.DBSTATUS,
+        definition={"some_key": "some_value"},
+    )
+    task_api.insert_task(task)
+
+    results = {"results": {"status": result_mode}}
+    task_api.handle_task_update(
+        task_id="task1",
+        stage="stage1",
+        results=results,
+        complete=True,
+    )
+
+    # The task is always correctly updated
+    updated_task = task_api.get_task("task1")
+    assert not updated_task.active
+    assert updated_task.agent_stage == "stage1"
+    assert updated_task.agent_results == results
+    assert updated_task.finished_at > 0
+
+    # Maintenance mode is only turned off if we're actual out of it AND we're not in manual mode
+    assert get_flag_value("mode", backend="test") == end_mode
+    # Manual mode always stays as set
+    assert get_flag_value("manual-db-maintenance", backend="test") == manual_mode

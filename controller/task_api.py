@@ -2,7 +2,7 @@ import time
 
 from controller.lib import database
 from controller.models import Task, TaskType
-from controller.queries import set_flag
+from controller.queries import get_flag_value, set_flag
 
 
 def insert_task(task):
@@ -72,7 +72,10 @@ def handle_task_update(*, task_id, stage, results, complete, timestamp_ns=None):
 
 def handle_task_update_dbstatus(task):
     with database.transaction():
-        if results := task.agent_results.get("results"):
-            mode = results["status"]
-            set_flag("mode", mode, backend=task.backend)
+        # If we're in manual maintenance mode, we stay there, irrespective of
+        # the actual maintenance mode status
+        if not get_flag_value("manual-db-maintenance", task.backend):
+            if results := task.agent_results.get("results"):
+                mode = results["status"]
+                set_flag("mode", mode, backend=task.backend)
         database.update(task)
