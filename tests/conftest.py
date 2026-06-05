@@ -42,6 +42,19 @@ def pytest_configure(config):
     )
 
 
+def pytest_itemcollected(item):
+    # Mark every docker test with a a xdist_group so they run with a single worker.
+    # The tests that use docker typically need to look at e.g. `docker stats`
+    # and `docker ps`, and assertions are non-deterministic if there are concurrent
+    # tests going on.
+    #
+    # Note: we add the marker in pytest_itemcollected rather than
+    # pytest_collection_modifyitems because xdist requires xdist_group markers
+    # to be present before modifyitems runs.
+    if item.get_closest_marker("needs_docker"):
+        item.add_marker(pytest.mark.xdist_group("docker_lib"))
+
+
 @pytest.fixture(scope="session", autouse=True)
 def close_task_api_session():
     # agent.task_api uses a module-level requests.Session. Disable keep-alive
@@ -162,6 +175,14 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
         basetemp = (
             request.config.option.basetemp or Path(tempfile.gettempdir()).resolve()
         )
+        # Under pytest-xdist each worker sets its own --basetemp pointing at a
+        # That breaks the relative_to() below when we run tests in
+        # docker, because pytest_host_tmp mounts /tmp to /tmp/jobrunner-docker and loses
+        # the worker subdir
+        # Fall back to gettempdir() if we're running with xdist.
+        if hasattr(request.config, "workerinput"):
+            basetemp = Path(tempfile.gettempdir()).resolve()
+
         host_volume_path = pytest_host_tmp / tmp_path.relative_to(basetemp)
         monkeypatch.setattr(
             "agent.config.DOCKER_HOST_VOLUME_DIR",
@@ -172,8 +193,8 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def docker_cleanup(monkeypatch):
-    label_for_tests = "jobrunner-pytest"
+def docker_cleanup(monkeypatch, worker_id):
+    label_for_tests = f"jobrunner-pytest-{worker_id}"
     monkeypatch.setattr("agent.lib.docker.LABEL", label_for_tests)
     monkeypatch.setattr("agent.executors.local.LABEL", label_for_tests)
     yield

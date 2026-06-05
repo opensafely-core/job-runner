@@ -33,6 +33,8 @@ distro==1.9.0
     # via ruyaml
 django==6.0.5
     # via opensafely-jobrunner
+execnet==2.1.2
+    # via pytest-xdist
 filelock==3.29.0
     # via
     #   python-discovery
@@ -163,11 +165,13 @@ pytest==9.0.3
     #   pytest-django
     #   pytest-freezer
     #   pytest-responses
+    #   pytest-xdist
     #   schemathesis
 pytest-cov==7.1.0
 pytest-django==4.12.0
 pytest-freezer==0.4.9
 pytest-responses==0.5.1
+pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
     # via freezegun
 python-discovery==1.3.1
