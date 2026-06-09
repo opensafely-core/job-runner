@@ -12,20 +12,22 @@ jobs:
   update-dependencies:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v6
-    - uses: "opensafely-core/setup-action@v1"
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      with:
+        persist-credentials: false
+    - uses: opensafely-core/setup-action@93841f27c28c75bf85b1a0a915e2391a06c6c8a6 # v1
       with:
         install-just: true
         install-uv: true
         cache: uv
 
-    - uses: actions/create-github-app-token@v3
+    - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
       id: generate-token
       with:
         app-id: 1031449  # opensafely-core Create PR app
         private-key: ${{ secrets.CREATE_PR_APP_PRIVATE_KEY }}
 
-    - uses: bennettoxford/update-dependencies-action@v1
+    - uses: bennettoxford/update-dependencies-action@b77a22bcfe1d06020d908e64c9828fe944da3a5e # v1
       id: update
       with:
         token: ${{ steps.generate-token.outputs.token }}
