@@ -30,7 +30,9 @@ jobs:
     name: Build, publish and deploy docker image
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      with:
+        persist-credentials: false
     - name: Set up Just
       uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
     - name: Build image
@@ -42,7 +44,7 @@ jobs:
 
     - name: Publish docker image
       run: |
-        echo ${{ secrets.GITHUB_TOKEN }} | docker login "$REGISTRY" -u ${{ github.actor }} --password-stdin
+        echo ${{ secrets.GITHUB_TOKEN }} | docker login "$REGISTRY" -u "${GITHUB_ACTOR}" --password-stdin
         docker tag "$IMAGE_NAME" "$PUBLIC_IMAGE_NAME:latest"
         docker push "$PUBLIC_IMAGE_NAME:latest"
         # dump the full local container metadata into the logs in case its useful
