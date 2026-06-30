@@ -158,24 +158,23 @@ def test_get_log_dir(job_definition):
 def test_read_metadata_path(job_definition):
     assert local.read_job_metadata(job_definition.id) == {}
 
-    globbed_path = (
-        config.JOB_LOG_DIR
-        / "last-month"
-        / local.container_name(job_definition.id)
-        / local.METADATA_FILE
-    )
-    globbed_path.parent.mkdir(parents=True)
-    globbed_path.write_text(json.dumps({"test": "globbed"}))
-    assert local.read_job_metadata(job_definition.id) == local.METADATA_DEFAULTS | {
-        "test": "globbed"
-    }
-
     actual_path = local.get_log_dir(job_definition) / local.METADATA_FILE
     actual_path.parent.mkdir(parents=True)
     actual_path.write_text(json.dumps({"test": "actual"}))
     assert local.read_job_metadata(job_definition.id) == local.METADATA_DEFAULTS | {
         "test": "actual"
     }
+
+    old_path = (
+        config.JOB_LOG_DIR
+        / "last-month"
+        / local.container_name(job_definition.id)
+        / local.METADATA_FILE
+    )
+    old_path.parent.mkdir(parents=True)
+    old_path.write_text(json.dumps({"test": "old"}))
+    with pytest.raises(AssertionError, match="Expected at most one path"):
+        local.read_job_metadata(job_definition.id)
 
 
 @pytest.mark.parametrize(
