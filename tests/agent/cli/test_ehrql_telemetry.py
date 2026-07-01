@@ -138,7 +138,7 @@ def test_ehrql_telemetry_main_with_id(monkeypatch, tmp_path):
     monkeypatch.setattr(local.config, "JOB_LOG_DIR", tmp_path)
     job_id = "1234"
     meta = metadata(job_id)
-    logdir = local.get_log_dir(job_id)
+    logdir = tmp_path / "2026-06" / f"os-job-{job_id}"
     logdir.mkdir(parents=True)
 
     metadata_path = logdir / "metadata.json"

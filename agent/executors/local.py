@@ -73,10 +73,13 @@ def get_medium_privacy_workspace(workspace):
         return None
 
 
-def get_log_dir(job_id):
+def get_log_dir(job_definition):
+    created_at = datetime.datetime.fromtimestamp(
+        job_definition.created_at, datetime.UTC
+    )
     # Split log directory up by month to make things slightly more manageable
-    month_dir = datetime.date.today().strftime("%Y-%m")
-    return config.JOB_LOG_DIR / month_dir / container_name(job_id)
+    month_dir = created_at.strftime("%Y-%m")
+    return config.JOB_LOG_DIR / month_dir / container_name(job_definition.id)
 
 
 def read_job_metadata(job_id):
@@ -103,7 +106,7 @@ def read_job_task_metadata(job_definition):
 
 
 def write_job_metadata(job_definition, job_metadata):
-    metadata_path = get_log_dir(job_definition.id) / METADATA_FILE
+    metadata_path = get_log_dir(job_definition) / METADATA_FILE
     metadata_path.parent.mkdir(exist_ok=True, parents=True)
     metadata_path.write_text(json.dumps(job_metadata, indent=2))
 
@@ -111,17 +114,19 @@ def write_job_metadata(job_definition, job_metadata):
 def job_metadata_path(job_id):
     """Return the expected path for the metadata for a job.
 
-    Due to writing to a directory path that includes the month at the time the
-    job was completed. We now need to be able to look up the metadata of a job
-    that may have completed in a previous month, so we use a glob to find it.
+    Because the path we write metadata to includes the month at the time the job was
+    created, and because sometimes we need to look up metadata from a job ID without
+    knowing the creation time, we have to search for it.
 
-    This is hopefully a temporary hack (2025-04)
+    This is tech debt we knowingly incurred when we prioritised finishing the
+    Agent/Controller split in order to unblock the RAP API work.
+
+    For further details see:
+    https://github.com/opensafely-core/job-runner/pull/1454
     """
-    metadata_path = get_log_dir(job_id) / METADATA_FILE
-    if metadata_path.exists():
-        return metadata_path
-    paths = list(config.JOB_LOG_DIR.glob(f"*/{container_name(job_id)}/{METADATA_FILE}"))
-    assert len(paths) <= 1  # There can be only one. Or zero.
+    job_metadata_file = container_name(job_id) + "/" + METADATA_FILE
+    paths = list(config.JOB_LOG_DIR.glob(f"*/{job_metadata_file}"))
+    assert len(paths) <= 1, f"Expected at most one path, got: {paths!r}"
     if paths:
         return paths[0]
 
@@ -601,7 +606,7 @@ def write_job_logs(
 ):
     """Copy logs to log dir and workspace."""
     # Dump useful info in log directory
-    log_dir = get_log_dir(job_definition.id)
+    log_dir = get_log_dir(job_definition)
     write_log_file(job_definition, job_metadata, log_dir / "logs.txt", excluded)
     write_job_metadata(job_definition, job_metadata)
     if copy_log_to_workspace:
