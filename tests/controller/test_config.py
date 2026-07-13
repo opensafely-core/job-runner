@@ -18,6 +18,16 @@ def test_config_imports_with_clean_env():
     import_cfg({})
 
 
+def test_controller_enable_ticks_defaults_to_true():
+    cfg = import_cfg({})
+    assert cfg["CONTROLLER_ENABLE_TICKS"] == "True"
+
+
+def test_controller_enable_ticks_can_be_disabled():
+    cfg = import_cfg({"CONTROLLER_ENABLE_TICKS": "false"})
+    assert cfg["CONTROLLER_ENABLE_TICKS"] == "False"
+
+
 def test_job_limits_from_env(monkeypatch):
     monkeypatch.setattr("common.config.BACKENDS", ["tpp", "test", "emis"])
     env = {
@@ -36,9 +46,9 @@ def test_max_workers():
     cfg = import_cfg(
         {"BACKENDS": "foo,bar,test", "FOO_MAX_DB_WORKERS": "3", "BAR_MAX_WORKERS": "7"}
     )
-    # overall default is 10 if no default specified in config
+    # overall default is 4 if no default specified in config
     # (test backend is set at 2)
-    assert cfg["MAX_WORKERS"] == str({"foo": 10, "bar": 7, "test": 2})
+    assert cfg["MAX_WORKERS"] == str({"foo": 4, "bar": 7, "test": 2})
 
     assert cfg["MAX_DB_WORKERS"] == str(
         {
