@@ -42,7 +42,28 @@ FROM ghcr.io/opensafely-core/base-docker:${UBUNTU_VERSION} AS base-python
 # docker clean up that deletes that cache on every apt install
 RUN rm -f /etc/apt/apt.conf.d/docker-clean
 
-# install any additional system dependencies
+#
+# Docker CLI
+#
+# Previously we have used docker.io from the Ubuntu archive, which lags
+# upstream Docker Engine releases (see e.g. CVE-2025-68121, fixed in
+# 29.3.0 upstream but not yet (as of 2026-07-24) backported to
+# Ubuntu 24.04's docker.io).
+# Installing from Docker's own apt repo instead gets us immediate security
+# patches on every image rebuild. However, it does require the additional
+# apt key/repo retrieval below
+
+RUN --mount=type=cache,target=/var/cache/apt <<'EOF'
+UBUNTU_CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+KEY_PATH=/etc/apt/keyrings/docker.asc
+KEY_URL='https://download.docker.com/linux/ubuntu/gpg'
+install -m 0755 -d /etc/apt/keyrings
+/usr/lib/apt/apt-helper download-file "$KEY_URL" "$KEY_PATH"
+chmod a+r "$KEY_PATH"
+echo "deb [arch=$(dpkg --print-architecture) signed-by=$KEY_PATH] https://download.docker.com/linux/ubuntu ${UBUNTU_CODENAME} stable" > /etc/apt/sources.list.d/docker.list
+EOF
+
+# install any additional system dependencies, including docker-ce-cli
 # NOTE: ensure .python-version is not excluded in .dockerignore
 RUN --mount=type=cache,target=/var/cache/apt \
     --mount=type=bind,source=docker/dependencies.txt,target=/dependencies.txt \
