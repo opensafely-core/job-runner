@@ -1,6 +1,9 @@
 # list ubuntu packages needed in production, one per line
-docker.io
 sqlite3
 git
 tzdata
 ca-certificates
+# Job-runner only ever shells out to `docker` against a mounted host socket,
+# so we don't need a local daemon, containerd, or buildx/compose plugins,
+# just the CLI.
+docker-ce-cli
