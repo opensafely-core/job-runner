@@ -47,15 +47,30 @@ jobs:
 
   test-docker:
     runs-on: ubuntu-24.04
-    name: Test docker image
+    name: Test docker image (${{ matrix.docker-backend }})
+    strategy:
+      fail-fast: false
+      matrix:
+        docker-backend: [github-native, docker.io]
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-
       - name: Set up Just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
+
+      - name: Swap runner's Docker for docker.io (to match the docker used in the backend)
+        if: matrix.docker-backend == 'docker.io'
+        run: |
+          sudo systemctl stop docker
+          sudo apt-get remove -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+          sudo apt-get update
+          sudo apt-get install -y docker.io
+          sudo systemctl start docker
+
+      - name: Confirm docker server version
+        run: docker version
 
       - name: Build image
         run: just docker/build
