@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: opensafely-core/setup-action@93841f27c28c75bf85b1a0a915e2391a06c6c8a6 # v1
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-24.04
     name: Run test suite
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
          persist-credentials: false
       - uses: opensafely-core/setup-action@93841f27c28c75bf85b1a0a915e2391a06c6c8a6 # v1
@@ -54,7 +54,7 @@ jobs:
         docker-backend: [github-native, docker.io]
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Set up Just
