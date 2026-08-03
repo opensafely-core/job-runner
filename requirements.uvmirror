@@ -20,7 +20,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     # via
     #   click
     #   pytest
-coverage==7.15.1
+coverage==7.15.2
     # via pytest-cov
 distlib==0.4.3
     # via virtualenv
@@ -30,7 +30,7 @@ django==6.0.7
     # via opensafely-jobrunner
 execnet==2.1.2
     # via pytest-xdist
-filelock==3.29.7
+filelock==3.32.0
     # via
     #   python-discovery
     #   virtualenv
@@ -44,7 +44,7 @@ gunicorn==26.0.0
     # via opensafely-jobrunner
 harfile==0.5.0
     # via schemathesis
-hypothesis==6.156.6
+hypothesis==6.158.1
     # via
     #   hypothesis-graphql
     #   hypothesis-jsonschema
@@ -65,7 +65,7 @@ jsonschema==4.26.0
     # via
     #   hypothesis-jsonschema
     #   opensafely-jobrunner
-jsonschema-rs==0.47.0
+jsonschema-rs==0.48.2
     # via schemathesis
 jsonschema-specifications==2025.9.1
     # via jsonschema
@@ -79,7 +79,7 @@ nodeenv==1.10.0
     # via pre-commit
 opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.04.22.171515.zip
     # via opensafely-jobrunner
-opentelemetry-api==1.43.0
+opentelemetry-api==1.44.0
     # via
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-instrumentation
@@ -88,35 +88,35 @@ opentelemetry-api==1.43.0
     #   opentelemetry-instrumentation-wsgi
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.43.0
+opentelemetry-exporter-otlp-proto-common==1.44.0
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.43.0
+opentelemetry-exporter-otlp-proto-http==1.44.0
     # via opensafely-jobrunner
-opentelemetry-instrumentation==0.64b0
+opentelemetry-instrumentation==0.65b0
     # via
     #   opentelemetry-instrumentation-django
     #   opentelemetry-instrumentation-requests
     #   opentelemetry-instrumentation-wsgi
-opentelemetry-instrumentation-django==0.64b0
+opentelemetry-instrumentation-django==0.65b0
     # via opensafely-jobrunner
-opentelemetry-instrumentation-requests==0.64b0
+opentelemetry-instrumentation-requests==0.65b0
     # via opensafely-jobrunner
-opentelemetry-instrumentation-wsgi==0.64b0
+opentelemetry-instrumentation-wsgi==0.65b0
     # via opentelemetry-instrumentation-django
-opentelemetry-proto==1.43.0
+opentelemetry-proto==1.44.0
     # via
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.43.0
+opentelemetry-sdk==1.44.0
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.64b0
+opentelemetry-semantic-conventions==0.65b0
     # via
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-django
     #   opentelemetry-instrumentation-requests
     #   opentelemetry-instrumentation-wsgi
     #   opentelemetry-sdk
-opentelemetry-util-http==0.64b0
+opentelemetry-util-http==0.65b0
     # via
     #   opentelemetry-instrumentation-django
     #   opentelemetry-instrumentation-requests
@@ -126,7 +126,7 @@ packaging==26.2
     #   gunicorn
     #   opentelemetry-instrumentation
     #   pytest
-platformdirs==4.10.0
+platformdirs==4.11.0
     # via
     #   python-discovery
     #   virtualenv
@@ -134,7 +134,7 @@ pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-pre-commit==4.6.0
+pre-commit==4.6.1
 protobuf==7.35.1
     # via
     #   googleapis-common-protos
@@ -160,7 +160,7 @@ pytest-responses==0.6.0
 pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
     # via freezegun
-python-discovery==1.4.4
+python-discovery==1.5.0
     # via virtualenv
 pyyaml==6.0.3
     # via
@@ -192,10 +192,10 @@ ruamel-yaml-clib==0.2.8
     # via
     #   opensafely-pipeline
     #   ruamel-yaml
-ruff==0.15.21
+ruff==0.15.22
 ruyaml==0.91.0
     # via opensafely-pipeline
-schemathesis==4.22.4
+schemathesis==4.24.1
 setuptools==83.0.0
     # via ruyaml
 six==1.17.0
@@ -224,7 +224,7 @@ urllib3==2.7.0
     # via
     #   requests
     #   responses
-virtualenv==21.6.1
+virtualenv==21.7.0
     # via pre-commit
 werkzeug==3.1.8
     # via schemathesis
