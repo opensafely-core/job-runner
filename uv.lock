@@ -446,7 +446,7 @@ dev = [
     { name = "pytest-freezer" },
     { name = "pytest-responses" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "ruff" },
+    { name = "ruff", specifier = "<0.16" },
     { name = "schemathesis" },
 ]
 
