@@ -341,7 +341,7 @@ def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, db):
 
 
 @pytest.mark.needs_docker
-def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
+def test_execute_config(docker_cleanup, job_definition, tmp_work_dir):
     api = local.LocalDockerAPI()
     # use prepare step as test set up
     api.prepare(job_definition)
@@ -357,6 +357,12 @@ def test_execute_user_bindmount(docker_cleanup, job_definition, tmp_work_dir):
         container_config["Config"]["User"]
         == f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}"
     )
+
+    host_config = container_config["HostConfig"]
+    assert host_config["CapDrop"] == ["ALL"]
+    assert not host_config["CapAdd"]
+    assert "no-new-privileges" in host_config["SecurityOpt"]
+
     assert container_config["State"]["ExitCode"] == 0
 
 
