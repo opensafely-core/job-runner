@@ -221,6 +221,24 @@ class LocalDockerAPI(ExecutorAPI):
                 f"{config.DOCKER_USER_ID}:{config.DOCKER_GROUP_ID}",
             ]
         )
+
+        # Drop all kernel capabilities, as they are not needed by study code, ehrQL, or
+        # SQL Runner.
+        extra_args.extend(
+            [
+                "--cap-drop",
+                "ALL",
+            ]
+        )
+
+        # Prevent privilege escalation via setuid or setgid binaries.
+        extra_args.extend(
+            [
+                "--security-opt",
+                "no-new-privileges",
+            ]
+        )
+
         extra_args.extend(
             [
                 "-e",
