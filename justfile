@@ -54,47 +54,20 @@ install-precommit:
 upgrade-package package: && uvmirror devenv
     uv lock --upgrade-package {{ package }}
 
-# Upgrade all packages to the latest versions as of the cutoff in pyproject.toml
-upgrade-all: && uvmirror devenv
-    uv lock --upgrade
+# Upgrade all packages to the latest versions (with cooldown)
+upgrade-all cooldown="7 days ago": && uvmirror devenv
+    uv lock --upgrade --exclude-newer "{{ cooldown }}"
 
 # update the companion requirements formatted file
 uvmirror file="requirements.uvmirror":
     rm -f {{ file }}
     uv export --format requirements-txt --frozen --no-hashes --all-groups --all-extras > {{ file }}
 
-# Move the cutoff date in pyproject.toml to N days ago (default: 7) at midnight UTC
-bump-uv-cutoff days="7":
-    #!/usr/bin/env -S uvx --with tomlkit python3.13
-    # Note we specify the python version here and we don't care if it's different to
-    # the .python-version; we need 3.11+ for the datetime code used.
-
-    import datetime
-    import tomlkit
-
-    with open("pyproject.toml", "rb") as f:
-        content = tomlkit.load(f)
-
-    new_datetime = (
-        datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=int("{{ days }}"))
-    ).replace(hour=0, minute=0, second=0, microsecond=0)
-    new_timestamp = new_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
-    if existing_timestamp := content["tool"]["uv"].get("exclude-newer"):
-        if new_datetime < datetime.datetime.fromisoformat(existing_timestamp):
-            print(
-                f"Existing cutoff {existing_timestamp} is more recent than {new_timestamp}, not updating."
-            )
-            exit(0)
-    content["tool"]["uv"]["exclude-newer"] = new_timestamp
-
-    with open("pyproject.toml", "w") as f:
-        tomlkit.dump(content, f)
-
 # This is the default input command to update-dependencies action
 # https://github.com/bennettoxford/update-dependencies-action
 
-# Bump the timestamp cutoff to midnight UTC 7 days ago and upgrade all dependencies
-update-dependencies: upgrade-pipeline bump-uv-cutoff upgrade-all
+# Upgrade all dependencies with default cooldown (7 days)
+update-dependencies: upgrade-pipeline upgrade-all
 
 # Upgrade version of opensafely-pipeline library
 upgrade-pipeline: && devenv uvmirror
@@ -161,16 +134,7 @@ check:
 
 # validate uv.lock
 check-lockfile:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Make sure dates in pyproject.toml and uv.lock are in sync
-    unset UV_EXCLUDE_NEWER
-    rc=0
-    uv lock --check || rc=$?
-    if test "$rc" != "0" ; then
-        echo "Timestamp cutoffs in uv.lock must match those in pyproject.toml. See DEVELOPERS.md for details and hints." >&2
-        exit $rc
-    fi
+    uv lock --check
 
 # Fix any automatically fixable linting or formatting errors
 fix:
