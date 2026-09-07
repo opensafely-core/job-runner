@@ -12,7 +12,7 @@ dependencies = [
     "Django",
     "gunicorn",
     "jsonschema",
-    "opensafely-pipeline[fastparser]@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.08.28.121619.zip",
+    "opensafely-pipeline[fastparser]@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.08.21.072958.zip",
     "requests",
     "opentelemetry-exporter-otlp-proto-http",
     "opentelemetry-instrumentation-django",
