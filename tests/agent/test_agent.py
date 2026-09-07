@@ -624,7 +624,7 @@ def test_handle_db_data_check_task(
     main.handle_single_task(task, api=None)
 
     mock_run_db_task.assert_called_with(
-        ["hes_cutoff_date_check", "202304"],
+        ["backend-admin", "tpp", "hes_cutoff_date_check", "202304"],
         image="ghcr.io/opensafely-core/test:v1",
         image_sha="sha123456",
     )
