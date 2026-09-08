@@ -9,7 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 from types import MappingProxyType
 
-from pipeline import load_pipeline
+from pipeline.loading import parse_yaml_file
 
 from agent import config
 from agent.executors import volumes
@@ -779,8 +779,8 @@ def get_workspace_action_names(job_definition):
         # for the job and won't be re-fetched.
         return
     else:
-        pipeline_config = load_pipeline(project_file)
-        return set(pipeline_config.all_actions)
+        pipeline_config = parse_yaml_file(project_file)
+        return set(pipeline_config["actions"])
 
 
 def get_output_metadata(
