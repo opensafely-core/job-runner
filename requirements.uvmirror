@@ -72,7 +72,7 @@ mdurl==0.1.2
     # via markdown-it-py
 nodeenv==1.10.0
     # via pre-commit
-opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.08.21.072958.zip
+opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.08.28.121619.zip
     # via opensafely-jobrunner
 opentelemetry-api==1.44.0
     # via
