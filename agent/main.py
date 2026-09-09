@@ -461,7 +461,7 @@ def db_data_check_task(
 ):
     log.info("Running DBDATACHECK task")
     output = run_db_task(
-        ["hes_cutoff_date_check", hes_expected_activity_month],
+        ["backend-admin", "tpp", "hes_cutoff_date_check", hes_expected_activity_month],
         image=image,
         image_sha=image_sha,
     )

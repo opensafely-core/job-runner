@@ -731,7 +731,7 @@ def update_scheduled_task_for_db_maintenance_for_backend(backend):
         task_type=TaskType.DBSTATUS,
         get_task_definition=lambda: {
             "database_name": "default",
-            **get_database_utils_image_details(),
+            **get_database_utils_image_details(TaskType.DBSTATUS),
         },
         task_interval=config.MAINTENANCE_POLL_INTERVAL,
         is_active=not (manual_db_maintenance and db_checks_disabled),
@@ -744,15 +744,16 @@ def update_scheduled_task_for_db_data_check_for_backend(backend):
         task_type=TaskType.DBDATACHECK,
         get_task_definition=lambda: {
             "hes_expected_activity_month": config.DATA_CHECK_HES_EXPECTED_ACTIVITY_MONTH,
-            **get_database_utils_image_details(),
+            **get_database_utils_image_details(TaskType.DBDATACHECK),
         },
         task_interval=config.DATA_CHECK_POLL_INTERVAL,
         is_active=get_flag_value("mode", backend) != "db-maintenance",
     )
 
 
-def get_database_utils_image_details():
-    image_name = "tpp-database-utils:latest"
+def get_database_utils_image_details(task_type: TaskType):
+    task_type_to_image = {TaskType.DBDATACHECK: "ehrql:v1"}
+    image_name = task_type_to_image.get(task_type, "tpp-database-utils:latest")
     image_uri = f"{common_config.DOCKER_REGISTRY}/{image_name}"
     image_sha = docker.get_current_image_sha(image_name)
     return {
