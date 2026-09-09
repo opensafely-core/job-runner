@@ -14,13 +14,11 @@ cfgv==3.5.0
     # via pre-commit
 charset-normalizer==3.5.1
     # via requests
-click==8.4.2
+click==8.5.0
     # via schemathesis
 colorama==0.4.6 ; sys_platform == 'win32'
-    # via
-    #   click
-    #   pytest
-coverage==7.15.4
+    # via pytest
+coverage==7.16.0
     # via pytest-cov
 distlib==0.4.3
     # via virtualenv
@@ -30,7 +28,7 @@ django==6.1
     # via opensafely-jobrunner
 execnet==2.1.2
     # via pytest-xdist
-filelock==3.32.4
+filelock==3.32.5
     # via
     #   python-discovery
     #   virtualenv
@@ -38,13 +36,13 @@ freezegun==1.5.5
     # via pytest-freezer
 googleapis-common-protos==1.75.2
     # via opentelemetry-exporter-otlp-proto-http
-graphql-core==3.2.11
+graphql-core==3.2.12
     # via hypothesis-graphql
 gunicorn==26.2.0
     # via opensafely-jobrunner
 harfile==0.5.0
     # via schemathesis
-hypothesis==6.165.10
+hypothesis==6.167.1
     # via
     #   hypothesis-graphql
     #   schemathesis
@@ -120,14 +118,14 @@ packaging==26.3
     # via
     #   opentelemetry-instrumentation
     #   pytest
-platformdirs==4.11.4
+platformdirs==4.11.7
     # via virtualenv
 pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
 pre-commit==4.6.2
-protobuf==7.36.0
+protobuf==7.36.1
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
@@ -135,7 +133,7 @@ pygments==2.21.0
     # via
     #   pytest
     #   rich
-pyrate-limiter==4.4.0
+pyrate-limiter==4.5.0
     # via schemathesis
 pytest==9.1.1
     # via
@@ -152,7 +150,7 @@ pytest-responses==0.6.0
 pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
     # via freezegun
-python-discovery==1.5.3
+python-discovery==1.6.0
     # via virtualenv
 pyyaml==6.0.3
     # via
@@ -170,7 +168,7 @@ requests==2.34.2
     #   responses
     #   schemathesis
     #   starlette-testclient
-responses==0.26.2
+responses==0.26.3
     # via pytest-responses
 rich==15.0.0
     # via schemathesis
@@ -214,9 +212,9 @@ urllib3==2.7.0
     # via
     #   requests
     #   responses
-virtualenv==21.7.5
+virtualenv==21.7.8
     # via pre-commit
 werkzeug==3.1.8
     # via schemathesis
-wrapt==2.3.0
+wrapt==2.4.0
     # via opentelemetry-instrumentation
