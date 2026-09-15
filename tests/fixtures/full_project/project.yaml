@@ -55,7 +55,7 @@ actions:
         somefile: ehrql-somefile.csv
 
   test_reusable_action_ehrql:
-    run: minimal-action:v1.1.0 output/dataset.csv
+    run: minimal-action:v1.2.0 output/dataset.csv
     config:
       suffix: .backup
     needs: [generate_dataset]
