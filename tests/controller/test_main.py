@@ -1082,8 +1082,8 @@ def test_update_scheduled_task_for_db_maintenance(db, monkeypatch, freezer):
     assert tasks[0].backend == "test"
     assert tasks[0].definition == {
         "database_name": "default",
-        "image": "ghcr.io/opensafely-core/tpp-database-utils:latest",
-        "image_sha": "test-sha-for-tpp-database-utils:latest",
+        "image": "ghcr.io/opensafely-core/ehrql:v1",
+        "image_sha": "test-sha-for-ehrql-v1",
     }
 
     # Running it again should not create another
