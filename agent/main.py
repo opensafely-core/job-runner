@@ -410,7 +410,7 @@ def db_status_task(
 ):
     log.info(f"Running DBSTATUS task on database {database_name!r}")
     output = run_db_task(
-        ["in_maintenance_mode"],
+        ["backend-admin", "tpp", "in_maintenance_mode"],
         image=image,
         image_sha=image_sha,
         database_name=database_name,
