@@ -31,7 +31,7 @@ def disable_github_org_checking(monkeypatch):
 
 
 TEST_PROJECT = """
-version: '1.0'
+version: '5.0'
 actions:
   generate_dataset:
     run: ehrql:v1 generate-dataset analysis/dataset_definition.py --output output.csv.gz
@@ -40,21 +40,21 @@ actions:
         cohort: output.csv.gz
 
   prepare_data_1:
-    run: stata-mp:latest analysis/prepare_data_1.do
+    run: stata-mp:v1 analysis/prepare_data_1.do
     needs: [generate_dataset]
     outputs:
       highly_sensitive:
         data: prepared_1.dta
 
   prepare_data_2:
-    run: stata-mp:latest analysis/prepare_data_2.do
+    run: stata-mp:v1 analysis/prepare_data_2.do
     needs: [generate_dataset]
     outputs:
       highly_sensitive:
         data: prepared_2.dta
 
   analyse_data:
-    run: stata-mp:latest analysis/analyse_data.do
+    run: stata-mp:v1 analysis/analyse_data.do
     needs: [prepare_data_1, prepare_data_2]
     outputs:
       moderately_sensitive:
@@ -183,7 +183,7 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
     # Long ago there was an useless action that failed and then was rightly expunged from the study pipeline
     obsolete_action_def = """
   obsolete_action:
-    run: python:latest -c pass
+    run: python:v2 -c pass
     outputs:
       moderately_sensitive:
         name: path.csv
@@ -419,7 +419,7 @@ def test_create_jobs_with_out_of_date_codelists(
     project = TEST_PROJECT + (
         """
   standalone_action:
-    run: python:latest analysis/do_something.py
+    run: python:v2 analysis/do_something.py
     outputs:
       moderately_sensitive:
         something: done.txt
