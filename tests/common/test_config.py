@@ -38,7 +38,7 @@ def test_version_file():
 
 
 _OLD_VERSION_PROJECT_YAML = (
-    'version: "1"\n'
+    'version: "4"\n'
     "actions:\n"
     "  my_action:\n"
     "    run: python:v2 script.py\n"
@@ -52,12 +52,18 @@ def test_pipeline_old_version_warning_suppressed():
     # Script that defines UserWarnings as errors _before_ importing
     # common.config which contains the "ingore" filter. If our ignore
     # filter regresses, this will cause the ProjectWarning triggered by
-    # loading an old version project.yaml raise an error.
+    # loading an old version project.yaml to raise an error.
+    #
+    # We monkeypatch pipeline.models.MINIMUM_VERSION down to 4 so
+    # that this test keeps exercising the "old but allowed" warning path
+    # even if the pipeline library's real minimum version is bumped in future.
     script = f"""
 import warnings
 warnings.filterwarnings("error", category=UserWarning)
 from common import config
-from pipeline import load_pipeline
+from pipeline import load_pipeline, models
+models.MINIMUM_VERSION = 4
+
 load_pipeline({repr(_OLD_VERSION_PROJECT_YAML)})
 """
 

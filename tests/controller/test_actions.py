@@ -15,8 +15,7 @@ from controller.actions import UnknownActionError, get_action_specification
 def test_get_action_specification_ehrql_has_output_flag():
     config = Pipeline.build(
         **{
-            "version": 3,
-            "expectations": {"population_size": 1000},
+            "version": 5,
             "actions": {
                 "generate_dataset": {
                     "run": "ehrql:v1 generate-dataset dataset.py --output=output/dataset.csv",
@@ -46,11 +45,10 @@ def test_get_action_specification_ehrql_has_output_flag():
 def test_get_action_specification_with_config():
     config = Pipeline.build(
         **{
-            "version": 3,
-            "expectations": {"population_size": 1_000},
+            "version": 5,
             "actions": {
                 "my_action": {
-                    "run": "python:latest python action/__main__.py output/input.csv",
+                    "run": "python:v2 python action/__main__.py output/input.csv",
                     "config": {"option": "value"},
                     "outputs": {
                         "moderately_sensitive": {"my_figure": "output/my_figure.png"}
@@ -64,7 +62,7 @@ def test_get_action_specification_with_config():
 
     assert (
         action_spec.run
-        == """python:latest python action/__main__.py output/input.csv --config '{"option": "value"}'"""
+        == """python:v2 python action/__main__.py output/input.csv --config '{"option": "value"}'"""
     )
 
     # Does argparse accept options after arguments?
@@ -85,10 +83,10 @@ def test_get_action_specification_with_config():
 def test_get_action_specification_with_unknown_action():
     config = Pipeline.build(
         **{
-            "version": 1,
+            "version": 5,
             "actions": {
                 "known_action": {
-                    "run": "python:latest python test.py",
+                    "run": "python:v2 python test.py",
                     "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
                 }
             },
