@@ -3,75 +3,166 @@ on:
   push:
     branches:
       - main
-  # this allows us to trigger manually
-  workflow_dispatch:
 
 env:
-  APP_NAME: rap-controller
-  IMAGE_NAME: job-runner
-  PUBLIC_IMAGE_NAME: ghcr.io/opensafely-core/job-runner
   REGISTRY: ghcr.io
-  HOST: dokku4.ebmdatalab.net
-  PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
-  STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
-  SSH_AUTH_SOCK: /tmp/agent.sock
-
-permissions:
-  packages: write
-  contents: read
+  BUILD_IMAGE_NAME: job-runner
+  PUBLIC_IMAGE_NAME: ghcr.io/opensafely-core/job-runner
+  # We're using "latest" to fit with the current deployment workflow but we'll change
+  # this to "production" once we implement signature verification
+  TARGET_TAG: latest
+  DOKKU_DEPLOY_HOST: dokku4.ebmdatalab.net
+  DOKKU_DEPLOY_APP_NAME: rap-controller
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-publish-and-deploy-docker-image:
+  build-and-push:
+    name: Build, test, and push Docker image
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-24.04
-    name: Build, publish and deploy docker image
+    outputs:
+      digest: ${{ steps.get_digest.outputs.digest }}
     steps:
+
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-    - name: Set up Just
-      uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
+
+    - name: Install `just`
+      uses: "opensafely-core/setup-action@d9171097dd0d37bdb7bed58f701eb03ff317ed17" # v1
+      with:
+        install-just: true
+
     - name: Build image
       run: |
-        just docker/build dev # build base and dev images
-        just docker/build prod # explicitly build prod as well
+        just docker/build dev # Build base and dev images
+        just docker/build prod # Explicitly build prod as well
+
     - name: Test image
+      env:
+        PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
+        STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
       run: just docker/test
 
-    - name: Publish docker image
+    - name: Docker login
       run: |
-        echo ${{ secrets.GITHUB_TOKEN }} | docker login "$REGISTRY" -u "${GITHUB_ACTOR}" --password-stdin
-        docker tag "$IMAGE_NAME" "$PUBLIC_IMAGE_NAME:latest"
-        docker push "$PUBLIC_IMAGE_NAME:latest"
-        # dump the full local container metadata into the logs in case its useful
-        docker inspect "$PUBLIC_IMAGE_NAME:latest"
+        echo ${{ secrets.GITHUB_TOKEN }} | docker login "$REGISTRY" -u "$GITHUB_ACTOR" --password-stdin
+
+    - name: Push image
+      env:
+        # We need a label for the image to avoid implicitly updating `latest` but it
+        # doesn't much matter what it is (it doesn't need to be unique)
+        IMAGE_LABEL: ${{ github.sha }}
+      run: |
+        docker tag "$BUILD_IMAGE_NAME" "$PUBLIC_IMAGE_NAME:$IMAGE_LABEL"
+        docker push "$PUBLIC_IMAGE_NAME:$IMAGE_LABEL"
+        # Dump the full local container metadata into the logs in case its useful
+        docker inspect "$PUBLIC_IMAGE_NAME:$IMAGE_LABEL"
+
+    - name: Get image digest
+      id: get_digest
+      # If we used `docker/build-push-action` it would get the digest for us, but we
+      # want to invoke the build process ourself so we can e.g. use our `just` tooling
+      run: |
+        set -euo pipefail
+
+        REPO_DIGESTS="$(
+          docker inspect --format="{{join .RepoDigests \"\n\"}}" "$BUILD_IMAGE_NAME"
+        )"
+
+        readarray -t MATCHING_DIGESTS < <(
+          grep --fixed-strings -- "${PUBLIC_IMAGE_NAME}@" <<< "$REPO_DIGESTS" || true
+        )
+
+        if (( ${#MATCHING_DIGESTS[@]} != 1 )); then
+          echo "Expected exactly one matching digest for $PUBLIC_IMAGE_NAME"
+          echo "REPO_DIGESTS: $REPO_DIGESTS"
+          echo "MATCHING_DIGESTS: ${MATCHING_DIGESTS[*]}"
+          exit 1
+        fi
+
+        # Extract the substring after the final "@"
+        echo "digest=${MATCHING_DIGESTS[0]##*@}" >> "$GITHUB_OUTPUT"
+
+  attest:
+    name: Generate build provenance attestations
+    needs: build-and-push
+    permissions:
+      packages: write
+      id-token: write
+      attestations: write    
+      artifact-metadata: write
+    runs-on: ubuntu-24.04
+    steps:
+
+    - name: Docker login
+      run: |
+        echo ${{ secrets.GITHUB_TOKEN }} | docker login "$REGISTRY" -u "$GITHUB_ACTOR" --password-stdin
+
+    - name: Attest provenance
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-name: ${{ env.PUBLIC_IMAGE_NAME }}
+        subject-digest: ${{ needs.build-and-push.outputs.digest }}
+        push-to-registry: true
+
+  sign-and-release:
+    name: Sign image and update target tag to trigger RAP Agent deployment
+    needs: [build-and-push, attest]
+    permissions:
+      packages: write
+      id-token: write
+    runs-on: ubuntu-24.04
+    env:
+      DIGEST: ${{ needs.build-and-push.outputs.digest }}
+    steps:
+
+    - name: Docker login
+      run: |
+        echo ${{ secrets.GITHUB_TOKEN }} | docker login "$REGISTRY" -u "$GITHUB_ACTOR" --password-stdin
+
+    - name: Install Cosign
+      uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+    - name: Sign image
+      run: |
+        cosign sign --yes "${PUBLIC_IMAGE_NAME}@${DIGEST}"
+
+    - name: Update target tag
+      # This pull/push dance is required due to limitations of the Docker CLI. Tools
+      # like Google's `crane` will let you just update the registry tag directly, but
+      # we want to keep the tooling simple for now
+      run: |
+        docker pull "${PUBLIC_IMAGE_NAME}@${DIGEST}"
+        docker tag "${PUBLIC_IMAGE_NAME}@${DIGEST}" "${PUBLIC_IMAGE_NAME}:${TARGET_TAG}"
+        docker push "${PUBLIC_IMAGE_NAME}:${TARGET_TAG}"
+
+  deploy:
+    name: Deploy image to RAP Controller host
+    needs: [build-and-push, sign-and-release]
+    permissions: {}
+    runs-on: ubuntu-24.04
+    env:
+      DIGEST: ${{ needs.build-and-push.outputs.digest }}
+      DEPLOY_SSH_KEY: ${{ secrets.DOKKU4_DEPLOY_SSH_KEY }}
+      SSH_AUTH_SOCK: /tmp/agent.sock
+    steps:
 
     - name: Deploy image
       run: |
         set -euo pipefail
 
-        # Find the full qualified "repo digest" for this image
-        IMAGE_DIGEST="$(
-          docker inspect --format='{{join .RepoDigests "\n"}}' "$PUBLIC_IMAGE_NAME:latest" \
-            | grep --fixed-strings "$PUBLIC_IMAGE_NAME" || true
-        )"
-        # Fail if we have none or more than one (as indicated by the presence of whitespace)
-        if [[ -z "$IMAGE_DIGEST" || "$IMAGE_DIGEST" =~ [[:space:]] ]]; then
-          echo "Expected exactly one value in IMAGE_DIGEST, got: $IMAGE_DIGEST"
-          echo
-          echo "Debug info:"
-          set -x
-          docker inspect --format='{{join .RepoDigests "\n"}}' "$PUBLIC_IMAGE_NAME:latest"
-          exit 1
-        fi
-
-        echo "Deploying to $HOST"
-        echo "dokku git:from-image $APP_NAME $IMAGE_DIGEST"
         ssh-agent -a "$SSH_AUTH_SOCK" > /dev/null
-        ssh-add - <<< "${{ secrets.DOKKU4_DEPLOY_SSH_KEY }}"
+        ssh-add - <<< "$DEPLOY_SSH_KEY"
+
+        # Echo deploy command for debugging purposes
+        set -x
         ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" \
-          "dokku@$HOST" git:from-image "$APP_NAME" "$IMAGE_DIGEST"
+          "dokku@$DOKKU_DEPLOY_HOST" \
+            git:from-image "$DOKKU_DEPLOY_APP_NAME" "${PUBLIC_IMAGE_NAME}@${DIGEST}"
