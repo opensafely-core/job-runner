@@ -56,6 +56,15 @@ ALLOWED_IMAGES = {
     "sqlrunner",
 }
 
+INVALID_IMAGE_TAGS = {
+    "ehrql": ["latest"],
+    "stata-mp": ["latest"],
+    "r": ["latest"],
+    "jupyter": ["latest"],
+    "python": ["latest"],
+    "sqlrunner": ["latest"],
+}
+
 # Set workers per-backend. This will be used by the controller to
 # determine if there are enough resources available to start a new
 # job running. Note there are two separate limits:
