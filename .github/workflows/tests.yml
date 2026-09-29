@@ -72,11 +72,14 @@ jobs:
       - name: Confirm docker server version
         run: docker version
 
-      - name: Build image
-        run: just docker/build
+      - name: Build dev image
+        run: just docker/build dev
 
       - name: Run tests in docker-image
         run: just docker/test
+
+      - name: Build production image
+        run: just docker/build prod
 
       - name: Run basic multi-container integration test
         run: just docker/functional-test
