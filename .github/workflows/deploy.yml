@@ -35,7 +35,7 @@ jobs:
     permissions: {}
     uses: ./.github/workflows/dokku-deploy.yml
     with:
-      hostname: dokku4.embdatalab.net
+      hostname: dokku4.ebmdatalab.net
       app-name: rap-controller
       image-ref: ${{ needs.push-and-sign-image.outputs.image-ref }}
     secrets:
