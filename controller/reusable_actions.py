@@ -60,6 +60,11 @@ class ReusableAction:
             action_image, action_tag = action_run_args[0].split(":")
             if action_image not in config.ALLOWED_IMAGES:
                 raise ReusableActionError(f"Unrecognised runtime: {action_image}")
+            if action_tag in config.INVALID_IMAGE_TAGS[action_image]:
+                # This action uses an invalid image tag
+                raise ReusableActionError(
+                    f"Invalid version tag for {action_image}:{action_tag}"
+                )
             if is_database_action(action_run_args):
                 raise ReusableActionError(
                     "Re-usable actions cannot run commands which access the database"
