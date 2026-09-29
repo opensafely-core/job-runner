@@ -79,6 +79,17 @@ jobs:
       - name: Run basic multi-container integration test
         run: just docker/functional-test
 
+      - name: Save image as artifact
+        # We only want to persist a single image here so we need to pick a backend. The
+        # image contents should be very close to identical so it's a fairly arbitrary
+        # choice. But the docker.io backend is slightly newer and matches what we
+        # currently have in TPP so it makes sense to use that.
+        if: success() && matrix.docker-backend == 'docker.io'
+        uses: ./.github/actions/save-image-as-artifact
+        with:
+          image-name: job-runner
+          artifact-name: image
+
   required-checks:
     if: always()
 

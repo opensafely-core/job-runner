@@ -1,0 +1,33 @@
+name: Save image as artifact
+description: "
+  This uploads the named Docker image as a ZStandard-compressed Workflow artifact under
+  the supplied name."
+
+inputs:
+  image-name:
+    description: "Name of Docker image to save"
+    required: true
+  artifact-name:
+    description: "Name of Workflow Artifact to upload"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Save image
+      env:
+        IMAGE_NAME: ${{ inputs.image-name }}
+      shell: bash
+      run: |
+        docker image save "$IMAGE_NAME" | zstd -o "/tmp/${IMAGE_NAME}.tar.zst"
+
+    - name: Upload saved image as artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      with:
+          name: ${{ inputs.artifact-name }}
+          path: /tmp/${{ inputs.image-name }}.tar.zst
+          # This is already compressed so don't waste time gzipping
+          compression-level: 0
+          # This only needs to persist within the workflow run so use the minimum
+          # retention time
+          retention-days: 1
