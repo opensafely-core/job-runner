@@ -1,0 +1,36 @@
+name: Deploy image as Dokku app
+
+on:
+  workflow_call:
+    inputs:
+      hostname: {type: string, required: true}
+      app-name: {type: string, required: true}
+      image-ref: {type: string, required: true}
+    secrets:
+      ssh-key: {required: true}
+
+jobs:
+  dokku-deploy:
+    name: Deploy image as Dokku app
+    permissions: {}
+    runs-on: ubuntu-24.04
+    env:
+      HOSTNAME: ${{ inputs.hostname }}
+      APP_NAME: ${{ inputs.app-name }}
+      IMAGE_REF: ${{ inputs.image-ref }}
+      SSH_KEY: ${{ secrets.ssh-key }}
+      SSH_AUTH_SOCK: /tmp/agent.sock
+    steps:
+
+    - name: Invoke Dokku over SSH
+      run: |
+        set -euo pipefail
+
+        ssh-agent -a "$SSH_AUTH_SOCK" > /dev/null
+        ssh-add - <<< "$SSH_KEY"
+
+        # Echo deploy command for debugging purposes
+        set -x
+        ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" \
+          "dokku@$HOSTNAME" \
+            git:from-image "$APP_NAME" "$IMAGE_REF"

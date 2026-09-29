@@ -1,0 +1,42 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/tests.yml
+    with:
+      build-artifact-name: image
+
+  push-and-sign-image:
+    name: Deploy RAP Agent
+    needs: ci
+    permissions:
+      packages: write
+      id-token: write
+      attestations: write    
+      artifact-metadata: write
+    uses: ./.github/workflows/push-and-sign-image.yml
+    with:
+      artifact-name: image
+      public-image-name: ghcr.io/opensafely-core/job-runner
+      tag: latest
+
+  dokku-deploy:
+    name: Deploy RAP Controller
+    needs: push-and-sign-image
+    permissions: {}
+    uses: ./.github/workflows/dokku-deploy.yml
+    with:
+      hostname: dokku4.embdatalab.net
+      app-name: rap-controller
+      image-ref: ${{ needs.push-and-sign-image.outputs.image-ref }}
+    secrets:
+      ssh-key: ${{ secrets.DOKKU4_DEPLOY_SSH_KEY }}

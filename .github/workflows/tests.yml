@@ -1,12 +1,14 @@
 name: Tests
 
 on:
-  pull_request:
-
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
-  STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
+  # On `main` we are invoked by the deploy workflow rather than running automatically
+  push:
+    branches-ignore: [main]
+  # Allow this workflow to be invoked by the deploy workflow and specify where to
+  # persist the resulting Docker image
+  workflow_call:
+    inputs:
+      build-artifact-name: {type: string, required: false}
 
 permissions:
   contents: read
@@ -72,14 +74,28 @@ jobs:
       - name: Confirm docker server version
         run: docker version
 
-      - name: Build image
-        run: just docker/build
+      - name: Build dev image
+        run: just docker/build dev
 
       - name: Run tests in docker-image
         run: just docker/test
 
+      - name: Build production image
+        run: just docker/build prod
+
       - name: Run basic multi-container integration test
         run: just docker/functional-test
+
+      - name: Save image as artifact
+        # We only want to persist a single image here so we need to pick a backend. The
+        # image contents should be very close to identical so it's a fairly arbitrary
+        # choice. But the docker.io backend is slightly newer and matches what we
+        # currently have in TPP so it makes sense to use that.
+        if: success() && matrix.docker-backend == 'docker.io'
+        uses: ./.github/actions/save-image-as-artifact
+        with:
+          image-name: job-runner
+          artifact-name: ${{ inputs.build-artifact-name }}
 
   required-checks:
     if: always()
@@ -89,7 +105,7 @@ jobs:
       - test-job
       - test-docker
 
-    runs-on: Ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Decide whether the needed jobs succeeded or failed
