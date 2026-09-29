@@ -2,6 +2,11 @@ name: Tests
 
 on:
   pull_request:
+  # Allow this workflow to be invoked by the deploy workflow and specify where to
+  # persist the resulting Docker image
+  workflow_call:
+    inputs:
+      build-artifact-name: {type: string, required: false}
 
 permissions:
   contents: read
@@ -88,7 +93,7 @@ jobs:
         uses: ./.github/actions/save-image-as-artifact
         with:
           image-name: job-runner
-          artifact-name: image
+          artifact-name: ${{ inputs.build-artifact-name }}
 
   required-checks:
     if: always()
