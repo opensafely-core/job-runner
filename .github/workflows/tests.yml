@@ -3,11 +3,6 @@ name: Tests
 on:
   pull_request:
 
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  PRIVATE_REPO_ACCESS_TOKEN: ${{ secrets.ACTIONS_PRIVATE_REPO_RO_TOKEN }}
-  STATA_LICENSE: ${{ secrets.STATA_LICENSE }}
-
 permissions:
   contents: read
 
