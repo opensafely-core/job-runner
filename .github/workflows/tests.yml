@@ -1,7 +1,9 @@
 name: Tests
 
 on:
-  pull_request:
+  # On `main` we are invoked by the deploy workflow rather than running automatically
+  push:
+    branches-ignore: [main]
   # Allow this workflow to be invoked by the deploy workflow and specify where to
   # persist the resulting Docker image
   workflow_call:
