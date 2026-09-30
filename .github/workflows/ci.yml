@@ -1,4 +1,4 @@
-name: Tests
+name: CI
 
 on:
   # On `main` we are invoked by the deploy workflow rather than running automatically
