@@ -1,0 +1,19 @@
+---
+name: Pull Request Checks
+
+on:
+  # On main we run the Deploy workflow
+  push:
+    branches-ignore: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# This workflow does nothing but invoke CI, but it needs to be a separate top-level
+# workflow because we want different concurrency behaviour here from Deploy
+jobs:
+  ci:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
