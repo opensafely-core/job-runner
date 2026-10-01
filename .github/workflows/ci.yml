@@ -1,11 +1,8 @@
-name: Tests
+name: CI
 
 on:
-  # On `main` we are invoked by the deploy workflow rather than running automatically
-  push:
-    branches-ignore: [main]
-  # Allow this workflow to be invoked by the deploy workflow and specify where to
-  # persist the resulting Docker image
+  # This workflow is invoked by both the Deploy and PR workflows, only one of which
+  # needs to persist the resulting Docker image
   workflow_call:
     inputs:
       build-artifact-name: {type: string, required: false}
