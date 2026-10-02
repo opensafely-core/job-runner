@@ -174,7 +174,7 @@ paths:
                     workspace: my-study-workspace
                     repo_url: https://github.com/opensafely/a-new-study
                     branch: v1
-                    commit: d090466f63b0d68084144d8f105f0d6e79a0819e
+                    commit: 891bc700d6bb79f500b0d44952a1ed737d806dad
                     database_name: default
                     requested_actions:
                      - generate_dataset
@@ -277,7 +277,7 @@ paths:
                     description: Error creating jobs - git error
                     value:
                       error: Error creating jobs
-                      details: "GitError: Error fetching commit d090466f63b0d68084144d8f105f0d6e79a0819e from https://github.com/opensafely/a-new-study"
+                      details: "GitError: Error fetching commit 891bc700d6bb79f500b0d44952a1ed737d806dad from https://github.com/opensafely/a-new-study"
                   duplicate_rap_error:
                     description: Jobs already exist for this RAP ID that are inconsistent with the data provided in this request
                     value:

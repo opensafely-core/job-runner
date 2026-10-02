@@ -409,7 +409,7 @@ def test_create_view(db, client, monkeypatch):
     rap_request_body = rap_api_v1_factory_raw(
         repo_url=repo_url,
         # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
-        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        commit="891bc700d6bb79f500b0d44952a1ed737d806dad",
         branch="v1",
         requested_actions=["generate_dataset"],
     )
@@ -442,7 +442,7 @@ def test_create_view_with_analysis_scope(db, client, monkeypatch):
     rap_request_body = rap_api_v1_factory_raw(
         repo_url=repo_url,
         # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
-        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        commit="891bc700d6bb79f500b0d44952a1ed737d806dad",
         branch="v1",
         requested_actions=["generate_dataset"],
         analysis_scope={
@@ -551,7 +551,7 @@ def test_create_view_all_actions_already_scheduled(db, client, monkeypatch):
         state=State.PENDING,
         action="generate_dataset",
         backend="test",
-        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        commit="891bc700d6bb79f500b0d44952a1ed737d806dad",
     )
 
     # attempt to create a new job (with a different rap id) for the same action
@@ -588,7 +588,7 @@ def test_create_view_all_actions_already_run(db, client, monkeypatch):
 
     repo_url = str(FIXTURES_PATH / "git-repo")
     workspace = "workspace"
-    commit = "d090466f63b0d68084144d8f105f0d6e79a0819e"
+    commit = "891bc700d6bb79f500b0d44952a1ed737d806dad"
 
     # create an existing successful job for each action
     project_file = read_file_from_repo(repo_url, commit, "project.yaml")
@@ -696,7 +696,7 @@ def test_create_view_unexpected_error(mock_create_jobs, db, client, monkeypatch)
     rap_request_body = rap_api_v1_factory_raw(
         repo_url=repo_url,
         # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
-        commit="d090466f63b0d68084144d8f105f0d6e79a0819e",
+        commit="891bc700d6bb79f500b0d44952a1ed737d806dad",
         branch="v1",
         requested_actions=["generate_dataset"],
     )
