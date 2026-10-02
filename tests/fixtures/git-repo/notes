@@ -1,0 +1,21 @@
+This test git-repo represents a repo with a main branch and a v1 tag at the head
+commit, containing a single project.yaml file with the following contents:
+
+```
+version: '5.0'
+
+actions:
+  generate_dataset:
+    run: ehrql:v1 generate-dataset analysis/dataset_definition.py --output output/dataset.csv.gz
+    outputs:
+      highly_sensitive:
+        dataset: output/dataset.csv.gz
+
+  run_model:
+    run: stata-mp:v1 analysis/model.do
+    needs: [generate_dataset]
+    outputs:
+      moderately_sensitive:
+        model: models/cox-model.txt
+        figure: figures/survival-plot.png
+```
