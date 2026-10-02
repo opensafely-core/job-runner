@@ -28,7 +28,7 @@ django==6.1.1
     # via opensafely-jobrunner
 execnet==2.1.2
     # via pytest-xdist
-filelock==3.32.7
+filelock==4.0.3
     # via
     #   python-discovery
     #   virtualenv
@@ -42,7 +42,7 @@ gunicorn==26.2.0
     # via opensafely-jobrunner
 harfile==0.5.0
     # via schemathesis
-hypothesis==6.168.0
+hypothesis==6.168.1
     # via
     #   hypothesis-graphql
     #   schemathesis
@@ -50,7 +50,7 @@ hypothesis-graphql==0.13.2
     # via schemathesis
 identify==2.6.19
     # via pre-commit
-idna==3.19
+idna==3.20
     # via
     #   anyio
     #   requests
@@ -58,7 +58,7 @@ iniconfig==2.3.0
     # via pytest
 jsonschema==4.26.0
     # via opensafely-jobrunner
-jsonschema-rs==0.56.0
+jsonschema-rs==0.57.1
     # via schemathesis
 jsonschema-specifications==2025.9.1
     # via jsonschema
@@ -118,14 +118,14 @@ packaging==26.3
     # via
     #   opentelemetry-instrumentation
     #   pytest
-platformdirs==4.11.8
+platformdirs==4.11.12
     # via virtualenv
 pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
 pre-commit==4.6.2
-protobuf==7.36.1
+protobuf==7.36.2
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
@@ -150,7 +150,7 @@ pytest-responses==0.6.0
 pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
     # via freezegun
-python-discovery==1.6.0
+python-discovery==1.6.1
     # via virtualenv
 pyyaml==6.0.3
     # via
@@ -182,7 +182,7 @@ ruamel-yaml-clib==0.2.15
 ruff==0.15.22
 ruyaml==0.91.0
     # via opensafely-pipeline
-schemathesis==4.27.2
+schemathesis==4.28.0
 setuptools==84.0.0
     # via ruyaml
 six==1.17.0
@@ -206,7 +206,7 @@ urllib3==2.8.0
     # via
     #   requests
     #   responses
-virtualenv==21.7.10
+virtualenv==21.12.0
     # via pre-commit
 werkzeug==3.1.8
     # via schemathesis
