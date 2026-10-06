@@ -542,7 +542,10 @@ def set_code(
         # is still running" messages, but it is useful to have semi-regular
         # confirmations in the logs that it is still running. The below will
         # log approximately once every 10 minutes.
-        if datetime.datetime.fromtimestamp(timestamp_s).minute % 10 == 0:
+        if (
+            datetime.datetime.fromtimestamp(timestamp_s, tz=datetime.UTC).minute % 10
+            == 0
+        ):
             log.info(job.status_message, extra={"status_code": job.status_code})
 
     if job.state != original_state:
@@ -802,7 +805,7 @@ def schedule_regular_task(
         Task(
             # Add a bit of structure to the ID: this isn't strictly necessary – truly
             # random IDs should work just fine – but it may help with future debugging
-            id=f"{task_type.value}-{datetime.date.today()}-{secrets.token_hex(10)}",
+            id=f"{task_type.value}-{datetime.datetime.now(tz=datetime.UTC).date()}-{secrets.token_hex(10)}",
             type=task_type,
             backend=backend,
             definition=get_task_definition(),

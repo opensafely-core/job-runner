@@ -1,6 +1,6 @@
 import logging
 import warnings
-from datetime import datetime
+from datetime import UTC, datetime
 
 from opentelemetry import trace
 from opentelemetry.trace import propagation
@@ -131,7 +131,7 @@ def load_trace_context(job):
     return propagation.set_span_in_context(trace.NonRecordingSpan(span_context), {})
 
 
-MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0).timestamp() * 1e9)
+MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0, tzinfo=UTC).timestamp() * 1e9)
 
 
 @warn_assertions
