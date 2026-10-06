@@ -104,8 +104,7 @@ dev = [
     "pytest-freezer",
     "pytest-responses",
     "pytest-xdist>=3.8.0",
-    # temporarily pin ruff until https://github.com/opensafely-core/job-runner/issues/1473
-    "ruff<0.16",
+    "ruff",
     # OpenAPI tools
     "schemathesis",
 ]
