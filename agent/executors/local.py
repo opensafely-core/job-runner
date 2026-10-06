@@ -520,14 +520,14 @@ def finalize_job(job_definition, cancelled, error=None):
     else:
         assert False
 
-    results_metadata = dict(
-        outputs=outputs,
-        unmatched_patterns=unmatched_patterns,
-        unmatched_outputs=unmatched_outputs,
-        status_message=message,
-        hint=unmatched_hint,
-        timestamp_ns=time.time_ns(),
-    )
+    results_metadata = {
+        "outputs": outputs,
+        "unmatched_patterns": unmatched_patterns,
+        "unmatched_outputs": unmatched_outputs,
+        "status_message": message,
+        "hint": unmatched_hint,
+        "timestamp_ns": time.time_ns(),
+    }
     job_metadata = get_job_metadata(
         job_definition,
         container_metadata,
@@ -603,15 +603,15 @@ def get_job_metadata(
 # Note: we use tuples to provide immutable empty iterables, and MappingProxyType to provide and empty immutable dict
 METADATA_DEFAULTS = {
     "hint": None,
-    "unmatched_patterns": tuple(),
-    "unmatched_outputs": tuple(),
+    "unmatched_patterns": (),
+    "unmatched_outputs": (),
     "timestamp_ns": None,
     "action_version": None,
     "action_revision": None,
     "action_created": None,
     "base_revision": None,
     "base_created": None,
-    "level4_excluded_files": tuple(),
+    "level4_excluded_files": (),
     "cancelled": False,
     "error": False,
     "job_metrics": MappingProxyType({}),

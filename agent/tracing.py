@@ -69,22 +69,22 @@ def trace_job_attributes(job: JobDefinition):
     repo_url = job.study.git_repo_url or ""
     commit = job.study.commit or ""
 
-    attrs = dict(
-        job=job.id,
-        job_request=job.rap_id,
-        workspace=job.workspace,
-        repo_url=repo_url,
-        commit=commit,
-        action=job.action,
+    attrs = {
+        "job": job.id,
+        "job_request": job.rap_id,
+        "workspace": job.workspace,
+        "repo_url": repo_url,
+        "commit": commit,
+        "action": job.action,
         # convert seconds to ns integer
-        job_created_at=int(job.created_at * 1e9),
-        image=job.image,
-        args=",".join(job.args or []),
-        input_job_ids=",".join(job.input_job_ids or []),
-        allow_database_access=job.allow_database_access,
-        cpu_count=job.cpu_count,
-        memory_limit=job.memory_limit,
-    )
+        "job_created_at": int(job.created_at * 1e9),
+        "image": job.image,
+        "args": ",".join(job.args or []),
+        "input_job_ids": ",".join(job.input_job_ids or []),
+        "allow_database_access": job.allow_database_access,
+        "cpu_count": job.cpu_count,
+        "memory_limit": job.memory_limit,
+    }
 
     return attrs
 
@@ -104,17 +104,17 @@ def set_job_results_metadata(span, results, attributes=None):
 def trace_job_results_attributes(results, attributes):
     if results:
         attributes.update(
-            dict(
-                exit_code=results["exit_code"],
-                image_id=results["docker_image_id"],
-                executor_message=results["status_message"],
-                action_version=results["action_version"],
-                action_revision=results["action_revision"],
-                action_created=results["action_created"],
-                base_revision=results["base_revision"],
-                base_created=results["base_created"],
-                cancelled=results["cancelled"],
-            )
+            {
+                "exit_code": results["exit_code"],
+                "image_id": results["docker_image_id"],
+                "executor_message": results["status_message"],
+                "action_version": results["action_version"],
+                "action_revision": results["action_revision"],
+                "action_created": results["action_created"],
+                "base_revision": results["base_revision"],
+                "base_created": results["base_created"],
+                "cancelled": results["cancelled"],
+            }
         )
         if "error" in results:
             attributes.update(error=results["error"])

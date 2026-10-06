@@ -433,11 +433,11 @@ def status(request, *, token_backends, request_obj: StatusRequest):
 
     set_span_attributes(
         span,
-        dict(
-            valid_rap_ids=",".join(valid_rap_ids),
-            unrecognised_rap_ids=",".join(unrecognised_rap_ids),
-            extra_rap_ids=",".join(extra_active_rap_ids),
-        ),
+        {
+            "valid_rap_ids": ",".join(valid_rap_ids),
+            "unrecognised_rap_ids": ",".join(unrecognised_rap_ids),
+            "extra_rap_ids": ",".join(extra_active_rap_ids),
+        },
     )
 
     return JsonResponse(

@@ -40,20 +40,20 @@ def main(
     if not commit:
         commit = get_sha_from_remote_ref(repo_url, branch)
     create_request = _make_create_request(
-        dict(
-            identifier=new_id(),
-            sha=commit,
-            database_name=database,
-            workspace=dict(name=workspace, repo=repo_url, branch=branch),
-            requested_actions=actions,
-            force_run_dependencies=force_run_dependencies,
-            codelists_ok=True,
-            backend=backend,
-            created_by="controller",
-            project="unknown",
-            orgs=[],
-            analysis_scope={},
-        )
+        {
+            "identifier": new_id(),
+            "sha": commit,
+            "database_name": database,
+            "workspace": {"name": workspace, "repo": repo_url, "branch": branch},
+            "requested_actions": actions,
+            "force_run_dependencies": force_run_dependencies,
+            "codelists_ok": True,
+            "backend": backend,
+            "created_by": "controller",
+            "project": "unknown",
+            "orgs": [],
+            "analysis_scope": {},
+        }
     )
     print("Submitting RAP:\n")
     display_obj(create_request)

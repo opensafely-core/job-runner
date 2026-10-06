@@ -90,20 +90,20 @@ class JobTaskResults:
     )
 
     def to_dict(self):
-        return dict(
-            exit_code=self.exit_code,
-            docker_image_id=self.image_id,
-            status_message=self.message,
-            hint=self.unmatched_hint,
-            timestamp_ns=self.timestamp_ns,
-            action_version=self.action_version,
-            action_revision=self.action_revision,
-            action_created=self.action_created,
-            base_revision=self.base_revision,
-            base_created=self.base_created,
-            has_unmatched_patterns=self.has_unmatched_patterns,
-            has_level4_excluded_files=self.has_level4_excluded_files,
-        )
+        return {
+            "exit_code": self.exit_code,
+            "docker_image_id": self.image_id,
+            "status_message": self.message,
+            "hint": self.unmatched_hint,
+            "timestamp_ns": self.timestamp_ns,
+            "action_version": self.action_version,
+            "action_revision": self.action_revision,
+            "action_created": self.action_created,
+            "base_revision": self.base_revision,
+            "base_created": self.base_created,
+            "has_unmatched_patterns": self.has_unmatched_patterns,
+            "has_level4_excluded_files": self.has_level4_excluded_files,
+        }
 
     @classmethod
     def from_dict(cls, metadata: dict):

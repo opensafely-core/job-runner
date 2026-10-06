@@ -74,52 +74,52 @@ def test_inject_db_secrets_invalid_db_name(monkeypatch, db):
     "output_results,expected_redacted_results",
     [
         (
-            dict(
-                unmatched_outputs=["output/foo.txt"],
-                unmatched_patterns=["outputs/foo_*.txt"],
-                level4_excluded_files=[],
-                status_message="An unmatched output",
-                hint="An unmatched pattern",
-            ),
-            dict(
-                exit_code=0,
-                has_unmatched_patterns=True,
-                has_level4_excluded_files=False,
-                status_message="",
-                hint="",
-            ),
+            {
+                "unmatched_outputs": ["output/foo.txt"],
+                "unmatched_patterns": ["outputs/foo_*.txt"],
+                "level4_excluded_files": [],
+                "status_message": "An unmatched output",
+                "hint": "An unmatched pattern",
+            },
+            {
+                "exit_code": 0,
+                "has_unmatched_patterns": True,
+                "has_level4_excluded_files": False,
+                "status_message": "",
+                "hint": "",
+            },
         ),
         (
-            dict(
-                unmatched_outputs=[],
-                unmatched_patterns=[],
-                level4_excluded_files=[],
-                status_message="Complete",
-                hint="nothing to see here",
-            ),
-            dict(
-                exit_code=0,
-                has_unmatched_patterns=False,
-                has_level4_excluded_files=False,
-                status_message="Complete",
-                hint="nothing to see here",
-            ),
+            {
+                "unmatched_outputs": [],
+                "unmatched_patterns": [],
+                "level4_excluded_files": [],
+                "status_message": "Complete",
+                "hint": "nothing to see here",
+            },
+            {
+                "exit_code": 0,
+                "has_unmatched_patterns": False,
+                "has_level4_excluded_files": False,
+                "status_message": "Complete",
+                "hint": "nothing to see here",
+            },
         ),
         (
-            dict(
-                unmatched_outputs=[],
-                unmatched_patterns=[],
-                level4_excluded_files=["output/foo.txt"],
-                status_message="Complete",
-                hint="nothing to see here",
-            ),
-            dict(
-                exit_code=0,
-                has_unmatched_patterns=False,
-                has_level4_excluded_files=True,
-                status_message="Complete",
-                hint="nothing to see here",
-            ),
+            {
+                "unmatched_outputs": [],
+                "unmatched_patterns": [],
+                "level4_excluded_files": ["output/foo.txt"],
+                "status_message": "Complete",
+                "hint": "nothing to see here",
+            },
+            {
+                "exit_code": 0,
+                "has_unmatched_patterns": False,
+                "has_level4_excluded_files": True,
+                "status_message": "Complete",
+                "hint": "nothing to see here",
+            },
         ),
     ],
 )
@@ -131,10 +131,10 @@ def test_update_job_task_results_redacted(
     expected_redacted_results,
 ):
     task = runjob_db_task_factory()
-    job_results = dict(
-        exit_code=0,
-        outputs={"output/foo.txt": "moderately_sensitive"},
-    )
+    job_results = {
+        "exit_code": 0,
+        "outputs": {"output/foo.txt": "moderately_sensitive"},
+    }
     job_results.update(output_results)
 
     job_status = JobStatus(ExecutorState.FINALIZED, results=job_results)

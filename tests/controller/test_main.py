@@ -82,7 +82,7 @@ def test_handle_pending_job_cancelled(db):
     assert len(tasks) == 1
     assert tasks[0].active
 
-    database.update_where(Job, dict(cancelled=True), id=job.id)
+    database.update_where(Job, {"cancelled": True}, id=job.id)
 
     run_controller_loop_once()
 

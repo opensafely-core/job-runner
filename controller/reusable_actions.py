@@ -98,7 +98,7 @@ def resolve_reusable_action_references(jobs):
     Raises:
         ReusableActionError
     """
-    reusable_action_cache = dict()
+    reusable_action_cache = {}
     for job in jobs:
         try:
             run_command, repo_url, commit = handle_reusable_action(
