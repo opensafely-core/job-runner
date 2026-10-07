@@ -72,6 +72,7 @@ extend-select = [
 ]
 extend-ignore = [
     "A005", # ignore stdlib-module-shadowing
+    "B011", # ignore assert False
     "E501", # ignore line length
 ]
 isort.lines-after-imports = 2
