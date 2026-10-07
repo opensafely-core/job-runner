@@ -30,8 +30,9 @@ def host_volume_path(job, create=True):
     if create:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-        except PermissionError:  # pragma: no cover
-            raise Exception(f"Could not create {path.parent} due to permissions error")
+        except PermissionError as err:  # pragma: no cover
+            err.add_note(f"Could not create {path.parent} for job {job.id}")
+            raise
     return path
 
 

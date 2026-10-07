@@ -291,7 +291,7 @@ def assert_new_jobs_created(rap_create_request, new_jobs, current_jobs):
 
     # But if we get here then we've somehow failed to schedule new jobs despite the fact
     # that some of the actions we depend on have failed, which is a bug.
-    raise Exception(
+    raise RapCreateRequestError(
         f"Unexpected job states after scheduling: {current_job_states}"
     )  # pragma: no cover
 

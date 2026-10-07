@@ -26,6 +26,9 @@ log = logging.getLogger(__name__)
 tracer = trace.get_tracer("agent_loop")
 
 
+class TaskHandlerError(Exception): ...
+
+
 def main(exit_callback=lambda _: False):  # pragma: no cover
     log.info("agent.main loop started")
     api = get_executor_api()
@@ -65,7 +68,7 @@ def handle_tasks(api: ExecutorAPI | None):
         )
 
     if errored_tasks:
-        raise Exception("Some tasks failed, restarting agent loop")
+        raise TaskHandlerError("Some tasks failed, restarting agent loop")
 
     return handled_tasks
 
