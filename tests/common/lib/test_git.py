@@ -134,17 +134,17 @@ def test_get_sha_from_remote_ref_private(tmp_work_dir):
 def test_read_file_from_repo_local(tmp_work_dir):
     output = read_file_from_repo(
         REPO_FIXTURE,
-        "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
+        "891bc700d6bb79f500b0d44952a1ed737d806dad",
         "project.yaml",
     )
-    assert output.startswith(b"version: '1.0'")
+    assert output.startswith(b"version: '5.0'")
 
 
 def test_read_file_from_repo_local_does_not_exist(tmp_work_dir):
     with pytest.raises(GitFileNotFoundError, match="File 'unknown.yaml' not found"):
         read_file_from_repo(
             REPO_FIXTURE,
-            "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
+            "891bc700d6bb79f500b0d44952a1ed737d806dad",
             "unknown.yaml",
         )
 
@@ -153,7 +153,7 @@ def test_checkout_commit_local(tmp_work_dir, tmp_path):
     target_dir = tmp_path / "files"
     checkout_commit(
         REPO_FIXTURE,
-        "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
+        "891bc700d6bb79f500b0d44952a1ed737d806dad",
         target_dir,
     )
     assert [f.name for f in target_dir.iterdir()] == ["project.yaml"]
@@ -161,7 +161,7 @@ def test_checkout_commit_local(tmp_work_dir, tmp_path):
 
 def test_get_sha_from_remote_ref_local(tmp_work_dir):
     sha = get_sha_from_remote_ref(REPO_FIXTURE, "v1")
-    assert sha == "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
+    assert sha == "43750b82cc18f01e05038f1fe89f65614184eb5a"
 
 
 def test_get_sha_from_remote_ref_local_missing_ref(tmp_work_dir):
@@ -176,7 +176,7 @@ def test_get_sha_from_remote_ref_local_missing_repo(tmp_work_dir):
 
 
 def test_commit_already_fetched(tmp_path):
-    commit_sha = "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
+    commit_sha = "891bc700d6bb79f500b0d44952a1ed737d806dad"
     repo_dir = tmp_path / "repo"
     ensure_git_init(repo_dir)
     assert not commit_already_fetched(repo_dir, commit_sha)
@@ -186,7 +186,7 @@ def test_commit_already_fetched(tmp_path):
 
 @mock.patch("common.lib.git.time.sleep")
 def test_commit_fetch_retry(mock_sleep, tmp_path):
-    commit_sha = "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
+    commit_sha = "891bc700d6bb79f500b0d44952a1ed737d806dad"
     repo_dir = tmp_path / "repo"
     ensure_git_init(repo_dir)
     assert not commit_already_fetched(repo_dir, commit_sha)
