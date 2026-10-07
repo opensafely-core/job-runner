@@ -137,7 +137,7 @@ def glob_volume_files(job):
 
     found = defaultdict(list)
 
-    for pattern in job.output_spec.keys():
+    for pattern in job.output_spec:
         for match in volume.glob(pattern):
             if match.is_file():
                 found[pattern].append(str(match.relative_to(volume)))
