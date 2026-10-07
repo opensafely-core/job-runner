@@ -14,5 +14,4 @@ if __name__ == "__main__":
         with open(input_file) as f:
             counts[input_file] = len(f.readlines())
     with open(args.output_file, "w") as f:
-        for name, count in counts.items():
-            f.write(f"{name}: {count}\n")
+        f.writelines(f"{name}: {count}\n" for name, count in counts.items())
