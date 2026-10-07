@@ -1026,8 +1026,8 @@ def copy_git_commit_to_volume(job_definition, repo_url, commit, extra_dirs):
     # tarball on stdin, so if we wanted to we could do this all without a
     # temporary directory, but not worth it at this stage
     config.TMP_DIR.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as tmpdir:
-        tmpdir = Path(tmpdir)
+    with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as temp_directory:
+        tmpdir = Path(temp_directory)
         checkout_commit(repo_url, commit, tmpdir)
         # Because `docker cp` can't create parent directories automatically, we
         # make sure parent directories exist for all the files we're going to

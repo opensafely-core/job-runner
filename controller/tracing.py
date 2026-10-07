@@ -196,12 +196,13 @@ def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
         if extra:
             for k, v in extra.items():
                 # automatically give any additional attributes the job prefix if not already present
+                prefixed_k = k
                 if not k.startswith("job."):  # pragma: nocover
                     # this will fail tests
                     warnings.warn(f"attribute {k} does not start with job. prefix")
                     # but correctly prefix it somehow this happens for real.
-                    k = "job." + k
-                attributes[k] = v
+                    prefixed_k = "job." + k
+                attributes[prefixed_k] = v
 
         attributes.update(trace_attributes(job, results))
 

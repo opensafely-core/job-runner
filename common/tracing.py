@@ -83,6 +83,7 @@ def set_span_attributes(span, attributes):
     # opentelemetry can only handle serializing certain attribute types
     clean_attrs = {}
     for k, v in attributes.items():
+        clean_v = v
         if not isinstance(v, OTEL_ATTR_TYPES):
             if v is not None:
                 # log to help us notice this
@@ -94,8 +95,8 @@ def set_span_attributes(span, attributes):
                     f"Trace span {span_name} attribute {k} was set invalid type: {v}, type {type(v)}"
                 )
                 # coerce to string so we preserve some information
-            v = str(v)
-        clean_attrs[k] = v
+            clean_v = str(v)
+        clean_attrs[k] = clean_v
 
     span.set_attributes(clean_attrs)
 

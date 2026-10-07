@@ -44,13 +44,13 @@ def main(argv):
 
     logs = []
     for line in raw_lines:
-        line = line.strip()
-        if not line:  # pragma: nocover
+        striped_line = line.strip()
+        if not striped_line:  # pragma: nocover
             continue
         try:
-            logs.append(json.loads(line))
+            logs.append(json.loads(striped_line))
         except json.JSONDecodeError:
-            print(f"bad json from ehrql: {line}")
+            print(f"bad json from ehrql: {striped_line}")
 
     # force our name to be used as dataset
     os.environ["OTEL_SERVICE_NAME"] = args.dataset
