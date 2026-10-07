@@ -322,7 +322,7 @@ def test_handle_runjob_with_not_fatal_error(mock_update_controller, db, exc):
 
     spans = get_trace("agent_loop")
     assert spans[0].status.status_code.name == "ERROR"
-    assert spans[0].status.description == f"{exc.__class__.__name__}: {str(exc)}"
+    assert spans[0].status.description == f"{exc.__class__.__name__}: {exc!s}"
     assert spans[0].attributes["fatal_task_error"] is False
 
 

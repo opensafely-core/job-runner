@@ -1072,7 +1072,7 @@ def test_handle_non_fatal_error(patched_handle_job, db, monkeypatch, exc):
     assert len(span.events) == 1
     assert str(exc) in span.events[0].attributes["exception.message"]
     assert span.status.status_code.name == "ERROR"
-    assert span.status.description == f"{exc.__class__.__name__}: {str(exc)}"
+    assert span.status.description == f"{exc.__class__.__name__}: {exc!s}"
     assert span.attributes["job.fatal_error"] is False
 
 

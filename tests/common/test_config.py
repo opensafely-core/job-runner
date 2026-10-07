@@ -64,7 +64,7 @@ from common import config
 from pipeline import load_pipeline, models
 models.MINIMUM_VERSION = 4
 
-load_pipeline({repr(_OLD_VERSION_PROJECT_YAML)})
+load_pipeline({_OLD_VERSION_PROJECT_YAML!r})
 """
 
     result = subprocess.run(
