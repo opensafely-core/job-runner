@@ -18,8 +18,7 @@ def project_name_from_url(url):
     """
     # Nb. "URL" here can in fact be a local path
     name = urlparse(url).path.strip("/").split("/")[-1]
-    if name.endswith(".git"):
-        name = name[:-4]
+    name = name.removesuffix(".git")
     return name
 
 

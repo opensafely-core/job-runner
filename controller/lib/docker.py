@@ -97,7 +97,7 @@ def get_auth_token(header):
     https://ghcr.io/token?service=ghcr.io&scope=repository:opensafely-core/busybox:pull
 
     """
-    header = header.lstrip("Bearer")
+    header = header.removeprefix("Bearer")
     # split_header_words is weird, but better than doing it ourselves
     words = split_header_words([header])
     values = dict(next(zip(*words)))
