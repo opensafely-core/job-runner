@@ -68,9 +68,11 @@ def test_setup_default_tracing_otlp_with_env(monkeypatch):
 
 def test_time_for_span_explicit_span():
     sleep_ms = 10
-    with tracer.start_as_current_span("test_span") as span:
-        with duration_ms_as_span_attr("block_duration_ms", span):
-            time.sleep(sleep_ms / 1000)
+    with (
+        tracer.start_as_current_span("test_span") as span,
+        duration_ms_as_span_attr("block_duration_ms", span),
+    ):
+        time.sleep(sleep_ms / 1000)
 
     spans = test_exporter.get_finished_spans()
     outer = next(s for s in spans if s.name == "test_span")
@@ -84,10 +86,12 @@ def test_time_for_span_explicit_span():
 
 def test_time_for_span_current_span():
     sleep_ms = 10
-    with tracer.start_as_current_span("test_span"):
+    with (
+        tracer.start_as_current_span("test_span"),
         # We don't pass span in explicitly, should default to it as current.
-        with duration_ms_as_span_attr("block_duration_ms"):
-            time.sleep(sleep_ms / 1000)
+        duration_ms_as_span_attr("block_duration_ms"),
+    ):
+        time.sleep(sleep_ms / 1000)
 
     spans = test_exporter.get_finished_spans()
     outer = next(s for s in spans if s.name == "test_span")

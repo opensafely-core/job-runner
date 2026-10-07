@@ -219,17 +219,21 @@ def test_commit_fetch_retry_max_attempts(mock_sleep, tmp_path):
     ensure_git_init(repo_dir)
     assert not commit_already_fetched(repo_dir, commit_sha)
 
-    with mock.patch(
-        "common.lib.git.subprocess.run",
-        side_effect=[
-            CalledProcessError(returncode=1, cmd="git", stderr=b"GnuTLS recv error"),
-        ]
-        * 5,
-    ):
-        with pytest.raises(
+    with (
+        mock.patch(
+            "common.lib.git.subprocess.run",
+            side_effect=[
+                CalledProcessError(
+                    returncode=1, cmd="git", stderr=b"GnuTLS recv error"
+                ),
+            ]
+            * 5,
+        ),
+        pytest.raises(
             GitError, match=f"Network error when fetching commit {commit_sha}"
-        ):
-            fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
+        ),
+    ):
+        fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
 
 
 def test_commit_fetch_retry_unexpected_error(tmp_path):
@@ -238,14 +242,16 @@ def test_commit_fetch_retry_unexpected_error(tmp_path):
     ensure_git_init(repo_dir)
     assert not commit_already_fetched(repo_dir, commit_sha)
 
-    with mock.patch(
-        "common.lib.git.subprocess.run",
-        side_effect=[
-            CalledProcessError(returncode=1, cmd="git", stderr=b"Unknown error"),
-        ],
+    with (
+        mock.patch(
+            "common.lib.git.subprocess.run",
+            side_effect=[
+                CalledProcessError(returncode=1, cmd="git", stderr=b"Unknown error"),
+            ],
+        ),
+        pytest.raises(GitError, match=f"Error fetching commit {commit_sha}"),
     ):
-        with pytest.raises(GitError, match=f"Error fetching commit {commit_sha}"):
-            fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
+        fetch_commit(repo_dir, REPO_FIXTURE, commit_sha)
 
 
 @pytest.mark.parametrize(
