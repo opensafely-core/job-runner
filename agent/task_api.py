@@ -44,9 +44,9 @@ def get_active_tasks() -> list[AgentTask]:
 def update_controller(
     task: AgentTask,
     stage: str,
-    results: dict = None,
+    results: dict | None = None,
     complete: bool = False,
-    timestamp_ns: int = None,
+    timestamp_ns: int | None = None,
 ):
     """Update the controller with the current state of the task.
 
