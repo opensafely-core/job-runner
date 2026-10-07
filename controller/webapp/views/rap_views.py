@@ -363,9 +363,8 @@ def job_to_api_format(job):
     """
 
     metrics = {}
-    if task := get_task_for_job(job):
-        if task.agent_results:
-            metrics = task.agent_results.get("job_metrics", {})
+    if (task := get_task_for_job(job)) and task.agent_results:
+        metrics = task.agent_results.get("job_metrics", {})
 
     return {
         "identifier": job.id,

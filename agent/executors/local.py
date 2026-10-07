@@ -99,9 +99,12 @@ def read_job_task_metadata(job_definition):
     metadata_task_id = metadata.get("task_id")
     # Ignore previously stored task-specifc job metadata (i.e. metadata that
     # has written a task_id) if it doesn't match our current task
-    if job_definition.task_id and metadata_task_id:
-        if job_definition.task_id != metadata_task_id:
-            return {}
+    if (
+        job_definition.task_id
+        and metadata_task_id
+        and job_definition.task_id != metadata_task_id
+    ):
+        return {}
     return metadata
 
 
@@ -156,12 +159,13 @@ class LocalDockerAPI(ExecutorAPI):
     def prepare(self, job_definition):
         # Check the workspace is not archived
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
-        if not workspace_dir.exists():
-            if workspace_is_archived(job_definition.workspace):
-                log.info(f"Workspace {job_definition.workspace} has been archived.")
-                raise LocalExecutorError(
-                    f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve"
-                )
+        if not workspace_dir.exists() and workspace_is_archived(
+            job_definition.workspace
+        ):
+            log.info(f"Workspace {job_definition.workspace} has been archived.")
+            raise LocalExecutorError(
+                f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve"
+            )
 
         # validate image is present
         # new world: we have been told to run a specific sha
@@ -270,12 +274,12 @@ class LocalDockerAPI(ExecutorAPI):
         if current_status.state in [ExecutorState.FINALIZED, ExecutorState.ERROR]:
             return current_status
 
-        if not (cancelled or error):
-            # We can finalize a cancelled job from any status, even if it hasn't
-            # started yet.
-            if current_status.state == ExecutorState.UNKNOWN:
-                # job had not started running, so do not finalize
-                return current_status
+        # We can finalize a cancelled job from any status, even if it hasn't
+        # started yet.
+        if not (cancelled or error) and current_status.state == ExecutorState.UNKNOWN:
+            # It's not a cancelled/errored job, but it hadn't started running yet,
+            # so do not finalize
+            return current_status
 
         finalize_job(job_definition, cancelled, error=error)
 
@@ -734,16 +738,17 @@ def update_manifest_outputs_and_actions(manifest, job_definition, new_outputs):
     """
     # flag any outputs for outdated actions
     existing_outputs = deepcopy(manifest["outputs"])
-    if existing_outputs:
-        if workspace_action_names := get_workspace_action_names(job_definition):
-            for output, output_metadata in existing_outputs.items():
-                if output_metadata["action"] not in workspace_action_names:
-                    manifest["outputs"][output]["out_of_date_action"] = True
-                else:
-                    # A user could remove an action from a project.yaml and then put it
-                    # back - we don't want actions that reappear to be marked out of
-                    # date forever
-                    manifest["outputs"][output]["out_of_date_action"] = False
+    if existing_outputs and (
+        workspace_action_names := get_workspace_action_names(job_definition)
+    ):
+        for output, output_metadata in existing_outputs.items():
+            if output_metadata["action"] not in workspace_action_names:
+                manifest["outputs"][output]["out_of_date_action"] = True
+            else:
+                # A user could remove an action from a project.yaml and then put it
+                # back - we don't want actions that reappear to be marked out of
+                # date forever
+                manifest["outputs"][output]["out_of_date_action"] = False
 
     # find existing filenames for this action from previous jobs which are have not
     # been produced by this just-run job
