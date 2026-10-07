@@ -91,7 +91,7 @@ LEVEL4_MAX_FILESIZE = int(
     os.environ.get("LEVEL4_MAX_FILESIZE") or 16 * 1024 * 1024
 )  # 16mb
 LEVEL4_MAX_CSV_ROWS = int(os.environ.get("LEVEL4_MAX_CSV_ROWS") or 5000)
-LEVEL4_FILE_TYPES = list(sorted(pipeline.constants.LEVEL4_FILE_TYPES))
+LEVEL4_FILE_TYPES = sorted(pipeline.constants.LEVEL4_FILE_TYPES)
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 

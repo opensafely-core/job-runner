@@ -437,7 +437,7 @@ def prepare_job(job_definition):
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
-    extra_dirs = set(Path(filename).parent for filename in job_input_files)
+    extra_dirs = {Path(filename).parent for filename in job_input_files}
 
     try:
         copy_git_commit_to_volume(

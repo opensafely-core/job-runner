@@ -13,7 +13,7 @@ from tests.factories import ensure_docker_images_present
 @pytest.fixture()
 def job_definition(request, test_repo, responses):
     """Basic simple action with no inputs as base for testing."""
-    if "needs_docker" in list(m.name for m in request.node.iter_markers()):
+    if "needs_docker" in [m.name for m in request.node.iter_markers()]:
         ensure_docker_images_present("busybox")
 
     responses.add_passthru("https://ghcr.io/")
