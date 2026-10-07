@@ -56,6 +56,6 @@ def make_yaml_error_more_helpful(exc, name):  # pragma: no cover
             pass
         exc.note = ""
         exc.warn = ""
-    except Exception:
+    except Exception:  # noqa: BLE001
         pass
     return exc

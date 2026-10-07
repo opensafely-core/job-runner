@@ -1,3 +1,5 @@
+# ruff: noqa TRY002
+
 import itertools
 import logging
 import time

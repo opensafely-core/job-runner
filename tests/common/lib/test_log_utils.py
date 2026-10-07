@@ -1,3 +1,5 @@
+# ruff: noqa TRY002
+
 import logging
 import subprocess
 import sys
@@ -142,7 +144,7 @@ def test_jobrunner_formatter_with_exception():
     exc_info = None
     try:
         raise Exception("foo")
-    except Exception:
+    except Exception:  # noqa: BLE001
         exc_info = sys.exc_info()
 
     record = logging.makeLogRecord({"level": logging.ERROR, "exc_info": exc_info})

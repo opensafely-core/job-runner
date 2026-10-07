@@ -1,3 +1,5 @@
+# ruff: noqa TRY002, B017
+
 import datetime
 import json
 import logging

@@ -1,3 +1,5 @@
+# ruff: noqa B017
+
 import logging
 import sqlite3
 import time

@@ -918,7 +918,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         actual_file = workspace_dir / filename
         try:
             csv_counts, headers = get_csv_counts(actual_file)
-        except Exception:  # pragma: no cover
+        except Exception:  # pragma: no cover # noqa: BLE001
             pass
         else:
             if headers and "patient_id" in headers:
