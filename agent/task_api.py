@@ -29,8 +29,8 @@ def request_json(method, path, data=None):
     response = session.request(method, url, data=data, headers=headers)
     try:
         response.raise_for_status()
-    except Exception as e:
-        log.exception(e)
+    except Exception:
+        log.exception("Error calling task API")
         raise
     return response.json()
 

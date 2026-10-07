@@ -361,5 +361,5 @@ def test_redact_token_from_exception_unhandled_type(monkeypatch):
         output="token",
         stderr=None,
     )
-    with pytest.raises(ValueError, match="expected str, bytes or Path"):
+    with pytest.raises(TypeError, match="expected str, bytes or Path"):
         redact_token_from_exception(exception)

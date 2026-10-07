@@ -380,4 +380,4 @@ def redact(value, secret):
     elif isinstance(value, PurePath):
         return value
     else:
-        raise ValueError(f"Got {type(value)} expected str, bytes or Path")
+        raise TypeError(f"Got {type(value)} expected str, bytes or Path")
