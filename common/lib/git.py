@@ -319,6 +319,7 @@ def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
         ["git", "merge-base", "--is-ancestor", ancestor_sha, descendant_sha],
         cwd=repo_dir,
         capture_output=True,
+        check=False,
     )
     return response.returncode == 0
 
