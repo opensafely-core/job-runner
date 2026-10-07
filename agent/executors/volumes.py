@@ -148,9 +148,8 @@ def glob_volume_files(job):
 def find_newer_files(job, reference):
     volume = host_volume_path(job)
     ref_time = (volume / reference).stat().st_mtime
-    found = []
-    for f in volume.glob("**/*"):
-        if f.is_file() and f.stat().st_mtime > ref_time:
-            found.append(str(f.relative_to(volume)))
-
-    return found
+    return [
+        str(f.relative_to(volume))
+        for f in volume.glob("**/*")
+        if f.is_file() and f.stat().st_mtime > ref_time
+    ]

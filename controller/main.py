@@ -372,15 +372,16 @@ def job_to_job_definition(job, task_id, image_sha=None):
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
-    input_job_ids = []
     workspace_state = calculate_workspace_state(job.backend, job.workspace)
-    for action in job.requires_outputs_from:
-        if previous_job_id := job_id_from_action(workspace_state, action):
-            input_job_ids.append(previous_job_id)
+    input_job_ids = [
+        previous_job_id
+        for action in job.requires_outputs_from
+        if (previous_job_id := job_id_from_action(workspace_state, action))
+    ]
 
     outputs = {}
     for privacy_level, named_patterns in job.output_spec.items():
-        for name, pattern in named_patterns.items():
+        for pattern in named_patterns.values():
             outputs[pattern] = privacy_level
 
     return JobDefinition(
