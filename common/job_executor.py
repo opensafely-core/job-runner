@@ -119,8 +119,6 @@ class JobStatus:
 class ExecutorRetry(Exception):
     """Indicates to the job scheduler that there's a temporary issue and to try again later."""
 
-    pass
-
 
 class ExecutorAPI:
     """
