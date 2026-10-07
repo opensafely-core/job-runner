@@ -233,7 +233,7 @@ class Job:
         """,
     )
 
-    id: str = None  # noqa: A003
+    id: str = None
     rap_id: str = None
     state: State = None
     # Git repository URL
@@ -424,7 +424,7 @@ class Flag:
         """,
     )
 
-    id: str  # noqa: A003
+    id: str
     value: str
     backend: str = None
     timestamp: int = None
@@ -460,9 +460,9 @@ class Task:
     """
 
     # controller set fields
-    id: str  # noqa: A003
+    id: str
     backend: str
-    type: TaskType  # noqa: A003
+    type: TaskType
     definition: dict
     active: bool = True
     # these timestamps are from the controller's POV

@@ -27,9 +27,9 @@ class AgentTask:
     disk/docker state
     """
 
-    id: str  # noqa: A003
+    id: str
     backend: str
-    type: TaskType  # noqa: A003
+    type: TaskType
     definition: dict
     attributes: dict
     created_at: int = None

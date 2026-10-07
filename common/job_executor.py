@@ -26,7 +26,7 @@ class JobDefinition:
     compatibility with any existing tasks that may be in progress.
     """
 
-    id: str  # a unique identifier for the job  # noqa: A003
+    id: str  # a unique identifier for the job
     rap_id: str  # a unique identifier for the job's RAP (formerly known as job request)
     # a unique identifier for the task associated with this job. Note that a
     # job definition is constructed for use with a specific task; it may be
