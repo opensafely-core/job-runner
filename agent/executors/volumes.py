@@ -30,8 +30,9 @@ def host_volume_path(job, create=True):
     if create:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-        except PermissionError:  # pragma: no cover
-            raise Exception(f"Could not create {path.parent} due to permissions error")
+        except PermissionError as err:  # pragma: no cover
+            err.add_note(f"Could not create {path.parent} for job {job.id}")
+            raise
     return path
 
 
@@ -136,7 +137,7 @@ def glob_volume_files(job):
 
     found = defaultdict(list)
 
-    for pattern in job.output_spec.keys():
+    for pattern in job.output_spec:
         for match in volume.glob(pattern):
             if match.is_file():
                 found[pattern].append(str(match.relative_to(volume)))
@@ -147,9 +148,8 @@ def glob_volume_files(job):
 def find_newer_files(job, reference):
     volume = host_volume_path(job)
     ref_time = (volume / reference).stat().st_mtime
-    found = []
-    for f in volume.glob("**/*"):
-        if f.is_file() and f.stat().st_mtime > ref_time:
-            found.append(str(f.relative_to(volume)))
-
-    return found
+    return [
+        str(f.relative_to(volume))
+        for f in volume.glob("**/*")
+        if f.is_file() and f.stat().st_mtime > ref_time
+    ]

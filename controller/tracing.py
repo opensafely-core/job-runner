@@ -1,6 +1,6 @@
 import logging
 import warnings
-from datetime import datetime
+from datetime import UTC, datetime
 
 from opentelemetry import trace
 from opentelemetry.trace import propagation
@@ -131,7 +131,7 @@ def load_trace_context(job):
     return propagation.set_span_in_context(trace.NonRecordingSpan(span_context), {})
 
 
-MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0).timestamp() * 1e9)
+MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0, tzinfo=UTC).timestamp() * 1e9)
 
 
 @warn_assertions
@@ -196,12 +196,13 @@ def set_span_job_metadata(span, job, exception=None, results=None, extra=None):
         if extra:
             for k, v in extra.items():
                 # automatically give any additional attributes the job prefix if not already present
+                prefixed_k = k
                 if not k.startswith("job."):  # pragma: nocover
                     # this will fail tests
                     warnings.warn(f"attribute {k} does not start with job. prefix")
                     # but correctly prefix it somehow this happens for real.
-                    k = "job." + k
-                attributes[k] = v
+                    prefixed_k = "job." + k
+                attributes[prefixed_k] = v
 
         attributes.update(trace_attributes(job, results))
 

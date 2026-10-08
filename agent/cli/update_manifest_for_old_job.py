@@ -61,7 +61,7 @@ def main(workspace, partial_job_id, branch):
         if abspath.suffix == ".csv":
             try:
                 csv_counts, _ = get_csv_counts(abspath)
-            except Exception:  # pragma: no cover
+            except Exception:  # pragma: no cover  # noqa: BLE001
                 ...
 
         action = job_metadata["container_metadata"]["Config"]["Labels"]["action"]

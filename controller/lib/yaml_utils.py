@@ -1,3 +1,5 @@
+from contextlib import suppress
+
 from ruamel.yaml import YAML, error
 
 
@@ -46,16 +48,12 @@ def make_yaml_error_more_helpful(exc, name):  # pragma: no cover
     goes wrong.
     """
     try:
-        try:
+        with suppress(AttributeError):
             exc.context_mark.name = name
-        except AttributeError:
-            pass
-        try:
+        with suppress(AttributeError):
             exc.problem_mark.name = name
-        except AttributeError:
-            pass
         exc.note = ""
         exc.warn = ""
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001
+        ...
     return exc

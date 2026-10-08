@@ -37,7 +37,7 @@ DEFAULT_TIMEOUT = 5 * 60
 # sometimes take a significant amount of time. We want some form of timeout here to
 # catch cases where something hangs indefinitely, but it needs to be much larger than
 # the default.
-IMAGE_PULL_TIMEOUT = int(os.getenv("IMAGE_PULL_TIMEOUT", 20 * 60))
+IMAGE_PULL_TIMEOUT = int(os.getenv("IMAGE_PULL_TIMEOUT") or 20 * 60)
 
 
 class DockerTimeoutError(Exception):
@@ -56,10 +56,11 @@ def add_docker_labels(cmd, labels):
 
 def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     args = ["docker"] + docker_args
+    check = kwargs.pop("check", False)
     try:
         if "PYTEST_CURRENT_TEST" in os.environ:  # pragma: nocover
             print("executing: " + " ".join(str(s) for s in args))
-        return subprocess.run(args, timeout=timeout, **kwargs)
+        return subprocess.run(args, timeout=timeout, check=check, **kwargs)
     except subprocess.TimeoutExpired as e:
         raise DockerTimeoutError from e  # pragma: no cover
     except subprocess.CalledProcessError as e:
@@ -165,10 +166,10 @@ def run(
     if labels:
         add_docker_labels(run_args, labels)
     # To avoid leaking the values into the command line arguments we set them
-    # in the evnironment and tell Docker to fetch them from there
+    # in the environment and tell Docker to fetch them from there
     if env is None:
         env = {}
-    for key, value in env.items():
+    for key in env:
         run_args.extend(["--env", key])
     ps = docker(
         run_args + args, check=True, capture_output=True, env=dict(os.environ, **env)

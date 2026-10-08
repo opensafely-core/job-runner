@@ -224,23 +224,23 @@ def test_run_all_ignores_failed_actions_that_have_been_removed(tmp_work_dir):
 )
 def test_validate_rap_create_request(params, exc_msg, exc_cls, monkeypatch):
     repo_url = str(FIXTURES_PATH / "git-repo")
-    kwargs = dict(
-        id="123",
-        repo_url=repo_url,
+    kwargs = {
+        "id": "123",
+        "repo_url": repo_url,
         # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
-        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
-        branch="v1",
-        requested_actions=["generate_dataset"],
-        workspace="1",
-        codelists_ok=True,
-        database_name="default",  # note db from from job-server is 'default',
-        backend="test",
-        force_run_dependencies=False,
-        created_by="",
-        project="",
-        orgs=[],
-        analysis_scope={},
-    )
+        "commit": "d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        "branch": "v1",
+        "requested_actions": ["generate_dataset"],
+        "workspace": "1",
+        "codelists_ok": True,
+        "database_name": "default",  # note db from from job-server is 'default',
+        "backend": "test",
+        "force_run_dependencies": False,
+        "created_by": "",
+        "project": "",
+        "orgs": [],
+        "analysis_scope": {},
+    }
     kwargs.update(params)
     rap_create_request = CreateRequest(**kwargs)
 
@@ -265,22 +265,22 @@ def test_validate_rap_create_request(params, exc_msg, exc_cls, monkeypatch):
 )
 def test_validate_rap_create_request_repos(repo_url, exc_msg, exc_cls, monkeypatch):
     monkeypatch.setattr(common.config, "ALLOWED_GITHUB_ORGS", ["test"])
-    kwargs = dict(
-        id="123",
-        repo_url=repo_url,
-        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
-        branch="v1",
-        requested_actions=["generate_dataset"],
-        workspace="1",
-        codelists_ok=True,
-        database_name="default",  # note db from from job-server is 'default',
-        backend="test",
-        force_run_dependencies=False,
-        created_by="",
-        project="",
-        orgs=[],
-        analysis_scope={},
-    )
+    kwargs = {
+        "id": "123",
+        "repo_url": repo_url,
+        "commit": "d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        "branch": "v1",
+        "requested_actions": ["generate_dataset"],
+        "workspace": "1",
+        "codelists_ok": True,
+        "database_name": "default",  # note db from from job-server is 'default',
+        "backend": "test",
+        "force_run_dependencies": False,
+        "created_by": "",
+        "project": "",
+        "orgs": [],
+        "analysis_scope": {},
+    }
     rap_create_request = CreateRequest(**kwargs)
 
     with pytest.raises(exc_cls, match=exc_msg):

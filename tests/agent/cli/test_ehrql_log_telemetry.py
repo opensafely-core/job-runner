@@ -89,12 +89,11 @@ def test_ehrql_telemetry_main(tmp_path, monkeypatch):
     assert spans[2].name == "ehrql.generate-dataset"
 
     for span in spans:
-        span.attributes["workspace"] == "workspace"
-        span.attributes["commit"] == "workspace"
-        span.attributes["workspace"] == "adcde"
-        span.attributes["action"] == "action1"
-        span.attributes["apply-filtering"] == "True"
-        span.attributes["foo"] == "bar"
+        assert span.attributes["workspace"] == "workspace"
+        assert span.attributes["commit"] == "abcde"
+        assert span.attributes["action"] == "action1"
+        assert span.attributes["apply-filtering"] == "True"
+        assert span.attributes["foo"] == "bar"
 
 
 def test_ehrql_telemetry_main_no_optional_attrs(tmp_path, monkeypatch):

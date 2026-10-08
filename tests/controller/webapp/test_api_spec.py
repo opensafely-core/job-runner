@@ -55,15 +55,18 @@ def setup(monkeypatch):
     monkeypatch.setattr("controller.config.CLIENT_TOKENS", {"token": ["test"]})
 
 
+EXPECTED_STATUS_CODES_BY_PATH = {
+    "/backend/status/": {200, 401},
+    "/rap/cancel/": {200, 400, 401, 404},
+    "/rap/create/": {200, 201, 400, 401},
+    "/rap/status/": {200, 400, 401},
+}
+
+
 class Recorder:
-    expected_status_codes_by_path = {
-        "/backend/status/": {200, 401},
-        "/rap/cancel/": {200, 400, 401, 404},
-        "/rap/create/": {200, 201, 400, 401},
-        "/rap/status/": {200, 400, 401},
-    }
-    status_codes = defaultdict(set)
-    count = 0
+    def __init__(self):
+        self.status_codes = defaultdict(set)
+        self.count = 0
 
     def record_status_code(self, path, status_code):
         self.count += 1
@@ -82,7 +85,7 @@ def recorder(request):
     # So, we record all status codes seen for each path and ensure we've seen all the expected ones
     # and haven't seen any we didn't expect
     for path, status_codes in recorder_.status_codes.items():
-        expected_status_codes = recorder_.expected_status_codes_by_path[path]
+        expected_status_codes = EXPECTED_STATUS_CODES_BY_PATH[path]
         missed_codes = expected_status_codes - status_codes
         assert not missed_codes, (
             f"Expected status codes not tested for path {path}: {missed_codes}"
@@ -137,7 +140,7 @@ def test_expected_status_codes():
                     status_codes.add(status_code)
         status_codes_from_spec[path] = status_codes
 
-    assert status_codes_from_spec == Recorder.expected_status_codes_by_path
+    assert status_codes_from_spec == EXPECTED_STATUS_CODES_BY_PATH
 
 
 @hypothesis.settings(deadline=None)

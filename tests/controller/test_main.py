@@ -82,7 +82,7 @@ def test_handle_pending_job_cancelled(db):
     assert len(tasks) == 1
     assert tasks[0].active
 
-    database.update_where(Job, dict(cancelled=True), id=job.id)
+    database.update_where(Job, {"cancelled": True}, id=job.id)
 
     run_controller_loop_once()
 
@@ -637,7 +637,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
 
 
 def test_handle_pending_pause_mode(db, backend_db_config, freezer):
-    mock_now = datetime.datetime(2025, 3, 1, 10, 5)
+    mock_now = datetime.datetime(2025, 3, 1, 10, 5, tzinfo=datetime.UTC)
     freezer.move_to(mock_now)
     mock_now_s = int(mock_now.timestamp())
 
@@ -655,7 +655,7 @@ def test_handle_pending_pause_mode(db, backend_db_config, freezer):
     assert job.updated_at == mock_now_s
     assert reset_job.updated_at == mock_now_s
 
-    mock_later = datetime.datetime(2025, 3, 1, 10, 10)
+    mock_later = datetime.datetime(2025, 3, 1, 10, 10, tzinfo=datetime.UTC)
     freezer.move_to(mock_later)
     mock_later_s = int(mock_later.timestamp())
 
@@ -756,22 +756,31 @@ def datetime_to_ns(datetime):
     [
         (
             # previous updated at is before now
-            datetime_to_ns(datetime.datetime(2025, 3, 1, 9, 5, 10, 99999)),
+            datetime_to_ns(
+                datetime.datetime(2025, 3, 1, 9, 5, 10, 99999, tzinfo=datetime.UTC)
+            ),
             # new updated_at is now (in ns)
-            datetime_to_ns(datetime.datetime(2025, 3, 1, 10, 5, 10, 99999)),
+            datetime_to_ns(
+                datetime.datetime(2025, 3, 1, 10, 5, 10, 99999, tzinfo=datetime.UTC)
+            ),
         ),
         (
             # previous updated at is after now
-            datetime_to_ns(datetime.datetime(2025, 3, 1, 10, 5, 11, 99999)),
+            datetime_to_ns(
+                datetime.datetime(2025, 3, 1, 10, 5, 11, 99999, tzinfo=datetime.UTC)
+            ),
             # new updated at timestamp is limited to 1ms after the previous one
-            datetime_to_ns(datetime.datetime(2025, 3, 1, 10, 5, 11, 99999)) + 1e6,
+            datetime_to_ns(
+                datetime.datetime(2025, 3, 1, 10, 5, 11, 99999, tzinfo=datetime.UTC)
+            )
+            + 1e6,
         ),
     ],
 )
 def test_status_code_timing(
     db, freezer, status_code_updated_at, new_status_code_updated_at
 ):
-    mock_now = datetime.datetime(2025, 3, 1, 10, 5, 10, 99999)
+    mock_now = datetime.datetime(2025, 3, 1, 10, 5, 10, 99999, tzinfo=datetime.UTC)
     freezer.move_to(mock_now)
 
     job = job_factory(
@@ -787,7 +796,7 @@ def test_status_code_timing(
 
 
 def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
-    mock_now = datetime.datetime(2025, 3, 1, 10, 5, 10, 99999)
+    mock_now = datetime.datetime(2025, 3, 1, 10, 5, 10, 99999, tzinfo=datetime.UTC)
     caplog.set_level(logging.INFO)
     freezer.move_to(mock_now)
 
@@ -812,7 +821,7 @@ def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
     assert job.status_code_updated_at == datetime_to_ns(mock_now)
 
     # move forwards less than 1 min, updated_at does not change
-    mock_now_1 = datetime.datetime(2025, 3, 1, 10, 5, 40, 99999)
+    mock_now_1 = datetime.datetime(2025, 3, 1, 10, 5, 40, 99999, tzinfo=datetime.UTC)
     freezer.move_to(mock_now_1)
     run_controller_loop_once()
     job = database.find_one(Job, id=job.id)
@@ -822,7 +831,7 @@ def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
 
     # move forwards more than 1 min, updated_at is updated to current timestamp
     # status_code_updated_at does not change
-    mock_now_2 = datetime.datetime(2025, 3, 1, 10, 6, 11, 99999)
+    mock_now_2 = datetime.datetime(2025, 3, 1, 10, 6, 11, 99999, tzinfo=datetime.UTC)
     freezer.move_to(mock_now_2)
     run_controller_loop_once()
     job = database.find_one(Job, id=job.id)
@@ -840,7 +849,7 @@ def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
     # 10. This means we don't fill up the logs with "still running" messages on
     # every loop.
     # move forward to a time that's divisible by 10 mins
-    mock_now_3 = datetime.datetime(2025, 3, 1, 10, 20, 11, 99999)
+    mock_now_3 = datetime.datetime(2025, 3, 1, 10, 20, 11, 99999, tzinfo=datetime.UTC)
     freezer.move_to(mock_now_3)
     run_controller_loop_once()
     job = database.find_one(Job, id=job.id)
@@ -854,7 +863,7 @@ def test_status_code_unchanged_job_updated_at(db, freezer, caplog):
 
 
 def test_status_code_updated_from_task_timestamp(db, freezer):
-    mock_now = datetime.datetime(2025, 3, 1, 10, 5, 10, 99999)
+    mock_now = datetime.datetime(2025, 3, 1, 10, 5, 10, 99999, tzinfo=datetime.UTC)
     freezer.move_to(mock_now)
 
     job = job_factory(state=State.PENDING)
@@ -870,7 +879,7 @@ def test_status_code_updated_from_task_timestamp(db, freezer):
     assert job.status_code_updated_at == datetime_to_ns(mock_now)
 
     # update task to PREPARED, with timestamp one second later
-    prepared_at = datetime.datetime(2025, 3, 1, 10, 5, 11, 99999)
+    prepared_at = datetime.datetime(2025, 3, 1, 10, 5, 11, 99999, tzinfo=datetime.UTC)
     task.agent_stage = StatusCode.PREPARED.value
     task.agent_timestamp_ns = int(datetime_to_ns(prepared_at))
     database.update(task)
@@ -883,7 +892,7 @@ def test_status_code_updated_from_task_timestamp(db, freezer):
     assert job.status_code_updated_at == datetime_to_ns(prepared_at)
 
     # task hasn't changed, move forward > 60s so we will update
-    mock_now1 = datetime.datetime(2025, 3, 1, 10, 7, 10, 99999)
+    mock_now1 = datetime.datetime(2025, 3, 1, 10, 7, 10, 99999, tzinfo=datetime.UTC)
     freezer.move_to(mock_now1)
     run_controller_loop_once()
     job = database.find_one(Job, id=job.id)
@@ -1063,7 +1072,7 @@ def test_handle_non_fatal_error(patched_handle_job, db, monkeypatch, exc):
     assert len(span.events) == 1
     assert str(exc) in span.events[0].attributes["exception.message"]
     assert span.status.status_code.name == "ERROR"
-    assert span.status.description == f"{exc.__class__.__name__}: {str(exc)}"
+    assert span.status.description == f"{exc.__class__.__name__}: {exc!s}"
     assert span.attributes["job.fatal_error"] is False
 
 

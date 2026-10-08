@@ -1,3 +1,5 @@
+# ruff: noqa TRY002, B017
+
 import pytest
 
 from common import lib
@@ -14,10 +16,9 @@ def test_atomic_writer_success(tmp_path):
 
 def test_atomic_writer_failure(tmp_path):
     dst = tmp_path / "dst"
-    with pytest.raises(Exception):
-        with lib.atomic_writer(dst) as tmp:
-            tmp.write_text("dst")
-            raise Exception("test")
+    with pytest.raises(Exception), lib.atomic_writer(dst) as tmp:
+        tmp.write_text("dst")
+        raise Exception("test")
 
     assert not dst.exists()
     assert not tmp.exists()

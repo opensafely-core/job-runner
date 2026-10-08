@@ -417,7 +417,7 @@ def decode_field_values(fields, row):
         if field.type in (list, dict) and value is not None:
             value = json.loads(value)
         # Enums get transformed back from their string/int values
-        elif issubclass(field.type, Enum) and value is not None:
+        elif issubclass(field.type, Enum) and value is not None:  # noqa SIM114 for readability
             value = field.type(value)
         # Bools get converted from int to True/False
         # None values are not converted to False, as None may be semantically different to False

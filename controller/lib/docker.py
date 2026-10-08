@@ -41,11 +41,11 @@ def get_current_image_sha(image_with_tag):
         response = dockerhub_api(
             f"/v2/{parsed.path.lstrip('/')}/manifests/{tag}", accept=MANIFEST_ACCEPT
         )
-    except requests.exceptions.RequestException as exc:
+    except requests.exceptions.RequestException:
         # do not block on failure, use stale sha, if available
         if image_with_tag in docker_sha_cache:
             return docker_sha_cache[image_with_tag]
-        raise exc
+        raise
 
     # Confusingly, there are two shas for a docker image. The
     # Config sha, and Content sha. For our purposes, we want
@@ -97,7 +97,7 @@ def get_auth_token(header):
     https://ghcr.io/token?service=ghcr.io&scope=repository:opensafely-core/busybox:pull
 
     """
-    header = header.lstrip("Bearer")
+    header = header.removeprefix("Bearer")
     # split_header_words is weird, but better than doing it ourselves
     words = split_header_words([header])
     values = dict(next(zip(*words)))

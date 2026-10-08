@@ -2,7 +2,7 @@ import functools
 import secrets
 import warnings
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from hashlib import new
 
 
@@ -115,7 +115,7 @@ def ns_timestamp_to_datetime(timestamp_ns):  # pragma: no cover
     We do lose 3 levels of precision, as datetime can only handle microseconds,
     but for human comparison that doesn't matter.
     """
-    return datetime.fromtimestamp(timestamp_ns / 1e9)
+    return datetime.fromtimestamp(timestamp_ns / 1e9, tz=UTC)
 
 
 def warn_assertions(f):
@@ -140,7 +140,5 @@ def warn_assertions(f):
         except AssertionError as exc:
             # convert exception to warning
             warnings.warn(str(exc))
-
-        return None
 
     return wrapper

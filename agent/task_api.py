@@ -29,8 +29,8 @@ def request_json(method, path, data=None):
     response = session.request(method, url, data=data, headers=headers)
     try:
         response.raise_for_status()
-    except Exception as e:
-        log.exception(e)
+    except Exception:
+        log.exception("Error calling task API")
         raise
     return response.json()
 
@@ -44,9 +44,9 @@ def get_active_tasks() -> list[AgentTask]:
 def update_controller(
     task: AgentTask,
     stage: str,
-    results: dict = None,
+    results: dict | None = None,
     complete: bool = False,
-    timestamp_ns: int = None,
+    timestamp_ns: int | None = None,
 ):
     """Update the controller with the current state of the task.
 

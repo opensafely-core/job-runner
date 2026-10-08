@@ -14,20 +14,18 @@ from controller.actions import UnknownActionError, get_action_specification
 )
 def test_get_action_specification_ehrql_has_output_flag():
     config = Pipeline.build(
-        **{
-            "version": 5,
-            "actions": {
-                "generate_dataset": {
-                    "run": "ehrql:v1 generate-dataset dataset.py --output=output/dataset.csv",
-                    "outputs": {
-                        "highly_sensitive": {
-                            "cohort": "output/dataset.csv",
-                            "cohort2": "output/input2.csv",
-                        }
-                    },
+        version=5,
+        actions={
+            "generate_dataset": {
+                "run": "ehrql:v1 generate-dataset dataset.py --output=output/dataset.csv",
+                "outputs": {
+                    "highly_sensitive": {
+                        "cohort": "output/dataset.csv",
+                        "cohort2": "output/input2.csv",
+                    }
                 },
             },
-        }
+        },
     )
 
     action_spec = get_action_specification(config, "generate_dataset")
@@ -44,18 +42,16 @@ def test_get_action_specification_ehrql_has_output_flag():
 )
 def test_get_action_specification_with_config():
     config = Pipeline.build(
-        **{
-            "version": 5,
-            "actions": {
-                "my_action": {
-                    "run": "python:v2 python action/__main__.py output/input.csv",
-                    "config": {"option": "value"},
-                    "outputs": {
-                        "moderately_sensitive": {"my_figure": "output/my_figure.png"}
-                    },
-                }
-            },
-        }
+        version=5,
+        actions={
+            "my_action": {
+                "run": "python:v2 python action/__main__.py output/input.csv",
+                "config": {"option": "value"},
+                "outputs": {
+                    "moderately_sensitive": {"my_figure": "output/my_figure.png"}
+                },
+            }
+        },
     )
 
     action_spec = get_action_specification(config, "my_action")
@@ -82,15 +78,13 @@ def test_get_action_specification_with_config():
 )
 def test_get_action_specification_with_unknown_action():
     config = Pipeline.build(
-        **{
-            "version": 5,
-            "actions": {
-                "known_action": {
-                    "run": "python:v2 python test.py",
-                    "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                }
-            },
-        }
+        version=5,
+        actions={
+            "known_action": {
+                "run": "python:v2 python test.py",
+                "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
+            }
+        },
     )
     msg = "Action 'unknown_action' not found in project.yaml"
     with pytest.raises(UnknownActionError, match=msg):

@@ -1,7 +1,7 @@
 import json
 import os
 import subprocess
-from datetime import datetime
+from datetime import UTC, datetime
 
 from opentelemetry import trace
 
@@ -91,4 +91,8 @@ def _parse_job_id(container_name):
 def _docker_datestr_to_int_timestamp(ts):
     # strptime can only handle 6 fractional digits, docker returns 9. Strip the
     # last 3 digits and the trailing Z
-    return int(datetime.strptime(ts[0:-4], "%Y-%m-%dT%H:%M:%S.%f").timestamp())
+    return int(
+        datetime.strptime(ts[0:-4], "%Y-%m-%dT%H:%M:%S.%f")
+        .replace(tzinfo=UTC)
+        .timestamp()
+    )

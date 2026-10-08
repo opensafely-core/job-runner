@@ -32,24 +32,24 @@ def test_get_container_names_no_containers(mock_docker):
 
 def test_get_job_containers_no_matches(mock_container_ls):
     partial_job_ids = ["1256"]
-    kill_task.get_job_containers(partial_job_ids) == []
+    assert kill_task.get_job_containers(partial_job_ids) == []
 
 
 def test_get_job_containers_with_full_match(mock_container_ls):
     partial_job_ids = ["1234"]
-    kill_task.get_job_containers(partial_job_ids) == ["os-job-1234"]
+    assert kill_task.get_job_containers(partial_job_ids) == ["os-job-1234"]
 
 
 def test_get_job_containers_with_partial_match(mock_container_ls, monkeypatch):
     monkeypatch.setattr("builtins.input", lambda _: "")
     partial_job_ids = ["123"]
-    kill_task.get_job_containers(partial_job_ids) == ["os-job-1234"]
+    assert kill_task.get_job_containers(partial_job_ids) == ["os-job-1234"]
 
 
 def test_get_job_multiple_matches(mock_container_ls, monkeypatch):
     partial_job_ids = ["12"]
     monkeypatch.setattr("builtins.input", lambda _: "1")
-    kill_task.get_job_containers(partial_job_ids) == ["os-job-1234"]
+    assert kill_task.get_job_containers(partial_job_ids) == ["os-job-1234"]
 
 
 def test_main_no_running_container(monkeypatch, capsys):
@@ -60,7 +60,7 @@ def test_main_no_running_container(monkeypatch, capsys):
         kill_task.main(["1234"])
 
     assert "Cannot kill task for job 1234" in capsys.readouterr().out
-    mock_docker.kill.assert_not_called
+    mock_docker.kill.assert_not_called()
 
 
 def test_main_kill_one_task(monkeypatch, capsys):

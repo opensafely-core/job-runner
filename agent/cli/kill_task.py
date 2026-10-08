@@ -85,7 +85,7 @@ def get_job_containers(partial_job_ids):
 
 
 def job_id_from_container_name(job_container_name):
-    return job_container_name.lstrip("os-job-")
+    return job_container_name.removeprefix("os-job-")
 
 
 def get_container_names():

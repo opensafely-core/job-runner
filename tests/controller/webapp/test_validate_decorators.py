@@ -53,7 +53,7 @@ def test_validate_request_body_validation_error(rf):
         content_type="application/json",
     )
     response = view(request)
-    response.status_code == 400
+    assert response.status_code == 400
     assert json.loads(response.content.decode()) == {
         "error": "Validation error",
         "details": "bad foo",
@@ -68,7 +68,7 @@ def test_validate_request_body_bad_json(rf):
         content_type="application/json",
     )
     response = view(request)
-    response.status_code == 400
+    assert response.status_code == 400
     assert json.loads(response.content.decode()) == {
         "error": "Validation error",
         "details": "could not parse JSON from request body",
@@ -83,7 +83,7 @@ def test_validate_request_body_bad_utf8(rf):
         content_type="text/html",
     )
     response = view(request)
-    response.status_code == 400
+    assert response.status_code == 400
     assert json.loads(response.content.decode()) == {
         "error": "Validation error",
         "details": "could not parse JSON from request body",

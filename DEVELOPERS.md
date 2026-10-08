@@ -697,10 +697,13 @@ production, or in a user's local opensafely-cli database.
 To do this, we track migrations in `controller/models.py`. Add a migration like so:
 
 ```python
-database.migration(1, """
+database.migration(
+    1,
+    """
 DDL STATEMENT 1;
 DDL STATEMENT 2;
-""")
+""",
+)
 ```
 
 These statements are run together in a single transaction, along with

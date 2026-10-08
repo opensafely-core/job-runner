@@ -1,3 +1,5 @@
+# ruff: noqa B017, BLE001
+
 import logging
 import sqlite3
 

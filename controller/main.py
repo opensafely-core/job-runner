@@ -182,20 +182,19 @@ def handle_job(job, mode=None, paused=None):
         return
 
     # Handle special modes
-    if paused:
-        if job.state == State.PENDING:
-            if job.status_code == StatusCode.WAITING_ON_REBOOT:
-                # This job was already reset in prepration for reboot, just
-                # update that we've seen it
-                refresh_job_timestamps(job)
-            else:
-                # Do not start the job, keep it pending
-                set_code(
-                    job,
-                    StatusCode.WAITING_PAUSED,
-                    "Backend is currently paused for maintenance, job will start once this is completed",
-                )
-            return
+    if paused and job.state == State.PENDING:
+        if job.status_code == StatusCode.WAITING_ON_REBOOT:
+            # This job was already reset in prepration for reboot, just
+            # update that we've seen it
+            refresh_job_timestamps(job)
+        else:
+            # Do not start the job, keep it pending
+            set_code(
+                job,
+                StatusCode.WAITING_PAUSED,
+                "Backend is currently paused for maintenance, job will start once this is completed",
+            )
+        return
 
     if mode == "db-maintenance" and job.requires_db:
         with transaction():
@@ -373,15 +372,16 @@ def job_to_job_definition(job, task_id, image_sha=None):
     # Both of action commit and repo_url should be set if either are
     assert bool(job.action_commit) == bool(job.action_repo_url)
 
-    input_job_ids = []
     workspace_state = calculate_workspace_state(job.backend, job.workspace)
-    for action in job.requires_outputs_from:
-        if previous_job_id := job_id_from_action(workspace_state, action):
-            input_job_ids.append(previous_job_id)
+    input_job_ids = [
+        previous_job_id
+        for action in job.requires_outputs_from
+        if (previous_job_id := job_id_from_action(workspace_state, action))
+    ]
 
     outputs = {}
     for privacy_level, named_patterns in job.output_spec.items():
-        for name, pattern in named_patterns.items():
+        for pattern in named_patterns.values():
             outputs[pattern] = privacy_level
 
     return JobDefinition(
@@ -542,7 +542,10 @@ def set_code(
         # is still running" messages, but it is useful to have semi-regular
         # confirmations in the logs that it is still running. The below will
         # log approximately once every 10 minutes.
-        if datetime.datetime.fromtimestamp(timestamp_s).minute % 10 == 0:
+        if (
+            datetime.datetime.fromtimestamp(timestamp_s, tz=datetime.UTC).minute % 10
+            == 0
+        ):
             log.info(job.status_message, extra={"status_code": job.status_code})
 
     if job.state != original_state:
@@ -802,7 +805,7 @@ def schedule_regular_task(
         Task(
             # Add a bit of structure to the ID: this isn't strictly necessary – truly
             # random IDs should work just fine – but it may help with future debugging
-            id=f"{task_type.value}-{datetime.date.today()}-{secrets.token_hex(10)}",
+            id=f"{task_type.value}-{datetime.datetime.now(tz=datetime.UTC).date()}-{secrets.token_hex(10)}",
             type=task_type,
             backend=backend,
             definition=get_task_definition(),

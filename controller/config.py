@@ -88,10 +88,10 @@ MAX_DB_WORKERS = {
 # Currently we assume all backends will have the same
 # limits on L4 files
 LEVEL4_MAX_FILESIZE = int(
-    os.environ.get("LEVEL4_MAX_FILESIZE", 16 * 1024 * 1024)
+    os.environ.get("LEVEL4_MAX_FILESIZE") or 16 * 1024 * 1024
 )  # 16mb
-LEVEL4_MAX_CSV_ROWS = int(os.environ.get("LEVEL4_MAX_CSV_ROWS", 5000))
-LEVEL4_FILE_TYPES = list(sorted(pipeline.constants.LEVEL4_FILE_TYPES))
+LEVEL4_MAX_CSV_ROWS = int(os.environ.get("LEVEL4_MAX_CSV_ROWS") or 5000)
+LEVEL4_FILE_TYPES = sorted(pipeline.constants.LEVEL4_FILE_TYPES)
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 
@@ -150,8 +150,9 @@ MAINTENANCE_ENABLED_BACKENDS = (
 )
 
 DATA_CHECK_POLL_INTERVAL = float(
-    os.environ.get("DATA_CHECK_POLL_INTERVAL", 24 * 60 * 60)
+    os.environ.get("DATA_CHECK_POLL_INTERVAL") or 24 * 60 * 60
 )
+
 DATA_CHECK_ENABLED_BACKENDS = (
     os.environ.get("DATA_CHECK_ENABLED_BACKENDS", "tpp").strip().split(",")
 )

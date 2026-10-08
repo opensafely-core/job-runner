@@ -99,9 +99,12 @@ def read_job_task_metadata(job_definition):
     metadata_task_id = metadata.get("task_id")
     # Ignore previously stored task-specifc job metadata (i.e. metadata that
     # has written a task_id) if it doesn't match our current task
-    if job_definition.task_id and metadata_task_id:
-        if job_definition.task_id != metadata_task_id:
-            return {}
+    if (
+        job_definition.task_id
+        and metadata_task_id
+        and job_definition.task_id != metadata_task_id
+    ):
+        return {}
     return metadata
 
 
@@ -156,12 +159,13 @@ class LocalDockerAPI(ExecutorAPI):
     def prepare(self, job_definition):
         # Check the workspace is not archived
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
-        if not workspace_dir.exists():
-            if workspace_is_archived(job_definition.workspace):
-                log.info(f"Workspace {job_definition.workspace} has been archived.")
-                raise LocalExecutorError(
-                    f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve"
-                )
+        if not workspace_dir.exists() and workspace_is_archived(
+            job_definition.workspace
+        ):
+            log.info(f"Workspace {job_definition.workspace} has been archived.")
+            raise LocalExecutorError(
+                f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve"
+            )
 
         # validate image is present
         # new world: we have been told to run a specific sha
@@ -270,12 +274,12 @@ class LocalDockerAPI(ExecutorAPI):
         if current_status.state in [ExecutorState.FINALIZED, ExecutorState.ERROR]:
             return current_status
 
-        if not (cancelled or error):
-            # We can finalize a cancelled job from any status, even if it hasn't
-            # started yet.
-            if current_status.state == ExecutorState.UNKNOWN:
-                # job had not started running, so do not finalize
-                return current_status
+        # We can finalize a cancelled job from any status, even if it hasn't
+        # started yet.
+        if not (cancelled or error) and current_status.state == ExecutorState.UNKNOWN:
+            # It's not a cancelled/errored job, but it hadn't started running yet,
+            # so do not finalize
+            return current_status
 
         finalize_job(job_definition, cancelled, error=error)
 
@@ -433,7 +437,7 @@ def prepare_job(job_definition):
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
-    extra_dirs = set(Path(filename).parent for filename in job_input_files)
+    extra_dirs = {Path(filename).parent for filename in job_input_files}
 
     try:
         copy_git_commit_to_volume(
@@ -520,14 +524,14 @@ def finalize_job(job_definition, cancelled, error=None):
     else:
         assert False
 
-    results_metadata = dict(
-        outputs=outputs,
-        unmatched_patterns=unmatched_patterns,
-        unmatched_outputs=unmatched_outputs,
-        status_message=message,
-        hint=unmatched_hint,
-        timestamp_ns=time.time_ns(),
-    )
+    results_metadata = {
+        "outputs": outputs,
+        "unmatched_patterns": unmatched_patterns,
+        "unmatched_outputs": unmatched_outputs,
+        "status_message": message,
+        "hint": unmatched_hint,
+        "timestamp_ns": time.time_ns(),
+    }
     job_metadata = get_job_metadata(
         job_definition,
         container_metadata,
@@ -603,15 +607,15 @@ def get_job_metadata(
 # Note: we use tuples to provide immutable empty iterables, and MappingProxyType to provide and empty immutable dict
 METADATA_DEFAULTS = {
     "hint": None,
-    "unmatched_patterns": tuple(),
-    "unmatched_outputs": tuple(),
+    "unmatched_patterns": (),
+    "unmatched_outputs": (),
     "timestamp_ns": None,
     "action_version": None,
     "action_revision": None,
     "action_created": None,
     "base_revision": None,
     "base_created": None,
-    "level4_excluded_files": tuple(),
+    "level4_excluded_files": (),
     "cancelled": False,
     "error": False,
     "job_metrics": MappingProxyType({}),
@@ -734,16 +738,17 @@ def update_manifest_outputs_and_actions(manifest, job_definition, new_outputs):
     """
     # flag any outputs for outdated actions
     existing_outputs = deepcopy(manifest["outputs"])
-    if existing_outputs:
-        if workspace_action_names := get_workspace_action_names(job_definition):
-            for output, output_metadata in existing_outputs.items():
-                if output_metadata["action"] not in workspace_action_names:
-                    manifest["outputs"][output]["out_of_date_action"] = True
-                else:
-                    # A user could remove an action from a project.yaml and then put it
-                    # back - we don't want actions that reappear to be marked out of
-                    # date forever
-                    manifest["outputs"][output]["out_of_date_action"] = False
+    if existing_outputs and (
+        workspace_action_names := get_workspace_action_names(job_definition)
+    ):
+        for output, output_metadata in existing_outputs.items():
+            if output_metadata["action"] not in workspace_action_names:
+                manifest["outputs"][output]["out_of_date_action"] = True
+            else:
+                # A user could remove an action from a project.yaml and then put it
+                # back - we don't want actions that reappear to be marked out of
+                # date forever
+                manifest["outputs"][output]["out_of_date_action"] = False
 
     # find existing filenames for this action from previous jobs which are have not
     # been produced by this just-run job
@@ -918,8 +923,8 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         actual_file = workspace_dir / filename
         try:
             csv_counts, headers = get_csv_counts(actual_file)
-        except Exception:  # pragma: no cover
-            pass
+        except Exception:  # pragma: no cover # noqa: BLE001
+            ...
         else:
             if headers and "patient_id" in headers:
                 job_msgs.append("File has patient_id column")
@@ -1021,8 +1026,8 @@ def copy_git_commit_to_volume(job_definition, repo_url, commit, extra_dirs):
     # tarball on stdin, so if we wanted to we could do this all without a
     # temporary directory, but not worth it at this stage
     config.TMP_DIR.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as tmpdir:
-        tmpdir = Path(tmpdir)
+    with tempfile.TemporaryDirectory(dir=config.TMP_DIR) as temp_directory:
+        tmpdir = Path(temp_directory)
         checkout_commit(repo_url, commit, tmpdir)
         # Because `docker cp` can't create parent directories automatically, we
         # make sure parent directories exist for all the files we're going to
@@ -1055,14 +1060,24 @@ def copy_git_commit_to_volume(job_definition, repo_url, commit, extra_dirs):
 
 # Environment variables whose values do not need to be hidden from the debug
 # logs
-SAFE_ENVIRONMENT_VARIABLES = set(
-    """
-    PATH PYTHON_VERSION DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
-    UBUNTU_VERSION PYENV_SHELL PYENV_VERSION PYTHONUNBUFFERED
-    OPENSAFELY_BACKEND TZ TEMP_DATABASE_NAME PYTHONPATH container LANG LC_ALL
-    EHRQL_PERMISSIONS
-    """.split()
-)
+SAFE_ENVIRONMENT_VARIABLES = {
+    "PATH",
+    "PYTHON_VERSION",
+    "DEBIAN_FRONTEND",
+    "DEBCONF_NONINTERACTIVE_SEEN",
+    "UBUNTU_VERSION",
+    "PYENV_SHELL",
+    "PYENV_VERSION",
+    "PYTHONUNBUFFERED",
+    "OPENSAFELY_BACKEND",
+    "TZ",
+    "TEMP_DATABASE_NAME",
+    "PYTHONPATH",
+    "container",
+    "LANG",
+    "LC_ALL",
+    "EHRQL_PERMISSIONS",
+}
 
 
 def redact_environment_variables(container_metadata):

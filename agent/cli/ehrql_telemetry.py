@@ -3,7 +3,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from opentelemetry import context, trace
@@ -44,13 +44,13 @@ def main(argv):
 
     logs = []
     for line in raw_lines:
-        line = line.strip()
-        if not line:  # pragma: nocover
+        striped_line = line.strip()
+        if not striped_line:  # pragma: nocover
             continue
         try:
-            logs.append(json.loads(line))
+            logs.append(json.loads(striped_line))
         except json.JSONDecodeError:
-            print(f"bad json from ehrql: {line}")
+            print(f"bad json from ehrql: {striped_line}")
 
     # force our name to be used as dataset
     os.environ["OTEL_SERVICE_NAME"] = args.dataset
@@ -97,7 +97,10 @@ def docker_datestr_to_ns(ts):
     # Docker timestamps have ns precision and a Z. We strip the Z and reduce to
     # ms precision, as strptime can't handle either
     return int(
-        datetime.strptime(ts[0:-4], "%Y-%m-%dT%H:%M:%S.%f").timestamp() * 1_000_000_000
+        datetime.strptime(ts[0:-4], "%Y-%m-%dT%H:%M:%S.%f")
+        .replace(tzinfo=UTC)
+        .timestamp()
+        * 1_000_000_000
     )
 
 

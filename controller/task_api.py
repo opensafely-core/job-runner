@@ -74,7 +74,7 @@ def handle_task_update_dbstatus(task):
     with database.transaction():
         # If we're in manual maintenance mode, we stay there, irrespective of
         # the actual maintenance mode status
-        if not get_flag_value("manual-db-maintenance", task.backend):
+        if not get_flag_value("manual-db-maintenance", task.backend):  # noqa: SIM102 for readability
             if results := task.agent_results.get("results"):
                 mode = results["status"]
                 set_flag("mode", mode, backend=task.backend)
