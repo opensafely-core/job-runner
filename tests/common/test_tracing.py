@@ -1,7 +1,7 @@
 import os
 import time
+from unittest import mock
 
-import opentelemetry.exporter.otlp.proto.http.trace_exporter
 import pytest
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -30,40 +30,55 @@ def test_setup_default_tracing_console(monkeypatch):
     assert isinstance(processor.span_exporter, ConsoleSpanExporter)
 
 
-def test_setup_default_tracing_otlp_defaults(monkeypatch):
-    env = {"OTEL_EXPORTER_OTLP_HEADERS": "'foo=bar'"}
-    monkeypatch.setattr(os, "environ", env)
-    monkeypatch.setattr(
-        opentelemetry.exporter.otlp.proto.http.trace_exporter, "environ", env
-    )
+@mock.patch.dict(os.environ, {"OTEL_EXPORTER_OTLP_HEADERS": "'foo=bar'"}, clear=True)
+def test_setup_default_tracing_otlp_defaults(responses):
+    responses.add(responses.POST, "https://api.honeycomb.io/v1/traces", status=200)
+
     provider = setup_default_tracing("test", set_global=False)
     assert provider.resource.attributes["service.name"] == "jobrunner"
+    assert isinstance(
+        provider._active_span_processor._span_processors[0].span_exporter,
+        OTLPSpanExporter,
+    )
 
-    exporter = provider._active_span_processor._span_processors[0].span_exporter
-    assert isinstance(exporter, OTLPSpanExporter)
-    assert exporter._endpoint == "https://api.honeycomb.io/v1/traces"
-    assert exporter._headers == {"foo": "bar"}
-    assert env["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://api.honeycomb.io"
+    with provider.get_tracer("test").start_as_current_span("probe"):
+        pass
+    # make sure the span is exported before we inspect requests
+    assert provider.force_flush()
+
+    (call,) = responses.calls
+    # The exporter adds its own headers in addition to those we provide
+    assert {"foo": "bar"}.items() <= call.request.headers.items()
+    assert os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://api.honeycomb.io"
 
 
-def test_setup_default_tracing_otlp_with_env(monkeypatch):
-    env = {
+@mock.patch.dict(
+    os.environ,
+    {
         "OTEL_EXPORTER_OTLP_HEADERS": "foo=bar",
         "OTEL_SERVICE_NAME": "service",
         "OTEL_EXPORTER_OTLP_ENDPOINT": "https://endpoint",
-    }
-    monkeypatch.setattr(os, "environ", env)
-    monkeypatch.setattr(
-        opentelemetry.exporter.otlp.proto.http.trace_exporter, "environ", env
-    )
+    },
+    clear=True,
+)
+def test_setup_default_tracing_otlp_with_env(responses):
+    responses.add(responses.POST, "https://endpoint/v1/traces", status=200)
+
     provider = setup_default_tracing("test", set_global=False)
     assert provider.resource.attributes["service.name"] == "service"
+    assert isinstance(
+        provider._active_span_processor._span_processors[0].span_exporter,
+        OTLPSpanExporter,
+    )
 
-    exporter = provider._active_span_processor._span_processors[0].span_exporter
+    with provider.get_tracer("test").start_as_current_span("probe"):
+        pass
+    # make sure the span is exported before we inspect requests
+    assert provider.force_flush()
 
-    assert isinstance(exporter, OTLPSpanExporter)
-    assert exporter._endpoint == "https://endpoint/v1/traces"
-    assert exporter._headers == {"foo": "bar"}
+    (call,) = responses.calls
+    # The exporter adds its own headers in addition to those we provide
+    assert {"foo": "bar"}.items() <= call.request.headers.items()
 
 
 def test_time_for_span_explicit_span():
