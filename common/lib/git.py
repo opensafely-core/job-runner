@@ -46,6 +46,23 @@ class GitUnknownRefError(GitError):
     pass
 
 
+def git_run(*args, env_extra=None, **kwargs):
+    kwargs_with_defaults = {
+        "check": True,
+        "capture_output": True,
+        "text": False,
+        "env": NEVER_PROMPT_FOR_AUTH_ENV | (env_extra or {}),
+    } | kwargs
+    try:
+        return subprocess.run(["git", *args], **kwargs_with_defaults)  # noqa: PLW1510
+    except subprocess.CalledProcessError as exc:
+        redact_token_from_exception(exc)
+        exc.add_note(
+            f"\nstdout:\n{force_text(exc.stdout)}\n\nstderr:\n{force_text(exc.stderr)}"
+        )
+        raise
+
+
 def get_github_username():
     # If we have an agent BACKEND set, use that as the github user
     if agent_config.BACKEND:
@@ -381,3 +398,14 @@ def redact(value, secret):
         return value
     else:
         raise TypeError(f"Got {type(value)} expected str, bytes or Path")
+
+
+def force_text(s):
+    if s is None:
+        return ""
+    elif isinstance(s, bytes):
+        return s.decode(errors="replace")
+    elif isinstance(s, str):
+        return s
+    else:
+        return str(s)

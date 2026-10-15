@@ -16,13 +16,40 @@ from common.lib.git import (
     commit_reachable_from_ref,
     ensure_git_init,
     fetch_commit,
+    force_text,
     get_sha_from_remote_ref,
+    git_run,
     read_file_from_repo,
     redact_token_from_exception,
 )
 
 
 REPO_FIXTURE = str(Path(__file__).parents[2].resolve() / "fixtures/git-repo")
+
+
+def test_git_run_handles_errors(monkeypatch):
+    token = "token123"
+    monkeypatch.setattr("common.config.PRIVATE_REPO_ACCESS_TOKEN", token)
+    repo_url = f"https://user:{token}@github.com/example/repo.git"
+    error = CalledProcessError(
+        returncode=1,
+        cmd=["git", "fetch", repo_url],
+        output=b"stdout token123",
+        stderr=b"stderr token123",
+    )
+
+    with (
+        mock.patch("common.lib.git.subprocess.run", side_effect=error),
+        pytest.raises(CalledProcessError) as exc_info,
+    ):
+        git_run("fetch", repo_url)
+
+    assert exc_info.value is error
+    assert error.cmd == ["git", "fetch", repo_url.replace(token, "********")]
+    assert error.stdout == b"stdout ********"
+    assert error.stderr == b"stderr ********"
+    assert error.__notes__ == ["\nstdout:\nstdout ********\n\nstderr:\nstderr ********"]
+    assert token not in str(error)
 
 
 @pytest.mark.slow_test
@@ -363,3 +390,17 @@ def test_redact_token_from_exception_unhandled_type(monkeypatch):
     )
     with pytest.raises(TypeError, match="expected str, bytes or Path"):
         redact_token_from_exception(exception)
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (None, ""),
+        ("abc123", "abc123"),
+        (b"abc123", "abc123"),
+        (b"abc\xe1", "abc�"),
+        (123, "123"),
+    ],
+)
+def test_force_text(value, expected):
+    assert force_text(value) == expected
