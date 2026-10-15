@@ -24,11 +24,11 @@ distlib==0.4.3
     # via virtualenv
 distro==1.9.0
     # via ruyaml
-django==6.1.1
+django==6.1.2
     # via opensafely-jobrunner
 execnet==2.1.2
     # via pytest-xdist
-filelock==4.0.9
+filelock==4.0.12
     # via
     #   python-discovery
     #   virtualenv
@@ -42,7 +42,7 @@ gunicorn==26.2.0
     # via opensafely-jobrunner
 harfile==0.5.0
     # via schemathesis
-hypothesis==6.168.3
+hypothesis==6.168.5
     # via
     #   hypothesis-graphql
     #   schemathesis
@@ -54,17 +54,17 @@ idna==3.20
     # via
     #   anyio
     #   requests
-iniconfig==2.3.0
+iniconfig==2.3.1
     # via pytest
 jsonschema==4.26.0
     # via opensafely-jobrunner
-jsonschema-rs==0.58.4
+jsonschema-rs==0.58.6
     # via schemathesis
 jsonschema-specifications==2025.9.1
     # via jsonschema
 markdown-it-py==4.2.0
     # via rich
-markupsafe==3.0.3
+markupsafe==3.0.4
     # via werkzeug
 mdurl==0.1.2
     # via markdown-it-py
@@ -126,7 +126,7 @@ packaging==26.3
     #   opentelemetry-instrumentation
     #   pytest
     #   virtualenv
-platformdirs==4.12.2
+platformdirs==4.12.3
     # via virtualenv
 pluggy==1.6.0
     # via
@@ -180,7 +180,7 @@ responses==0.26.3
     # via pytest-responses
 rich==15.0.0
     # via schemathesis
-rpds-py==2026.6.3
+rpds-py==2026.9.1
     # via
     #   jsonschema
     #   referencing
@@ -191,7 +191,7 @@ ruamel-yaml-clib==0.2.15
 ruff==0.16.10
 ruyaml==0.91.0
     # via opensafely-pipeline
-schemathesis==4.29.0
+schemathesis==4.29.4
 setuptools==84.0.0
     # via ruyaml
 six==1.17.0
@@ -209,13 +209,13 @@ typing-extensions==4.16.0
     #   opentelemetry-semantic-conventions
     #   referencing
     #   schemathesis
-tzdata==2026.4 ; sys_platform == 'win32'
+tzdata==2026.5 ; sys_platform == 'win32'
     # via django
 urllib3==2.8.0
     # via
     #   requests
     #   responses
-virtualenv==21.14.4
+virtualenv==21.14.5
     # via pre-commit
 werkzeug==3.1.9
     # via schemathesis
