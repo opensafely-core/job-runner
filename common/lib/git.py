@@ -46,6 +46,23 @@ class GitUnknownRefError(GitError):
     pass
 
 
+def git_run(*args, env_extra=None, **kwargs):
+    kwargs_with_defaults = {
+        "check": True,
+        "capture_output": True,
+        "text": False,
+        "env": NEVER_PROMPT_FOR_AUTH_ENV | (env_extra or {}),
+    } | kwargs
+    try:
+        return subprocess.run(["git", *args], **kwargs_with_defaults)  # noqa: PLW1510
+    except subprocess.CalledProcessError as exc:
+        redact_token_from_exception(exc)
+        exc.add_note(
+            f"\nstdout:\n{force_text(exc.stdout)}\n\nstderr:\n{force_text(exc.stderr)}"
+        )
+        raise
+
+
 def get_github_username():
     # If we have an agent BACKEND set, use that as the github user
     if agent_config.BACKEND:
@@ -61,12 +78,7 @@ def read_file_from_repo(repo_url, commit_sha, path):
     repo_dir = get_local_repo_dir(repo_url)
     ensure_commit_fetched(repo_dir, repo_url, commit_sha)
     try:
-        response = subprocess.run(
-            ["git", "show", f"{commit_sha}:{path}"],
-            capture_output=True,
-            check=True,
-            cwd=repo_dir,
-        )
+        response = git_run("show", f"{commit_sha}:{path}", cwd=repo_dir)
     except subprocess.SubprocessError as e:
         if e.stderr.startswith(b"fatal: path ") and b"does not exist" in e.stderr:
             raise GitFileNotFoundError(f"File '{path}' not found in repository")
@@ -85,19 +97,15 @@ def checkout_commit(repo_url, commit_sha, target_dir):
     repo_dir = get_local_repo_dir(repo_url)
     ensure_commit_fetched(repo_dir, repo_url, commit_sha)
     os.makedirs(target_dir, exist_ok=True)
-    subprocess.run(
-        [
-            "git",
-            f"--work-tree={target_dir}",
-            "checkout",
-            "--quiet",
-            "--force",
-            commit_sha,
-        ],
-        check=True,
+    git_run(
+        f"--work-tree={target_dir}",
+        "checkout",
+        "--quiet",
+        "--force",
+        commit_sha,
         # Set GIT_DIR rather than changing working directory so that
         # `target_dir` gets correctly resolved
-        env=dict(os.environ, GIT_DIR=repo_dir),
+        env_extra={"GIT_DIR": repo_dir},
     )
 
 
@@ -146,24 +154,17 @@ def get_sha_from_remote_ref(repo_url, ref):
     # commit.
     deref_ref = f"{ref}^{{}}"
     try:
-        response = subprocess.run(
-            [
-                "git",
-                "ls-remote",
-                "--quiet",
-                add_access_token_and_proxy(repo_url),
-                ref,
-                deref_ref,
-            ],
-            check=True,
-            capture_output=True,
+        response = git_run(
+            "ls-remote",
+            "--quiet",
+            add_access_token_and_proxy(repo_url),
+            ref,
+            deref_ref,
             text=True,
             encoding="utf-8",
-            env=NEVER_PROMPT_FOR_AUTH_ENV,
         )
         output = response.stdout
-    except subprocess.SubprocessError as exc:
-        redact_token_from_exception(exc)
+    except subprocess.SubprocessError:
         log.exception("Error reading from remote repository")
         raise GitRepoNotReachableError(f"Could not read from {repo_url}")
     results = _parse_ls_remote_output(output)
@@ -206,7 +207,7 @@ def ensure_commit_fetched(repo_dir, repo_url, commit_sha):
 def ensure_git_init(repo_dir):
     if not os.path.exists(repo_dir / "config"):
         repo_dir.parent.mkdir(exist_ok=True)
-        subprocess.run(["git", "init", "--bare", "--quiet", repo_dir], check=True)
+        git_run("init", "--bare", "--quiet", repo_dir)
 
 
 def commit_already_fetched(repo_dir, commit_sha):
@@ -223,19 +224,14 @@ def commit_already_fetched(repo_dir, commit_sha):
     this we create a special "sentinel" tag for each commit to indicate that
     the entire fetch process has completed successfully.
     """
-    response = subprocess.run(
-        [
-            "git",
-            "tag",
-            "--list",
-            SENTINEL_TAG_PREFIX + commit_sha,
-            "--points-at",
-            commit_sha,
-            "--format",
-            "exists",
-        ],
-        check=True,
-        capture_output=True,
+    response = git_run(
+        "tag",
+        "--list",
+        SENTINEL_TAG_PREFIX + commit_sha,
+        "--points-at",
+        commit_sha,
+        "--format",
+        "exists",
         cwd=repo_dir,
     )
     return response.stdout.strip() == b"exists"
@@ -246,16 +242,11 @@ def mark_commmit_as_fetched(repo_dir, commit_sha):
     Create a special "sentinel" tag to indicate that the supplied commit has
     been fully fetched (see `commit_already_fetched` above)
     """
-    subprocess.run(
-        [
-            "git",
-            "tag",
-            "--force",
-            SENTINEL_TAG_PREFIX + commit_sha,
-            commit_sha,
-        ],
-        check=True,
-        capture_output=True,
+    git_run(
+        "tag",
+        "--force",
+        SENTINEL_TAG_PREFIX + commit_sha,
+        commit_sha,
         cwd=repo_dir,
     )
 
@@ -276,25 +267,18 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
     authenticated_url = add_access_token_and_proxy(repo_url)
     while True:
         try:
-            subprocess.run(
-                [
-                    "git",
-                    "fetch",
-                    "--force",
-                    "--depth",
-                    str(depth),
-                    authenticated_url,
-                    commit_sha,
-                ],
-                check=True,
-                capture_output=True,
+            git_run(
+                "fetch",
+                "--force",
+                "--depth",
+                str(depth),
+                authenticated_url,
+                commit_sha,
                 cwd=repo_dir,
-                env=NEVER_PROMPT_FOR_AUTH_ENV,
             )
             mark_commmit_as_fetched(repo_dir, commit_sha)
             break
         except subprocess.SubprocessError as e:
-            redact_token_from_exception(e)
             log.exception(f"Error fetching commit (attempt {attempt}/{max_retries})")
             if (
                 b"GnuTLS recv error" in e.stderr
@@ -315,10 +299,12 @@ def fetch_commit(repo_dir, repo_url, commit_sha, depth=1):
 
 
 def commit_is_ancestor(repo_dir, ancestor_sha, descendant_sha):
-    response = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", ancestor_sha, descendant_sha],
+    response = git_run(
+        "merge-base",
+        "--is-ancestor",
+        ancestor_sha,
+        descendant_sha,
         cwd=repo_dir,
-        capture_output=True,
         check=False,
     )
     return response.returncode == 0
@@ -381,3 +367,14 @@ def redact(value, secret):
         return value
     else:
         raise TypeError(f"Got {type(value)} expected str, bytes or Path")
+
+
+def force_text(s):
+    if s is None:
+        return ""
+    elif isinstance(s, bytes):
+        return s.decode(errors="replace")
+    elif isinstance(s, str):
+        return s
+    else:
+        return str(s)
