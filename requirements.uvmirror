@@ -28,7 +28,7 @@ django==6.1.2
     # via opensafely-jobrunner
 execnet==2.1.2
     # via pytest-xdist
-filelock==4.0.12
+filelock==4.1.1
     # via
     #   python-discovery
     #   virtualenv
@@ -42,7 +42,7 @@ gunicorn==26.2.0
     # via opensafely-jobrunner
 harfile==0.5.0
     # via schemathesis
-hypothesis==6.168.5
+hypothesis==6.169.1
     # via
     #   hypothesis-graphql
     #   schemathesis
@@ -126,13 +126,13 @@ packaging==26.3
     #   opentelemetry-instrumentation
     #   pytest
     #   virtualenv
-platformdirs==4.12.3
+platformdirs==4.13.0
     # via virtualenv
 pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-pre-commit==4.6.2
+pre-commit==4.7.0
 protobuf==7.36.2
     # via
     #   googleapis-common-protos
@@ -158,7 +158,7 @@ pytest-responses==0.6.0
 pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
     # via freezegun
-python-discovery==1.6.1
+python-discovery==1.6.2
     # via virtualenv
 pyyaml==6.0.3
     # via
@@ -188,10 +188,10 @@ ruamel-yaml==0.19.1
     # via opensafely-pipeline
 ruamel-yaml-clib==0.2.15
     # via opensafely-pipeline
-ruff==0.16.10
+ruff==0.17.0
 ruyaml==0.91.0
     # via opensafely-pipeline
-schemathesis==4.29.4
+schemathesis==4.31.0
 setuptools==84.0.0
     # via ruyaml
 six==1.17.0
@@ -215,9 +215,9 @@ urllib3==2.8.0
     # via
     #   requests
     #   responses
-virtualenv==21.14.5
+virtualenv==21.14.7
     # via pre-commit
 werkzeug==3.1.9
     # via schemathesis
-wrapt==2.5.0
+wrapt==2.5.1
     # via opentelemetry-instrumentation
