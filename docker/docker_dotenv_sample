@@ -7,4 +7,4 @@ COMPOSE_DOCKER_CLI_BUILD=1
 # The ubuntu version the docker image will use
 UBUNTU_VERSION=24.04
 # The uv version the docker image will use
-UV_VERSION=0.11
+UV_VERSION=0.13
