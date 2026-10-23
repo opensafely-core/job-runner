@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import requests
 
 from agent import config
+from common import config as common_config
 from common.schema import AgentTask
 
 
@@ -25,7 +26,10 @@ def request_json(method, path, data=None):
     base_url = urljoin(config.TASK_API_ENDPOINT, config.BACKEND)
     data = data or {}
     url = f"{base_url}/{path}"
-    headers = {"Authorization": config.TASK_API_TOKEN}
+    headers = {
+        "Authorization": config.TASK_API_TOKEN,
+        "User-Agent": f"RAP-Agent/{common_config.VERSION}",
+    }
     response = session.request(method, url, data=data, headers=headers)
     try:
         response.raise_for_status()
