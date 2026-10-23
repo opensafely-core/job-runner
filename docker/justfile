@@ -21,6 +21,7 @@ build env="dev": _dotenv tmpdir docker-compose-env
     # set build args for prod builds
     export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
     export GITREF=$(git rev-parse --short HEAD)
+    export VERSION="$(date -d $BUILD_DATE +'%Y%m%d-%H%M%S')-$GITREF"
 
     # build the thing
     docker compose build --pull {{ env }}
