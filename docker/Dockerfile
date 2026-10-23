@@ -186,8 +186,10 @@ ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.created=$BUILD_DATE
 ARG GITREF=unknown
 LABEL org.opencontainers.image.revision=$GITREF
+ARG VERSION=unknown
+LABEL org.opencontainers.image.version=$VERSION
 RUN mkdir -p /app/metadata \
-    && echo "${GITREF}" > /app/metadata/version.txt
+    && echo "${VERSION}" > /app/metadata/version.txt
 
 ##################################################
 #
