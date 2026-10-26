@@ -5,6 +5,7 @@ import requests
 from responses import matchers
 
 from agent import config, task_api
+from common import config as common_config
 from common.schema import AgentTask
 from controller import task_api as controller_api
 from tests.factories import runjob_db_task_factory
@@ -143,3 +144,19 @@ def test_full_job_stages(db, responses, monkeypatch, live_server):
     assert db_task.agent_stage == "FINALIZED"
     assert db_task.agent_results == {"test": "test"}
     assert bool(db_task.agent_complete) is True
+
+
+def test_task_api_user_agent(monkeypatch, responses):
+    monkeypatch.setattr("agent.config.BACKEND", "dummy")
+
+    responses.add(
+        method="GET",
+        url=f"{config.TASK_API_ENDPOINT}dummy/tasks/",
+        status=200,
+        json={"tasks": []},
+    )
+
+    task_api.get_active_tasks()
+
+    request = responses.calls[-1].request
+    assert request.headers["user-agent"] == f"RAP-Agent/{common_config.VERSION}"
