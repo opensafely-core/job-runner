@@ -215,7 +215,7 @@ urllib3==2.8.0
     # via
     #   requests
     #   responses
-virtualenv==21.14.11
+virtualenv==21.14.13
     # via pre-commit
 werkzeug==3.1.9
     # via schemathesis
