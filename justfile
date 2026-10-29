@@ -55,7 +55,7 @@ install-precommit:
     BASE_DIR=$(git rev-parse --show-toplevel)
     test -f $BASE_DIR/.git/hooks/pre-commit || uv run pre-commit install
 
-# Upgrade a single package to the latest version as of the cutoff in pyproject.toml
+# Upgrade a single package to the latest version (with cooldown)
 upgrade-package package cooldown="7 days ago": && uvmirror devenv
     uv lock --upgrade-package {{ package }} --exclude-newer "{{ cooldown }}"
 
