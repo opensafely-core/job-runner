@@ -94,7 +94,7 @@ exec *args="bash": _workdir
     docker compose exec dev {{ args }}
 
 lint:
-    {{ docker_run_safe }} -i ghcr.io/hadolint/hadolint:v2.15.1-alpine < Dockerfile
+    {{ docker_run_safe }} -i ghcr.io/hadolint/hadolint:{{ hadolint_version }} < Dockerfile
 
 clean:
     #!/bin/bash

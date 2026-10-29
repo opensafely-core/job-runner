@@ -99,7 +99,7 @@ lint *args:
     uv run ruff check {{ args }} .
 
 lint-actions:
-    {{ docker_run_safe }} -v $(pwd):/repo:ro --workdir /repo kjanat/actionlint:1.17.0 -color
+    {{ docker_run_safe }} -v $(pwd):/repo:ro --workdir /repo kjanat/actionlint:{{ actionlint_version }} -color
 
 # Run the various dev checks but does not change any files
 check:
