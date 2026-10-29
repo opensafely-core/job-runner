@@ -461,27 +461,27 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "django" },
-    { name = "gunicorn" },
-    { name = "jsonschema" },
+    { name = "django", specifier = "<=6.1.2" },
+    { name = "gunicorn", specifier = "<=26.2.0" },
+    { name = "jsonschema", specifier = "<=4.26.0" },
     { name = "opensafely-pipeline", extras = ["fastparser"], url = "https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.10.12.113621.zip" },
-    { name = "opentelemetry-exporter-otlp-proto-http" },
-    { name = "opentelemetry-instrumentation-django" },
-    { name = "opentelemetry-instrumentation-requests" },
-    { name = "requests" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = "<=1.45.1" },
+    { name = "opentelemetry-instrumentation-django", specifier = "<=0.66b1" },
+    { name = "opentelemetry-instrumentation-requests", specifier = "<=0.66b1" },
+    { name = "requests", specifier = "<=2.34.2" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-django" },
-    { name = "pytest-freezer" },
-    { name = "pytest-responses" },
-    { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "ruff" },
-    { name = "schemathesis" },
+    { name = "pre-commit", specifier = "<=4.7.0" },
+    { name = "pytest", specifier = "<=9.1.1" },
+    { name = "pytest-cov", specifier = "<=7.1.0" },
+    { name = "pytest-django", specifier = "<=4.14.0" },
+    { name = "pytest-freezer", specifier = "<=0.4.9" },
+    { name = "pytest-responses", specifier = "<=0.6.0" },
+    { name = "pytest-xdist", specifier = "<=3.8.0,>=3.8.0" },
+    { name = "ruff", specifier = "<=0.17.1" },
+    { name = "schemathesis", specifier = "<=4.32.0" },
 ]
 
 [[package]]
