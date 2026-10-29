@@ -1,10 +1,7 @@
+import 'justfile.base'
+
 set dotenv-load := true
 set positional-arguments := true
-
-# Run Docker with minimim possible privileges. Note that if you mount any directories in
-# you must still ensure these are mounted read-only.
-
-docker_run_safe := 'docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 65534:65534'
 
 # List available commands
 default:
