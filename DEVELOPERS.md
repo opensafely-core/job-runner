@@ -79,7 +79,7 @@ Changes to dependencies should be made via `uv` commands, or by modifying `pypro
 Note that `uv.lock` must be reproducible from `pyproject.toml`. Otherwise, `just check` will fail.
 
 If you require package versions that are newer than the default cooldown, pass an
-alternative cooldown, using any format accepted by ruff's `exclude-newer` e.g.:
+alternative cooldown, using any format accepted by uv's `exclude-newer` e.g.:
 
 ```
 just upgrade-all "3 days ago"
