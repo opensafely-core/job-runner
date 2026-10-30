@@ -212,11 +212,11 @@ DEFAULT_JOB_CPU_COUNT = job_limits_from_env(os.environ, "job_cpu_count", 2, floa
 DEFAULT_JOB_MEMORY_LIMIT = job_limits_from_env(os.environ, "job_memory_limit", "4G")
 
 
-# Projects approved by NOD to try out the new Event Level Data features in ehrQL against
+# Projects approved by NOS to try out the new Event Level Data features in ehrQL against
 # real data
 PROJECTS_WITH_EHRQL_EVENT_LEVEL_ACCESS = {
-    # https://jobs.opensafely.org/echo-evaluation-of-covid-19-vaccine-histories-using-opensafely/
     # We use the slug below because that's what the RAP API currently sends; if that
-    # changes to porject ID or something we will need to update this.
+    # changes to project ID or something we will need to update this.
+    # https://jobs.opensafely.org/echo-evaluation-of-covid-19-vaccine-histories-using-opensafely/
     "echo-evaluation-of-covid-19-vaccine-histories-using-opensafely"
 }
