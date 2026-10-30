@@ -79,29 +79,13 @@ Changes to dependencies should be made via `uv` commands, or by modifying `pypro
 Note that `uv.lock` must be reproducible from `pyproject.toml`. Otherwise, `just check` will fail.
 
 If you require package versions that are newer than the default cooldown, pass an
-alternative cooldown, using any format accepted by ruff's `exclude-newer` e.g.:
+alternative cooldown, using any format accepted by uv's `exclude-newer` e.g.:
 
 ```
 just upgrade-all "3 days ago"
 ```
 
 Note that automated tooling that runs with the defaults will override any non-default cooldowns and upgrade/downgrade package versions accordingly.
-
-
-
-### Adding a package-specific timestamp cutoff
-It is possible to specify a package-specific timestamp cutoff.
-This should be done in the `pyproject.toml` to ensure reproducible installs;
-see the [uv documentation](https://docs.astral.sh/uv/reference/settings/#exclude-newer-package) for details.
-
-If set, the package-specific cutoff will take precedence over the default global cutoff regardless of which one is more recent.
-
-You should not set a package-specific cutoff that is older than the global cutoff - use a version
-constraint instead.
-If there is good reason to set a package-specific cutoff that is more recent than the global cutoff,
-**care should be taken to ensure that the package-specific cutoff is manually removed once it is over 7 days old**,
-as otherwise future automated updates of that package will be indefinitely blocked.
-Currently no automated tooling is in place to enforce removal of stale package-specific cutoffs.
 
 ## Getting started
 

@@ -1,9 +1,7 @@
+import '../justfile.base'
+
 set dotenv-load := true
 
-# Run Docker with minimim possible privileges. Note that if you mount any directories in
-# you must still ensure these are mounted read-only.
-
-docker_run_safe := 'docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 65534:65534'
 export PYTEST_HOST_TMP := "/tmp/jobrunner-docker"
 
 # List available commands
@@ -96,7 +94,7 @@ exec *args="bash": _workdir
     docker compose exec dev {{ args }}
 
 lint:
-    {{ docker_run_safe }} -i ghcr.io/hadolint/hadolint:v2.15.1-alpine < Dockerfile
+    {{ docker_run_safe }} -i ghcr.io/hadolint/hadolint:{{ hadolint_version }} < Dockerfile
 
 clean:
     #!/bin/bash

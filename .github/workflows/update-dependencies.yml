@@ -1,4 +1,4 @@
-name: Update python dependencies
+name: Lockfile maintenance
 
 on:
   workflow_dispatch:
