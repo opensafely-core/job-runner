@@ -219,4 +219,6 @@ PROJECTS_WITH_EHRQL_EVENT_LEVEL_ACCESS = {
     # changes to project ID or something we will need to update this.
     # https://jobs.opensafely.org/echo-evaluation-of-covid-19-vaccine-histories-using-opensafely/
     "echo-evaluation-of-covid-19-vaccine-histories-using-opensafely",  # 174
+    # https://jobs.opensafely.org/openpregnosis-longitudinal-expanding-and-validating-pregnancy-identification-algorithms/
+    "openpregnosis-longitudinal-expanding-and-validating-pregnancy-identification-algorithms",  # POS-2026-3009
 }
