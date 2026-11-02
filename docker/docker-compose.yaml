@@ -21,6 +21,7 @@ services:
         # env vars should be supplied by just/make
         - BUILD_DATE
         - GITREF
+        - VERSION
         # env vars from .env
         - UBUNTU_VERSION
         - UV_VERSION
