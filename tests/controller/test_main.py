@@ -1019,6 +1019,15 @@ def test_job_definition_dataset_permissions_with_analysis_scope(db):
     assert job_definition.env["EHRQL_PERMISSIONS"] == '["table1", "table2"]'
 
 
+def test_job_definition_ehrql_metadata(db):
+    job = job_factory(requires_db=True, project="test-project")
+    job_definition = main.job_to_job_definition(job, task_id="")
+    assert (
+        job_definition.env["EHRQL_METADATA"]
+        == f'{{"job_id": "{job.id}", "project": "test-project"}}'
+    )
+
+
 @patch("controller.main.handle_job")
 def test_handle_error(patched_handle_job, db, monkeypatch):
     monkeypatch.setattr(common_config, "JOB_LOOP_INTERVAL", 0)
