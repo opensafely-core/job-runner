@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: opensafely-core/setup-action@1f93a08c6e31a75b0908fcac5d25c2cf729c31f2 # v1
+      - uses: opensafely-core/setup-action@1f93a08c6e31a75b0908fcac5d25c2cf729c31f2 # v1.8.0
         with:
           install-just: true
           install-uv: true
@@ -37,20 +37,20 @@ jobs:
     if: ${{ (github.actor != 'dependabot[bot]') && (needs.check-uvmirror.outputs.changed ) }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: generate-token
         with:
           app-id: ${{ vars.CREATE_PR_APP_ID }}
           private-key: ${{ secrets.CREATE_PR_APP_PRIVATE_KEY }}
 
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.BRANCH_NAME }}
           token: ${{ steps.generate-token.outputs.token }}
           # persist-credentials is required for the commit step
           persist-credentials: true
 
-      - uses: opensafely-core/setup-action@1f93a08c6e31a75b0908fcac5d25c2cf729c31f2 # v1
+      - uses: opensafely-core/setup-action@1f93a08c6e31a75b0908fcac5d25c2cf729c31f2 # v1.8.0
         with:
           install-just: true
           install-uv: true
