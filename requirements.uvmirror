@@ -36,13 +36,13 @@ freezegun==1.5.5
     # via pytest-freezer
 googleapis-common-protos==1.76.0
     # via opentelemetry-exporter-otlp-proto-http
-graphql-core==3.3.0
+graphql-core==3.3.1
     # via hypothesis-graphql
 gunicorn==26.2.0
     # via opensafely-jobrunner
 harfile==0.6.0
     # via schemathesis
-hypothesis==6.170.8
+hypothesis==6.170.12
     # via
     #   hypothesis-graphql
     #   schemathesis
@@ -58,7 +58,7 @@ iniconfig==2.3.1
     # via pytest
 jsonschema==4.26.0
     # via opensafely-jobrunner
-jsonschema-rs==0.60.0
+jsonschema-rs==0.59.0
     # via schemathesis
 jsonschema-specifications==2025.9.1
     # via jsonschema
@@ -126,7 +126,7 @@ packaging==26.3
     #   opentelemetry-instrumentation
     #   pytest
     #   virtualenv
-platformdirs==4.13.5
+platformdirs==4.13.6
     # via virtualenv
 pluggy==1.7.0
     # via
@@ -158,7 +158,7 @@ pytest-responses==0.6.0
 pytest-xdist==3.8.0
 python-dateutil==3.0.0
     # via freezegun
-python-discovery==1.6.4
+python-discovery==1.6.6
     # via virtualenv
 pyyaml==6.0.3
     # via
@@ -188,10 +188,10 @@ ruamel-yaml==0.19.1
     # via opensafely-pipeline
 ruamel-yaml-clib==0.2.15
     # via opensafely-pipeline
-ruff==0.17.2
+ruff==0.17.1
 ruyaml==0.91.0
     # via opensafely-pipeline
-schemathesis==4.32.4
+schemathesis==4.32.0
 setuptools==84.2.1
     # via ruyaml
 six==1.17.0
@@ -217,7 +217,7 @@ urllib3==2.8.0
     # via
     #   requests
     #   responses
-virtualenv==21.14.13
+virtualenv==21.15.1
     # via pre-commit
 werkzeug==3.1.9
     # via schemathesis
