@@ -24,6 +24,7 @@ def test_inject_db_secrets(monkeypatch, db):
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
     monkeypatch.setattr(config, "DATABASE_URLS", {"FULL": "dburl"})
     monkeypatch.setattr(config, "TEMP_DATABASE_NAME", "tempdb")
+    monkeypatch.setattr(config, "TEMP_TABLE_SCHEMA", "temptableschema")
     monkeypatch.setattr(config, "TRINO_TLS_KEY", "key")
     monkeypatch.setattr(config, "TRINO_TLS_CERT", "cert")
 
@@ -31,6 +32,7 @@ def test_inject_db_secrets(monkeypatch, db):
 
     assert definition.env["DATABASE_URL"] == "dburl"
     assert definition.env["TEMP_DATABASE_NAME"] == "tempdb"
+    assert definition.env["TEMP_TABLE_SCHEMA"] == "temptableschema"
     assert definition.env["TRINO_TLS_KEY"] == "key"
     assert definition.env["TRINO_TLS_CERT"] == "cert"
 
@@ -41,6 +43,7 @@ def test_inject_db_secrets_none_configured(monkeypatch, db):
     monkeypatch.setattr(config, "USING_DUMMY_DATA_BACKEND", False)
     monkeypatch.setattr(config, "DATABASE_URLS", {"FULL": "dburl"})
     monkeypatch.setattr(config, "TEMP_DATABASE_NAME", None)
+    monkeypatch.setattr(config, "TEMP_TABLE_SCHEMA", None)
     monkeypatch.setattr(config, "TRINO_TLS_KEY", None)
     monkeypatch.setattr(config, "TRINO_TLS_CERT", None)
 
@@ -48,6 +51,7 @@ def test_inject_db_secrets_none_configured(monkeypatch, db):
 
     assert definition.env["DATABASE_URL"] == "dburl"
     assert "TEMP_DATABASE_NAME" not in definition.env
+    assert "TEMP_TABLE_SCHEMA" not in definition.env
     assert "TRINO_TLS_KEY" not in definition.env
     assert "TRINO_TLS_CERT" not in definition.env
 
