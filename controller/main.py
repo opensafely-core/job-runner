@@ -360,6 +360,14 @@ def job_to_job_definition(job, task_id, image_sha=None):
         env["EHRQL_PERMISSIONS"] = json.dumps(
             list(chain.from_iterable(job.analysis_scope.values()))
         )
+        # Set the user/job metadata to be passed to ehrql; this must be a json object of k:v
+        # string pairs, which ehrql expects as an environment variable.
+        env["EHRQL_METADATA"] = json.dumps(
+            {
+                "job_id": job.id,
+                "project": job.project,  # the project slug, sent by job-server
+            }
+        )
         # Temporary code (pinkie promise! - evansd 2026-04-22) to see what effect
         # splitting queries into a larger number of smaller joins has on these
         # problematic database jobs. Slack discussion at:
