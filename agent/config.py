@@ -48,31 +48,29 @@ DATABASE_URLS = database_urls_from_env(os.environ)
 TEMP_DATABASE_NAME = os.environ.get("TEMP_DATABASE_NAME")
 
 EMIS_ORGANISATION_HASH = os.environ.get("EMIS_ORGANISATION_HASH")
-PRESTO_TLS_KEY = PRESTO_TLS_CERT = None
-PRESTO_TLS_CERT_PATH = os.environ.get("PRESTO_TLS_CERT_PATH")
-PRESTO_TLS_KEY_PATH = os.environ.get("PRESTO_TLS_KEY_PATH")
+TRINO_TLS_KEY = TRINO_TLS_CERT = None
+TRINO_TLS_CERT_PATH = os.environ.get("TRINO_TLS_CERT_PATH")
+TRINO_TLS_KEY_PATH = os.environ.get("TRINO_TLS_KEY_PATH")
 
-if bool(PRESTO_TLS_KEY_PATH) != bool(PRESTO_TLS_CERT_PATH):
+if bool(TRINO_TLS_KEY_PATH) != bool(TRINO_TLS_CERT_PATH):
     raise ConfigException(  # pragma: no cover
-        "Both PRESTO_TLS_KEY_PATH and PRESTO_TLS_CERT_PATH must be defined if either are"
+        "Both TRINO_TLS_KEY_PATH and TRINO_TLS_CERT_PATH must be defined if either are"
     )
 
-if PRESTO_TLS_KEY_PATH:  # pragma: no cover
-    key_path = Path(PRESTO_TLS_KEY_PATH)
+if TRINO_TLS_KEY_PATH:  # pragma: no cover
+    key_path = Path(TRINO_TLS_KEY_PATH)
     if key_path.exists():
-        PRESTO_TLS_KEY = key_path.read_text()
+        TRINO_TLS_KEY = key_path.read_text()
     else:
-        raise ConfigException(
-            f"PRESTO_TLS_KEY_PATH={key_path}, but file does not exist"
-        )
+        raise ConfigException(f"TRINO_TLS_KEY_PATH={key_path}, but file does not exist")
 
-if PRESTO_TLS_CERT_PATH:  # pragma: no cover
-    cert_path = Path(PRESTO_TLS_CERT_PATH)
+if TRINO_TLS_CERT_PATH:  # pragma: no cover
+    cert_path = Path(TRINO_TLS_CERT_PATH)
     if cert_path.exists():
-        PRESTO_TLS_CERT = cert_path.read_text()
+        TRINO_TLS_CERT = cert_path.read_text()
     else:
         raise ConfigException(
-            f"PRESTO_TLS_CERT_PATH={cert_path}, but file does not exist"
+            f"TRINO_TLS_CERT_PATH={cert_path}, but file does not exist"
         )
 
 

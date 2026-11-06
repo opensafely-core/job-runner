@@ -369,9 +369,9 @@ def inject_db_secrets(job):
     job.env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
     if config.TEMP_DATABASE_NAME:
         job.env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
-    if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
-        job.env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
-        job.env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
+    if config.TRINO_TLS_KEY and config.TRINO_TLS_CERT:
+        job.env["TRINO_TLS_CERT"] = config.TRINO_TLS_CERT
+        job.env["TRINO_TLS_KEY"] = config.TRINO_TLS_KEY
     if config.EMIS_ORGANISATION_HASH:
         job.env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
 
