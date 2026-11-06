@@ -26,7 +26,6 @@ def test_inject_db_secrets(monkeypatch, db):
     monkeypatch.setattr(config, "TEMP_DATABASE_NAME", "tempdb")
     monkeypatch.setattr(config, "TRINO_TLS_KEY", "key")
     monkeypatch.setattr(config, "TRINO_TLS_CERT", "cert")
-    monkeypatch.setattr(config, "EMIS_ORGANISATION_HASH", "hash")
 
     main.inject_db_secrets(definition)
 
@@ -34,7 +33,6 @@ def test_inject_db_secrets(monkeypatch, db):
     assert definition.env["TEMP_DATABASE_NAME"] == "tempdb"
     assert definition.env["TRINO_TLS_KEY"] == "key"
     assert definition.env["TRINO_TLS_CERT"] == "cert"
-    assert definition.env["EMIS_ORGANISATION_HASH"] == "hash"
 
 
 def test_inject_db_secrets_none_configured(monkeypatch, db):
@@ -45,7 +43,6 @@ def test_inject_db_secrets_none_configured(monkeypatch, db):
     monkeypatch.setattr(config, "TEMP_DATABASE_NAME", None)
     monkeypatch.setattr(config, "TRINO_TLS_KEY", None)
     monkeypatch.setattr(config, "TRINO_TLS_CERT", None)
-    monkeypatch.setattr(config, "EMIS_ORGANISATION_HASH", None)
 
     main.inject_db_secrets(definition)
 
@@ -53,7 +50,6 @@ def test_inject_db_secrets_none_configured(monkeypatch, db):
     assert "TEMP_DATABASE_NAME" not in definition.env
     assert "TRINO_TLS_KEY" not in definition.env
     assert "TRINO_TLS_CERT" not in definition.env
-    assert "EMIS_ORGANISATION_HASH" not in definition.env
 
 
 def test_inject_db_secrets_invalid_db_name(monkeypatch, db):

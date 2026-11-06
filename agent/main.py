@@ -372,8 +372,6 @@ def inject_db_secrets(job):
     if config.TRINO_TLS_KEY and config.TRINO_TLS_CERT:
         job.env["TRINO_TLS_CERT"] = config.TRINO_TLS_CERT
         job.env["TRINO_TLS_KEY"] = config.TRINO_TLS_KEY
-    if config.EMIS_ORGANISATION_HASH:
-        job.env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
 
 
 def handle_simple_task(task_function, task):

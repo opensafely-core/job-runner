@@ -47,7 +47,6 @@ DATABASE_URLS = database_urls_from_env(os.environ)
 
 TEMP_DATABASE_NAME = os.environ.get("TEMP_DATABASE_NAME")
 
-EMIS_ORGANISATION_HASH = os.environ.get("EMIS_ORGANISATION_HASH")
 TRINO_TLS_KEY = TRINO_TLS_CERT = None
 TRINO_TLS_CERT_PATH = os.environ.get("TRINO_TLS_CERT_PATH")
 TRINO_TLS_KEY_PATH = os.environ.get("TRINO_TLS_KEY_PATH")
