@@ -480,8 +480,8 @@ dev = [
     { name = "pytest-freezer", specifier = "<=0.4.9" },
     { name = "pytest-responses", specifier = "<=0.6.0" },
     { name = "pytest-xdist", specifier = "<=3.8.0,>=3.8.0" },
-    { name = "ruff", specifier = "<=0.17.1" },
-    { name = "schemathesis", specifier = "<=4.32.0" },
+    { name = "ruff", specifier = "<=0.17.2" },
+    { name = "schemathesis", specifier = "<=4.32.4" },
 ]
 
 [[package]]
