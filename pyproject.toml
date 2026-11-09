@@ -105,7 +105,7 @@ dev = [
     "pytest-freezer<=0.4.9",
     "pytest-responses<=0.6.0",
     "pytest-xdist>=3.8.0,<=3.8.0",
-    "ruff<=0.17.1",
+    "ruff<=0.17.2",
     # OpenAPI tools
-    "schemathesis<=4.32.0",
+    "schemathesis<=4.32.4",
 ]
