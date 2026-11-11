@@ -68,8 +68,7 @@ def volume_exists(job):
     return host_volume_path(job, create=False).exists()
 
 
-def copy_to_volume(job, src, dst, timeout=None):
-    # We don't respect the timeout.
+def copy_to_volume(job, src, dst):
     volume = host_volume_path(job)
     if src.is_dir():
         shutil.copytree(
