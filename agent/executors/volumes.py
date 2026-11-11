@@ -83,7 +83,7 @@ def copy_to_volume(job, src, dst):
         copy_file(src, volume / dst)
 
 
-def copy_from_volume(job, src, dst, timeout=None):
+def copy_from_volume(job, src, dst):
     # this is only used to copy final outputs/logs.
     path = host_volume_path(job) / src
     return copy_file(path, dst)
@@ -109,11 +109,11 @@ def delete_volume(job):
         logger.exception(f"Failed to cleanup job volume {path}")
 
 
-def write_timestamp(job, path, timeout=None):
+def write_timestamp(job, path):
     (host_volume_path(job) / path).write_text(str(time.time_ns()))
 
 
-def read_timestamp(job, path, timeout=None):
+def read_timestamp(job, path):
     abs_path = host_volume_path(job) / path
     if not abs_path.exists():
         return None

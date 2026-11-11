@@ -367,7 +367,7 @@ class LocalDockerAPI(ExecutorAPI):
 
             # timestamp file presence means we have finished preparing
             timestamp_ns = volumes.read_timestamp(
-                job_definition, TIMESTAMP_REFERENCE_FILE, 10
+                job_definition, TIMESTAMP_REFERENCE_FILE
             )
             # TODO: maybe log the case where the volume exists, but the
             # timestamp file does not? It's not a problem as the loop should
