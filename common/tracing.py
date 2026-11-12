@@ -49,6 +49,16 @@ def setup_default_tracing(service, set_global=True):
 
     provider = get_provider(service)
 
+    # OTel client defaults are very low while Honeycomb supports much higher values. We
+    # silently lose data if we hit these limits so we bump them here.
+    #
+    # Honeycomb limit: 2,000 fields per event
+    os.environ.setdefault("OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT", "2000")
+    # Honeycomb limit: 64KB per string field (useful for formatted SQL queries)
+    os.environ.setdefault("OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT", "65536")
+    # Use stable HTTP semantic conventions
+    os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "http")
+
     if "OTEL_EXPORTER_OTLP_HEADERS" in os.environ:
         # workaround for env file parsing issues
         cleaned_headers = os.environ["OTEL_EXPORTER_OTLP_HEADERS"].strip("\"'")
