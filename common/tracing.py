@@ -58,6 +58,7 @@ def setup_default_tracing(service, set_global=True):
         if "OTEL_EXPORTER_OTLP_ENDPOINT" not in os.environ:
             os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://api.honeycomb.io"
 
+    if "OTEL_EXPORTER_OTLP_ENDPOINT" in os.environ:
         # now we can created OTLP exporter
         add_exporter(provider, OTLPSpanExporter())
 

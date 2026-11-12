@@ -81,6 +81,32 @@ def test_setup_default_tracing_otlp_with_env(responses):
     assert {"foo": "bar"}.items() <= call.request.headers.items()
 
 
+@mock.patch.dict(
+    os.environ,
+    {
+        "OTEL_SERVICE_NAME": "service",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "https://endpoint",
+    },
+    clear=True,
+)
+def test_setup_default_tracing_otlp_without_headers(responses):
+    responses.add(responses.POST, "https://endpoint/v1/traces", status=200)
+
+    provider = setup_default_tracing("test", set_global=False)
+    assert provider.resource.attributes["service.name"] == "service"
+    assert isinstance(
+        provider._active_span_processor._span_processors[0].span_exporter,
+        OTLPSpanExporter,
+    )
+
+    with provider.get_tracer("test").start_as_current_span("probe"):
+        pass
+    # make sure the span is exported before we inspect requests
+    assert provider.force_flush()
+
+    assert len(responses.calls) == 1
+
+
 def test_time_for_span_explicit_span():
     sleep_ms = 10
     with (
