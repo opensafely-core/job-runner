@@ -367,7 +367,7 @@ class LocalDockerAPI(ExecutorAPI):
 
             # timestamp file presence means we have finished preparing
             timestamp_ns = volumes.read_timestamp(
-                job_definition, TIMESTAMP_REFERENCE_FILE, 10
+                job_definition, TIMESTAMP_REFERENCE_FILE
             )
             # TODO: maybe log the case where the volume exists, but the
             # timestamp file does not? It's not a problem as the loop should
@@ -1034,28 +1034,7 @@ def copy_git_commit_to_volume(job_definition, repo_url, commit, extra_dirs):
         # copy in later
         for directory in extra_dirs:
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
-        try:
-            volumes.copy_to_volume(job_definition, tmpdir, ".", timeout=60)
-        except docker.DockerTimeoutError:  # pragma: no cover
-            # Aborting a `docker cp` into a container at the wrong time can
-            # leave the container in a completely broken state where any
-            # attempt to interact with or even remove it will just hang, see:
-            # https://github.com/docker/for-mac/issues/4491
-            #
-            # This means we can end up with jobs where any attempt to start
-            # them (by copying in code from git) causes the job-runner to
-            # completely lock up. To avoid this we use a timeout (60 seconds,
-            # which should be more than enough to copy in a few megabytes of
-            # code). The exception this triggers will cause the job to fail
-            # with an "internal error" message, which will then stop it
-            # blocking other jobs. We need a specific exception class here as
-            # we need to avoid trying to remove the container, which we would
-            # ordinarily do on error, because that operation will also hang :(
-            log.exception("Timed out copying code to volume, see issue #154")
-            raise LocalDockerError(
-                "There was a (hopefully temporary) internal Docker error, "
-                "please try the job again"
-            )
+        volumes.copy_to_volume(job_definition, tmpdir, ".")
 
 
 # Environment variables whose values do not need to be hidden from the debug
