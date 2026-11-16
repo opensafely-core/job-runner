@@ -143,7 +143,7 @@ pygments==2.21.0
     #   rich
 pyrate-limiter==4.5.1
     # via schemathesis
-pytest==9.1.1
+pytest==9.2.0
     # via
     #   pytest-cov
     #   pytest-django
@@ -188,10 +188,10 @@ ruamel-yaml==0.19.1
     # via opensafely-pipeline
 ruamel-yaml-clib==0.2.15
     # via opensafely-pipeline
-ruff==0.17.2
+ruff==0.17.4
 ruyaml==0.91.0
     # via opensafely-pipeline
-schemathesis==4.32.4
+schemathesis==4.33.1
 setuptools==84.2.1
     # via ruyaml
 sortedcontainers==2.4.0
