@@ -90,11 +90,14 @@
     "lockFileMaintenance": { "enabled": false }
   },
   // Note package rules apply only to direct dependencies
-  // rangeStrategy: widen expands the range when a new version is found and updates the lockfile (with respect to the cooldown).
-  // Assumes that the repo has upper limits (<=) set on pyproject.toml dependencies
-  // Note that we can't (as of 2026-03-20 at least) use the "bump" strategy to always bump versions. This expands
-  // the pyproject.toml range with respect to the cooldown, but DOESN'T respect the cooldown when it updates the
-  // lockfile, which results in a conflict with MinimumReleaseAge.
+  // rangeStrategy: defined as in-range-only for js and python dependencies; this
+  // updates the version in lockfiles while respecting the ranges specified in a package
+  // file (pyproject.toml. package.json etc)
+  // Assumes that the repo has lower limits (>=) set on dependencies that we want to
+  // increase (with respect to minimumReleaseAge) whenever there is a new version.
+  // Upper limits can be pinned in the package file and renovate will not bump them.
+  // Note we can't set this globally, as other package managers e.g. github actions won't
+  // be able to resolve dependencies with it.
   "packageRules": [
     // global rules that apply to all updated: scheduled on Wed morning, with 7 day cooldown.
     // Individual packageRules can override these, or apply additional rules.
@@ -141,14 +144,14 @@
     {
       "matchManagers": ["npm"],
       "addLabels": ["js"],
-      "rangeStrategy": "widen",
+      "rangeStrategy": "in-range-only",
     },
     // pep621 covers pyproject.toml and uv.lock files
     // https://docs.renovatebot.com/modules/manager/pep621/
     {
       "matchManagers": ["pep621"],
       "addLabels": ["python"],
-      "rangeStrategy": "widen",
+      "rangeStrategy": "in-range-only",
     },
     {
       "matchManagers": ["github-actions"],
