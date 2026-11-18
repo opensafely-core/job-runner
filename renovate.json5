@@ -158,6 +158,14 @@
       "addLabels": ["python"],
       "rangeStrategy": "widen",
     },
+    // Temporarily pin pytest as it's broken xdist:
+    // https://github.com/pytest-dev/pytest/issues/15303
+    // xdist has a fix which has been merged but not released yet
+    {
+      "matchManagers": ["pep621"],
+      "matchDepNames": ["pytest"],
+      "allowedVersions": "<9.2.0"
+    },
     {
       "matchManagers": ["github-actions"],
       "addLabels": ["actions"],
