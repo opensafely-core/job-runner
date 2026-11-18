@@ -313,7 +313,7 @@ renovate-dry-run output="summary":
     fi
 
     case "{{ output }}" in
-        summary)
+         summary)
             jq -rRn '
                 # Truncate digests to the first 19 characters.
                 # Keep the full version number.
@@ -332,7 +332,15 @@ renovate-dry-run output="summary":
                         ""
                     end;
 
-                ["PACKAGE", "CURRENT", "NEW", "AGE", "STATUS"],
+                [
+                    "PACKAGE",
+                    "CURRENT VERSION",
+                    "CURRENT VALUE",
+                    "NEW VERSION",
+                    "NEW VALUE",
+                    "AGE",
+                    "STATUS"
+                ],
                 (
                     inputs
                     | fromjson?
@@ -341,33 +349,28 @@ renovate-dry-run output="summary":
                     | .config[][]
                     | .manager as $manager
                     | .deps[]
-                    | .depName as $name
-                    | (
-                        (.currentValue // .currentVersion // "-")
-                        + (.currentDigest | display_digest($manager))
-                    ) as $current
-                    | (.updates // [])[]
+                    | . as $dep
+                    | $dep.depName as $name
+                    | ($dep.lockedVersion // $dep.currentVersion // "-") as $currentVersion
+                    | ($dep.currentValue // "-") as $currentValue
+                    | ($dep.updates // [])[]
                     | [
                         $name,
-                        $current,
+                        ($currentVersion + ($dep.currentDigest | display_digest($manager))),
+                        $currentValue,
                         (
-                            (.newValue // .newVersion // "-")
-                            + (.newDigest | display_digest($manager))
+                        (.newVersion // "-")
+                        + (.newDigest | display_digest($manager))
                         ),
+                        (.newValue // "-"),
                         (
-                            if .newVersionAgeInDays != null then
-                                "\(.newVersionAgeInDays)d"
-                            else
-                                "-"
-                            end
+                        if .newVersionAgeInDays != null then
+                            "\(.newVersionAgeInDays)d"
+                        else
+                            "-"
+                        end
                         ),
-                        (
-                            if .pendingChecks then
-                                "pending"
-                            else
-                                "ready"
-                            end
-                        )
+                        (if .pendingChecks then "pending" else "ready" end)
                     ]
                 )
                 | @tsv

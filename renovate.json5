@@ -17,7 +17,10 @@
     "docker:disable",
     // Add the nice badges to PRs
     // https://docs.renovatebot.com/presets-mergeConfidence/#mergeconfidenceall-badges
-    "mergeConfidence:all-badges"
+    "mergeConfidence:all-badges",
+    // Group all dependencies together in one PR
+    // https://docs.renovatebot.com/presets-group/
+    "group:all"
   ],
   // Disable limits on number of PRs / branches in this repo
   // No limit on number of PRs created per hour
@@ -86,15 +89,23 @@
   "pep621": {
     "lockFileMaintenance": { "enabled": false }
   },
-  //
   // Note package rules apply only to direct dependencies
-  // group dependencies by dev/prod, cooldown 7 days, run early Wed mornings
-  // rangeStrategy: widen expands the range when a new version is found and updates the lockfile (with respect to the cooldown).
-  // Assumes that the repo has upper limits (<=) set on pyproject.toml dependencies
-  // Note that we can't (as of 2026-03-20 at least) use the "bump" strategy to always bump versions. This expands
-  // the pyproject.toml range with respect to the cooldown, but DOESN'T respect the cooldown when it updates the
-  // lockfile, which results in a conflict with MinimumReleaseAge.
+  // rangeStrategy: defined as in-range-only for js and python dependencies; this
+  // updates the version in lockfiles while respecting the ranges specified in a package
+  // file (pyproject.toml. package.json etc)
+  // Assumes that the repo has lower limits (>=) set on dependencies that we want to
+  // increase (with respect to minimumReleaseAge) whenever there is a new version.
+  // Upper limits can be pinned in the package file and renovate will not bump them.
+  // Note we can't set this globally, as other package managers e.g. github actions won't
+  // be able to resolve dependencies with it.
   "packageRules": [
+    // global rules that apply to all updated: scheduled on Wed morning, with 7 day cooldown.
+    // Individual packageRules can override these, or apply additional rules.
+    {
+      "matchPackageNames": ["*"],
+      "minimumReleaseAge": "7 days",
+      "schedule": ["* 0-3 * * WED"],
+    },
     // don't auto-update python-version or node-version, we want to manage these updates ourselves
     {
       "matchManagers": ["pyenv", "nodenv"],
@@ -116,17 +127,12 @@
       // this is technically redundant as the custom manager currently also only
       // matches justfiles, but it's included here in case we extend the manager later
       "matchFileNames": ["**/justfile", "**/Justfile", "**/.justfile", "**/justfile.base"],
-      "groupName": "justfile tools",
-      // minimumReleaseAge works as long as the datasource provides release timestamps.
+      // minimumReleaseAge (set globally) works as long as the datasource provides release timestamps.
       // Docker Hub provides them; ghcr and others don't.
       // https://github.com/renovatebot/renovate/issues/39064
       // timestamp-optional means that we still get updates when there's no release timestamp
       // to check against
-      "minimumReleaseAge": "7 days",
       "minimumReleaseAgeBehaviour": "timestamp-optional",
-      "schedule": [
-        "* 0-3 * * WED"
-      ],
       // this is a guard in case `docker:pinDigests` is added to the `extends` section in
       // future. This would apply to the docker datasource, and it would attempt to run,
       // but in order to pin digests, renovate has to insert a digest where there isn't one
@@ -137,61 +143,22 @@
     },
     {
       "matchManagers": ["npm"],
-      "matchDepTypes": ["devDependencies"],
       "addLabels": ["js"],
-      "groupName": "js dev dependencies",
-      "minimumReleaseAge": "7 days",
-      "schedule": [
-        "* 0-3 * * WED"
-      ],
-      "rangeStrategy": "widen"
-    },
-    {
-      "matchManagers": ["npm"],
-      "matchDepTypes": ["dependencies"],
-      "addLabels": ["js"],
-      "groupName": "js prod dependencies",
-      "minimumReleaseAge": "7 days",
-      "schedule": [
-        "* 0-3 * * WED"
-      ],
-      "rangeStrategy": "widen"
+      "rangeStrategy": "in-range-only",
     },
     // pep621 covers pyproject.toml and uv.lock files
     // https://docs.renovatebot.com/modules/manager/pep621/
     {
       "matchManagers": ["pep621"],
-      "matchDepTypes": ["dependency-groups", "tool.uv.dev-dependencies"],
       "addLabels": ["python"],
-      "groupName": "python dev dependencies",
-      "rangeStrategy": "widen",
-      "minimumReleaseAge": "7 days",
-      "schedule": [
-        "* 0-3 * * WED"
-      ],
-    },
-    {
-      "matchManagers": ["pep621"],
-      "matchDepTypes": ["project.dependencies", "project.optional-dependencies", "tool.uv.sources"],
-      "addLabels": ["python"],
-      "groupName": "python prod dependencies",
-      "rangeStrategy": "widen",
-      "minimumReleaseAge": "7 days",
-      "schedule": [
-        "* 0-3 * * WED"
-      ],
+      "rangeStrategy": "in-range-only",
     },
     {
       "matchManagers": ["github-actions"],
-      "groupName": "GitHub Actions",
       "addLabels": ["actions"],
-      "minimumReleaseAge": "7 days",
       // Prevent permanently pending runs when there is a package that doesn't
       // provide a timestamp
       "minimumReleaseAgeBehaviour": "timestamp-optional",
-      "schedule": [
-        "* 0-3 * * WED"
-      ]
     },
     // disable minimumReleaseAge for pinDigest to avoid the stability-days check showing as pending
     // when Renovate opens a PR for pinning GHA dependencies to digests
