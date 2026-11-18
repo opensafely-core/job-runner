@@ -9,14 +9,14 @@ classifiers = [
 ]
 requires-python = "==3.12.*"
 dependencies = [
-    "django>=6.1.3",
-    "gunicorn>=26.2.0",
-    "jsonschema>=4.26.0",
+    "django<=6.1.3",
+    "gunicorn<=26.2.0",
+    "jsonschema<=4.26.0",
     "opensafely-pipeline[fastparser]@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.10.12.113621.zip",
-    "requests>=2.34.2",
-    "opentelemetry-exporter-otlp-proto-http>=1.45.2",
-    "opentelemetry-instrumentation-django>=0.66b2",
-    "opentelemetry-instrumentation-requests>=0.66b2",
+    "requests<=2.34.2",
+    "opentelemetry-exporter-otlp-proto-http<=1.45.2",
+    "opentelemetry-instrumentation-django<=0.66b2",
+    "opentelemetry-instrumentation-requests<=0.66b2",
 ]
 dynamic = ["version"]
 
@@ -98,14 +98,14 @@ required-version = ">=0.9"
 
 [dependency-groups]
 dev = [
-    "pre-commit>=4.7.0",
-    "pytest>=9.1.1",
-    "pytest-cov>=7.1.0",
-    "pytest-django>=4.14.0",
-    "pytest-freezer>=0.4.9",
-    "pytest-responses>=0.6.0",
-    "pytest-xdist>=3.8.0",
-    "ruff>=0.17.2",
+    "pre-commit<=4.7.0",
+    "pytest<=9.1.1",
+    "pytest-cov<=7.1.0",
+    "pytest-django<=4.14.0",
+    "pytest-freezer<=0.4.9",
+    "pytest-responses<=0.6.0",
+    "pytest-xdist<=3.8.0",
+    "ruff<=0.17.2",
     # OpenAPI tools
-    "schemathesis>=4.32.4",
+    "schemathesis<=4.32.4",
 ]

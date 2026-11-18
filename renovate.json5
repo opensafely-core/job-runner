@@ -81,22 +81,27 @@
       "prBodyNotes": [":information_source: Before reviewing this PR, merge any prod/dev dependency PRs and rebase."]
   },
   // NOTE: lockFileMaintenance is currently disabled for pep621 as it doesn't yet
-  // respect minimumReleaseAge for uv. An open PR for adding it has been put on hold
-  // for now.
-  // https://github.com/renovatebot/renovate/pull/41913#issuecomment-4231423178
+  // respect minimumReleaseAge for uv. Should be fixed by PR:
+  // https://github.com/renovatebot/renovate/pull/43681
   // Instead, for now we use the update-dependencies-action to update the
   // uv lockfile
   "pep621": {
     "lockFileMaintenance": { "enabled": false }
   },
   // Note package rules apply only to direct dependencies
-  // rangeStrategy: defined as in-range-only for js and python dependencies; this
-  // updates the version in lockfiles while respecting the ranges specified in a package
-  // file (pyproject.toml. package.json etc)
-  // Assumes that the repo has lower limits (>=) set on dependencies that we want to
-  // increase (with respect to minimumReleaseAge) whenever there is a new version.
-  // Upper limits can be pinned in the package file and renovate will not bump them.
-  // Note we can't set this globally, as other package managers e.g. github actions won't
+  // rangeStrategy:
+  //   - defined as "in-range-only" for js dependencies; this updates the version in
+  //     lockfiles while respecting the ranges specified in a package file (package.json etc)
+  //     Assumes that the repo has lower limits (>=) set on dependencies that we want to
+  //     increase (with respect to minimumReleaseAge) whenever there is a new version.
+  //     Upper limits can be pinned in the package file and renovate will not bump them.
+  //   - defined as "widen" for python dependencies; ideally we would also use "in-range-only"
+  //     but currently this strategy doesn't work with minimumReleaseAge for uv, and will
+  //     try (and fail) to increase to a pending version beyond the minimumReleaseAge.
+  //     This should be fixed by either of these open PRs:
+  //     https://github.com/renovatebot/renovate/pull/43681
+  //     https://github.com/renovatebot/renovate/pull/45370
+  // Note we can't set a rangeStrategy globally, as other package managers e.g. github actions won't
   // be able to resolve dependencies with it.
   "packageRules": [
     // global rules that apply to all updated: scheduled on Wed morning, with 7 day cooldown.
@@ -151,7 +156,7 @@
     {
       "matchManagers": ["pep621"],
       "addLabels": ["python"],
-      "rangeStrategy": "in-range-only",
+      "rangeStrategy": "widen",
     },
     {
       "matchManagers": ["github-actions"],
