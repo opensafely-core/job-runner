@@ -13,8 +13,9 @@
     // 3 day cooldown for npm security updated
     // https://docs.renovatebot.com/presets-security/#securityminimumreleaseagenpm
     "security:minimumReleaseAgeNpm",
-    // We don't want automated docker/docker-compose/Dockerfile updates
-    "docker:disable",
+    // ensure all docker image versions are pinned to digests
+    // https://docs.renovatebot.com/presets-docker/#dockerpindigests
+    "docker:pinDigests",
     // Add the nice badges to PRs
     // https://docs.renovatebot.com/presets-mergeConfidence/#mergeconfidenceall-badges
     "mergeConfidence:all-badges",
@@ -138,12 +139,9 @@
       // timestamp-optional means that we still get updates when there's no release timestamp
       // to check against
       "minimumReleaseAgeBehaviour": "timestamp-optional",
-      // this is a guard in case `docker:pinDigests` is added to the `extends` section in
-      // future. This would apply to the docker datasource, and it would attempt to run,
-      // but in order to pin digests, renovate has to insert a digest where there isn't one
-      // already (i.e. notice a version without @sha... and insert it). There are ways to do
-      // that, but I don't think it's worth it; instead we just expect that the justfile comments
-      // will include digests if we want to update by digest.
+      // In order to pin digests, renovate has to insert a digest where there isn't one
+      // already (i.e. notice a version without @sha... and insert it). This is complicated, so
+      // we just expect that the justfile comments will include digests if we want to update by digest.
       "pinDigests": false
     },
     {
@@ -172,6 +170,13 @@
       // Prevent permanently pending runs when there is a package that doesn't
       // provide a timestamp
       "minimumReleaseAgeBehaviour": "timestamp-optional",
+    },
+    {
+      "matchDatasources": ["docker"],
+      "addLabels": ["docker"],
+      // Prevent permanently pending runs when there is a docker image that doesn't
+      // provide a timestamp
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     // disable minimumReleaseAge for pinDigest to avoid the stability-days check showing as pending
     // when Renovate opens a PR for pinning GHA dependencies to digests
