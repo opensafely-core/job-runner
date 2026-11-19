@@ -12,6 +12,17 @@
       "matchManagers": ["pep621"],
       "matchDepNames": ["pytest"],
       "allowedVersions": "<9.2.0"
-    }
+    },
+    // Allow unstable prerelease updates for these two packages, which use the
+    // PEP440 beta marker and don't get version updates otherwise
+    {
+      "matchManagers": ["pep621"],
+      "matchPackageNames": [
+        "opentelemetry-instrumentation-django",
+        "opentelemetry-instrumentation-requests"
+      ],
+      "ignoreUnstable": false,
+      "rangeStrategy": "widen"
+    },
   ]
 }
