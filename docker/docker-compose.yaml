@@ -22,9 +22,6 @@ services:
         - BUILD_DATE
         - GITREF
         - VERSION
-        # env vars from .env
-        - UBUNTU_VERSION
-        - UV_VERSION
     # use dockers builitin PID daemon
     init: true
     # run as the the current user to preserve file permissions

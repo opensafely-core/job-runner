@@ -26,7 +26,8 @@
 # Create base image with python installed.
 # All Dockerfiles should start from the base-docker image
 #
-# These build args have defaults, but are usually set from docker/.env. They
+# These build args are kept up-to-date by Renovate.
+# They can be overridden by setting the values in docker/.env. They
 # are used in FROM lines, so need to be declared globally and have defaults
 # set.
 ARG UBUNTU_VERSION=24.04@sha256:b18a40908d0de1f815bd33ced896850576f9f633d94a369e582842d872996384
