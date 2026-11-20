@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:572cebbc2b15e6f84c077742952674889cb63cd5e9b80abdffcbe587b6f19183
 # check=error=true
 #################################################
 #
@@ -26,11 +26,12 @@
 # Create base image with python installed.
 # All Dockerfiles should start from the base-docker image
 #
-# These build args have defaults, but are usually set from docker/.env. They
+# These build args are kept up-to-date by Renovate.
+# They can be overridden by setting the values in docker/.env. They
 # are used in FROM lines, so need to be declared globally and have defaults
 # set.
-ARG UBUNTU_VERSION=24.04
-ARG UV_VERSION=0.13
+ARG UBUNTU_VERSION=24.04@sha256:b18a40908d0de1f815bd33ced896850576f9f633d94a369e582842d872996384
+ARG UV_VERSION=0.13@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d
 
 # DL3007 ignored because base-docker we specifically always want to build on
 # the latest base image, by design.
