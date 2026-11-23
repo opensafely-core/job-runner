@@ -10,7 +10,7 @@ classifiers = [
 requires-python = "==3.12.*"
 dependencies = [
     "django<=6.1.3",
-    "gunicorn<=27.0.0",
+    "gunicorn<=27.0.1",
     "jsonschema<=4.26.0",
     "opensafely-pipeline[fastparser]@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.10.12.113621.zip",
     "requests<=2.34.2",
@@ -106,7 +106,7 @@ dev = [
     "pytest-responses<=0.6.0",
     # Note: pytest is pinned in renovate.json5 until there is a new release of xdist
     "pytest-xdist<=3.8.0",
-    "ruff<=0.17.4",
+    "ruff<=0.17.5",
     # OpenAPI tools
-    "schemathesis<=4.33.2",
+    "schemathesis<=4.33.4",
 ]
