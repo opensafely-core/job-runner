@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>bennettoxford/renovate-config:default.json5",
-    "github>bennettoxford/renovate-config:disable-uv-lockfilemaintenance.json5",
+    "github>bennettoxford/renovate-config:uv-minimumreleaseage-workaround.json5",
   ],
   "packageRules": [
     // Temporarily pin pytest as it's broken xdist:
