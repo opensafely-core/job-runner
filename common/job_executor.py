@@ -58,6 +58,8 @@ class JobDefinition:
     level4_max_filesize: int
     # the user who requested this job; may be None for tasks that pre-date addition of this field
     user: str = None
+    # the user ID of the user who requested this job; may be None for tasks that pre-date addition of this field
+    user_id: str = None
     # our internal name for the database this job uses (actual connection details are
     # passed in `env`)
     database_name: str = None
@@ -83,6 +85,11 @@ class JobDefinition:
         # Ensure any dict used to construct a JobDefinition has a task_id key
         if "task_id" not in data:
             data["task_id"] = ""
+
+        # Handle any tasks created prior to the addition of the user_id field
+        # TODO: remove this when existing tasks have completed
+        if "user_id" not in data:
+            data["user_id"] = ""
 
         # Create the JobDefinition instance with the Study object
         return cls(study=study, **{k: v for k, v in data.items()})

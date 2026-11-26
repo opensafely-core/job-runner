@@ -156,6 +156,7 @@ class Job:
             backend TEXT,
             branch TEXT,
             user TEXT,
+            user_id TEXT,
             project TEXT,
             orgs TEXT,
             analysis_scope TEXT,
@@ -233,6 +234,13 @@ class Job:
         """,
     )
 
+    migration(
+        14,
+        """
+        ALTER TABLE job ADD COLUMN user_id TEXT;
+        """,
+    )
+
     id: str = None
     rap_id: str = None
     state: State = None
@@ -302,8 +310,10 @@ class Job:
 
     # workspace branch
     branch: str = None
-    # user who created the RAP this job is part of
+    # username of the user who created the RAP this job is part of
     user: str = None
+    # user id of the user who created the RAP this job is part of
+    user_id: str = None
     # project and orgs for the workspace
     project: str = None
     orgs: list = None

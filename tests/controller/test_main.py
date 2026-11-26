@@ -922,6 +922,7 @@ def test_job_definition_defaults(db):
         "cpu_count": 2.0,
         "created_at": ts,
         "user": "testuser",
+        "user_id": "gh_123456",
         "database_name": None,
         "env": {
             "OPENSAFELY_BACKEND": "test",

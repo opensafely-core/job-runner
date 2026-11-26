@@ -64,6 +64,7 @@ JOB_DEFAULTS = {
     "backend": "test",
     "branch": "main",
     "user": "testuser",
+    "user_id": "gh_123456",
     "project": "project",
     "orgs": ["org1", "org2"],
     "analysis_scope": {},
