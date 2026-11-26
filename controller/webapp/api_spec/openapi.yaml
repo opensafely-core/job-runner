@@ -163,6 +163,7 @@ paths:
                     codelists_ok: true
                     force_run_dependencies: false
                     created_by: test_user
+                    created_by_id: gh_123456
                     project: test-project
                     orgs:
                      - opensafely
@@ -181,6 +182,7 @@ paths:
                     codelists_ok: true
                     force_run_dependencies: false
                     created_by: user1
+                    created_by_id: gh_234567
                     project: my-project
                     orgs:
                      - opensafely
@@ -516,6 +518,7 @@ components:
         - codelists_ok
         - force_run_dependencies
         - created_by
+        - created_by_id
         - project
         - orgs
       properties:
@@ -557,6 +560,10 @@ components:
         created_by:
           description: Username
           type: string
+        created_by_id:
+          description: User ID
+          type: string
+          pattern: '^gh_[1-9][0-9]*$'
         project:
           type: string
         orgs:
