@@ -1025,7 +1025,7 @@ def test_job_definition_ehrql_metadata(db):
     job_definition = main.job_to_job_definition(job, task_id="")
     assert (
         job_definition.env["EHRQL_METADATA"]
-        == f'{{"job_id": "{job.id}", "project": "test-project"}}'
+        == f'{{"job_id": "{job.id}", "user_id": "{job.user_id}", "project": "test-project"}}'
     )
 
 

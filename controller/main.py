@@ -365,6 +365,7 @@ def job_to_job_definition(job, task_id, image_sha=None):
         env["EHRQL_METADATA"] = json.dumps(
             {
                 "job_id": job.id,
+                "user_id": job.user_id,
                 "project": job.project,  # the project slug, sent by job-server
             }
         )
