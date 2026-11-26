@@ -254,6 +254,7 @@ def trace_attributes(job, results=None):
         "job.commit": job.commit,
         "job.run_command": job.run_command,
         "job.user": job.user or "unknown",
+        "job.user_id": job.user_id or "unknown",
         "job.project": job.project or "unknown",
         "job.orgs": ",".join(job.orgs or []),
         "job.state": job.state.name,

@@ -57,6 +57,7 @@ def test_active_tasks_view(db, client, monkeypatch, freezer):
             # test factory defaults
             "attributes": {
                 "user": "testuser",
+                "user_id": "gh_123456",
                 "project": "project",
                 "orgs": "org1,org2",
             },

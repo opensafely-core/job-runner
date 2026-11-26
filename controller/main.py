@@ -665,6 +665,7 @@ def update_job(job):
 def get_attributes_for_job_task(job):
     return {
         "user": job.user or "unknown",
+        "user_id": job.user_id or "unknown",
         "project": job.project or "unknown",
         "orgs": ",".join(job.orgs or []),
     }

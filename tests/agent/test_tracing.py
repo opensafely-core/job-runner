@@ -57,6 +57,7 @@ def test_tracing_state_change_attributes(mock_update_controller, db):
         "complete",
         # from the task attributes dict
         "user",
+        "user_id",
         "project",
         "orgs",
     }
@@ -114,6 +115,7 @@ def test_tracing_final_state_attributes(mock_update_controller, db):
         "complete",
         # from the task attributes dict
         "user",
+        "user_id",
         "project",
         "orgs",
         # results included on the final span
