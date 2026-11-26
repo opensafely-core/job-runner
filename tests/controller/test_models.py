@@ -46,6 +46,7 @@ def test_rap_create_request_get_tracing_span_attributes():
         "backend": "test",
         "workspace": "workspace",
         "user": "testuser",
+        "user_id": "gh_123456",
         "project": "project",
         "orgs": ["org1", "org2"],
     }

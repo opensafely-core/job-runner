@@ -79,6 +79,7 @@ class CreateRequest(RequestBody):
     codelists_ok: bool
     force_run_dependencies: bool
     created_by: str
+    created_by_id: str
     project: str
     orgs: list[str]
     analysis_scope: dict
@@ -102,6 +103,7 @@ class CreateRequest(RequestBody):
             codelists_ok=body_data["codelists_ok"],
             force_run_dependencies=body_data["force_run_dependencies"],
             created_by=body_data["created_by"],
+            created_by_id=body_data["created_by_id"],
             project=body_data["project"],
             orgs=body_data["orgs"],
             analysis_scope=body_data.get("analysis_scope") or {},
@@ -114,6 +116,7 @@ class CreateRequest(RequestBody):
             "backend": self.backend,
             "workspace": self.workspace,
             "user": self.created_by,
+            "user_id": self.created_by_id,
             "project": self.project,
             "orgs": self.orgs,
         }
